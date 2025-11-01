@@ -1,0 +1,100 @@
+<!-- ...existing code... -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="style.css">
+  <title>Welcome — Axion</title>
+  <meta name="description" content="Welcome to Axion — simple, fast, and accessible." />
+  
+</head>
+<body>
+  <header>
+    <a class="brand" href="#">
+      <div class="logo">AX</div>
+      <div>
+        <div style="font-weight:900; color:var(--neon-yellow)">Axion</div>
+        <div style="font-size:0.8rem;color:var(--muted);margin-top:2px">vintage interface — retro-scifi</div>
+      </div>
+    </a>
+
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="win-controls" aria-hidden="true">
+        <div class="dot r"></div>
+        <div class="dot y"></div>
+        <div class="dot g"></div>
+      </div>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#about">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" role="region" aria-label="Main">
+      <div>
+        <div class="card" role="article" aria-labelledby="welcome-title">
+          <h1 id="welcome-title">WELCOME TO AXION <span class="cursor" aria-hidden="true"></span></h1>
+          <p class="lead">A retro-inspired starter page with neon tones and a vintage web aesthetic. Responsive and accessible — tweak it to look even more pixel-perfect.</p>
+
+          <div class="cta" aria-hidden="false">
+            <a class="btn" href="#about">Get Started</a>
+            <a class="btn secondary" href="#features">See Features</a>
+          </div>
+
+          <div id="features" class="features" style="margin-top:18px" aria-live="polite">
+            <div class="feature"><strong>Neo-Scifi</strong><div style="color:var(--muted)">Neon palette, starfield, scanlines.</div></div>
+            <div class="feature"><strong>Responsive</strong><div style="color:var(--muted)">Stacks cleanly on small screens.</div></div>
+            <div class="feature"><strong>Lightweight</strong><div style="color:var(--muted)">Pure CSS — no webfonts required.</div></div>
+            <div class="feature"><strong>Retro Tools</strong><div style="color:var(--muted)">Customize colours, add pixel art, or link to your server.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <aside>
+        <div class="card" style="text-align:left">
+          <h2 style="margin-top:0">Quick Links</h2>
+          <ul style="padding-left:18px; color:var(--muted); margin:10px 0">
+            <li><a href="#" style="color:var(--neon-cyan)">Documentation</a></li>
+            <li><a href="#" style="color:var(--neon-cyan)">Examples</a></li>
+            <li><a href="#contact" style="color:var(--neon-cyan)">Contact</a></li>
+          </ul>
+          <div style="margin-top:12px; color:var(--muted)">Tip: Drop in pixel art or a favicon for an authentic Neocities feel.</div>
+        </div>
+      </aside>
+    </section>
+
+    <section id="about" style="max-width:1100px; width:100%; margin-top:18px">
+      <div class="card">
+        <h3 style="margin-top:0; color:var(--neon-yellow)">About Axion</h3>
+        <p style="color:var(--muted)">Axion is a minimal starting point with a retro-scifi skin. Replace sections, add GIFs, or host it on a static site — keep the charm.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div>© <span id="year"></span> Axion</div>
+    <div><a href="#" style="color:var(--muted); text-decoration:none">Privacy</a> · <a href="#contact" style="color:var(--muted); text-decoration:none">Contact</a></div>
+  </footer>
+
+  <script>
+    // small runtime niceties
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // focus outline for keyboard users
+    (function(){
+      function handleFirstTab(e){
+        if(e.key === 'Tab'){
+          document.documentElement.classList.add('user-is-tabbing');
+          window.removeEventListener('keydown', handleFirstTab);
+        }
+      }
+      window.addEventListener('keydown', handleFirstTab);
+    })();
+  </script>
+</body>
+</html>
+<!-- ...existing code... -->
