@@ -1,0 +1,22 @@
+  <footer>
+    <div>© <span id="year"></span> Axion</div>
+    <div><a href="#" style="color:var(--muted); text-decoration:none">Privacy</a> · <a href="#contact" style="color:var(--muted); text-decoration:none">Contact</a></div>
+  </footer>
+
+  <script>
+    // small runtime niceties
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // focus outline for keyboard users
+    (function(){
+      function handleFirstTab(e){
+        if(e.key === 'Tab'){
+          document.documentElement.classList.add('user-is-tabbing');
+          window.removeEventListener('keydown', handleFirstTab);
+        }
+      }
+      window.addEventListener('keydown', handleFirstTab);
+    })();
+  </script>
+</body>
+</html>

@@ -1,6 +1,12 @@
+ ---
+ import Header from  '../components/header.astro';
+ import Footer from '../components/footer.astro';
+ ---
 
-<body>
-  
+<Header></Header>
+
+ <body>
+ 
 
   <main>
     <section class="hero" role="region" aria-label="Main">
@@ -37,33 +43,9 @@
       </aside>
     </section>
 
-    <section id="about" style="max-width:1100px; width:100%; margin-top:18px">
-      <div class="card">
-        <h3 style="margin-top:0; color:var(--neon-yellow)">About Axion</h3>
-        <p style="color:var(--muted)">Axion is a minimal starting point with a retro-scifi skin. Replace sections, add GIFs, or host it on a static site — keep the charm.</p>
-      </div>
-    </section>
+   
   </main>
 
-  <footer>
-    <div>© <span id="year"></span> Axion</div>
-    <div><a href="#" style="color:var(--muted); text-decoration:none">Privacy</a> · <a href="#contact" style="color:var(--muted); text-decoration:none">Contact</a></div>
-  </footer>
 
-  <script>
-    // small runtime niceties
-    document.getElementById('year').textContent = new Date().getFullYear();
+  <Footer></Footer>
 
-    // focus outline for keyboard users
-    (function(){
-      function handleFirstTab(e){
-        if(e.key === 'Tab'){
-          document.documentElement.classList.add('user-is-tabbing');
-          window.removeEventListener('keydown', handleFirstTab);
-        }
-      }
-      window.addEventListener('keydown', handleFirstTab);
-    })();
-  </script>
-</body>
-</html>
