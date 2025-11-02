@@ -211,3 +211,12 @@
       outline-offset:3px;
       box-shadow:0 8px 24px rgba(57,255,234,0.06);
     }
+
+    /* Database page */
+    .db-grid{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); margin-top:14px }
+    .card.compact{ padding:14px }
+    .db-list{ margin:8px 0 0 18px; padding:0; color:var(--muted) }
+    .db-list a{ color:var(--neon-cyan) }
+    .db-title-yellow{ margin:0 0 8px 0; color:var(--neon-yellow) }
+    .db-title-pink{ margin:0 0 8px 0; color:var(--neon-pink) }
+    .db-title-cyan{ margin:0 0 8px 0; color:var(--neon-cyan) }
