@@ -220,3 +220,22 @@
     .db-title-yellow{ margin:0 0 8px 0; color:var(--neon-yellow) }
     .db-title-pink{ margin:0 0 8px 0; color:var(--neon-pink) }
     .db-title-cyan{ margin:0 0 8px 0; color:var(--neon-cyan) }
+
+    /* Personnel profile */
+    .profile{ display:grid; grid-template-columns:220px 1fr; gap:16px; align-items:start }
+    @media (max-width:700px){ .profile{ grid-template-columns:1fr } }
+    .avatar{ width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.06) }
+    .info-dl{ display:grid; grid-template-columns:repeat(2, minmax(160px, 1fr)); gap:10px 16px; margin:0 }
+    .info-dl > div{ display:contents }
+    .info-dl dt{ color:var(--muted); font-weight:700 }
+    .info-dl dd{ margin:0; color:var(--text) }
+
+    /* Traits */
+    .traits-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr)); gap:16px; margin-top:16px }
+    .trait-list{ margin:8px 0 0 18px; color:var(--muted) }
+
+    /* Gallery */
+    .gallery-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:10px; margin-top:8px }
+    .gallery-grid figure{ margin:0 }
+    .gallery-grid img{ width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.06) }
+    .gallery-grid figcaption{ color:var(--muted); font-size:0.86rem; margin-top:6px }

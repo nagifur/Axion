@@ -1,11 +1,89 @@
- ---
- import Header from  '../components/header.astro';
- import Footer from '../components/footer.astro';
- ---
+---
+import Header from  '../../components/header.astro';
+import Footer from '../../components/footer.astro';
+---
 <Header></Header>
 
 <main>
+  <section class="card" role="article" aria-labelledby="nagi-heading">
+    <h1 id="nagi-heading">Nagi <span class="cursor" aria-hidden="true"></span></h1>
+    <div class="profile">
+      <img class="avatar" src="/images/personnel/nagi.jpg" alt="Portrait of Nagi" loading="lazy" />
 
-    
+      <dl class="info-dl">
+        <div>
+          <dt>Facility Position</dt>
+          <dd>Containment Specialist</dd>
+        </div>
+        <div>
+          <dt>Species</dt>
+          <dd>Feline </dd>
+        </div>
+        <div>
+          <dt>Gender</dt>
+          <dd>Male</dd>
+        </div>
+        <div>
+          <dt>Age</dt>
+          <dd>25</dd>
+        </div>
+        <div>
+          <dt>Birthplace</dt>
+          <dd>Terra</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card" role="region" aria-labelledby="bio-title">
+    <h2 id="bio-title" class="db-title-cyan">Bio</h2>
+    <p class="lead">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed molestie massa sed eros condimentum rhoncus. Nullam in justo ut tortor accumsan elementum a eu eros. In magna lectus, tristique a neque mattis, tempus tempor lectus. Nam interdum scelerisque turpis, eget varius elit iaculis sodales. Duis elit metus, faucibus et mollis eget, vehicula ut massa. Nullam laoreet pretium dictum. Duis commodo tincidunt dapibus. Suspendisse potenti. </p>
+    <p>Aliquam rhoncus porttitor ligula quis imperdiet. Etiam sed orci ligula. Aliquam laoreet ultricies augue sed mollis. Integer sed nunc maximus, hendrerit lacus at, elementum tellus. Integer vel ligula nec sem condimentum tempor. Morbi eget ipsum vitae quam convallis vestibulum. Maecenas vel mauris quam. Proin pellentesque, nunc porttitor suscipit finibus, turpis nibh laoreet augue, dapibus commodo risus nisi feugiat velit. </p>
+  </section>
+
+  <section class="traits-grid" aria-label="Traits">
+    <div class="card" role="region" aria-labelledby="pos-title">
+      <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
+      <ul class="trait-list positive">
+        <li>Test</li>
+        <li>Test</li>
+        <li>Test</li>
+        <li>Test</li>
+        <li>Test</li>
+        
+        
+      </ul>
+    </div>
+    <div class="card" role="region" aria-labelledby="neg-title">
+      <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
+      <ul class="trait-list negative">
+         <li>Test</li>
+        <li>Test</li>
+        <li>Test</li>
+        <li>Test</li>
+        <li>Test</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" role="region" aria-labelledby="gallery-title">
+    <h2 id="gallery-title">Gallery</h2>
+    <div class="gallery-grid">
+      <figure>
+        <img src="/images/personnel/nagi-1.jpg" alt="Test" loading="lazy" />
+        <figcaption>Nagi drawing</figcaption>
+      </figure>
+      <figure>
+        <img src="/images/personnel/nagi-2.jpg" alt="Test" loading="lazy" />
+        <figcaption>Nagi drawing</figcaption>
+      </figure>
+      <figure>
+        <img src="/images/personnel/nagi-3.jpg" alt="Test" loading="lazy" />
+        <figcaption>Nagi drawing</figcaption>
+      </figure>
+    </div>
+  </section>
 </main>
+
 <Footer></Footer>
+
