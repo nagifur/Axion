@@ -274,3 +274,23 @@
       body::after{ animation: none }
       .card{ backdrop-filter: none }
     }
+
+    /* Lightbox (image modal) */
+    .lightbox-overlay{ position:fixed; inset:0; z-index:9999; display:grid; place-items:center; padding:24px;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(2px);
+    }
+    .lightbox-overlay[hidden]{ display:none }
+    .lightbox-content{ position:relative; max-width:92vw; max-height:92vh }
+    .lightbox-img{ max-width:92vw; max-height:92vh; width:auto; height:auto; background:#000; border-radius:8px;
+      border:2px solid rgba(57,255,234,0.12);
+      box-shadow: 0 20px 80px rgba(0,0,0,0.6), 0 0 36px rgba(57,255,234,0.08);
+      image-rendering: pixelated;
+    }
+    .lightbox-close{ position:absolute; top:-14px; right:-14px; width:36px; height:36px; border-radius:50%; cursor:pointer;
+      border:2px solid rgba(255,255,255,0.12);
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.4));
+      color:var(--text); display:grid; place-items:center; font-size:20px; line-height:1;
+      box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    }
+    .lightbox-close:hover{ color:var(--neon-pink); border-color: rgba(255,77,210,0.3) }
