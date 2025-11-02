@@ -1,6 +1,12 @@
 ---
 import Header from  '../../components/header.astro';
 import Footer from '../../components/footer.astro';
+import { Image } from 'astro:assets';
+import nagiProfile from "../../assets/images/nagi/profile.png";
+import nagiGallery1 from "../../assets/images/nagi/1.png";
+import nagiGallery2 from "../../assets/images/nagi/2.png";
+import nagiGallery3 from "../../assets/images/nagi/3.png";
+import nagiGallery4 from "../../assets/images/nagi/4.png";
 ---
 <Header></Header>
 
@@ -9,7 +15,7 @@ import Footer from '../../components/footer.astro';
   <section class="card" role="article" aria-labelledby="nagi-heading">
     <h1 id="nagi-heading">Nagi <span class="cursor" aria-hidden="true"></span></h1>
     <div class="profile">
-      <img class="avatar" src="/images/personnel/nagi.jpg" alt="Portrait of Nagi" loading="lazy" />
+      <Image src={nagiProfile} quality={100} alt="A description of my image." />
 
       <dl class="info-dl">
         <div>
@@ -71,15 +77,19 @@ import Footer from '../../components/footer.astro';
     <h2 id="gallery-title">Gallery</h2>
     <div class="gallery-grid">
       <figure>
-        <img src="/images/personnel/nagi-1.jpg" alt="Test" loading="lazy" />
+        <Image src={nagiGallery1} width="200" quality={100} alt="Nagi drawing" loading="lazy" />
         <figcaption>Nagi drawing</figcaption>
       </figure>
       <figure>
-        <img src="/images/personnel/nagi-2.jpg" alt="Test" loading="lazy" />
+        <Image src={nagiGallery2} width="200" quality={100} alt="Nagi drawing" loading="lazy" />
         <figcaption>Nagi drawing</figcaption>
       </figure>
       <figure>
-        <img src="/images/personnel/nagi-3.jpg" alt="Test" loading="lazy" />
+        <Image src={nagiGallery3} width="200" quality={100} alt="Nagi drawing" loading="lazy" />
+        <figcaption>Nagi drawing</figcaption>
+      </figure>
+      <figure>
+        <Image src={nagiGallery4} width="200" quality={100} alt="Nagi drawing" loading="lazy" />
         <figcaption>Nagi drawing</figcaption>
       </figure>
     </div>
