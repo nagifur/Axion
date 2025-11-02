@@ -5,8 +5,38 @@
 <Header></Header>
 
 <main>
+  <section class="card" role="navigation" aria-labelledby="db-title">
+    <h1 id="db-title">Facility Database <span class="cursor" aria-hidden="true"></span></h1>
+    <p class="lead">Browse internal docs by category.</p>
 
-    
-    
+    <div style="display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin-top:14px">
+      <div class="card" style="padding:14px" aria-labelledby="sec-personnel">
+        <h2 id="sec-personnel" style="margin:0 0 8px 0; color:var(--neon-yellow)">Personnel</h2>
+        <ul style="margin:8px 0 0 18px; padding:0; color:var(--muted)">
+          <li><a href="#" style="color:var(--neon-cyan)">Employee Directory</a></li>
+          <li><a href="#" style="color:var(--neon-cyan)">Training Manuals</a></li>
+          <li><a href="#" style="color:var(--neon-cyan)">Shift Schedules</a></li>
+        </ul>
+      </div>
+
+      <div class="card" style="padding:14px" aria-labelledby="sec-levels">
+        <h2 id="sec-levels" style="margin:0 0 8px 0; color:var(--neon-pink)">Levels</h2>
+        <ul style="margin:8px 0 0 18px; padding:0; color:var(--muted)">
+          <li><a href="#" style="color:var(--neon-cyan)">Level 1</a></li>
+          <li><a href="#" style="color:var(--neon-cyan)">Level 2</a></li>
+          <li><a href="#" style="color:var(--neon-cyan)">Level 3</a></li>
+        </ul>
+      </div>
+
+      <div class="card" style="padding:14px" aria-labelledby="sec-containment">
+        <h2 id="sec-containment" style="margin:0 0 8px 0; color:var(--neon-cyan)">Containment</h2>
+        <ul style="margin:8px 0 0 18px; padding:0; color:var(--muted)">
+          <li><a href="#" style="color:var(--neon-cyan)">Procedures</a></li>
+          <li><a href="#" style="color:var(--neon-cyan)">Incident Reports</a></li>
+          <li><a href="#" style="color:var(--neon-cyan)">Storage Vaults</a></li>
+        </ul>
+      </div>
+    </div>
+  </section>
 </main>
 <Footer></Footer>
