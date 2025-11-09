@@ -27,9 +27,7 @@
       margin:0;
       min-height:100vh;
       background:
-        radial-gradient(ellipse at 20% 10%, rgba(57,255,234,0.06) 0 2%, transparent 8%),
-        radial-gradient(ellipse at 85% 80%, rgba(255,77,210,0.04) 0 2%, transparent 8%),
-        linear-gradient(180deg,#020318 0%, var(--bg) 60%);
+        linear-gradient(180deg,#003c81 0%, var(--bg) 60%);
       color:var(--text);
       display:flex;
       flex-direction:column;
@@ -44,8 +42,6 @@
     /* Light theme background adjustments */
     body.light{
       background:
-        radial-gradient(ellipse at 20% 10%, rgba(57,255,234,0.06) 0 2%, transparent 8%),
-        radial-gradient(ellipse at 85% 80%, rgba(255,77,210,0.04) 0 2%, transparent 8%),
         linear-gradient(180deg,#ffffff 0%, var(--bg) 60%);
     }
 
