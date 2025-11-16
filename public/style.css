@@ -314,9 +314,9 @@
 
     /* Firefox-specific performance tweaks */
     @supports (-moz-appearance: none){
-      body{ background-attachment: scroll }
-      body::before, body::after{ position: absolute }
-      body::after{ animation: none }
+      body { background-attachment: scroll; }
+      body::before { position:absolute; mix-blend-mode: normal; opacity:0.25; }
+      body::after  { position:absolute; animation:none; }
       .card{ backdrop-filter: none }
     }
 
