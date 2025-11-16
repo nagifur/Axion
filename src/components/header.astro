@@ -8,6 +8,8 @@ import { Image } from 'astro:assets';
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!--Force load logo svg-->
+  <link rel="preload" href="/Axion/Logo.svg" as="image" type="image/svg+xml" />
   <link rel="stylesheet" href="/Axion/style.css"/>
   <script src="/Axion/script.js" defer></script>
   <title>Axion Labs</title>
@@ -20,7 +22,7 @@ import { Image } from 'astro:assets';
 <header>
     <a class="brand" href="/Axion">
       <div class="logo">
-        <Image src='/Axion/Logo.svg' alt="Axion Labs Logo"  width={89} height={60} />
+        <img src="/Axion/Logo.svg" width="89" height="60" fetchpriority="high" decoding="sync" alt="Axion Labs Logo" />
       </div>
       <div>
         <div style="font-weight:900; color:var(--neon-yellow)">Axion Labs</div>

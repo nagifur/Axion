@@ -1,7 +1,8 @@
 /* Custom Added Fonts */
 @font-face {
   font-family: 'Ethnocentric';
-  src: url('/fonts/Ethnocentric-Regular.otf') format('otf');
+  src: url('/Axion/fonts/Ethnocentric-Regular.otf') format('otf');
+  src: url('/Axion//fonts/Ethnocentric-Regular.woff') format('woff');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -175,6 +176,7 @@
 
     h1{
       margin:0 0 6px 0;
+      font-family: Ethnocentric, sans-serif;
       font-size:clamp(1.6rem,4vw,2.4rem);
       color:var(--neon-cyan);
       text-shadow:
