@@ -1,3 +1,16 @@
+/* Custom Added Fonts */
+@font-face {
+  font-family: 'Ethnocentric';
+  src: url('/fonts/Ethnocentric-Regular.otf') format('otf');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+
+
+
+
 /* Axion/style.css */
     :root{
       --bg:#03040a;
@@ -82,7 +95,7 @@
       display:flex; align-items:center; gap:12px; text-decoration:none; color:var(--text)
     }
     .logo{
-      width:56px; height:56px; border-radius:6px;
+      border-radius:6px;
       background:linear-gradient(135deg, rgba(57,255,234,0.12), rgba(255,77,210,0.06));
       display:grid; place-items:center; font-weight:900; color:var(--neon-cyan);
       border:2px solid rgba(57,255,234,0.12);

@@ -1,3 +1,8 @@
+---
+import { Image } from 'astro:assets';
+
+---
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -10,9 +15,13 @@
   
 </head>
 
+
+
 <header>
     <a class="brand" href="/Axion">
-      <div class="logo">AX</div>
+      <div class="logo">
+        <Image src='/Axion/Logo.svg' alt="Axion Labs Logo"  width={89} height={60} />
+      </div>
       <div>
         <div style="font-weight:900; color:var(--neon-yellow)">Axion Labs</div>
         <div style="font-size:0.8rem;color:var(--muted);margin-top:2px">Logged in: <b>User#5542</b></div>
