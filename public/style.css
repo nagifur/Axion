@@ -8,6 +8,23 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Eurostar Regular';
+  src: url('/Axion/fonts/Eurostar Regular.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'BOMBARD';
+  src: url('/Axion/fonts/BOMBARD.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+
 
 
 
@@ -49,6 +66,7 @@
       position:relative;
       overflow-x:hidden;
       background-attachment:fixed;
+      font-family: Eurostar Regular, sans-serif;
       font-size:15px;
     }
 
@@ -187,6 +205,10 @@
       font-weight:800;
     }
 
+    h2{
+      font-family: BOMBARD, sans-serif;
+    }
+
     /* blinking caret for retro terminal vibe */
     .cursor{
       width:10px; height:22px; background:var(--neon-pink); margin-left:6px;
@@ -196,7 +218,12 @@
     }
     @keyframes blink{ 0%{opacity:1} 50%{opacity:0} 100%{opacity:1} }
 
-    p.lead{margin:8px 0 0; color:var(--muted); font-size:0.98rem; line-height:1.4}
+    p{
+      margin:8px 0 0; 
+      font-family: Eurostar Regular, sans-serif;
+      color:var(--muted); 
+      font-size:0.98rem; 
+      line-height:1.4}
 
     .cta{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap}
     .btn{
