@@ -225,6 +225,10 @@
       font-size:0.98rem; 
       line-height:1.4}
 
+     p a{
+       color:var(--neon-cyan); 
+       text-decoration:underline; }
+
     .cta{margin-top:14px; display:flex; gap:10px; flex-wrap:wrap}
     .btn{
       display:inline-block;
