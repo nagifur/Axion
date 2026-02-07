@@ -35,6 +35,7 @@
       --panel:#071022;
       --neon-cyan:#39ffea;
       --neon-pink:#ff4dd2;
+      --neon-blue:#4d80ff;
       --neon-yellow:#ffd24d;
       --muted:#8aa0b0;
       --text:#e6f7ff;
@@ -300,7 +301,8 @@
     .db-title-yellow{ margin:0 0 8px 0; color:var(--neon-yellow) }
     .db-title-pink{ margin:0 0 8px 0; color:var(--neon-pink) }
     .db-title-cyan{ margin:0 0 8px 0; color:var(--neon-cyan) }
-
+    .db-title-blue{ margin:0 0 8px 0; color:var(--neon-blue) }
+    
     /* Personnel profile */
     .profile{ display:grid; grid-template-columns:220px 1fr; gap:16px; align-items:start }
     @media (max-width:700px){ .profile{ grid-template-columns:1fr } }
