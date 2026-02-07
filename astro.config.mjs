@@ -5,4 +5,10 @@ import { defineConfig } from 'astro/config';
 export default defineConfig({
   site: 'https://nagifur.github.io',
   base: '/Axion',
+  redirects: {
+    "/caard": "http://nagifur.art",
+    
+  }
+
+
 })
