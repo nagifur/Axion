@@ -1,0 +1,117 @@
+---
+import Header from  '../../components/header.astro';
+import Footer from '../../components/footer.astro';
+import { Image } from 'astro:assets';
+
+---
+<Header></Header>
+
+<main>
+  <div class="page-stack">
+  <section class="card" role="article" aria-labelledby="nagi-heading">
+    <h1 id="nagi-heading">Nagi <span class="cursor" aria-hidden="true"></span></h1>
+    <div class="profile">
+      <Image src={nagiProfile} class="pixelart-profile" quality={100} alt="A description of my image." />
+
+      <dl class="info-dl">
+        <div>
+          <dt>Facility Position</dt>
+          <dd>Caretaker</dd>
+        </div>
+        <div>
+          <dt>Species</dt>
+          <dd>Feline </dd>
+        </div>
+        <div>
+          <dt>Gender</dt>
+          <dd>Male</dd>
+        </div>
+        <div>
+          <dt>Age</dt>
+          <dd>25</dd>
+        </div>
+        <div>
+          <dt>Birthplace</dt>
+          <dd>Terra</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card" role="region" aria-labelledby="bio-title">
+    <h2 id="bio-title" class="db-title-cyan">Bio</h2>
+    <p >Nagi is a caretaker at the facility, known for his friendly demeanor and hardworking nature. 
+      Despite being clumsy and slow, he has a strong survival instinct and is dedicated to his duties. 
+      </p>
+      <p>
+        Born on Axion's home planet, Terra, Nagi worked to Level 3 access through his passion for caring and studying alien biology. 
+        He has a deep connection with the creatures under his care, often going above and beyond to ensure their well-being.
+        and his commitment to the facility's mission.
+      </p>
+      <p>
+        Nagi got consumed by alien creatures <b>multiple</b> times, yet always managed to escape unscathed, showcasing his resilience.
+        Based on our records, the containment team specialist <a href="/Axion/Personnel/somni">Somni</a> is often called to retrieve him from these incidents.
+      </p>
+
+  </section>
+
+  <section class="traits-grid" aria-label="Traits">
+    <div class="card" role="region" aria-labelledby="pos-title">
+      <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
+      <ul class="trait-list positive">
+        <li>Passionate</li>
+        <li>Survivalist</li>
+        <li>Friendly</li>
+        <li>Hardworking</li>
+        
+        
+      </ul>
+    </div>
+    <div class="card" role="region" aria-labelledby="neg-title">
+      <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
+      <ul class="trait-list negative">
+         <li>Clumsy</li>
+        <li>Slow</li>
+        <li>High Intern Dissaperances</li>
+        
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" role="region" aria-labelledby="gallery-title">
+    <h2 id="gallery-title">Gallery</h2>
+    <div class="gallery-grid">
+      <figure>
+        <Image src={nagiGallery1} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>ID Card</figcaption>
+      </figure>
+      <figure>
+        <Image src={nagiGallery2} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>Casual</figcaption>
+      </figure>
+      <figure>
+        <Image src={nagiGallery3} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>Working</figcaption>
+      </figure>
+      <figure>
+        <Image src={nagiGallery4} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>Closeup</figcaption>
+      </figure>
+    </div>
+  </section>
+  </div>
+ </main>
+
+<!-- Lightbox modal for gallery images -->
+<div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" hidden tabindex="-1">
+  <div class="lightbox-content">
+    <button id="lightbox-close" class="lightbox-close" aria-label="Close image">×</button>
+    <img class="lightbox-img" alt="Expanded image" />
+  </div>
+  <!-- click outside the image to close -->
+  
+</div>
+
+
+
+<Footer></Footer>
