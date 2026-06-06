@@ -2,25 +2,27 @@
 import Header from  '../../components/header.astro';
 import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
+import Profile from "../../assets/images/s-402/profile.png";
+import gallery1 from "../../assets/images/s-402/1.png";
 
 ---
 <Header></Header>
 
 <main>
   <div class="page-stack">
-  <section class="card" role="article" aria-labelledby="nagi-heading">
-    <h1 id="nagi-heading">Nagi <span class="cursor" aria-hidden="true"></span></h1>
+  <section class="card" role="article" aria-labelledby="s-402-heading">
+    <h1 id="s-402-heading">S-402 <span class="cursor" aria-hidden="true"></span></h1>
     <div class="profile">
-      <Image src={nagiProfile} class="pixelart-profile" quality={100} alt="A description of my image." />
+      <Image src={Profile} class="pixelart-profile" quality={100} alt="A description of my image." />
 
       <dl class="info-dl">
         <div>
           <dt>Facility Position</dt>
-          <dd>Caretaker</dd>
+          <dd>--</dd>
         </div>
         <div>
           <dt>Species</dt>
-          <dd>Feline </dd>
+          <dd>-- </dd>
         </div>
         <div>
           <dt>Gender</dt>
@@ -28,11 +30,11 @@ import { Image } from 'astro:assets';
         </div>
         <div>
           <dt>Age</dt>
-          <dd>25</dd>
+          <dd>--</dd>
         </div>
         <div>
           <dt>Birthplace</dt>
-          <dd>Terra</dd>
+          <dd>--</dd>
         </div>
       </dl>
     </div>
@@ -40,17 +42,13 @@ import { Image } from 'astro:assets';
 
   <section class="card" role="region" aria-labelledby="bio-title">
     <h2 id="bio-title" class="db-title-cyan">Bio</h2>
-    <p >Nagi is a caretaker at the facility, known for his friendly demeanor and hardworking nature. 
-      Despite being clumsy and slow, he has a strong survival instinct and is dedicated to his duties. 
+    <p >BIO
       </p>
       <p>
-        Born on Axion's home planet, Terra, Nagi worked to Level 3 access through his passion for caring and studying alien biology. 
-        He has a deep connection with the creatures under his care, often going above and beyond to ensure their well-being.
-        and his commitment to the facility's mission.
+        BIO
       </p>
       <p>
-        Nagi got consumed by alien creatures <b>multiple</b> times, yet always managed to escape unscathed, showcasing his resilience.
-        Based on our records, the containment team specialist <a href="/Axion/Personnel/somni">Somni</a> is often called to retrieve him from these incidents.
+        BIO
       </p>
 
   </section>
@@ -59,10 +57,10 @@ import { Image } from 'astro:assets';
     <div class="card" role="region" aria-labelledby="pos-title">
       <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
       <ul class="trait-list positive">
-        <li>Passionate</li>
-        <li>Survivalist</li>
-        <li>Friendly</li>
-        <li>Hardworking</li>
+        <li>Trait</li>
+        <li>Trait</li>
+        <li>Trait</li>
+        <li>Trait</li>
         
         
       </ul>
@@ -70,9 +68,9 @@ import { Image } from 'astro:assets';
     <div class="card" role="region" aria-labelledby="neg-title">
       <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
       <ul class="trait-list negative">
-         <li>Clumsy</li>
-        <li>Slow</li>
-        <li>High Intern Dissaperances</li>
+         <li>Trait</li>
+        <li>Trait</li>
+        <li>Trait</li>
         
       </ul>
     </div>
@@ -82,21 +80,10 @@ import { Image } from 'astro:assets';
     <h2 id="gallery-title">Gallery</h2>
     <div class="gallery-grid">
       <figure>
-        <Image src={nagiGallery1} class="pixelart" alt="Nagi drawing" loading="lazy" />
-        <figcaption>ID Card</figcaption>
+        <Image src={gallery1} class="pixelart" alt="S-402 drawing" loading="lazy" />
+        <figcaption>Photo</figcaption>
       </figure>
-      <figure>
-        <Image src={nagiGallery2} class="pixelart" alt="Nagi drawing" loading="lazy" />
-        <figcaption>Casual</figcaption>
-      </figure>
-      <figure>
-        <Image src={nagiGallery3} class="pixelart" alt="Nagi drawing" loading="lazy" />
-        <figcaption>Working</figcaption>
-      </figure>
-      <figure>
-        <Image src={nagiGallery4} class="pixelart" alt="Nagi drawing" loading="lazy" />
-        <figcaption>Closeup</figcaption>
-      </figure>
+      
     </div>
   </section>
   </div>
