@@ -1,0 +1,132 @@
+{
+  "webber": {
+    "slug": "webber",
+    "name": "Webber",
+    "position": "Maintenance",
+    "species": "Spider",
+    "gender": "Male",
+    "age": 20,
+    "birthplace": "-TBN-",
+    "bio": [
+      "TODO",
+      "TODO",
+      "TODO"
+    ],
+    "positiveTraits": [
+      "Smart",
+      "Fast working",
+      "Expert Pilot"
+    ],
+    "negativeTraits": [
+      "Anti-Social",
+      "Gets Obsessed easily",
+      "Clumsy"
+    ],
+    "gallery": [
+      { "file": "1.png", "caption": "Repairing" },
+      { "file": "2.png", "caption": "Casual" },
+      { "file": "3.png", "caption": "Work Outfit" },
+      { "file": "4.png", "caption": "Closeup" }
+    ],
+    "profileImage": "profile.png",
+    "galleryAlt": "Webber drawing"
+  },
+  "somni": {
+    "slug": "somni",
+    "name": "Somni",
+    "position": "Containment Unit",
+    "species": "Feline",
+    "gender": "Female",
+    "age": 23,
+    "birthplace": "-TBN-",
+    "bio": [
+      "Somni is a level 3 containment unit specialist at Axion, known for her expertise in handling any threat and all kinds of alien creatures.",
+      "Born on the planet, -TBN-, Somni decided to join Axion after her desire to get away from her home planet. After a background check with her government, it seemed she was an outcast among her people. She was then recruited by Axion, and has been working with them ever since.",
+      "Somni is in possession of highly powerful ESP abilities, which she uses to her advantage in her work. It is a new type of magic, that is not present on Axion's home planet. She is also a skilled combatant, and is able to take down any threat that comes her way. Due to her powers she was able to ace all of our combat training, and is now one of our top containment agents."
+    ],
+    "positiveTraits": [
+      "Strong",
+      "Dependant",
+      "Magical",
+      "Efficient"
+    ],
+    "negativeTraits": [
+      "Sleepy",
+      "Short",
+      "Cannot work for extended periods"
+    ],
+    "gallery": [
+      { "file": "1.png", "caption": "ID Card" },
+      { "file": "2.png", "caption": "Working" },
+      { "file": "3.png", "caption": "Casual" },
+      { "file": "4.png", "caption": "Closeup" }
+    ],
+    "profileImage": "profile.png",
+    "galleryAlt": "Somni drawing"
+  },
+  "nagi": {
+    "slug": "nagi",
+    "name": "Nagi",
+    "position": "Caretaker",
+    "species": "Feline",
+    "gender": "Male",
+    "age": 25,
+    "birthplace": "-TBN-",
+    "bio": [
+      "Nagi is a caretaker at the facility, known for his friendly demeanor and hardworking nature. Despite being clumsy and slow, he has a strong survival instinct and is dedicated to his duties.",
+      "Born on Axion's home planet, -TBN-, Nagi worked to Level 3 access through his passion for caring and studying alien biology. He has a deep connection with the creatures under his care, often going above and beyond to ensure their well-being and his commitment to the facility's mission.",
+      "Nagi got consumed by alien creatures multiple times, yet always managed to escape unscathed, showcasing his resilience. Based on our records, the containment team specialist Somni is often called to retrieve him from these incidents."
+    ],
+    "positiveTraits": [
+      "Passionate",
+      "Survivalist",
+      "Friendly",
+      "Hardworking"
+    ],
+    "negativeTraits": [
+      "Clumsy",
+      "Slow",
+      "High Intern Disappearances"
+    ],
+    "gallery": [
+      { "file": "1.png", "caption": "ID Card" },
+      { "file": "2.png", "caption": "Casual" },
+      { "file": "3.png", "caption": "Working" },
+      { "file": "4.png", "caption": "Closeup" }
+    ],
+    "profileImage": "profile.png",
+    "galleryAlt": "Nagi drawing"
+  },
+  "skye": {
+    "slug": "skye",
+    "name": "Skye",
+    "position": "Robotics Expert / Mech Pilot",
+    "species": "Canine",
+    "gender": "Intersex",
+    "age": 19,
+    "birthplace": "-TBN-",
+    "bio": [
+      "Skye is a level 4 elite robotics expert that was hired by Axion after seeing their talent while they were still studying. They accepted our invitation to join our team, and have been working with us ever since. Skye is known for their superb understanding of robotics and their Artificial Intelligence, which makes them a valuable asset to our team.",
+      "Skye is a talented prodigy that has been working with robotics since they were a child. They have a natural talent for understanding how things work, and have been able to create some of the most advanced robots we have available.",
+      "They seem to have an obsession with the mech FF2400, affectionately called \"Scarlet\" which they have been known to spend months working on, after finishing their work on the mech, which was blueprinted by Dr. Mages."
+    ],
+    "positiveTraits": [
+      "Smart",
+      "Fast working",
+      "Expert Pilot"
+    ],
+    "negativeTraits": [
+      "Anti-Social",
+      "Gets Obsessed easily",
+      "Clumsy"
+    ],
+    "gallery": [
+      { "file": "1.png", "caption": "Reference" },
+      { "file": "2.png", "caption": "Casual" },
+      { "file": "3.png", "caption": "Working" },
+      { "file": "4.png", "caption": "Closeup" }
+    ],
+    "profileImage": "profile.png",
+    "galleryAlt": "Skye drawing"
+  }
+}

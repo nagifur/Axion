@@ -1,0 +1,122 @@
+---
+import Header from '../../components/header.astro';
+import Footer from '../../components/footer.astro';
+import { Image } from 'astro:assets';
+import personnelData from '../../data/personnel.json';
+
+export async function getStaticPaths() {
+  return Object.keys(personnelData).map((slug) => ({ params: { slug } }));
+}
+
+const { slug } = Astro.params;
+const character = personnelData[slug];
+
+if (!character) {
+  throw new Error(`Character not found: ${slug}`);
+}
+
+const galleryImages = Object.fromEntries(
+  Object.entries(import.meta.glob('../../assets/images/*/*.{png,jpg,jpeg,webp}', { eager: true })).map(
+    ([path, mod]) => {
+      const normalizedPath = path.replaceAll('\\', '/');
+      const segments = normalizedPath.split('/');
+      const key = segments.slice(-2).join('/');
+      const value = (mod && typeof mod === 'object' && 'default' in mod) ? mod.default : mod;
+      return [key, value];
+    })
+);
+const profileImport = galleryImages[`${slug}/${character.profileImage}`];
+if (!profileImport) {
+  throw new Error(`Missing profile image for ${slug}: expected key ${slug}/${character.profileImage}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
+}
+---
+
+<Header />
+
+<main>
+  <div class="page-stack">
+    <section class="card" role="article">
+      <h1 id="heading">{character.name} <span class="cursor" aria-hidden="true"></span></h1>
+      <div class="profile">
+        <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${character.name}`} />
+
+        <dl class="info-dl">
+          <div>
+            <dt>Facility Position</dt>
+            <dd>{character.position}</dd>
+          </div>
+          <div>
+            <dt>Species</dt>
+            <dd>{character.species}</dd>
+          </div>
+          <div>
+            <dt>Gender</dt>
+            <dd>{character.gender}</dd>
+          </div>
+          <div>
+            <dt>Age</dt>
+            <dd>{character.age}</dd>
+          </div>
+          <div>
+            <dt>Birthplace</dt>
+            <dd style="color: red;">{character.birthplace}</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card" role="region" aria-labelledby="bio-title">
+      <h2 id="bio-title" class="db-title-cyan">Bio</h2>
+      {character.bio.map((paragraph) => (
+        <p>{paragraph}</p>
+      ))}
+    </section>
+
+    <section class="traits-grid" aria-label="Traits">
+      <div class="card" role="region" aria-labelledby="pos-title">
+        <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
+        <ul class="trait-list positive">
+          {character.positiveTraits.map((trait) => (
+            <li>{trait}</li>
+          ))}
+        </ul>
+      </div>
+      <div class="card" role="region" aria-labelledby="neg-title">
+        <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
+        <ul class="trait-list negative">
+          {character.negativeTraits.map((trait) => (
+            <li>{trait}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" role="region" aria-labelledby="gallery-title">
+      <h2 id="gallery-title">Gallery</h2>
+      <div class="gallery-grid">
+        {character.gallery.map((item) => {
+          const imageSrc = galleryImages[`${slug}/${item.file}`];
+          if (!imageSrc) {
+            throw new Error(`Missing gallery image for ${slug}: expected key ${slug}/${item.file}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
+          }
+          return (
+            <figure>
+              <Image src={imageSrc} class="pixelart" alt={character.galleryAlt} loading="lazy" />
+              <figcaption>{item.caption}</figcaption>
+            </figure>
+          );
+        })}
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- Lightbox modal for gallery images -->
+<div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" hidden tabindex="-1">
+  <div class="lightbox-content">
+    <button id="lightbox-close" class="lightbox-close" aria-label="Close image">×</button>
+    <img class="lightbox-img" alt="Expanded image" />
+  </div>
+</div>
+
+<Footer />
