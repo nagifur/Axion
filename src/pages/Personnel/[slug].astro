@@ -4,6 +4,7 @@ import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import personnelData from '../../data/personnel.json';
 
+// Build static paths for each character page from the personnel JSON.
 export async function getStaticPaths() {
   return Object.keys(personnelData).map((slug) => ({ params: { slug } }));
 }
@@ -38,6 +39,7 @@ if (!character) {
   throw new Error(`Character not found: ${slug}`);
 }
 
+// Load all image assets and index them by folder and filename for the current character.
 const galleryImages = Object.fromEntries(
   Object.entries(import.meta.glob('../../assets/images/*/*.{png,jpg,jpeg,webp}', { eager: true }) as Record<string, any>)
     .map(([path, mod]: [string, any]) => {
@@ -53,12 +55,15 @@ if (!profileImport) {
   throw new Error(`Missing profile image for ${slug}: expected key ${slug}/${character.profileImage}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
 }
 
+// Escape special regex characters so name matching is safe and accurate.
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// Generate candidate links for all other characters, sorted longest-first to avoid partial matches.
 const autoLinkCandidates = Object.entries(personnel)
   .filter(([otherSlug]) => otherSlug !== slug)
   .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name }))
   .sort((a, b) => b.name.length - a.name.length);
 
+// Convert a bio paragraph into HTML, supporting explicit links and automatic character name links.
 const parseBioParagraph = (paragraph: string): string => {
   const placeholders: string[] = [];
 
