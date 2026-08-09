@@ -3,13 +3,13 @@
  import Footer from '../components/footer.astro';
  import personnelData from '../data/personnel.json';
  
- const activePersonnelUrls = Object.keys(personnelData).map((slug) => `/Axion/Personnel/${slug}`);
- const activeEntityUrls = Object.keys(import.meta.glob('./Entities/*.astro', { eager: true })).map((path) => {
-   const fileName = path.split('/').pop();
-   return `/Axion/Entities/${fileName.replace('.astro', '')}`;
- });
- const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls]);
- const linkState = (href) => activeUrls.has(href) ? 'active' : 'inactive';
+const activePersonnelUrls = Object.keys(personnelData).map((slug: string) => `/Axion/Personnel/${slug}`);
+const activeEntityUrls = Object.keys(import.meta.glob('./Entities/*.astro', { eager: true })).map((path: string) => {
+  const fileName = path.split('/').pop();
+  return fileName ? `/Axion/Entities/${fileName.replace('.astro', '')}` : '';
+});
+const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls]);
+const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
  ---
 <Header></Header>
 

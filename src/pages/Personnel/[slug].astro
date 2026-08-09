@@ -8,38 +8,61 @@ export async function getStaticPaths() {
   return Object.keys(personnelData).map((slug) => ({ params: { slug } }));
 }
 
+type GalleryItem = {
+  file: string;
+  caption: string;
+};
+
+type CharacterData = {
+  name: string;
+  position: string;
+  species: string;
+  gender: string;
+  age: number;
+  birthplace: string;
+  profileImage: string;
+  bio: string[];
+  positiveTraits: string[];
+  negativeTraits: string[];
+  gallery: GalleryItem[];
+  galleryAlt: string;
+};
+
+type PersonnelData = Record<string, CharacterData>;
+const personnel = personnelData as PersonnelData;
+
 const { slug } = Astro.params;
-const character = personnelData[slug];
+const character = personnel[slug];
 
 if (!character) {
   throw new Error(`Character not found: ${slug}`);
 }
 
 const galleryImages = Object.fromEntries(
-  Object.entries(import.meta.glob('../../assets/images/*/*.{png,jpg,jpeg,webp}', { eager: true })).map(
-    ([path, mod]) => {
+  Object.entries(import.meta.glob('../../assets/images/*/*.{png,jpg,jpeg,webp}', { eager: true }) as Record<string, any>)
+    .map(([path, mod]: [string, any]) => {
       const normalizedPath = path.replaceAll('\\', '/');
       const segments = normalizedPath.split('/');
       const key = segments.slice(-2).join('/');
       const value = (mod && typeof mod === 'object' && 'default' in mod) ? mod.default : mod;
       return [key, value];
-    })
-);
+    }),
+) as Record<string, any>;
 const profileImport = galleryImages[`${slug}/${character.profileImage}`];
 if (!profileImport) {
   throw new Error(`Missing profile image for ${slug}: expected key ${slug}/${character.profileImage}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
 }
 
-const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const autoLinkCandidates = Object.entries(personnelData)
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const autoLinkCandidates = Object.entries(personnel)
   .filter(([otherSlug]) => otherSlug !== slug)
   .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name }))
   .sort((a, b) => b.name.length - a.name.length);
 
-const parseBioParagraph = (paragraph) => {
-  const placeholders = [];
+const parseBioParagraph = (paragraph: string): string => {
+  const placeholders: string[] = [];
 
-  const paragraphWithExplicitLinks = paragraph.replace(/<link=([^>]+)>(.*?)<\/link>/g, (_, targetSlug, linkText) => {
+  const paragraphWithExplicitLinks = paragraph.replace(/<link=([^>]+)>(.*?)<\/link>/g, (_match: string, targetSlug: string, linkText: string) => {
     const html = `<a href="/Axion/Personnel/${targetSlug}">${linkText}</a>`;
     const placeholder = `__AUTO_LINK_PLACEHOLDER_${placeholders.length}__`;
     placeholders.push(html);
@@ -47,7 +70,7 @@ const parseBioParagraph = (paragraph) => {
   });
 
   const segments = paragraphWithExplicitLinks.split(/(<[^>]+?>)/g);
-  const linked = segments.map((segment) => {
+  const linked = segments.map((segment: string) => {
     if (segment.startsWith('<')) {
       return segment;
     }
@@ -60,7 +83,7 @@ const parseBioParagraph = (paragraph) => {
     return text;
   }).join('');
 
-  return linked.replace(/__AUTO_LINK_PLACEHOLDER_(\d+)__/g, (_, index) => placeholders[Number(index)] || '');
+  return linked.replace(/__AUTO_LINK_PLACEHOLDER_(\d+)__/g, (_match: string, index: string) => placeholders[Number(index)] || '');
 };
 ---
 
