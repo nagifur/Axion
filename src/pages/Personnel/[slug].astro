@@ -30,10 +30,38 @@ if (!profileImport) {
   throw new Error(`Missing profile image for ${slug}: expected key ${slug}/${character.profileImage}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
 }
 
-const parseBioParagraph = (paragraph) =>
-  paragraph.replace(/<link=([^>]+)>(.*?)<\/link>/g, (_, targetSlug, linkText) =>
-    `<a href="/Axion/Personnel/${targetSlug}">${linkText}</a>`
-  );
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const autoLinkCandidates = Object.entries(personnelData)
+  .filter(([otherSlug]) => otherSlug !== slug)
+  .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name }))
+  .sort((a, b) => b.name.length - a.name.length);
+
+const parseBioParagraph = (paragraph) => {
+  const placeholders = [];
+
+  const paragraphWithExplicitLinks = paragraph.replace(/<link=([^>]+)>(.*?)<\/link>/g, (_, targetSlug, linkText) => {
+    const html = `<a href="/Axion/Personnel/${targetSlug}">${linkText}</a>`;
+    const placeholder = `__AUTO_LINK_PLACEHOLDER_${placeholders.length}__`;
+    placeholders.push(html);
+    return placeholder;
+  });
+
+  const segments = paragraphWithExplicitLinks.split(/(<[^>]+?>)/g);
+  const linked = segments.map((segment) => {
+    if (segment.startsWith('<')) {
+      return segment;
+    }
+
+    let text = segment;
+    for (const { name, slug: targetSlug } of autoLinkCandidates) {
+      const nameRegex = new RegExp(`\\b${escapeRegExp(name)}\\b`, 'g');
+      text = text.replace(nameRegex, `<a href="/Axion/Personnel/${targetSlug}">${name}</a>`);
+    }
+    return text;
+  }).join('');
+
+  return linked.replace(/__AUTO_LINK_PLACEHOLDER_(\d+)__/g, (_, index) => placeholders[Number(index)] || '');
+};
 ---
 
 <Header />
