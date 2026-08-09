@@ -8,19 +8,20 @@
         "age": 20,
         "birthplace": "-TBN-",
         "bio": [
-            "TODO",
-            "TODO",
-            "TODO"
+            "Webber works as a maintenance worker at the facility, responsible for keeping the equipment and systems running smoothly. Part of the level 2 maintenance team, Webber is known for their handyman skills thanks to their multiple arms.",
+            "Dropping out of university, Webber decided to join Axion after seeing an ad for a maintenance position. They have been working with us ever since, and have proven to be a valuable asset to the team.",
+            "They seem to know the caretaker Nagi, apparently they used to be roomates during studying, and have been friends ever since..",
+            "It is to be known Webber is a content creator and has a live stream,<b> need to make sure they do not leak any sensitive information about the facility.</b>"
         ],
         "positiveTraits": [
-            "Smart",
-            "Fast working",
-            "Expert Pilot"
+            "Handyman",
+            "Calm",
+            "Able to make own web rope"
         ],
         "negativeTraits": [
-            "Anti-Social",
-            "Gets Obsessed easily",
-            "Clumsy"
+            "Content Creator",
+            "Moody"
+            
         ],
         "gallery": [
             {
@@ -99,7 +100,6 @@
         "birthplace": "-TBN-",
         "bio": [
             "Nagi is a caretaker at the facility, known for his friendly demeanor and hardworking nature. Despite being clumsy and slow, he has a strong survival instinct and is dedicated to his duties.",
-            "Bla bla new paragraph oh yea and also Somni exists lol",
             "Born on Axion's home planet, -TBN-, Nagi worked to Level 3 access through his passion for caring and studying alien biology. He has a deep connection with the creatures under his care, often going above and beyond to ensure their well-being and his commitment to the facility's mission.",
             "Nagi got consumed by alien creatures multiple times, yet always managed to escape unscathed, showcasing his resilience. Based on our records, the containment team specialist Somni is often called to retrieve him from these incidents."
         ],
@@ -200,7 +200,6 @@
         "negativeTraits": [
             "Unable to move on land without their robotic body",
             "Needs regular maintenance"
-            
         ],
         "gallery": [
             {
@@ -226,25 +225,25 @@
     "dr.mages": {
         "slug": "dr.mages",
         "name": "Dr. Mages",
-        "position": "Facility Director",
+        "position": "Head of R&D Department",
         "species": "-TBN-",
         "gender": "Intersex",
-        "age": 32,
+        "age": 34,
         "birthplace": "-TBN-",
         "bio": [
-            "TODO",
-            "TODO ",
-            "TODO"
+            "Dr. Mages is the lead scientist and head of the R&D department at the facility. They are one of the founding members of Axion, and have been working with the organization since its inception along with Sypher.",
+            "Mages is in possesion of an extremely powerful core artifact called \"Heart of the Archmage\" which is a powerful artifact that allows them to freely use any magic without needing to spend years of training. The only thing they need is to learn the incantations and the spell will be casted. This artifact is extremely powerful, and is one of the reasons why Mages is able to create such advanced technology.",
+            "Majority of tech at Axion has been designed by Mages, they love adding their own \"quirks\" that tend to be more on the sexual side, such as the \"cum disposal unit\" which is a device that is able to dispose of any unwanted personell, and is often used by A1 to dispose of bad employees.",
+            "Dr.Mages is often a target of Axion's enemies, and they have tried to kidnap them multiple times, but have always failed due to the security measures in place at the facility."
         ],
         "positiveTraits": [
-            "TODO",
-            "TODO",
-            "TODO"
+            "Genius Designer",
+            "Powerful mage",
+            "Optimistic"
         ],
         "negativeTraits": [
-            "TODO",
-            "TODO"
-            
+            "Naive",
+            "Pacifist"
         ],
         "gallery": [
             {
@@ -253,22 +252,18 @@
             },
             {
                 "file": "2.png",
-                "caption": "With Dr. Mages"
+                "caption": "Tangled while working"
             },
             {
                 "file": "3.png",
-                "caption": "Catching Intruders"
+                "caption": "Old Design"
             },
             {
                 "file": "4.png",
-                "caption": "Working"
+                "caption": "Using Magic"
             }
         ],
         "profileImage": "profile.png",
-        "galleryAlt": "A1 drawing"
+        "galleryAlt": "Dr. Mages drawing"
     }
-    
-
-    
-    
 }
