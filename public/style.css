@@ -36,6 +36,7 @@
       --neon-cyan:#39ffea;
       --neon-pink:#ff4dd2;
       --neon-blue:#4d80ff;
+      --neon-red:#ff4d4d;
       --neon-yellow:#ffd24d;
       --muted:#8aa0b0;
       --text:#e6f7ff;
@@ -297,7 +298,10 @@
     .db-grid{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); margin-top:14px }
     .card.compact{ padding:14px }
     .db-list{ margin:8px 0 0 18px; padding:0; color:var(--muted) }
-    .db-list a{ color:var(--neon-cyan) }
+    .db-list a{ color:var(--neon-cyan); text-decoration:none }
+    .db-list a.active{ color:var(--neon-cyan) }
+    .db-list a.inactive{ color:var(--neon-red) }
+    .db-list a:hover{ text-decoration:underline }
     .db-title-yellow{ margin:0 0 8px 0; color:var(--neon-yellow) }
     .db-title-pink{ margin:0 0 8px 0; color:var(--neon-pink) }
     .db-title-cyan{ margin:0 0 8px 0; color:var(--neon-cyan) }

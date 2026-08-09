@@ -1,6 +1,15 @@
  ---
  import Header from  '../components/header.astro';
  import Footer from '../components/footer.astro';
+ import personnelData from '../data/personnel.json';
+ 
+ const activePersonnelUrls = Object.keys(personnelData).map((slug) => `/Axion/Personnel/${slug}`);
+ const activeEntityUrls = Object.keys(import.meta.glob('./Entities/*.astro', { eager: true })).map((path) => {
+   const fileName = path.split('/').pop();
+   return `/Axion/Entities/${fileName.replace('.astro', '')}`;
+ });
+ const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls]);
+ const linkState = (href) => activeUrls.has(href) ? 'active' : 'inactive';
  ---
 <Header></Header>
 
@@ -20,28 +29,28 @@
           </li>
           <li>Level 2:
             <ul class="db-list">
-              <li><a href="/Axion/Personnel/webber">Webber</a></li>
+              <li><a href="/Axion/Personnel/webber" class={linkState('/Axion/Personnel/webber')}>Webber</a></li>
             </ul>
           </li>
           <li>Level 3:
             <ul class="db-list">
-              <li><a href="/Axion/Personnel/nagi">Nagi</a></li>
-              <li><a href="/Axion/Personnel/somni">Somni</a></li>
+              <li><a href="/Axion/Personnel/nagi" class={linkState('/Axion/Personnel/nagi')}>Nagi</a></li>
+              <li><a href="/Axion/Personnel/somni" class={linkState('/Axion/Personnel/somni')}>Somni</a></li>
             </ul>
           </li>
           <li>Level 4:
             <ul class="db-list">
-              <li><a href="/Axion/Personnel/skye">Skye</a></li>
+              <li><a href="/Axion/Personnel/skye" class={linkState('/Axion/Personnel/skye')}>Skye</a></li>
               
             </ul>
           </li>
           <li>Level 5:
             <ul class="db-list">
-              <li><a href="/Axion/Personnel/a1">A1</a></li>
-              <li><a href="/Axion/Personnel/mellisa">Mellisa</a></li>
-              <li><a href="/Axion/Personnel/reef">Reef</a></li>
-              <li><a href="/Axion/Personnel/wisp">Wisp</a></li>
-              <li><a href="/Axion/Personnel/dr.mages">Dr. Mages</a></li>
+              <li><a href="/Axion/Personnel/a1" class={linkState('/Axion/Personnel/a1')}>A1</a></li>
+              <li><a href="/Axion/Personnel/mellisa" class={linkState('/Axion/Personnel/mellisa')}>Mellisa</a></li>
+              <li><a href="/Axion/Personnel/reef" class={linkState('/Axion/Personnel/reef')}>Reef</a></li>
+              <li><a href="/Axion/Personnel/wisp" class={linkState('/Axion/Personnel/wisp')}>Wisp</a></li>
+              <li><a href="/Axion/Personnel/dr.mages" class={linkState('/Axion/Personnel/dr.mages')}>Dr. Mages</a></li>
             </ul>
           </li>
         </ul>
@@ -50,11 +59,11 @@
       <div class="card compact" aria-labelledby="sec-levels">
         <h2 id="sec-levels" class="db-title-pink">Levels</h2>
         <ul class="db-list">
-          <li><a href="#">Level 1</a></li>
-          <li><a href="#">Level 2</a></li>
-          <li><a href="#">Level 3</a></li>
-          <li><a href="#">Level 4</a></li>
-          <li><a href="#">Level 5</a></li>
+          <li><a href="#" class={linkState('#')}>Level 1</a></li>
+          <li><a href="#" class={linkState('#')}>Level 2</a></li>
+          <li><a href="#" class={linkState('#')}>Level 3</a></li>
+          <li><a href="#" class={linkState('#')}>Level 4</a></li>
+          <li><a href="#" class={linkState('#')}>Level 5</a></li>
         </ul>
       </div>
 
@@ -64,23 +73,23 @@
           <li> Class A
            
               <ul class="db-list">
-                <li><a href="/Axion/Personnel/a1">A-001</a></li>
-                <li><a href="/Axion/Entities/a-071">A-071 (Levi)</a></li>
-                 <li><a href="/Axion/Entities/a-100">A-100</a></li>
+                <li><a href="/Axion/Personnel/a1" class={linkState('/Axion/Personnel/a1')}>A-001</a></li>
+                <li><a href="/Axion/Entities/a-071" class={linkState('/Axion/Entities/a-071')}>A-071 (Levi)</a></li>
+                 <li><a href="/Axion/Entities/a-100" class={linkState('/Axion/Entities/a-100')}>A-100</a></li>
               </ul>
           </li>
 
           <li> Class S
            
             <ul class="db-list">
-              <li><a href="/Axion/Entities/s-002">S-002 - (Wisp Animation)</a></li>
-              <li><a href="/Axion/Entities/s-003">S-003 - (A1 Tail Vore Animation)</a></li>
-              <li><a href="/Axion/Entities/s-013">S-013 - (Soul Mirror)</a></li>
-                <li><a href="/Axion/Entities/s-402">S-402 - (Wisp Animation)</a></li>
-                <li><a href="/Axion/Entities/s-382">S-382 - (Mentioned in Not Enough Sleep)</a></li>
-                <li><a href="/Axion/Entities/s-420">S-420 - (Star Mushrooms)</a></li>
-                <li><a href="/Axion/Entities/s-552">S-552 - (Sprouty)</a></li>
-                <li><a href="/Axion/Entities/s-688">S-688 - (Genesis Chroma)</a></li>
+<li><a href="/Axion/Entities/s-002" class={linkState('/Axion/Entities/s-002')}>S-002 - (Wisp Animation)</a></li>
+                <li><a href="/Axion/Entities/s-003" class={linkState('/Axion/Entities/s-003')}>S-003 - (A1 Tail Vore Animation)</a></li>
+                <li><a href="/Axion/Entities/s-013" class={linkState('/Axion/Entities/s-013')}>S-013 - (Soul Mirror)</a></li>
+                  <li><a href="/Axion/Entities/s-402" class={linkState('/Axion/Entities/s-402')}>S-402 - (Wisp Animation)</a></li>
+                  <li><a href="/Axion/Entities/s-382" class={linkState('/Axion/Entities/s-382')}>S-382 - (Mentioned in Not Enough Sleep)</a></li>
+                <li><a href="/Axion/Entities/s-420" class={linkState('/Axion/Entities/s-420')}>S-420 - (Star Mushrooms)</a></li>
+                <li><a href="/Axion/Entities/s-552" class={linkState('/Axion/Entities/s-552')}>S-552 - (Sprouty)</a></li>
+                <li><a href="/Axion/Entities/s-688" class={linkState('/Axion/Entities/s-688')}>S-688 - (Genesis Chroma)</a></li>
                  
               </ul>
           </li>
@@ -88,12 +97,12 @@
           <li> Class C
            
               <ul class="db-list">
-                <li><a href="/Axion/Entities/c-086">C-086 - (Bloom Lizard)</a></li>
-                <li><a href="/Axion/Entities/c-2221">C-2221 - (Wisp Animation)</a></li>
-                <li><a href="/Axion/Entities/c-282">C-282 - (Eyless lizard)</a></li>
-                <li><a href="/Axion/Entities/c-324">C-324 - (Tentacle Plant)</a></li>
-                <li><a href="/Axion/Entities/c-400">C-400 - (Portal Cats)</a></li>
-                <li><a href="/Axion/Entities/c-668">C-668 - (Wisp Animation)</a></li>
+                <li><a href="/Axion/Entities/c-086" class={linkState('/Axion/Entities/c-086')}>C-086 - (Bloom Lizard)</a></li>
+                <li><a href="/Axion/Entities/c-2221" class={linkState('/Axion/Entities/c-2221')}>C-2221 - (Wisp Animation)</a></li>
+                <li><a href="/Axion/Entities/c-282" class={linkState('/Axion/Entities/c-282')}>C-282 - (Eyless lizard)</a></li>
+                <li><a href="/Axion/Entities/c-324" class={linkState('/Axion/Entities/c-324')}>C-324 - (Tentacle Plant)</a></li>
+                <li><a href="/Axion/Entities/c-400" class={linkState('/Axion/Entities/c-400')}>C-400 - (Portal Cats)</a></li>
+                <li><a href="/Axion/Entities/c-668" class={linkState('/Axion/Entities/c-668')}>C-668 - (Wisp Animation)</a></li>
                  
               </ul>
           </li>
@@ -101,8 +110,8 @@
           <li> Class M
            
               <ul class="db-list">
-                <li><a href="/Axion/Entities/m-031">M-031</a></li>
-                <li><a href="/Axion/Entities/m-227">M-227 - (Spore Lizard)</a></li>
+                <li><a href="/Axion/Entities/m-031" class={linkState('/Axion/Entities/m-031')}>M-031</a></li>
+                <li><a href="/Axion/Entities/m-227" class={linkState('/Axion/Entities/m-227')}>M-227 - (Spore Lizard)</a></li>
                
               </ul>
           </li>
@@ -111,8 +120,8 @@
            
               <ul class="db-list">
                 X-001.....X-401
-                <li><a href="/Axion/Entities/x-402">X-402</a></li>
-                <li><a href="/Axion/Entities/x-403">X-403</a></li>
+                <li><a href="/Axion/Entities/x-402" class={linkState('/Axion/Entities/x-402')}>X-402</a></li>
+                <li><a href="/Axion/Entities/x-403" class={linkState('/Axion/Entities/x-403')}>X-403</a></li>
                 
         </ul>
       </div>
@@ -120,10 +129,10 @@
       <div class="card compact" aria-labelledby="sec-containment">
         <h2 id="sec-containment" class="db-title-cyan">Containment Classes</h2>
         <ul class="db-list">
-          <li><a href="#">A - Ally</a></li>
-          <li><a href="#">S - Safe </a></li>
-          <li><a href="#">C - Containment </a></li>
-          <li><a href="#">M - Maximum Containment </a></li>
+          <li><a href="#" class={linkState('#')}>A - Ally</a></li>
+          <li><a href="#" class={linkState('#')}>S - Safe </a></li>
+          <li><a href="#" class={linkState('#')}>C - Containment </a></li>
+          <li><a href="#" class={linkState('#')}>M - Maximum Containment </a></li>
           
         </ul>
       </div>
