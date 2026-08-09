@@ -222,6 +222,50 @@
         ],
         "profileImage": "profile.png",
         "galleryAlt": "A1 drawing"
+    },
+    "dr.mages": {
+        "slug": "dr.mages",
+        "name": "Dr. Mages",
+        "position": "Facility Director",
+        "species": "-TBN-",
+        "gender": "Intersex",
+        "age": 32,
+        "birthplace": "-TBN-",
+        "bio": [
+            "TODO",
+            "TODO ",
+            "TODO"
+        ],
+        "positiveTraits": [
+            "TODO",
+            "TODO",
+            "TODO"
+        ],
+        "negativeTraits": [
+            "TODO",
+            "TODO"
+            
+        ],
+        "gallery": [
+            {
+                "file": "1.png",
+                "caption": "Reference"
+            },
+            {
+                "file": "2.png",
+                "caption": "With Dr. Mages"
+            },
+            {
+                "file": "3.png",
+                "caption": "Catching Intruders"
+            },
+            {
+                "file": "4.png",
+                "caption": "Working"
+            }
+        ],
+        "profileImage": "profile.png",
+        "galleryAlt": "A1 drawing"
     }
     
 
