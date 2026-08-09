@@ -1,0 +1,121 @@
+---
+import Header from  '../../components/header.astro';
+import Footer from '../../components/footer.astro';
+import { Image } from 'astro:assets';
+import Profile from "../../assets/images/skye/profile.png";
+import Gallery1 from "../../assets/images/skye/1.png";
+import Gallery2 from "../../assets/images/skye/2.png";
+import Gallery3 from "../../assets/images/skye/3.png";
+import Gallery4 from "../../assets/images/skye/4.png";
+---
+<Header></Header>
+
+<main>
+  <div class="page-stack">
+  <section class="card" role="article">
+    <h1 id="heading">Skye <span class="cursor" aria-hidden="true"></span></h1>
+    <div class="profile">
+      <Image src={Profile} class="pixelart-profile" quality={100} alt="A description of my image." />
+
+      <dl class="info-dl">
+        <div>
+          <dt>Facility Position</dt>
+          <dd>Robotics Expert / Mech Pilot</dd>
+        </div>
+        <div>
+          <dt>Species</dt>
+          <dd>Canine </dd>
+        </div>
+        <div>
+          <dt>Gender</dt>
+          <dd>Intersex</dd>
+        </div>
+        <div>
+          <dt>Age</dt>
+          <dd>19</dd>
+        </div>
+        <div>
+          <dt>Birthplace</dt>
+          <dd style="color: red;">-TBN-</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card" role="region" aria-labelledby="bio-title">
+    <h2 id="bio-title" class="db-title-cyan">Bio</h2>
+    <p >Skye is a level 4 elite robotics expert that was hired by Axion after seeing their talent while they were still studying.
+        They accepted our invitation to join our team, and have been working with us ever since. Skye is known for their superb understanding of robotics and their Artificial Intelligence, 
+        which makes them a valuable asset to our team.
+    </p>
+      <p>
+        Skye is a talented prodigy that has been working with robotics since they were a child. 
+        They have a natural talent for understanding how things work, and have been able to create some of the most advanced robots we have avaiable.
+      </p>
+      <p>
+        They seem to have an obsession with the mech <a href="/Axion/Synthetics/FF2400">FF2400</a>, affectionately called <b>"Scarlet"</b> which they have been known to spend months working on, 
+        after finishing their work on the mech, which was blueprinted by <a href="/Axion/Personnel/mages">Dr. Mages</a>.
+      </p>
+      
+      </section>
+
+  <section class="traits-grid" aria-label="Traits">
+    <div class="card" role="region" aria-labelledby="pos-title">
+      <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
+      <ul class="trait-list positive">
+        <li>Smart</li>
+        <li>Fast working</li>
+        <li>Expert Pilot</li>
+        
+        
+        
+      </ul>
+    </div>
+    <div class="card" role="region" aria-labelledby="neg-title">
+      <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
+      <ul class="trait-list negative">
+         <li>Anti-Social</li>
+        <li>Gets Obsessed easily</li>
+        <li>Clumsy</li>
+        
+      </ul>
+    </div>
+  </section>
+
+  <section class="card" role="region" aria-labelledby="gallery-title">
+    <h2 id="gallery-title">Gallery</h2>
+    <div class="gallery-grid">
+      <figure>
+        <Image src={Gallery1} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>Reference</figcaption>
+      </figure>
+      <figure>
+        <Image src={Gallery2} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>Casual</figcaption>
+      </figure>
+      <figure>
+        <Image src={Gallery3} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>Working</figcaption>
+      </figure>
+      <figure>
+        <Image src={Gallery4} class="pixelart" alt="Nagi drawing" loading="lazy" />
+        <figcaption>Closeup</figcaption>
+      </figure>
+    </div>
+  </section>
+  </div>
+ </main>
+
+<!-- Lightbox modal for gallery images -->
+<div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" hidden tabindex="-1">
+  <div class="lightbox-content">
+    <button id="lightbox-close" class="lightbox-close" aria-label="Close image">×</button>
+    <img class="lightbox-img" alt="Expanded image" />
+  </div>
+  <!-- click outside the image to close -->
+  
+</div>
+
+
+
+<Footer></Footer>
