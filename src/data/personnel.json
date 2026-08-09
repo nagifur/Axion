@@ -54,7 +54,8 @@
         "bio": [
             "Somni is a level 3 containment unit specialist at Axion, known for her expertise in handling any threat and all kinds of alien creatures.",
             "Born on the planet, -TBN-, Somni decided to join Axion after her desire to get away from her home planet. After a background check with her government, it seemed she was an outcast among her people. She was then recruited by Axion, and has been working with them ever since.",
-            "Somni is in possession of highly powerful ESP abilities, which she uses to her advantage in her work. It is a new type of magic, that is not present on Axion's home planet. She is also a skilled combatant, and is able to take down any threat that comes her way. Due to her powers she was able to ace all of our combat training, and is now one of our top containment agents."
+            "Somni is in possession of highly powerful ESP abilities, which she uses to her advantage in her work. It is a new type of magic, that is not present on Axion's home planet. She is also a skilled combatant, and is able to take down any threat that comes her way. Due to her powers she was able to ace all of our combat training, and is now one of our top containment agents.",
+            "She seems to have a liking for the caretaker, <link=nagi>Nagi</link>, and is often seen spending time with him during her breaks."
         ],
         "positiveTraits": [
             "Strong",
@@ -99,7 +100,7 @@
         "bio": [
             "Nagi is a caretaker at the facility, known for his friendly demeanor and hardworking nature. Despite being clumsy and slow, he has a strong survival instinct and is dedicated to his duties.",
             "Born on Axion's home planet, -TBN-, Nagi worked to Level 3 access through his passion for caring and studying alien biology. He has a deep connection with the creatures under his care, often going above and beyond to ensure their well-being and his commitment to the facility's mission.",
-            "Nagi got consumed by alien creatures multiple times, yet always managed to escape unscathed, showcasing his resilience. Based on our records, the containment team specialist Somni is often called to retrieve him from these incidents."
+            "Nagi got consumed by alien creatures multiple times, yet always managed to escape unscathed, showcasing his resilience. Based on our records, the containment team specialist <link=somni>Somni</link> is often called to retrieve him from these incidents."
         ],
         "positiveTraits": [
             "Passionate",
