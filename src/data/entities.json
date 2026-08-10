@@ -2,15 +2,15 @@
   "s-402": {
     "slug": "s-402",
     "name": "S-402",
-    "containmentClass": "--",
-    "species": "--",
+    "containmentClass": "Safe",
+    "species": "-TBN-",
     "gender": "Male",
-    "age": "--",
-    "foundOn": "--",
+    "age": "-Unknown-",
+    "foundOn": "-TBN-",
     "bio": [
-      "BIO",
-      "BIO",
-      "BIO"
+      "Small green creature with long tendrils. Seems to be harmless from what we have seen so far.",
+      "They seem to be intelligent enough to understand basic commands, and seem to have developed their own languge. While we have no way to understand their speech yet, they emote quite well to understand their feelings."
+      
     ],
     "positiveTraits": [
       "Trait",
