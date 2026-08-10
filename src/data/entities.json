@@ -1,0 +1,35 @@
+{
+  "s-402": {
+    "slug": "s-402",
+    "name": "S-402",
+    "containmentClass": "--",
+    "species": "--",
+    "gender": "Male",
+    "age": "--",
+    "foundOn": "--",
+    "bio": [
+      "BIO",
+      "BIO",
+      "BIO"
+    ],
+    "positiveTraits": [
+      "Trait",
+      "Trait",
+      "Trait",
+      "Trait"
+    ],
+    "negativeTraits": [
+      "Trait",
+      "Trait",
+      "Trait"
+    ],
+    "gallery": [
+      {
+        "file": "1.png",
+        "caption": "Photo"
+      }
+    ],
+    "profileImage": "profile.png",
+    "galleryAlt": "S-402 drawing"
+  }
+}

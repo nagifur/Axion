@@ -1,0 +1,197 @@
+---
+import Header from '../../components/header.astro';
+import Footer from '../../components/footer.astro';
+import { Image } from 'astro:assets';
+import entityData from '../../data/entities.json';
+import personnelData from '../../data/personnel.json';
+
+// Build static paths for each entity page from the entities JSON file.
+export async function getStaticPaths() {
+  return Object.keys(entityData).map((slug) => ({ params: { slug } }));
+}
+
+type GalleryItem = {
+  file: string;
+  caption: string;
+};
+
+type EntityData = {
+  name: string;
+  containmentClass: string;
+  species: string;
+  gender: string;
+  age: string | number;
+  foundOn: string;
+  profileImage: string;
+  bio: string[];
+  positiveTraits: string[];
+  negativeTraits: string[];
+  gallery: GalleryItem[];
+  galleryAlt: string;
+};
+
+type EntityRecord = Record<string, EntityData>;
+
+type PersonnelData = Record<string, {
+  name: string;
+}>;
+
+const entities = entityData as EntityRecord;
+const personnel = personnelData as PersonnelData;
+
+const { slug } = Astro.params;
+const entity = entities[slug];
+
+if (!entity) {
+  throw new Error(`Entity not found: ${slug}`);
+}
+
+// Load every image asset from the assets/images folder and index them by "slug/filename".
+const galleryImages = Object.fromEntries(
+  Object.entries(import.meta.glob('../../assets/images/*/*.{png,jpg,jpeg,webp}', { eager: true }) as Record<string, any>)
+    .map(([path, mod]: [string, any]) => {
+      const normalizedPath = path.replaceAll('\\', '/');
+      const segments = normalizedPath.split('/');
+      const key = segments.slice(-2).join('/');
+      const value = (mod && typeof mod === 'object' && 'default' in mod) ? mod.default : mod;
+      return [key, value];
+    }),
+) as Record<string, any>;
+
+const profileImport = galleryImages[`${slug}/${entity.profileImage}`];
+if (!profileImport) {
+  throw new Error(`Missing profile image for ${slug}: expected key ${slug}/${entity.profileImage}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
+}
+
+// Create a safe regex escaper for auto-linking entity/personnel names in bio text.
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+
+// Build auto-link candidates from all other entities and personnel pages.
+const autoLinkCandidates = [
+  ...Object.entries(entities)
+    .filter(([otherSlug]) => otherSlug !== slug)
+    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `/Axion/Entities/${otherSlug}` })),
+  ...Object.entries(personnel)
+    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `/Axion/Personnel/${otherSlug}` })),
+].sort((a, b) => b.name.length - a.name.length);
+
+// Parse bio paragraphs to preserve HTML links and auto-link known names.
+const parseBioParagraph = (paragraph: string): string => {
+  const placeholders: string[] = [];
+
+  const paragraphWithExplicitLinks = paragraph.replace(/<link=([^>]+)>(.*?)<\/link>/g, (_match: string, targetSlug: string, linkText: string) => {
+    const entityLink = autoLinkCandidates.find((candidate) => candidate.slug === targetSlug);
+    const baseUrl = entityLink ? entityLink.url : `/Axion/Entities/${targetSlug}`;
+    const html = `<a href="${baseUrl}">${linkText}</a>`;
+    const placeholder = `__AUTO_LINK_PLACEHOLDER_${placeholders.length}__`;
+    placeholders.push(html);
+    return placeholder;
+  });
+
+  const segments = paragraphWithExplicitLinks.split(/(<[^>]+?>)/g);
+  const linked = segments.map((segment: string) => {
+    if (segment.startsWith('<')) {
+      return segment;
+    }
+
+    let text = segment;
+    for (const { name, url } of autoLinkCandidates) {
+      const nameRegex = new RegExp(`\\b${escapeRegExp(name)}\\b`, 'g');
+      text = text.replace(nameRegex, `<a href="${url}">${name}</a>`);
+    }
+    return text;
+  }).join('');
+
+  return linked.replace(/__AUTO_LINK_PLACEHOLDER_(\d+)__/g, (_match: string, index: string) => placeholders[Number(index)] || '');
+};
+---
+
+<Header />
+
+<main>
+  <div class="page-stack">
+    <section class="card" role="article">
+      <h1 id="heading">{entity.name} <span class="cursor" aria-hidden="true"></span></h1>
+      <div class="profile">
+        <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${entity.name}`} />
+
+        <dl class="info-dl">
+          <div>
+            <dt>Containment Class</dt>
+            <dd>{entity.containmentClass}</dd>
+          </div>
+          <div>
+            <dt>Species</dt>
+            <dd>{entity.species}</dd>
+          </div>
+          <div>
+            <dt>Gender</dt>
+            <dd>{entity.gender}</dd>
+          </div>
+          <div>
+            <dt>Age</dt>
+            <dd>{entity.age}</dd>
+          </div>
+          <div>
+            <dt>Found On</dt>
+            <dd style="color: red;">{entity.foundOn}</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card" role="region" aria-labelledby="bio-title">
+      <h2 id="bio-title" class="db-title-cyan">Bio</h2>
+      {entity.bio.map((paragraph) => (
+        <p set:html={parseBioParagraph(paragraph)}></p>
+      ))}
+    </section>
+
+    <section class="traits-grid" aria-label="Traits">
+      <div class="card" role="region" aria-labelledby="pos-title">
+        <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
+        <ul class="trait-list positive">
+          {entity.positiveTraits.map((trait) => (
+            <li>{trait}</li>
+          ))}
+        </ul>
+      </div>
+      <div class="card" role="region" aria-labelledby="neg-title">
+        <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
+        <ul class="trait-list negative">
+          {entity.negativeTraits.map((trait) => (
+            <li>{trait}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+
+    <section class="card" role="region" aria-labelledby="gallery-title">
+      <h2 id="gallery-title">Gallery</h2>
+      <div class="gallery-grid">
+        {entity.gallery.map((item) => {
+          const imageSrc = galleryImages[`${slug}/${item.file}`];
+          if (!imageSrc) {
+            throw new Error(`Missing gallery image for ${slug}: expected key ${slug}/${item.file}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
+          }
+          return (
+            <figure>
+              <Image src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
+              <figcaption>{item.caption}</figcaption>
+            </figure>
+          );
+        })}
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- Lightbox modal for gallery images -->
+<div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" hidden tabindex="-1">
+  <div class="lightbox-content">
+    <button id="lightbox-close" class="lightbox-close" aria-label="Close image">×</button>
+    <img class="lightbox-img" alt="Expanded image" />
+  </div>
+</div>
+
+<Footer />

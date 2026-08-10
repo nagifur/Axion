@@ -2,14 +2,13 @@
  import Header from  '../components/header.astro';
  import Footer from '../components/footer.astro';
  import personnelData from '../data/personnel.json';
- 
-// Build all personnel page URLs from the JSON data.
-const activePersonnelUrls = Object.keys(personnelData).map((slug: string) => `/Axion/Personnel/${slug}`);
-// Build all entity page URLs by reading the Entities folder file names.
-const activeEntityUrls = Object.keys(import.meta.glob('./Entities/*.astro', { eager: true })).map((path: string) => {
-  const fileName = path.split('/').pop();
-  return fileName ? `/Axion/Entities/${fileName.replace('.astro', '')}` : '';
-});
+ import entityData from '../data/entities.json';
+
+ // Build all personnel page URLs from the JSON data.
+ const activePersonnelUrls = Object.keys(personnelData).map((slug: string) => `/Axion/Personnel/${slug}`);
+ // Build all entity page URLs from the JSON data.
+ const activeEntityUrls = Object.keys(entityData).map((slug: string) => `/Axion/Entities/${slug}`);
+
 // Keep a lookup set for active link styling.
 const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls]);
 // Determine whether a given link target is currently active.
