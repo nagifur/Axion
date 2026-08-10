@@ -4,11 +4,12 @@ import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import personnelData from '../../data/personnel.json';
 
+// Tell Astro which pages to build
 // Build static paths for each character page from the personnel JSON.
 export async function getStaticPaths() {
   return Object.keys(personnelData).map((slug) => ({ params: { slug } }));
 }
-
+//Describe the shape of our data (for TypeScript)
 type GalleryItem = {
   file: string;
   caption: string;
@@ -31,6 +32,8 @@ type CharacterData = {
 
 type PersonnelData = Record<string, CharacterData>;
 const personnel = personnelData as PersonnelData;
+
+//Find the character for this specific page
 
 const { slug } = Astro.params;
 const character = personnel[slug];
@@ -55,6 +58,7 @@ if (!profileImport) {
   throw new Error(`Missing profile image for ${slug}: expected key ${slug}/${character.profileImage}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
 }
 
+//Turn bio text into clickable links
 // Escape special regex characters so name matching is safe and accurate.
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // Generate candidate links for all other characters, sorted longest-first to avoid partial matches.
@@ -120,7 +124,7 @@ const parseBioParagraph = (paragraph: string): string => {
           </div>
           <div>
             <dt>Birthplace</dt>
-            <dd style="color: red;">{character.birthplace}</dd>
+            <dd>{character.birthplace}</dd>
           </div>
         </dl>
       </div>
@@ -143,7 +147,7 @@ const parseBioParagraph = (paragraph: string): string => {
         </ul>
       </div>
       <div class="card" role="region" aria-labelledby="neg-title">
-        <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
+        <h2 id="neg-title" class="db-title-pink">Noteable Events</h2>
         <ul class="trait-list negative">
           {character.negativeTraits.map((trait) => (
             <li>{trait}</li>

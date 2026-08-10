@@ -2,27 +2,26 @@
   "s-402": {
     "slug": "s-402",
     "name": "S-402",
+    "nickname": "Alcoholic Alien",
     "containmentClass": "Safe",
-    "species": "-TBN-",
+    "type": "Creature",
+    "species": "████",
     "gender": "Male",
     "age": "-Unknown-",
-    "foundOn": "-TBN-",
+    "foundOn": "████",
     "bio": [
       "Small green creature with long tendrils that resemble hair. Seems to be harmless from what we have seen so far.",
       "They seem to be intelligent enough to understand basic commands, and seem to have developed their own languge. While we have no way to understand their speech yet, they emote quite well to understand their feelings.",
       "Favorite drink of choice seems to be alcohol, even stronger than what creatures can usually drink such as isopropyl alcohol. They seem to have a high tolerance for it, and can even drink it without any ill effects."
       
     ],
-    "positiveTraits": [
-      "Trait",
-      "Trait",
-      "Trait",
-      "Trait"
+    "usefulAbilities": [
+      "Small and agile, can fit through small spaces."
+      
     ],
-    "negativeTraits": [
-      "Trait",
-      "Trait",
-      "Trait"
+    "noteableEvents": [
+      "Stole a bottle of isopropyl alcohol from the lab and drank it all in one go. Seemed to be fine after, but was very drunk for a while."
+      
     ],
     "gallery": [
       {
