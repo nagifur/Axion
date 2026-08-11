@@ -6,6 +6,7 @@
         "species": "Spider",
         "gender": "Male",
         "age": 20,
+        "height": "5'10\"",
         "birthplace": "████",
         "bio": [
             "Webber works as a maintenance worker at the facility, responsible for keeping the equipment and systems running smoothly. Part of the level 2 maintenance team, Webber is known for their handyman skills thanks to their multiple arms.",
@@ -50,6 +51,7 @@
         "position": "Containment Unit",
         "species": "Feline",
         "gender": "Female",
+        "height": "5'2\"",
         "age": 23,
         "birthplace": "████",
         "bio": [
@@ -96,6 +98,7 @@
         "position": "Caretaker",
         "species": "Feline",
         "gender": "Male",
+        "height": "5'6\"",
         "age": 25,
         "birthplace": "████",
         "bio": [
@@ -141,6 +144,7 @@
         "position": "Robotics Expert / Mech Pilot",
         "species": "Canine",
         "gender": "Intersex",
+        "height": "5'8\"",
         "age": 19,
         "birthplace": "████",
         "bio": [
@@ -185,6 +189,7 @@
         "position": "Head of Facility",
         "species": "████",
         "gender": "Intersex",
+        "height": "5'6\"",
         "age": 32,
         "birthplace": "████",
         "bio": [
@@ -228,6 +233,7 @@
         "position": "Head of R&D Department",
         "species": "████",
         "gender": "Intersex",
+        "height": "5'8\"",
         "age": 34,
         "birthplace": "████",
         "bio": [

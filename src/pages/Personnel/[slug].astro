@@ -20,6 +20,7 @@ type CharacterData = {
   position: string;
   species: string;
   gender: string;
+  height: string;
   age: number;
   birthplace: string;
   profileImage: string;
@@ -117,6 +118,10 @@ const parseBioParagraph = (paragraph: string): string => {
           <div>
             <dt>Gender</dt>
             <dd>{character.gender}</dd>
+          </div>
+          <div>
+            <dt>Height</dt>
+            <dd>{character.height}</dd>
           </div>
           <div>
             <dt>Age</dt>
