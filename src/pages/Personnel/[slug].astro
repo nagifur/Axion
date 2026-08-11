@@ -60,6 +60,9 @@ const personnelBase = `${base}/Personnel`;
 
 // Look up a gallery image by slug and filename.
 // If the exact filename is not found, fall back to the same basename with any supported extension.
+// Why this exists: sometimes the JSON says "profile.png"
+//  but the actual file on disk is "profile.gif" or "profile.jpg".
+
 const getGalleryImage = (slug: string, filename: string) => {
   const exactKey = `${slug}/${filename}`;
   if (exactKey in galleryImages) {
