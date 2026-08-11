@@ -59,6 +59,10 @@ const galleryImages = Object.fromEntries(
       return [key, value];
     }),
 ) as Record<string, any>;
+const base = (Astro as any).base ?? import.meta.env.BASE_URL ?? '';
+const placeholderImage = `${base}/placeholder.png`;
+const entitiesBase = `${base}/Entities`;
+const personnelBase = `${base}/Personnel`;
 
 // Look up a gallery image by slug and filename.
 // If the exact filename is not found, fall back to the same basename with any supported extension.
@@ -77,12 +81,10 @@ const getGalleryImage = (slug: string, filename: string) => {
 };
 
 // Use the helper to resolve the profile image, including extension fallback.
-const profileImport = getGalleryImage(slug, entity.profileImage);
+const profileImport = getGalleryImage(slug, entity.profileImage) ?? placeholderImage;
 // Detect animated GIFs so we can render them with a native <img> tag and preserve animation.
 const profileIsGif = /\.gif$/i.test(entity.profileImage);
-if (!profileImport) {
-  throw new Error(`Missing profile image for ${slug}: expected key ${slug}/${entity.profileImage}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
-}
+const profileIsPlaceholder = profileImport === placeholderImage;
 
 // Create a safe regex escaper for auto-linking entity/personnel names in bio text.
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
@@ -91,9 +93,9 @@ const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\\]\
 const autoLinkCandidates = [
   ...Object.entries(entities)
     .filter(([otherSlug]) => otherSlug !== slug)
-    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `/Axion/Entities/${otherSlug}` })),
+    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `${entitiesBase}/${otherSlug}` })),
   ...Object.entries(personnel)
-    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `/Axion/Personnel/${otherSlug}` })),
+    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `${personnelBase}/${otherSlug}` })),
 ].sort((a, b) => b.name.length - a.name.length);
 
 // Parse bio paragraphs to preserve HTML links and auto-link known names.
@@ -101,9 +103,9 @@ const parseBioParagraph = (paragraph: string): string => {
   const placeholders: string[] = [];
 
   const paragraphWithExplicitLinks = paragraph.replace(/<link=([^>]+)>(.*?)<\/link>/g, (_match: string, targetSlug: string, linkText: string) => {
-    const entityLink = autoLinkCandidates.find((candidate) => candidate.slug === targetSlug);
-    const baseUrl = entityLink ? entityLink.url : `/Axion/Entities/${targetSlug}`;
-    const html = `<a href="${baseUrl}">${linkText}</a>`;
+  const entityLink = autoLinkCandidates.find((candidate) => candidate.slug === targetSlug);
+  const baseUrl = entityLink ? entityLink.url : `${entitiesBase}/${targetSlug}`;
+  const html = `<a href="${baseUrl}">${linkText}</a>`;
     const placeholder = `__AUTO_LINK_PLACEHOLDER_${placeholders.length}__`;
     placeholders.push(html);
     return placeholder;
@@ -134,7 +136,7 @@ const parseBioParagraph = (paragraph: string): string => {
     <section class="card" role="article">
       <h1>{entity.name} - <div style="font-size: 1.25rem; font-weight: bold;">{entity.nickname}</div> <span class="cursor" aria-hidden="true"></span></h1>
       <div class="profile">
-        {profileIsGif ? (
+        {profileIsGif || profileIsPlaceholder ? (
           <img src={profileImport} class="pixelart-profile" alt={`Profile image of ${entity.name}`} loading="lazy" />
         ) : (
           <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${entity.name}`} />
@@ -199,14 +201,14 @@ const parseBioParagraph = (paragraph: string): string => {
       <h2 id="gallery-title">Gallery</h2>
       <div class="gallery-grid">
         {entity.gallery.map((item) => {
-          const imageSrc = getGalleryImage(slug, item.file);
-          if (!imageSrc) {
-            throw new Error(`Missing gallery image for ${slug}: expected key ${slug}/${item.file}. Available keys: ${Object.keys(galleryImages).join(', ')}`);
-          }
+          const imageSrc = getGalleryImage(slug, item.file) ?? placeholderImage;
           const isGif = /\.gif$/i.test(item.file);
+          const isPlaceholder = imageSrc === placeholderImage;
           return (
             <figure>
               {isGif ? (
+                <img src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
+              ) : isPlaceholder ? (
                 <img src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
               ) : (
                 <Image src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
