@@ -37,6 +37,7 @@
       --neon-pink:#ff4dd2;
       --neon-blue:#4d80ff;
       --neon-red:#ff4d4d;
+      --neon-orange:#ff9d4d;
       --neon-yellow:#ffd24d;
       --muted:#8aa0b0;
       --text:#e6f7ff;
@@ -297,6 +298,13 @@
     /* Database page */
     .db-grid{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); margin-top:14px }
     .card.compact{ padding:14px }
+    .db-legend{ grid-column:1 / -1 }
+    .db-legend-list{ display:flex; flex-wrap:wrap; gap:8px 20px; margin:8px 0 0; padding:0; list-style:none }
+    .db-legend-item{ color:var(--muted) }
+    .db-legend-swatch{ font-weight:700 }
+    .db-legend-cyan{ color:var(--neon-cyan) }
+    .db-legend-red{ color:var(--neon-red) }
+    .db-legend-orange{ color:var(--neon-orange) }
     .db-list{ margin:8px 0 0 18px; padding:0; color:var(--muted) }
     .db-list a{ color:var(--neon-cyan); text-decoration:none }
     .db-list a.active{ color:var(--neon-cyan) }

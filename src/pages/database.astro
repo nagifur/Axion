@@ -29,6 +29,15 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
     <p class="lead">Browse internal docs by category.</p>
 
     <div class="db-grid">
+      <div class="card compact db-legend" aria-labelledby="sec-link-legend">
+        <h2 id="sec-link-legend" class="db-title-cyan">Link Legend</h2>
+        <ul class="db-legend-list">
+          <li class="db-legend-item"><span class="db-legend-swatch db-legend-cyan">Cyan</span> - Canon </li>
+          <li class="db-legend-item"><span class="db-legend-swatch db-legend-red">Red</span> - Canon (unavailable)</li>
+          <li class="db-legend-item"><span class="db-legend-swatch db-legend-orange">Orange</span> - Patreon submission</li>
+        </ul>
+      </div>
+
       <div class="card compact" aria-labelledby="sec-personnel">
         <h2 id="sec-personnel" class="db-title-yellow">Personnel</h2>
 
