@@ -323,16 +323,15 @@
         "slug": "reef",
         "name": "Reef",
         "position": "Head of Security",
-        "species": "Bee",
-        "gender": "Intersex",
-        "height": "20'1''",
-        "age": 42,
-        "birthplace": "████",
+        "species": "Shark",
+        "gender": "Male",
+        "height": "10'1\"",
+        "age": 27,
+        "birthplace": "Azuron",
         "bio": [
-            "Reef is the head of the Biocare department at Axion, she is responsible for the production of the best healing and medical tools available. She produces healing honey from her breasts and stomach which is used to heal any injuries or even regrow lost limbs.",
-            "Found on planet ████, Reef was found weak, in an destroyed Hive, unable to survive on her own without the help of her hive. She was taken in by Axion, and has been working with them ever since. Axion provided Reef a section of the facility on level 4 that was converted into a hive.",
-            "Reef needs her workers to feed her, she has her own hive of workers that are responsible for feeding her and taking care of her needs. Reef can be a very seductive and hard to resist, as her pheromones cause mind control."
-            
+            "Former hero of the ocean on planet Azuron, Reef was recruited by Axion after he was found <b>mutated</b> by a core artifact called the \"Fang of the Abyss\" He was uncontrollable and was causing havoc on his home planet, so he was taken in by Axion to be studied and to help him control his powers.",
+            "Axion managed to partially revert the transformation, thanks to ███████ █████, after which Reef was able to control himself again, and use the power of the artifact to his advangtage. Reef is now the head of security at the facility, and is responsible for keeping the facility safe from any threats and intruders.",
+            "He always wears the artifact around his neck, and gets withdrawals if hes seperated from it for too long. The artifact seems to influence his mind, and he needs to eat for two, to keep the artifact fed too, as it appears its some kind of living entity in itself."
         ],
         "positiveTraits": [
             "Healing Abilities",
@@ -348,22 +347,26 @@
         "gallery": [
             {
                 "file": "1.png",
-                "caption": "Reference"
+                "caption": "Fighting Pose"
             },
             {
                 "file": "2.png",
-                "caption": "Playing with a converted staff member"
+                "caption": "Waking up"
             },
             {
                 "file": "3.png",
-                "caption": "Halloween Outfit"
+                "caption": "Past"
             },
             {
                 "file": "4.png",
-                "caption": "Meeting with Nagi"
+                "caption": "Digesting an intruder"
+            },
+            {
+                "file": "5.png",
+                "caption": "Transformation"
             }
         ],
         "profileImage": "profile.png",
-        "galleryAlt": "Mellisa drawing"
+        "galleryAlt": "Reef drawing"
     }
 }
