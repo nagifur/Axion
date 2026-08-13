@@ -22,6 +22,7 @@ type CharacterData = {
   gender: string;
   height: string;
   age: number;
+  accessLevel: number;
   birthplace: string;
   profileImage: string;
   bio: string[];
@@ -136,6 +137,11 @@ const parseBioParagraph = (paragraph: string): string => {
 
         <dl class="info-dl">
           <div>
+            <dt>Access Level</dt>
+            <dd>{character.accessLevel}</dd>
+          </div>
+          
+          <div>
             <dt>Facility Position</dt>
             <dd>{character.position}</dd>
           </div>
@@ -155,6 +161,7 @@ const parseBioParagraph = (paragraph: string): string => {
             <dt>Age</dt>
             <dd>{character.age}</dd>
           </div>
+          
           <div>
             <dt>Birthplace</dt>
             <dd>{character.birthplace}</dd>
