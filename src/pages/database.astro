@@ -1,19 +1,26 @@
- ---
- import Header from  '../components/header.astro';
- import Footer from '../components/footer.astro';
- import personnelData from '../data/personnel.json';
- import entityData from '../data/entities.json';
+---
+import Header from  '../components/header.astro';
+import Footer from '../components/footer.astro';
+import personnelData from '../data/personnel.json';
+import entityData from '../data/entities.json';
 
- // Build all personnel page URLs from the JSON data.
- const activePersonnelUrls = Object.keys(personnelData).map((slug: string) => `/Axion/Personnel/${slug}`);
- // Build all entity page URLs from the JSON data.
- const activeEntityUrls = Object.keys(entityData).map((slug: string) => `/Axion/Entities/${slug}`);
+// Build all personnel page URLs from the JSON data.
+const activePersonnelUrls = Object.keys(personnelData).map((slug: string) => `/Axion/Personnel/${slug}`);
+// Build all entity page URLs from the JSON data.
+const activeEntityUrls = Object.keys(entityData).map((slug: string) => `/Axion/Entities/${slug}`);
+
+const personnelByAccessLevel = [1, 2, 3, 4, 5].map((level) => ({
+  level,
+  members: Object.values(personnelData)
+    .filter((person: any) => Number(person.accessLevel ?? 1) === level)
+    .sort((a: any, b: any) => a.name.localeCompare(b.name)),
+}));
 
 // Keep a lookup set for active link styling.
 const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls]);
 // Determine whether a given link target is currently active.
 const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
- ---
+---
 <Header></Header>
 
 <main>
@@ -24,38 +31,22 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
     <div class="db-grid">
       <div class="card compact" aria-labelledby="sec-personnel">
         <h2 id="sec-personnel" class="db-title-yellow">Personnel</h2>
-        
+
         <ul class="db-list">
-          <li>Level 1:
-            <ul class="db-list">
-            </ul>
-          </li>
-          <li>Level 2:
-            <ul class="db-list">
-              <li><a href="/Axion/Personnel/webber" class={linkState('/Axion/Personnel/webber')}>Webber</a></li>
-            </ul>
-          </li>
-          <li>Level 3:
-            <ul class="db-list">
-              <li><a href="/Axion/Personnel/nagi" class={linkState('/Axion/Personnel/nagi')}>Nagi</a></li>
-              <li><a href="/Axion/Personnel/somni" class={linkState('/Axion/Personnel/somni')}>Somni</a></li>
-            </ul>
-          </li>
-          <li>Level 4:
-            <ul class="db-list">
-              <li><a href="/Axion/Personnel/skye" class={linkState('/Axion/Personnel/skye')}>Skye</a></li>
-              
-            </ul>
-          </li>
-          <li>Level 5:
-            <ul class="db-list">
-              <li><a href="/Axion/Personnel/a1" class={linkState('/Axion/Personnel/a1')}>A1</a></li>
-              <li><a href="/Axion/Personnel/mellisa" class={linkState('/Axion/Personnel/mellisa')}>Mellisa</a></li>
-              <li><a href="/Axion/Personnel/reef" class={linkState('/Axion/Personnel/reef')}>Reef</a></li>
-              <li><a href="/Axion/Personnel/wisp" class={linkState('/Axion/Personnel/wisp')}>Wisp</a></li>
-              <li><a href="/Axion/Personnel/dr.mages" class={linkState('/Axion/Personnel/dr.mages')}>Dr. Mages</a></li>
-            </ul>
-          </li>
+          {personnelByAccessLevel.map(({ level, members }) => (
+            <li>
+              Level {level}:
+              <ul class="db-list">
+                {members.map((person: any) => (
+                  <li>
+                    <a href={`/Axion/Personnel/${person.slug}`} class={linkState(`/Axion/Personnel/${person.slug}`)}>
+                      {person.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
         </ul>
       </div>
 
