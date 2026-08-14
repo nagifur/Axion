@@ -31,6 +31,8 @@
 
 /* Axion/style.css */
     :root{
+      --theme-fade-duration:.55s;
+      --theme-fade-easing:ease;
       --bg:#070c10;
       --bg-deep:#020506;
       --panel:#0a1319;
@@ -89,9 +91,29 @@
 
     *{box-sizing:border-box}
     html { scroll-behavior:smooth }
+    html.theme-switching::before,
+    body.theme-switching,
+    body.theme-switching::before,
+    body.theme-switching::after,
+    body.theme-switching *,
+    body.theme-switching *::before,
+    body.theme-switching *::after{
+      transition:
+        color var(--theme-fade-duration) var(--theme-fade-easing),
+        background-color var(--theme-fade-duration) var(--theme-fade-easing),
+        background-image var(--theme-fade-duration) var(--theme-fade-easing),
+        border-color var(--theme-fade-duration) var(--theme-fade-easing),
+        box-shadow var(--theme-fade-duration) var(--theme-fade-easing),
+        text-shadow var(--theme-fade-duration) var(--theme-fade-easing),
+        opacity var(--theme-fade-duration) var(--theme-fade-easing),
+        filter var(--theme-fade-duration) var(--theme-fade-easing),
+        fill var(--theme-fade-duration) var(--theme-fade-easing),
+        stroke var(--theme-fade-duration) var(--theme-fade-easing) !important;
+    }
     body{
       margin:0;
       min-height:100vh;
+      background-color:var(--bg-deep);
       background:
         radial-gradient(circle at 20% 0%, rgba(120, 223, 255, 0.07), transparent 26%),
         radial-gradient(circle at 80% 10%, rgba(122, 169, 255, 0.06), transparent 34%),
@@ -109,14 +131,7 @@
       letter-spacing:0.02em;
     }
 
-    body.light{
-      background:
-        radial-gradient(circle at 15% 0%, rgba(110, 176, 255, 0.22), transparent 28%),
-        radial-gradient(circle at 85% 12%, rgba(15, 93, 122, 0.08), transparent 30%),
-        linear-gradient(180deg, rgba(234,243,249,0.98) 0%, rgba(209,222,232,0.99) 100%);
-    }
-
-    body::before{
+    html::before{
       content:"";
       position:fixed; inset:0; pointer-events:none; z-index:0;
       background:
@@ -125,8 +140,21 @@
       opacity:0.9;
       mix-blend-mode:screen;
     }
-    body.light::before{
+    html[data-theme="light"]::before{
       opacity:0.22;
+    }
+
+    body::before{
+      content:"";
+      position:fixed; inset:0; pointer-events:none; z-index:0;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(110, 176, 255, 0.22), transparent 28%),
+        radial-gradient(circle at 85% 12%, rgba(15, 93, 122, 0.08), transparent 30%),
+        linear-gradient(180deg, rgba(234,243,249,0.98) 0%, rgba(209,222,232,0.99) 100%);
+      opacity:0;
+    }
+    html[data-theme="light"] body::before{
+      opacity:1;
     }
 
     /* HUD scanline sweep - a slow light band drifting down the page, CRT-style */
@@ -138,8 +166,8 @@
       mix-blend-mode:screen;
       animation: scan-sweep 9s linear infinite;
     }
-    body.light::after{ opacity:0.4 }
-    body.light::after{
+    html[data-theme="light"] body::after{ opacity:0.4 }
+    html[data-theme="light"] body::after{
       background:linear-gradient(180deg, transparent 0%, rgba(15,93,122,0.035) 45%, rgba(15,93,122,0.06) 50%, rgba(15,93,122,0.035) 55%, transparent 100%);
     }
 
@@ -198,10 +226,12 @@
       letter-spacing:1px;
       width:86px; height:58px; padding:6px;
     }
-    .logo img{ width:100%; height:100%; object-fit:contain }
-    .logo-light{ display:none }
-    body.light .logo-dark{ display:none }
-    body.light .logo-light{ display:block }
+    .logo img{ width:100%; height:100%; object-fit:contain; grid-area:1 / 1 }
+    .logo-dark,
+    .logo-light{ grid-area:1 / 1 }
+    .logo-light{ opacity:0 }
+    body.light .logo-dark{ opacity:0 }
+    body.light .logo-light{ opacity:1 }
     .brand-copy{ display:flex; flex-direction:column; gap:2px }
     .brand-title{
       font-family: Ethnocentric, "Arial Black", sans-serif;
@@ -571,6 +601,13 @@
 
     /* Reduce motion when requested */
     @media (prefers-reduced-motion: reduce){
+      html.theme-switching::before,
+      body.theme-switching,
+      body.theme-switching::before,
+      body.theme-switching::after,
+      body.theme-switching *,
+      body.theme-switching *::before,
+      body.theme-switching *::after{ transition:none !important }
       body::after{ animation: none }
       h1{ animation: none; opacity:1 }
       .cursor{ animation: none }
@@ -579,7 +616,8 @@
     /* Firefox-specific performance tweaks */
     @supports (-moz-appearance: none){
       body { background-attachment: scroll; }
-      body::before { position:absolute; mix-blend-mode: normal; opacity:0.25; }
+      html::before { position:absolute; mix-blend-mode: normal; opacity:0.25; }
+      body::before { position:absolute; }
       body::after  { position:absolute; animation:none; }
       .card{ backdrop-filter: none }
     }

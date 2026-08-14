@@ -48,6 +48,24 @@
 
   // Theme toggle: apply and persist light/dark mode
   (function(){
+    var themeSwitchTimer = null;
+
+    function beginThemeTransition(){
+      if (!document.body) return;
+      if (themeSwitchTimer) {
+        clearTimeout(themeSwitchTimer);
+      }
+
+      document.documentElement.classList.add('theme-switching');
+      document.body.classList.add('theme-switching');
+
+      themeSwitchTimer = window.setTimeout(function(){
+        document.documentElement.classList.remove('theme-switching');
+        document.body.classList.remove('theme-switching');
+        themeSwitchTimer = null;
+      }, 600);
+    }
+
     function applyTheme(theme){
       if (!document.body) return;
       document.body.classList.toggle('light', theme === 'light');
@@ -76,6 +94,7 @@
       toggle.addEventListener('click', function(){
         var currentIsLight = document.body.classList.contains('light');
         var next = currentIsLight ? 'dark' : 'light';
+        beginThemeTransition();
         applyTheme(next);
         updateToggle(next);
         try { localStorage.setItem('theme', next); } catch (_) {}

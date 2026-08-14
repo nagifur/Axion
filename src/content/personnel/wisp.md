@@ -8,7 +8,7 @@ age: 27
 accessLevel: 5
 birthplace: Ventria
 profileImage: profile.png
-galleryAlt: Reef drawing
+galleryAlt: Wisp drawing
 positiveTraits: [Immortal, Flight, Can phase through objects]
 negativeTraits: [Insane, Cruel, Unpredictable]
 gallery:
