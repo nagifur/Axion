@@ -109,7 +109,7 @@
 
     /* HUD scanline sweep - a slow light band drifting down the page, CRT-style */
     body::after{
-      content:"";
+      
       position:fixed; inset:0; pointer-events:none; z-index:1;
       background:linear-gradient(180deg, transparent 0%, rgba(126,245,255,0.05) 45%, rgba(126,245,255,0.09) 50%, rgba(126,245,255,0.05) 55%, transparent 100%);
       background-size:100% 220px;
