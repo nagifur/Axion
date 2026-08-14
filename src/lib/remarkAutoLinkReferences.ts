@@ -1,5 +1,4 @@
-import entities from '../data/entities.json';
-import personnel from '../data/personnel.json';
+import { entityReferences, personnelReferences } from './profileReferences';
 
 type Reference = {
   name: string;
@@ -17,31 +16,50 @@ type PluginOptions = {
   base: string;
 };
 
+type MarkdownFile = {
+  path?: string;
+};
+
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const normalizeBase = (base: string): string => base.replace(/\/$/, '');
 const protectedNodeTypes = new Set(['code', 'html', 'inlineCode', 'link', 'linkReference']);
 
+const getCurrentProfileUrl = (file: MarkdownFile, base: string): string | undefined => {
+  const filePath = file.path?.replaceAll('\\', '/');
+  const match = filePath?.match(/\/content\/(personnel|entities)\/([^/]+)\.md$/);
+
+  if (!match) {
+    return undefined;
+  }
+
+  const [, collection, slug] = match;
+  const route = collection === 'personnel' ? 'Personnel' : 'Entities';
+  return `${base}/${route}/${slug}`;
+};
+
 export default function remarkAutoLinkReferences({ base }: PluginOptions) {
   const normalizedBase = normalizeBase(base);
-  const references: Reference[] = [
-    ...Object.entries(personnel).map(([slug, person]) => ({
-      name: person.name,
+  const allReferences: Reference[] = [
+    ...personnelReferences.map(({ name, slug }) => ({
+      name,
       url: `${normalizedBase}/Personnel/${slug}`,
     })),
-    ...Object.entries(entities).map(([slug, entity]) => ({
-      name: entity.name,
+    ...entityReferences.map(({ name, slug }) => ({
+      name,
       url: `${normalizedBase}/Entities/${slug}`,
     })),
   ].sort((first, second) => second.name.length - first.name.length);
 
-  const referenceByName = new Map(references.map((reference) => [reference.name, reference]));
-  const referencePattern = new RegExp(
-    `\\b(${references.map((reference) => escapeRegExp(reference.name)).join('|')})\\b`,
-    'g',
-  );
+  return (tree: MarkdownNode, file: MarkdownFile) => {
+    const currentProfileUrl = getCurrentProfileUrl(file, normalizedBase);
+    const references = allReferences.filter((reference) => reference.url !== currentProfileUrl);
+    const referenceByName = new Map(references.map((reference) => [reference.name, reference]));
+    const referencePattern = new RegExp(
+      `\\b(${references.map((reference) => escapeRegExp(reference.name)).join('|')})\\b`,
+      'g',
+    );
 
-  return (tree: MarkdownNode) => {
     const transformChildren = (node: MarkdownNode) => {
       if (protectedNodeTypes.has(node.type) || !node.children) {
         return;

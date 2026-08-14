@@ -2,51 +2,24 @@
 import Header from '../../components/header.astro';
 import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
-import entityData from '../../data/entities.json';
-import personnelData from '../../data/personnel.json';
+import { getCollection, render } from 'astro:content';
 
-// Build static paths for each entity page from the entities JSON file.
 export async function getStaticPaths() {
-  return Object.keys(entityData).map((slug) => ({ params: { slug } }));
+  const entries = await getCollection('entities', ({ data }) => !data.draft);
+
+  return entries.map((entry) => {
+    const slug = entry.id.replace(/\.md$/, '');
+
+    return {
+      params: { slug },
+      props: { entry, slug },
+    };
+  });
 }
 
-type GalleryItem = {
-  file: string;
-  caption: string;
-};
-
-type EntityData = {
-  name: string;
-  nickname: string;
-  containmentClass: string;
-  species: string;
-  gender: string;
-  age: string | number;
-  foundOn: string;
-  type: string;
-  profileImage: string;
-  bio: string[];
-  usefulAbilities: string[];
-  noteableEvents: string[];
-  gallery: GalleryItem[];
-  galleryAlt: string;
-};
-
-type EntityRecord = Record<string, EntityData>;
-
-type PersonnelData = Record<string, {
-  name: string;
-}>;
-
-const entities = entityData as EntityRecord;
-const personnel = personnelData as PersonnelData;
-
-const { slug } = Astro.params;
-const entity = entities[slug];
-
-if (!entity) {
-  throw new Error(`Entity not found: ${slug}`);
-}
+const { entry, slug } = Astro.props;
+const { Content } = await render(entry);
+const { data: entity } = entry;
 
 // Load every image asset from the assets/images folder and index them by "slug/filename".
 const galleryImages = Object.fromEntries(
@@ -85,48 +58,6 @@ const profileImport = getGalleryImage(slug, entity.profileImage) ?? placeholderI
 // Detect animated GIFs so we can render them with a native <img> tag and preserve animation.
 const profileIsGif = /\.gif$/i.test(entity.profileImage);
 const profileIsPlaceholder = profileImport === placeholderImage;
-
-// Create a safe regex escaper for auto-linking entity/personnel names in bio text.
-const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-
-// Build auto-link candidates from all other entities and personnel pages.
-const autoLinkCandidates = [
-  ...Object.entries(entities)
-    .filter(([otherSlug]) => otherSlug !== slug)
-    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `${entitiesBase}/${otherSlug}` })),
-  ...Object.entries(personnel)
-    .map(([otherSlug, data]) => ({ slug: otherSlug, name: data.name, url: `${personnelBase}/${otherSlug}` })),
-].sort((a, b) => b.name.length - a.name.length);
-
-// Parse bio paragraphs to preserve HTML links and auto-link known names.
-const parseBioParagraph = (paragraph: string): string => {
-  const placeholders: string[] = [];
-
-  const paragraphWithExplicitLinks = paragraph.replace(/<link=([^>]+)>(.*?)<\/link>/g, (_match: string, targetSlug: string, linkText: string) => {
-  const entityLink = autoLinkCandidates.find((candidate) => candidate.slug === targetSlug);
-  const baseUrl = entityLink ? entityLink.url : `${entitiesBase}/${targetSlug}`;
-  const html = `<a href="${baseUrl}">${linkText}</a>`;
-    const placeholder = `__AUTO_LINK_PLACEHOLDER_${placeholders.length}__`;
-    placeholders.push(html);
-    return placeholder;
-  });
-
-  const segments = paragraphWithExplicitLinks.split(/(<[^>]+?>)/g);
-  const linked = segments.map((segment: string) => {
-    if (segment.startsWith('<')) {
-      return segment;
-    }
-
-    let text = segment;
-    for (const { name, url } of autoLinkCandidates) {
-      const nameRegex = new RegExp(`\\b${escapeRegExp(name)}\\b`, 'g');
-      text = text.replace(nameRegex, `<a href="${url}">${name}</a>`);
-    }
-    return text;
-  }).join('');
-
-  return linked.replace(/__AUTO_LINK_PLACEHOLDER_(\d+)__/g, (_match: string, index: string) => placeholders[Number(index)] || '');
-};
 ---
 
 <Header />
@@ -134,12 +65,12 @@ const parseBioParagraph = (paragraph: string): string => {
 <main>
   <div class="page-stack">
     <section class="card" role="article">
-      <h1>{entity.name} - <div style="font-size: 1.25rem; font-weight: bold;">{entity.nickname}</div> <span class="cursor" aria-hidden="true"></span></h1>
+      <h1>{entity.title} - <div style="font-size: 1.25rem; font-weight: bold;">{entity.nickname}</div> <span class="cursor" aria-hidden="true"></span></h1>
       <div class="profile">
         {profileIsGif || profileIsPlaceholder ? (
-          <img src={profileImport} class="pixelart-profile" alt={`Profile image of ${entity.name}`} loading="lazy" />
+          <img src={profileImport} class="pixelart-profile" alt={`Profile image of ${entity.title}`} loading="lazy" />
         ) : (
-          <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${entity.name}`} />
+          <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${entity.title}`} />
         )}
 
         <dl class="info-dl">
@@ -173,9 +104,9 @@ const parseBioParagraph = (paragraph: string): string => {
 
     <section class="card" role="region" aria-labelledby="bio-title">
       <h2 id="bio-title" class="db-title-cyan">Bio</h2>
-      {entity.bio.map((paragraph) => (
-        <p set:html={parseBioParagraph(paragraph)}></p>
-      ))}
+      <div class="article-body">
+        <Content />
+      </div>
     </section>
 
     <section class="traits-grid" aria-label="Traits">

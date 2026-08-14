@@ -1,14 +1,13 @@
 ---
 import Header from  '../components/header.astro';
 import Footer from '../components/footer.astro';
-import personnelData from '../data/personnel.json';
-import entityData from '../data/entities.json';
 import { getCollection } from 'astro:content';
 
-// Build all personnel page URLs from the JSON data.
-const activePersonnelUrls = Object.keys(personnelData).map((slug: string) => `/Axion/Personnel/${slug}`);
-// Build all entity page URLs from the JSON data.
-const activeEntityUrls = Object.keys(entityData).map((slug: string) => `/Axion/Entities/${slug}`);
+const personnel = await getCollection('personnel', ({ data }) => !data.draft);
+const entities = await getCollection('entities', ({ data }) => !data.draft);
+const contentSlug = (id: string) => id.replace(/\.md$/, '');
+const activePersonnelUrls = personnel.map((entry) => `/Axion/Personnel/${contentSlug(entry.id)}`);
+const activeEntityUrls = entities.map((entry) => `/Axion/Entities/${contentSlug(entry.id)}`);
 const publishedArticles = await getCollection('articles', ({ data }) => !data.draft);
 const activeArticleUrls = [
   '/Axion/Articles/',
@@ -17,9 +16,9 @@ const activeArticleUrls = [
 
 const personnelByAccessLevel = [1, 2, 3, 4, 5].map((level) => ({
   level,
-  members: Object.values(personnelData)
-    .filter((person: any) => Number(person.accessLevel ?? 1) === level)
-    .sort((a: any, b: any) => a.name.localeCompare(b.name)),
+  members: personnel
+    .filter((entry) => Number(entry.data.accessLevel ?? 1) === level)
+    .sort((first, second) => first.data.title.localeCompare(second.data.title)),
 }));
 
 // Keep a lookup set for active link styling.
@@ -52,10 +51,10 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
             <li>
               Level {level}:
               <ul class="db-list">
-                {members.map((person: any) => (
+                {members.map((person) => (
                   <li>
-                    <a href={`/Axion/Personnel/${person.slug}`} class={linkState(`/Axion/Personnel/${person.slug}`)}>
-                      {person.name}
+                    <a href={`/Axion/Personnel/${contentSlug(person.id)}`} class={linkState(`/Axion/Personnel/${contentSlug(person.id)}`)}>
+                      {person.data.title}
                     </a>
                   </li>
                 ))}
