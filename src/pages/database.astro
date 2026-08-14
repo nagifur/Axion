@@ -3,11 +3,17 @@ import Header from  '../components/header.astro';
 import Footer from '../components/footer.astro';
 import personnelData from '../data/personnel.json';
 import entityData from '../data/entities.json';
+import { getCollection } from 'astro:content';
 
 // Build all personnel page URLs from the JSON data.
 const activePersonnelUrls = Object.keys(personnelData).map((slug: string) => `/Axion/Personnel/${slug}`);
 // Build all entity page URLs from the JSON data.
 const activeEntityUrls = Object.keys(entityData).map((slug: string) => `/Axion/Entities/${slug}`);
+const publishedArticles = await getCollection('articles', ({ data }) => !data.draft);
+const activeArticleUrls = [
+  '/Axion/Articles/',
+  ...publishedArticles.map((article) => `/Axion/Articles/${article.slug}`),
+];
 
 const personnelByAccessLevel = [1, 2, 3, 4, 5].map((level) => ({
   level,
@@ -17,7 +23,7 @@ const personnelByAccessLevel = [1, 2, 3, 4, 5].map((level) => ({
 }));
 
 // Keep a lookup set for active link styling.
-const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls]);
+const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls, ...activeArticleUrls]);
 // Determine whether a given link target is currently active.
 const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
 ---
@@ -147,6 +153,26 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
           <li><a href="#" class={linkState('#')}>C - Containment </a></li>
           <li><a href="#" class={linkState('#')}>M - Maximum Containment </a></li>
           
+        </ul>
+      </div>
+
+      <div class="card compact" aria-labelledby="sec-articles">
+        <h2 id="sec-articles" class="db-title-blue">Articles</h2>
+        <ul class="db-list">
+          <li>
+            <a href="/Axion/Articles/" class={linkState('/Axion/Articles/')}>Browse Archive</a>
+            {publishedArticles.length > 0 && (
+              <ul class="db-list">
+                {publishedArticles.map((article) => (
+                  <li>
+                    <a href={`/Axion/Articles/${article.slug}`} class={linkState(`/Axion/Articles/${article.slug}`)}>
+                      {article.data.title}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
         </ul>
       </div>
 
