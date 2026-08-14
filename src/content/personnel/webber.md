@@ -28,4 +28,5 @@ Dropping out of university, Webber decided to join Axion after seeing an ad for 
 
 They seem to know the caretaker Nagi, apparently they used to be roomates during studying, and have been friends ever since..
 
-It is to be known Webber is a content creator and has a live stream, <b>need to make sure they do not leak any sensitive information about the facility.</b>
+It is to be known Webber is a content creator and has a live stream, where he seems to play various games.
+>Need to make sure they do not leak any sensitive information about the facility.
