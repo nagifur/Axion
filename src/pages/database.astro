@@ -69,7 +69,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                   Sypher
                 </a>
               </li>
-          
+            </ul>
           </li>
         </ul>
       </div>
@@ -133,14 +133,14 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                
               </ul>
           </li>
-          <hr>
+          <li class="db-divider" aria-hidden="true"><hr></li>
           <li> UNASSIGNED
-           
-              <ul class="db-list">
-                X-001.....X-401
-                <li><a href="/Axion/Entities/x-402" class={linkState('/Axion/Entities/x-402')}>X-402</a></li>
-                <li><a href="/Axion/Entities/x-403" class={linkState('/Axion/Entities/x-403')}>X-403</a></li>
-                
+            <ul class="db-list">
+              <li class="db-legend-item">X-001&nbsp;&hellip;&nbsp;X-401</li>
+              <li><a href="/Axion/Entities/x-402" class={linkState('/Axion/Entities/x-402')}>X-402</a></li>
+              <li><a href="/Axion/Entities/x-403" class={linkState('/Axion/Entities/x-403')}>X-403</a></li>
+            </ul>
+          </li>
         </ul>
       </div>
 
