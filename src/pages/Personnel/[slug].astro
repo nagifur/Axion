@@ -4,9 +4,13 @@ import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
 
+// getStaticPaths tells Astro which pages to build. For a dynamic route for [slug].astro
 export async function getStaticPaths() {
+  // getCollection reads every Markdown file in the "personnel" content
   const entries = await getCollection('personnel', ({ data }) => !data.draft);
 
+  // Turn each entry into a route. entry.id is the filename (e.g. "skye.md"),
+  // Strip the extension to get a clean URL slug ("skye").
   return entries.map((entry) => {
     const slug = entry.id.replace(/\.md$/, '');
 
@@ -18,7 +22,11 @@ export async function getStaticPaths() {
 }
 
 const { entry, slug } = Astro.props;
+// Markdown -> HTML step. It compiles the Markdown
+// BODY of this entry (the free-text bio content below the frontmatter
+// fence) into a renderable <Content /> component
 const { Content } = await render(entry);
+// structured data, like accessLevel, position, species, etc. is in entry.data
 const { data: character } = entry;
 
 // Load all image assets and index them by folder and filename for the current character.
