@@ -36,6 +36,13 @@
       --panel:#0a1319;
       --panel-alt:#0d1a22;
       --panel-head:#12202a;
+      --surface-top:rgba(14, 20, 25, 0.95);
+      --surface-bottom:rgba(4, 7, 9, 0.98);
+      --card-top:rgba(12,19,24,0.97);
+      --card-bottom:rgba(5,9,11,0.96);
+      --control-top:rgba(255,255,255,0.05);
+      --control-bottom:rgba(9,16,21,0.9);
+      --control-border:rgba(157, 207, 255, 0.18);
       --line:#78dfff;
       --line-soft:rgba(120, 223, 255, 0.28);
       --neon-cyan:#7ef5ff;
@@ -60,8 +67,22 @@
       --panel:#ffffff;
       --panel-alt:#f3f8fb;
       --panel-head:#e8f2f8;
+      --surface-top:rgba(251,254,255,0.98);
+      --surface-bottom:rgba(226,237,244,0.99);
+      --card-top:rgba(247,252,255,0.98);
+      --card-bottom:rgba(226,238,246,0.96);
+      --control-top:rgba(255,255,255,0.95);
+      --control-bottom:rgba(231,240,246,0.95);
+      --control-border:rgba(13, 61, 86, 0.24);
       --line:#0d3d56;
-      --line-soft:rgba(13, 61, 86, 0.18);
+      --line-soft:rgba(13, 61, 86, 0.24);
+      --corner:rgba(15, 93, 122, 0.36);
+      --neon-cyan:#0f5d7a;
+      --neon-pink:#8e2e6a;
+      --neon-blue:#29589e;
+      --neon-red:#a33636;
+      --neon-orange:#9b5a16;
+      --neon-yellow:#7f5c00;
       --text:#10222a;
       --muted:#455e6d;
     }
@@ -90,8 +111,9 @@
 
     body.light{
       background:
-        radial-gradient(circle at top, rgba(110, 176, 255, 0.18), transparent 32%),
-        linear-gradient(180deg, rgba(239,246,252,0.95) 0%, rgba(216,228,237,0.96) 100%);
+        radial-gradient(circle at 15% 0%, rgba(110, 176, 255, 0.22), transparent 28%),
+        radial-gradient(circle at 85% 12%, rgba(15, 93, 122, 0.08), transparent 30%),
+        linear-gradient(180deg, rgba(234,243,249,0.98) 0%, rgba(209,222,232,0.99) 100%);
     }
 
     body::before{
@@ -104,7 +126,7 @@
       mix-blend-mode:screen;
     }
     body.light::before{
-      opacity:0.35;
+      opacity:0.22;
     }
 
     /* HUD scanline sweep - a slow light band drifting down the page, CRT-style */
@@ -117,6 +139,9 @@
       animation: scan-sweep 9s linear infinite;
     }
     body.light::after{ opacity:0.4 }
+    body.light::after{
+      background:linear-gradient(180deg, transparent 0%, rgba(15,93,122,0.035) 45%, rgba(15,93,122,0.06) 50%, rgba(15,93,122,0.035) 55%, transparent 100%);
+    }
 
     @keyframes scan-sweep{
       0%{ background-position:0 -220px; }
@@ -127,7 +152,7 @@
       display:flex; align-items:center; justify-content:space-between; gap:18px;
       max-width:1200px; width:100%; margin:0 auto;
       padding:22px 18px 14px;
-      background:linear-gradient(180deg, rgba(14, 20, 25, 0.95), rgba(4, 7, 9, 0.98));
+      background:linear-gradient(180deg, var(--surface-top), var(--surface-bottom));
       border:1px solid rgba(137, 189, 255, 0.22);
       clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%);
       box-shadow:
@@ -137,6 +162,13 @@
       position:relative;
       backdrop-filter: blur(10px);
     }
+    body.light .site-header{
+      border-color:rgba(13, 61, 86, 0.24);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.75),
+        0 14px 32px rgba(58, 88, 111, 0.14),
+        0 0 0 1px rgba(255,255,255,0.45);
+    }
     .site-header::after{
       content:"SECURE CHANNEL // AXION LABS";
       position:absolute; right:18px; top:10px;
@@ -145,6 +177,9 @@
       color:rgba(126, 245, 255, 0.8);
       text-transform:uppercase;
       opacity:0.9;
+    }
+    body.light .site-header::after{
+      color:rgba(15, 93, 122, 0.78);
     }
     .brand{
       display:flex; align-items:center; gap:14px; text-decoration:none; color:var(--text);
@@ -164,6 +199,9 @@
       width:86px; height:58px; padding:6px;
     }
     .logo img{ width:100%; height:100%; object-fit:contain }
+    .logo-light{ display:none }
+    body.light .logo-dark{ display:none }
+    body.light .logo-light{ display:block }
     .brand-copy{ display:flex; flex-direction:column; gap:2px }
     .brand-title{
       font-family: Ethnocentric, "Arial Black", sans-serif;
@@ -192,8 +230,8 @@
       gap:5px;
       width:38px; height:34px;
       padding:0;
-      border:1px solid rgba(157, 207, 255, 0.18);
-      background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(9,16,21,0.9));
+      border:1px solid var(--control-border);
+      background:linear-gradient(180deg, var(--control-top), var(--control-bottom));
       cursor:pointer;
     }
     .nav-toggle span{
@@ -208,8 +246,8 @@
       color:var(--text);
       text-decoration:none;
       padding:7px 10px 6px;
-      border:1px solid rgba(157, 207, 255, 0.18);
-      background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(10,18,22,0.9));
+      border:1px solid var(--control-border);
+      background:linear-gradient(180deg, var(--control-top), var(--control-bottom));
       clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
       font-weight:700;
       letter-spacing:0.12em;
@@ -227,9 +265,9 @@
 
     .theme-toggle{
       padding:8px 12px;
-      border:1px solid rgba(157, 207, 255, 0.18);
+      border:1px solid var(--control-border);
       color:var(--text);
-      background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(9,16,21,0.9));
+      background:linear-gradient(180deg, var(--control-top), var(--control-bottom));
       font-weight:700;
       letter-spacing:0.12em;
       text-transform:uppercase;
@@ -238,7 +276,6 @@
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
     }
     .theme-toggle:hover{ color:var(--neon-cyan); transform:translateY(-1px) }
-    body.light .theme-toggle{ border-color: rgba(0,0,0,0.12); background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(239,246,251,0.76)) }
 
     main{flex:1; display:flex; align-items:flex-start; justify-content:center; padding:12px; max-width:1200px; margin:0 auto; width:100%}
 
@@ -261,7 +298,7 @@
         linear-gradient(var(--corner), var(--corner)) bottom left / 2px 18px no-repeat,
         linear-gradient(var(--corner), var(--corner)) bottom right / 18px 2px no-repeat,
         linear-gradient(var(--corner), var(--corner)) bottom right / 2px 18px no-repeat,
-        linear-gradient(180deg, rgba(12,19,24,0.97), rgba(5,9,11,0.96));
+        linear-gradient(180deg, var(--card-top), var(--card-bottom));
       border:1px solid rgba(137, 189, 255, 0.18);
       clip-path: polygon(0 14px, 14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%);
       padding:18px 20px 16px;
@@ -274,6 +311,13 @@
       overflow:hidden;
       backdrop-filter: blur(8px);
     }
+    body.light .card{
+      border-color:rgba(13, 61, 86, 0.2);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.72),
+        0 16px 36px rgba(69, 94, 109, 0.14),
+        0 0 0 1px rgba(255,255,255,0.48);
+    }
     .card::before{
       content:"";
       position:absolute; inset:0 auto auto 0; height:100%; width:4px; background:linear-gradient(180deg, var(--neon-cyan), var(--neon-blue));
@@ -284,6 +328,9 @@
       position:absolute; inset:0 0 auto auto; width:38%; height:100%;
       background:linear-gradient(90deg, rgba(122,169,255,0), rgba(122,169,255,0.04));
       pointer-events:none;
+    }
+    body.light .card::after{
+      background:linear-gradient(90deg, rgba(41,88,158,0), rgba(41,88,158,0.05));
     }
 
     h1{
@@ -362,7 +409,7 @@
     .btn:active{ transform:translateY(1px); box-shadow:0 5px 12px rgba(96,165,255,0.16) }
     .btn.secondary{
       color:var(--neon-cyan);
-      background:rgba(15,19,24,0.6);
+      background:color-mix(in srgb, var(--panel-alt) 84%, transparent);
       border:1px solid rgba(126,245,255,0.26);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
     }

@@ -9,6 +9,7 @@ const base = import.meta.env.BASE_URL;
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <!--Force load logo svg-->
   <link rel="preload" href="/Axion/Logo.svg" as="image" type="image/svg+xml" />
+  <link rel="preload" href="/Axion/Logo-light.svg" as="image" type="image/svg+xml" />
   <link rel="stylesheet" href="/Axion/style.css"/>
   <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
   <script src="/Axion/script.js" defer></script>
@@ -21,7 +22,8 @@ const base = import.meta.env.BASE_URL;
 <header class="site-header">
   <a class="brand" href="/Axion" aria-label="Axion Labs home">
     <div class="logo">
-      <img src="/Axion/Logo.svg" width="89" height="60" fetchpriority="high" decoding="sync" alt="Axion Labs Logo" />
+      <img class="logo-dark" src="/Axion/Logo.svg" width="89" height="60" fetchpriority="high" decoding="sync" alt="" aria-hidden="true" />
+      <img class="logo-light" src="/Axion/Logo-light.svg" width="89" height="60" fetchpriority="high" decoding="sync" alt="" aria-hidden="true" />
     </div>
     <div class="brand-copy">
       <div class="brand-title">Axion Labs</div>
