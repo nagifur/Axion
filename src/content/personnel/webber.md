@@ -6,7 +6,7 @@ gender: Male
 height: 5'10"
 age: 20
 accessLevel: 2
-birthplace: ████
+birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Webber drawing
 positiveTraits: [Handyman, Calm, Able to make own web rope]

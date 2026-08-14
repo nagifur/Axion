@@ -6,7 +6,7 @@ gender: Male
 height: 5'6"
 age: 25
 accessLevel: 3
-birthplace: ████
+birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Nagi drawing
 positiveTraits: [Passionate, Survivalist, Friendly, Hardworking]

@@ -6,7 +6,7 @@ gender: Intersex
 height: 5'8"
 age: 19
 accessLevel: 4
-birthplace: ████
+birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Skye drawing
 positiveTraits: [Smart, Fast working, Expert Pilot]

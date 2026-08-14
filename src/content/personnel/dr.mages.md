@@ -6,7 +6,7 @@ gender: Intersex
 height: 5'8"
 age: 34
 accessLevel: 5
-birthplace: ████
+birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Dr. Mages drawing
 positiveTraits: [Genius Designer, Powerful mage, Optimistic]

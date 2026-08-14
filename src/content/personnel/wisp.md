@@ -6,7 +6,7 @@ gender: Female
 height: 6'7"
 age: 27
 accessLevel: 5
-birthplace: ████
+birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Reef drawing
 positiveTraits: [Immortal, Flight, Can phase through objects]
