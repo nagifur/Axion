@@ -663,16 +663,20 @@
     .db-title-blue{ margin:0 0 8px 0; color:var(--neon-blue) }
     
     /* Personnel profile */
-    .profile{ display:grid; grid-template-columns:220px 1fr; gap:16px; align-items:start }
+    .profile{
+      display:grid; grid-template-columns:220px 1fr; gap:24px; align-items:start;
+      margin-top:14px; padding:20px; border-top:1px solid var(--line-soft);
+    }
     @media (max-width:700px){ .profile{ grid-template-columns:1fr } }
     .avatar{ width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:6px; border:1px solid rgba(255,255,255,0.06) }
-    .info-table{ width:100%; border-collapse:collapse; margin:0; border-radius:8px; overflow:hidden }
+    .profile-media{ display:flex; justify-content:center }
+    .info-table{ width:100%; max-width:440px; text-align:center;border-collapse:collapse; margin:0; border-radius:8px; overflow:hidden }
     .info-table tr{ border-bottom:1px solid var(--line-soft) }
     .info-table tr:last-child{ border-bottom:none }
     .info-table tr:nth-child(even){ background:var(--line-soft) }
     .info-table th{
       text-align:left; white-space:nowrap; padding:8px 12px;
-      color:var(--muted); font-weight:700; border-left:3px solid var(--row-accent, var(--neon-cyan));
+      color:var(--muted); font-weight:700; border-left:3px solid var(--neon-cyan);
     }
     .info-table td{ padding:8px 12px; color:var(--text); width:100% }
     .info-icon{ display:inline-block; margin-right:8px }
@@ -721,7 +725,7 @@
     .article-body h2, .article-body h3, .article-body h4{ color:var(--neon-cyan); line-height:1.2; margin:2rem 0 0.75rem }
     .article-body h2{ font-size:1.6rem }
     .article-body h3{ color:var(--neon-yellow); font-size:1.25rem }
-    .article-body p, .article-body li{ color:var(--text); max-width:68ch }
+    .article-body p, .article-body li{ color:var(--text); max-width:100% }
     .article-body ul, .article-body ol{ padding-left:1.5rem }
     .article-body a{ color:var(--neon-cyan) }
     .article-body blockquote{ border-left:3px solid var(--neon-pink); color:var(--muted); margin:1.5rem 0; padding-left:1rem }
@@ -746,10 +750,14 @@
     }
 
     /* Utility: force nearest-neighbor/pixelated rendering */
-    .pixelart-profile{ 
-      image-rendering: pixelated; 
-      width: 200px ;
-      height: auto; 
+    .pixelart-profile{
+      image-rendering: pixelated;
+      width: 200px;
+      height: auto;
+      border:2px solid var(--line-soft);
+      border-radius:10px;
+      box-shadow:0 8px 20px rgba(0,0,0,0.25);
+      background:var(--panel-alt);
       }
 
     /* Reduce motion when requested */

@@ -77,42 +77,44 @@ const profileIsPlaceholder = profileImport === placeholderImage;
     <section class="card" role="article">
       <h1>{character.title} <span class="cursor" aria-hidden="true"></span></h1>
       <div class="profile">
-        {profileIsGif || profileIsPlaceholder ? (
-          <img src={profileImport} class="pixelart-profile" alt={`Profile image of ${character.title}`} loading="lazy" />
-        ) : (
-          <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${character.title}`} />
-        )}
+        <div class="profile-media">
+          {profileIsGif || profileIsPlaceholder ? (
+            <img src={profileImport} class="pixelart-profile" alt={`Profile image of ${character.title}`} loading="lazy" />
+          ) : (
+            <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${character.title}`} />
+          )}
+        </div>
 
         <table class="info-table">
-          <tr style="--row-accent:var(--neon-cyan)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">🔑</span>Access Level</th>
             <td>{character.accessLevel}</td>
           </tr>
-          <tr style="--row-accent:var(--neon-blue)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">💼</span>Facility Position</th>
             <td>{character.position}</td>
           </tr>
-          <tr style="--row-accent:var(--neon-pink)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">🧬</span>Species</th>
             <td>{character.species}</td>
           </tr>
-          <tr style="--row-accent:var(--neon-yellow)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">⚧</span>Gender</th>
             <td>{character.gender}</td>
           </tr>
-          <tr style="--row-accent:var(--neon-cyan)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">📏</span>Height</th>
             <td>{character.height}</td>
           </tr>
-          <tr style="--row-accent:var(--neon-blue)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">🎂</span>Age</th>
             <td>{character.age}</td>
           </tr>
-          <tr style="--row-accent:var(--neon-pink)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">🌍</span>Birthplace</th>
             <td>{character.birthplace}</td>
           </tr>
-          <tr style="--row-accent:var(--neon-orange)">
+          <tr>
             <th><span class="info-icon" aria-hidden="true">🍽️</span>Vore Preference</th>
             <td>{character.vorePreference?.length ? character.vorePreference.join(', ') : 'None'}</td>
           </tr>
