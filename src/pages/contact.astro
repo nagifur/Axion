@@ -1,0 +1,68 @@
+---
+import Header from '../components/header.astro';
+import Footer from '../components/footer.astro';
+
+const base = import.meta.env.BASE_URL;
+
+const primaryLinks = [
+  { label: 'Twitter', href: 'https://twitter.com/nagifur', icon: 'x' },
+  { label: 'Discord', href: 'https://discord.gg/nagifur', icon: 'discord' },
+  { label: 'Patreon', href: 'https://www.patreon.com/nagifur', icon: 'patreon' },
+];
+
+const moreLinks = [
+  { label: 'Instagram', href: 'https://www.instagram.com/nagifur/', icon: 'instagram' },
+  { label: 'DeviantArt', href: 'https://www.deviantart.com/nagit0', icon: 'deviantart' },
+  { label: 'YouTube', href: 'https://www.youtube.com/c/Nagifur', icon: 'youtube' },
+  { label: 'Ko-fi', href: 'https://ko-fi.com/nagifur', icon: 'kofi' },
+  { label: 'Threads', href: 'https://www.threads.net/@nagifur', icon: 'threads' },
+  { label: 'Bluesky', href: 'https://bsky.app/profile/nagifur.bsky.social', icon: 'bluesky' },
+  { label: 'FurAffinity', href: 'https://www.furaffinity.net/user/nagifur/', icon: 'furaffinity' },
+  { label: 'Steam', href: 'https://steamcommunity.com/id/nagifur/', icon: 'steam' },
+  { label: 'Twitch', href: 'https://www.twitch.tv/nagifur', icon: 'twitch' },
+  { label: 'TikTok', href: 'https://www.tiktok.com/@nagifur', icon: 'tiktok' },
+];
+---
+
+<Header></Header>
+
+<main>
+  <div class="page-stack">
+    <section class="card" role="article">
+      <h1 id="contact-title" style="justify-content: center;">Comms Channel <span class="cursor" aria-hidden="true"></span></h1>
+      <div class="contact-avatar-wrap">
+        <img class="contact-avatar" src={`${base}/profilePicture.png`} alt="Nagifur's profile picture" loading="lazy" />
+      </div>
+      <p class="lead" id="contact-text">
+        Self-taught digital artist 🇨🇿 | Furry / Macro-Vore / Sci-Fi. The fastest way to reach me is Twitter or Discord.
+      </p>
+    </section>
+
+    <section class="card" aria-labelledby="primary-contact-title">
+      <h2 id="primary-contact-title" class="db-title-cyan">Priority Channels</h2>
+      <div class="contact-grid contact-grid-primary">
+        {primaryLinks.map((link) => (
+          <a class="contact-card" href={link.href} target="_blank" rel="noopener noreferrer">
+            <span class="contact-icon" aria-hidden="true" style={`--icon-src:url(${base}/icons/${link.icon}.svg)`}></span>
+            <span class="contact-label">{link.label}</span>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="more-links-title">
+      <h2 id="more-links-title" class="db-title-yellow">More Links</h2>
+      <div class="contact-grid">
+        {moreLinks.map((link) => (
+          <a class="contact-card" href={link.href} target="_blank" rel="noopener noreferrer">
+            <span class="contact-icon" aria-hidden="true" style={`--icon-src:url(${base}/icons/${link.icon}.svg)`}></span>
+            <span class="contact-label">{link.label}</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+</main>
+
+<Footer></Footer>
+
