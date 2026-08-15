@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Somni drawing
 positiveTraits: [Strong, Dependant, Magical, Efficient]
 negativeTraits: [Sleepy, Short, Cannot work for extended periods]
+vorePreference: [Switch]
 gallery:
   - file: 1.png
     caption: ID Card

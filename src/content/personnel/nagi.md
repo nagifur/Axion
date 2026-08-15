@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Nagi drawing
 positiveTraits: [Passionate, Survivalist, Friendly, Hardworking]
 negativeTraits: [Clumsy, Slow, High Intern Disappearances]
+vorePreference: [Prey]
 gallery:
   - file: 1.png
     caption: ID Card

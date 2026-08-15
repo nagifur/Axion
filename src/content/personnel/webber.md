@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Webber drawing
 positiveTraits: [Handyman, Calm, Able to make own web rope]
 negativeTraits: [Content Creator, Moody]
+vorePreference: [Predator, Non-Vore]
 gallery:
   - file: 1.png
     caption: Repairing

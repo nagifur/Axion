@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Wisp drawing
 positiveTraits: [Immortal, Flight, Can phase through objects]
 negativeTraits: [Insane, Cruel, Unpredictable]
+vorePreference: [Predator]
 gallery:
   - file: 1.png
     caption: Reference sheet

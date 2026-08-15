@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Mellisa drawing
 positiveTraits: [Healing Abilities, Mind Control, Big]
 negativeTraits: [Seductive, Converts staff from other departments into her hive, Needs to be fed frequently]
+vorePreference: [Predator]
 gallery:
   - file: 1.png
     caption: Reference

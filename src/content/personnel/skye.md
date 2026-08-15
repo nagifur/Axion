@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Skye drawing
 positiveTraits: [Smart, Fast working, Expert Pilot]
 negativeTraits: [Anti-Social, Gets Obsessed easily, Clumsy]
+vorePreference: [Predator]
 gallery:
   - file: 1.png
     caption: Reference

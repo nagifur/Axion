@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Sypher drawing
 positiveTraits: [████ ██████, █████████]
 negativeTraits: [███████ ███, ███████ ███]
+vorePreference: [Predator]
 gallery:
   - file: 1.png
     caption: Reference sheet

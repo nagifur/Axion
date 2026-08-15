@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Dr. Mages drawing
 positiveTraits: [Genius Designer, Powerful mage, Optimistic]
 negativeTraits: [Naive, Pacifist]
+vorePreference: [Prey]
 gallery:
   - file: 1.png
     caption: Reference

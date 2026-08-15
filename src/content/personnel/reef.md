@@ -11,6 +11,7 @@ profileImage: profile.png
 galleryAlt: Reef drawing
 positiveTraits: [Super strength, Super speed, Bruiser]
 negativeTraits: [Mind influenced by the artifact, Needs to eat a lot, Short temper]
+vorePreference: [Predator]
 gallery:
   - file: 1.png
     caption: Fighting Pose
