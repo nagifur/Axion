@@ -1,68 +1,68 @@
- ---
- import Header from  '../components/header.astro';
- import Footer from '../components/footer.astro';
- import { getCollection } from 'astro:content';
- import { execSync } from 'node:child_process';
- import { statSync } from 'node:fs';
- import path from 'node:path';
+---
+import Header from  '../components/header.astro';
+import Footer from '../components/footer.astro';
+import { getCollection } from 'astro:content';
+import { execSync } from 'node:child_process';
+import { statSync } from 'node:fs';
+import path from 'node:path';
 
- // Prefer real git history for "last updated"; fall back to filesystem mtime if git is unavailable.
- function lastUpdated(absPath: string): Date {
-   try {
-     const iso = execSync(`git log -1 --format=%cI -- "${absPath}"`, { cwd: process.cwd() }).toString().trim();
-     if (iso) return new Date(iso);
-   } catch {}
-   try {
-     return statSync(absPath).mtime;
-   } catch {
-     return new Date(0);
-   }
- }
+// Prefer real git history for "last updated"; fall back to filesystem mtime if git is unavailable.
+function lastUpdated(absPath: string): Date {
+  try {
+    const iso = execSync(`git log -1 --format=%cI -- "${absPath}"`, { cwd: process.cwd() }).toString().trim();
+    if (iso) return new Date(iso);
+  } catch {}
+  try {
+    return statSync(absPath).mtime;
+  } catch {
+    return new Date(0);
+  }
+}
 
- const contentDir = path.join(process.cwd(), 'src', 'content');
+const contentDir = path.join(process.cwd(), 'src', 'content');
 
- const [articles, personnel, entities] = await Promise.all([
-   getCollection('articles', ({ data }) => !data.draft),
-   getCollection('personnel', ({ data }) => !data.draft),
-   getCollection('entities', ({ data }) => !data.draft),
- ]);
+const [articles, personnel, entities] = await Promise.all([
+  getCollection('articles', ({ data }) => !data.draft),
+  getCollection('personnel', ({ data }) => !data.draft),
+  getCollection('entities', ({ data }) => !data.draft),
+]);
 
- const updates = [
-   ...articles.map((entry) => ({
-     title: entry.data.title,
-     href: `/Axion/Articles/${entry.slug}`,
-     verb: 'Log filed',
-     date: lastUpdated(path.join(contentDir, 'articles', entry.id)),
-   })),
-   ...personnel.map((entry) => ({
-     title: entry.data.title,
-     href: `/Axion/Personnel/${entry.id.replace(/\.md$/, '')}`,
-     verb: 'Personnel record updated',
-     date: lastUpdated(path.join(contentDir, 'personnel', entry.id)),
-   })),
-   ...entities.map((entry) => ({
-     title: entry.data.title,
-     href: `/Axion/Entities/${entry.id.replace(/\.md$/, '')}`,
-     verb: 'Entity file updated',
-     date: lastUpdated(path.join(contentDir, 'entities', entry.id)),
-   })),
- ].sort((a, b) => b.date.getTime() - a.date.getTime());
+const updates = [
+  ...articles.map((entry) => ({
+    title: entry.data.title,
+    href: `/Axion/Articles/${entry.slug}`,
+    verb: 'Log filed',
+    date: lastUpdated(path.join(contentDir, 'articles', entry.id)),
+  })),
+  ...personnel.map((entry) => ({
+    title: entry.data.title,
+    href: `/Axion/Personnel/${entry.id.replace(/\.md$/, '')}`,
+    verb: 'Personnel record updated',
+    date: lastUpdated(path.join(contentDir, 'personnel', entry.id)),
+  })),
+  ...entities.map((entry) => ({
+    title: entry.data.title,
+    href: `/Axion/Entities/${entry.id.replace(/\.md$/, '')}`,
+    verb: 'Entity file updated',
+    date: lastUpdated(path.join(contentDir, 'entities', entry.id)),
+  })),
+].sort((a, b) => b.date.getTime() - a.date.getTime());
 
- const recentUpdates = updates.slice(0, 5);
- const lastSync = updates.length ? updates[0].date : new Date();
+const recentUpdates = updates.slice(0, 5);
+const lastSync = updates.length ? updates[0].date : new Date();
 
- const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
-   year: 'numeric', month: 'short', day: 'numeric',
- });
- const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
+  year: 'numeric', month: 'short', day: 'numeric',
+});
+const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
 
- const bulletins = [
-   { title: 'Gear 100% OFF!!', body: 'For all Axion employees, register for a new cybernetic magi-tech implant now!' },
-   { title: 'Bio-Care Appointment', body: 'Got hurt on the job? Make an appointment at our Bio-Care center!' },
-   { title: 'No recent accidents!', body: 'Thanks to our great safety precautions, there has been no accident in 4 days!' },
-   { title: 'New Creatures!', body: 'Visit our new S ranked captured creatures at the level 2 observatory!' },
- ];
- ---
+const bulletins = [
+  { title: 'Gear 100% OFF!!', body: 'For all Axion employees, register for a new cybernetic magi-tech implant now!' },
+  { title: 'Bio-Care Appointment', body: 'Got hurt on the job? Make an appointment at our Bio-Care center!' },
+  { title: 'No recent accidents!', body: 'Thanks to our great safety precautions, there has been no accident in 4 days!' },
+  { title: 'New Creatures!', body: 'Visit our new S ranked captured creatures at the level 2 observatory!' },
+];
+---
 
 <Header></Header>
  
@@ -97,7 +97,7 @@
           <h2 style="margin-top:0">System Status</h2>
 
           <div class="status-row">
-            <span class="status-label">Station Chronometer</span>
+            <span class="status-label">Current Time:</span>
             <span id="facility-clock" class="status-clock">--:--:--</span>
           </div>
 
