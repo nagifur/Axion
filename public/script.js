@@ -132,6 +132,66 @@
     }
   })();
 
+  // Database tablist: instant in-page panel switching
+  (function(){
+    var tablist = document.querySelector('.db-pane-nav[role="tablist"]');
+    if (!tablist) return;
+
+    var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[role="tab"]'));
+    var panels = Array.prototype.slice.call(document.querySelectorAll('.db-panel[role="tabpanel"]'));
+    if (!tabs.length || !panels.length) return;
+
+    function setActiveTab(tab, shouldFocus){
+      var controlsId = tab.getAttribute('aria-controls');
+
+      tabs.forEach(function(item){
+        var isActive = item === tab;
+        item.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        item.setAttribute('tabindex', isActive ? '0' : '-1');
+      });
+
+      panels.forEach(function(panel){
+        var isTarget = panel.id === controlsId;
+        panel.hidden = !isTarget;
+        panel.classList.toggle('db-panel-active', isTarget);
+      });
+
+      if (shouldFocus) {
+        tab.focus();
+      }
+    }
+
+    tabs.forEach(function(tab){
+      tab.addEventListener('click', function(){
+        setActiveTab(tab, false);
+      });
+
+      tab.addEventListener('keydown', function(event){
+        var currentIndex = tabs.indexOf(tab);
+        if (currentIndex < 0) return;
+
+        var nextIndex = currentIndex;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+          nextIndex = (currentIndex + 1) % tabs.length;
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+          nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        } else if (event.key === 'Home') {
+          nextIndex = 0;
+        } else if (event.key === 'End') {
+          nextIndex = tabs.length - 1;
+        } else {
+          return;
+        }
+
+        event.preventDefault();
+        setActiveTab(tabs[nextIndex], true);
+      });
+    });
+
+    var initial = tabs.find(function(tab){ return tab.getAttribute('aria-selected') === 'true'; }) || tabs[0];
+    setActiveTab(initial, false);
+  })();
+
   // Animation toggle: apply and persist atmospheric motion preference
   (function(){
     var storageKey = 'animations';

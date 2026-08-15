@@ -13,6 +13,64 @@ const activeArticleUrls = [
   '/Axion/Articles/',
   ...publishedArticles.map((article) => `/Axion/Articles/${article.slug}`),
 ];
+const personnelColumns = {
+  left: [1, 2, 3],
+  right: [4, 5],
+};
+
+const entityGroups = {
+  left: [
+    {
+      title: 'Class A',
+      entries: [
+        { href: '/Axion/Personnel/a1', label: 'A-001' },
+        { href: '/Axion/Entities/a-071', label: 'A-071 (Levi)' },
+        { href: '/Axion/Entities/a-100', label: 'A-100' },
+      ],
+    },
+    {
+      title: 'Class S',
+      entries: [
+        { href: '/Axion/Entities/s-002', label: 'S-002 - (Wisp Animation)' },
+        { href: '/Axion/Entities/s-003', label: 'S-003 - (A1 Tail Vore Animation)' },
+        { href: '/Axion/Entities/s-013', label: 'S-013 - (Soul Mirror)' },
+        { href: '/Axion/Entities/s-402', label: 'S-402 - (Alien Alcoholic)' },
+        { href: '/Axion/Entities/s-382', label: 'S-382 - (Mentioned in Not Enough Sleep)' },
+        { href: '/Axion/Entities/s-420', label: 'S-420 - (Star Mushrooms)' },
+        { href: '/Axion/Entities/s-552', label: 'S-552 - (Sprouty)' },
+        { href: '/Axion/Entities/s-688', label: 'S-688 - (Genesis Chroma)' },
+      ],
+    },
+  ],
+  right: [
+    {
+      title: 'Class C',
+      entries: [
+        { href: '/Axion/Entities/c-086', label: 'C-086 - (Bloom Lizard)' },
+        { href: '/Axion/Entities/c-2221', label: 'C-221 - (Wisp Animation)' },
+        { href: '/Axion/Entities/c-282', label: 'C-282 - (Eyless lizard)' },
+        { href: '/Axion/Entities/c-324', label: 'C-324 - (Tentacle Plant)' },
+        { href: '/Axion/Entities/c-400', label: 'C-400 - (Portal Cats)' },
+        { href: '/Axion/Entities/c-668', label: 'C-668 - (Wisp Animation)' },
+      ],
+    },
+    {
+      title: 'Class M',
+      entries: [
+        { href: '/Axion/Entities/m-031', label: 'M-031' },
+        { href: '/Axion/Entities/m-227', label: 'M-227 - (Spore Lizard)' },
+      ],
+    },
+    {
+      title: 'Unassigned',
+      entries: [
+        { href: '/Axion/Entities/x-402', label: 'X-402' },
+        { href: '/Axion/Entities/x-403', label: 'X-403' },
+      ],
+      note: 'X-001 ... X-401',
+    },
+  ],
+};
 
 const personnelByAccessLevel = [1, 2, 3, 4, 5].map((level) => ({
   level,
@@ -29,11 +87,19 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
 <Header></Header>
 
 <main>
-  <section class="card" role="navigation" aria-labelledby="db-title">
+  <section class="card db-shell" aria-labelledby="db-title">
     <h1 id="db-title">Facility Database <span class="cursor" aria-hidden="true"></span></h1>
     <p class="lead">Browse internal docs by category.</p>
 
-    <div class="db-grid">
+    <nav class="db-pane-nav" role="tablist" aria-label="Database categories">
+      <button id="db-tab-personnel" class="db-tab" role="tab" type="button" aria-selected="true" aria-controls="db-panel-personnel" tabindex="0">Personnel</button>
+      <button id="db-tab-entities" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-entities" tabindex="-1">Entities</button>
+      <button id="db-tab-containment" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-containment" tabindex="-1">Containment Classes</button>
+      <button id="db-tab-levels" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-levels" tabindex="-1">Levels</button>
+      <button id="db-tab-articles" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-articles" tabindex="-1">Articles</button>
+    </nav>
+
+    <div class="db-pane-right">
       <div class="card compact db-legend" aria-labelledby="sec-link-legend">
         <h2 id="sec-link-legend" class="db-title-cyan">Link Legend</h2>
         <ul class="db-legend-list">
@@ -43,139 +109,146 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
         </ul>
       </div>
 
-      <div class="card compact" aria-labelledby="sec-personnel">
-        <h2 id="sec-personnel" class="db-title-yellow">Personnel</h2>
+      <div class="db-panels">
+        <section id="db-panel-personnel" class="db-panel db-panel-active" role="tabpanel" aria-labelledby="db-tab-personnel">
+          <div class="card compact" aria-labelledby="sec-personnel">
+            <h2 id="sec-personnel" class="db-title-yellow">Personnel</h2>
+            <div class="db-content-grid">
+              <div class="db-content-column">
+                {personnelColumns.left.map((level) => {
+                  const group = personnelByAccessLevel.find((entry) => entry.level === level);
+                  return group ? (
+                    <section class="db-group" aria-label={`Personnel level ${level}`}>
+                      <h3 class="db-section-title">Level {level}</h3>
+                      <ul class="db-list db-sublist">
+                        {group.members.map((person) => (
+                          <li>
+                            <a href={`/Axion/Personnel/${contentSlug(person.id)}`} class={linkState(`/Axion/Personnel/${contentSlug(person.id)}`)}>
+                              {person.data.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null;
+                })}
 
-        <ul class="db-list">
-          {personnelByAccessLevel.map(({ level, members }) => (
-            <li>
-              Level {level}:
-              <ul class="db-list">
-                {members.map((person) => (
-                  <li>
-                    <a href={`/Axion/Personnel/${contentSlug(person.id)}`} class={linkState(`/Axion/Personnel/${contentSlug(person.id)}`)}>
-                      {person.data.title}
-                    </a>
-                  </li>
+                <section class="db-group" aria-label="Special personnel">
+                  <h3 class="db-section-title">Special</h3>
+                  <ul class="db-list db-sublist">
+                    <li>
+                      <a href="/Axion/Personnel/sypher" class={linkState('/Axion/Personnel/sypher')}>
+                        Sypher
+                      </a>
+                    </li>
+                  </ul>
+                </section>
+              </div>
+
+              <div class="db-content-column">
+                {personnelColumns.right.map((level) => {
+                  const group = personnelByAccessLevel.find((entry) => entry.level === level);
+                  return group ? (
+                    <section class="db-group" aria-label={`Personnel level ${level}`}>
+                      <h3 class="db-section-title">Level {level}</h3>
+                      <ul class="db-list db-sublist">
+                        {group.members.map((person) => (
+                          <li>
+                            <a href={`/Axion/Personnel/${contentSlug(person.id)}`} class={linkState(`/Axion/Personnel/${contentSlug(person.id)}`)}>
+                              {person.data.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null;
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="db-panel-entities" class="db-panel" role="tabpanel" aria-labelledby="db-tab-entities" hidden>
+          <div class="card compact" aria-labelledby="sec-entities">
+            <h2 id="sec-entities" class="db-title-blue">Entities</h2>
+            <div class="db-content-grid">
+              <div class="db-content-column">
+                {entityGroups.left.map((group) => (
+                  <section class="db-group" aria-label={group.title}>
+                    <h3 class="db-section-title">{group.title}</h3>
+                    <ul class="db-list db-sublist">
+                      {group.entries.map((entry) => (
+                        <li><a href={entry.href} class={linkState(entry.href)}>{entry.label}</a></li>
+                      ))}
+                    </ul>
+                  </section>
                 ))}
-              </ul>
-            </li>
-          ))}
-          <li>
-            Special:
+              </div>
+
+              <div class="db-content-column">
+                {entityGroups.right.map((group) => (
+                  <section class="db-group" aria-label={group.title}>
+                    <h3 class="db-section-title">{group.title}</h3>
+                    {group.note && <p class="db-group-note">{group.note}</p>}
+                    <ul class="db-list db-sublist">
+                      {group.entries.map((entry) => (
+                        <li><a href={entry.href} class={linkState(entry.href)}>{entry.label}</a></li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="db-panel-containment" class="db-panel" role="tabpanel" aria-labelledby="db-tab-containment" hidden>
+          <div class="card compact" aria-labelledby="sec-containment">
+            <h2 id="sec-containment" class="db-title-cyan">Containment Classes</h2>
+            <ul class="db-list">
+              <li><a href="#" class={linkState('#')}>A - Ally</a></li>
+              <li><a href="#" class={linkState('#')}>S - Safe </a></li>
+              <li><a href="#" class={linkState('#')}>C - Containment </a></li>
+              <li><a href="#" class={linkState('#')}>M - Maximum Containment </a></li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="db-panel-levels" class="db-panel" role="tabpanel" aria-labelledby="db-tab-levels" hidden>
+          <div class="card compact" aria-labelledby="sec-levels">
+            <h2 id="sec-levels" class="db-title-pink">Levels</h2>
+            <ul class="db-list">
+              <li><a href="#" class={linkState('#')}>Level 1</a></li>
+              <li><a href="#" class={linkState('#')}>Level 2</a></li>
+              <li><a href="#" class={linkState('#')}>Level 3</a></li>
+              <li><a href="#" class={linkState('#')}>Level 4</a></li>
+              <li><a href="#" class={linkState('#')}>Level 5</a></li>
+            </ul>
+          </div>
+        </section>
+
+        <section id="db-panel-articles" class="db-panel" role="tabpanel" aria-labelledby="db-tab-articles" hidden>
+          <div class="card compact" aria-labelledby="sec-articles">
+            <h2 id="sec-articles" class="db-title-blue">Articles</h2>
             <ul class="db-list">
               <li>
-                <a href="/Axion/Personnel/sypher" class={linkState('/Axion/Personnel/sypher')}>
-                  Sypher
-                </a>
+                <a href="/Axion/Articles/" class={linkState('/Axion/Articles/')}>Browse Archive</a>
+                {publishedArticles.length > 0 && (
+                  <ul class="db-list">
+                    {publishedArticles.map((article) => (
+                      <li>
+                        <a href={`/Axion/Articles/${article.slug}`} class={linkState(`/Axion/Articles/${article.slug}`)}>
+                          {article.data.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             </ul>
-          </li>
-        </ul>
+          </div>
+        </section>
       </div>
-
-      <div class="card compact" aria-labelledby="sec-levels">
-        <h2 id="sec-levels" class="db-title-pink">Levels</h2>
-        <ul class="db-list">
-          <li><a href="#" class={linkState('#')}>Level 1</a></li>
-          <li><a href="#" class={linkState('#')}>Level 2</a></li>
-          <li><a href="#" class={linkState('#')}>Level 3</a></li>
-          <li><a href="#" class={linkState('#')}>Level 4</a></li>
-          <li><a href="#" class={linkState('#')}>Level 5</a></li>
-        </ul>
-      </div>
-
-      <div class="card compact" aria-labelledby="sec-entities">
-        <h2 id="sec-entities" class="db-title-blue">Entities</h2>
-        <ul class="db-list">
-          <li> Class A
-           
-              <ul class="db-list">
-                <li><a href="/Axion/Personnel/a1" class={linkState('/Axion/Personnel/a1')}>A-001</a></li>
-                <li><a href="/Axion/Entities/a-071" class={linkState('/Axion/Entities/a-071')}>A-071 (Levi)</a></li>
-                 <li><a href="/Axion/Entities/a-100" class={linkState('/Axion/Entities/a-100')}>A-100</a></li>
-              </ul>
-          </li>
-
-          <li> Class S
-           
-            <ul class="db-list">
-<li><a href="/Axion/Entities/s-002" class={linkState('/Axion/Entities/s-002')}>S-002 - (Wisp Animation)</a></li>
-                <li><a href="/Axion/Entities/s-003" class={linkState('/Axion/Entities/s-003')}>S-003 - (A1 Tail Vore Animation)</a></li>
-                <li><a href="/Axion/Entities/s-013" class={linkState('/Axion/Entities/s-013')}>S-013 - (Soul Mirror)</a></li>
-                  <li><a href="/Axion/Entities/s-402" class={linkState('/Axion/Entities/s-402')}>S-402 - (Alien Alcoholic)</a></li>
-                  <li><a href="/Axion/Entities/s-382" class={linkState('/Axion/Entities/s-382')}>S-382 - (Mentioned in Not Enough Sleep)</a></li>
-                <li><a href="/Axion/Entities/s-420" class={linkState('/Axion/Entities/s-420')}>S-420 - (Star Mushrooms)</a></li>
-                <li><a href="/Axion/Entities/s-552" class={linkState('/Axion/Entities/s-552')}>S-552 - (Sprouty)</a></li>
-                <li><a href="/Axion/Entities/s-688" class={linkState('/Axion/Entities/s-688')}>S-688 - (Genesis Chroma)</a></li>
-                 
-              </ul>
-          </li>
-
-          <li> Class C
-           
-              <ul class="db-list">
-                <li><a href="/Axion/Entities/c-086" class={linkState('/Axion/Entities/c-086')}>C-086 - (Bloom Lizard)</a></li>
-                <li><a href="/Axion/Entities/c-2221" class={linkState('/Axion/Entities/c-2221')}>C-221 - (Wisp Animation)</a></li>
-                <li><a href="/Axion/Entities/c-282" class={linkState('/Axion/Entities/c-282')}>C-282 - (Eyless lizard)</a></li>
-                <li><a href="/Axion/Entities/c-324" class={linkState('/Axion/Entities/c-324')}>C-324 - (Tentacle Plant)</a></li>
-                <li><a href="/Axion/Entities/c-400" class={linkState('/Axion/Entities/c-400')}>C-400 - (Portal Cats)</a></li>
-                <li><a href="/Axion/Entities/c-668" class={linkState('/Axion/Entities/c-668')}>C-668 - (Wisp Animation)</a></li>
-                 
-              </ul>
-          </li>
-
-          <li> Class M
-           
-              <ul class="db-list">
-                <li><a href="/Axion/Entities/m-031" class={linkState('/Axion/Entities/m-031')}>M-031</a></li>
-                <li><a href="/Axion/Entities/m-227" class={linkState('/Axion/Entities/m-227')}>M-227 - (Spore Lizard)</a></li>
-               
-              </ul>
-          </li>
-          <li class="db-divider" aria-hidden="true"><hr></li>
-          <li> UNASSIGNED
-            <ul class="db-list">
-              <li class="db-legend-item">X-001&nbsp;&hellip;&nbsp;X-401</li>
-              <li><a href="/Axion/Entities/x-402" class={linkState('/Axion/Entities/x-402')}>X-402</a></li>
-              <li><a href="/Axion/Entities/x-403" class={linkState('/Axion/Entities/x-403')}>X-403</a></li>
-            </ul>
-          </li>
-        </ul>
-      </div>
-
-      <div class="card compact" aria-labelledby="sec-containment">
-        <h2 id="sec-containment" class="db-title-cyan">Containment Classes</h2>
-        <ul class="db-list">
-          <li><a href="#" class={linkState('#')}>A - Ally</a></li>
-          <li><a href="#" class={linkState('#')}>S - Safe </a></li>
-          <li><a href="#" class={linkState('#')}>C - Containment </a></li>
-          <li><a href="#" class={linkState('#')}>M - Maximum Containment </a></li>
-          
-        </ul>
-      </div>
-
-      <div class="card compact" aria-labelledby="sec-articles">
-        <h2 id="sec-articles" class="db-title-blue">Articles</h2>
-        <ul class="db-list">
-          <li>
-            <a href="/Axion/Articles/" class={linkState('/Axion/Articles/')}>Browse Archive</a>
-            {publishedArticles.length > 0 && (
-              <ul class="db-list">
-                {publishedArticles.map((article) => (
-                  <li>
-                    <a href={`/Axion/Articles/${article.slug}`} class={linkState(`/Axion/Articles/${article.slug}`)}>
-                      {article.data.title}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </li>
-        </ul>
-      </div>
-
-
     </div>
   </section>
 </main>
