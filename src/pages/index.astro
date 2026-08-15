@@ -1,6 +1,67 @@
  ---
  import Header from  '../components/header.astro';
  import Footer from '../components/footer.astro';
+ import { getCollection } from 'astro:content';
+ import { execSync } from 'node:child_process';
+ import { statSync } from 'node:fs';
+ import path from 'node:path';
+
+ // Prefer real git history for "last updated"; fall back to filesystem mtime if git is unavailable.
+ function lastUpdated(absPath: string): Date {
+   try {
+     const iso = execSync(`git log -1 --format=%cI -- "${absPath}"`, { cwd: process.cwd() }).toString().trim();
+     if (iso) return new Date(iso);
+   } catch {}
+   try {
+     return statSync(absPath).mtime;
+   } catch {
+     return new Date(0);
+   }
+ }
+
+ const contentDir = path.join(process.cwd(), 'src', 'content');
+
+ const [articles, personnel, entities] = await Promise.all([
+   getCollection('articles', ({ data }) => !data.draft),
+   getCollection('personnel', ({ data }) => !data.draft),
+   getCollection('entities', ({ data }) => !data.draft),
+ ]);
+
+ const updates = [
+   ...articles.map((entry) => ({
+     title: entry.data.title,
+     href: `/Axion/Articles/${entry.slug}`,
+     verb: 'Log filed',
+     date: lastUpdated(path.join(contentDir, 'articles', entry.id)),
+   })),
+   ...personnel.map((entry) => ({
+     title: entry.data.title,
+     href: `/Axion/Personnel/${entry.id.replace(/\.md$/, '')}`,
+     verb: 'Personnel record updated',
+     date: lastUpdated(path.join(contentDir, 'personnel', entry.id)),
+   })),
+   ...entities.map((entry) => ({
+     title: entry.data.title,
+     href: `/Axion/Entities/${entry.id.replace(/\.md$/, '')}`,
+     verb: 'Entity file updated',
+     date: lastUpdated(path.join(contentDir, 'entities', entry.id)),
+   })),
+ ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+ const recentUpdates = updates.slice(0, 5);
+ const lastSync = updates.length ? updates[0].date : new Date();
+
+ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
+   year: 'numeric', month: 'short', day: 'numeric',
+ });
+ const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+
+ const bulletins = [
+   { title: 'Gear 100% OFF!!', body: 'For all Axion employees, register for a new cybernetic magi-tech implant now!' },
+   { title: 'Bio-Care Appointment', body: 'Got hurt on the job? Make an appointment at our Bio-Care center!' },
+   { title: 'No recent accidents!', body: 'Thanks to our great safety precautions, there has been no accident in 4 days!' },
+   { title: 'New Creatures!', body: 'Visit our new S ranked captured creatures at the level 2 observatory!' },
+ ];
  ---
 
 <Header></Header>
@@ -14,28 +75,48 @@
           <p class="lead"> A1oS - ver 1.0</p>
 
           <div class="cta" aria-hidden="false">
-            <a class="btn" href="/Axion/database">Main Database</a>
-            <a class="btn secondary" href="#features">See Features</a>
+            <a class="btn" href="/Axion/database">Access Database</a>
+            <a class="btn secondary" href="/Axion/about">Facility Overview</a>
           </div>
 
-          <div id="features" class="features" style="margin-top:18px" aria-live="polite">
-            <div class="feature"><strong>Gear 100% OFF!!</strong><div style="color:var(--muted)">For all Axion employees, register for a new cybernetic magi-tech implant now!</div></div>
-            <div class="feature"><strong>Bio-Care Appointment</strong><div style="color:var(--muted)">Got hurt on the job? Make an appointment at our Bio-Care center!</div></div>
-            <div class="feature"><strong>No recent accidents!</strong><div style="color:var(--muted)">Thank to our great saftety precautions, there has been no accident in <b>4</b> days!</div></div>
-            <div class="feature"><strong>New Creatures!</strong><div style="color:var(--muted)">Visit our new S ranked captured creatures at the level 2 observatory!</div></div>
+          <div class="bulletin" role="complementary" aria-label="Facility bulletin">
+            <div class="bulletin-track">
+              {bulletins.map((item) => (
+                <span class="bulletin-item"><strong>{item.title}</strong>{item.body}</span>
+              ))}
+              {bulletins.map((item) => (
+                <span class="bulletin-item" aria-hidden="true"><strong>{item.title}</strong>{item.body}</span>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 <!-- Main links -->
       <aside>
         <div class="card" style="text-align:left">
-          <h2 style="margin-top:0">Quick Links</h2>
-          <ul style="padding-left:18px; color:var(--muted); margin:10px 0">
-            <li><a href="#" style="color:var(--neon-cyan)">Documentation</a></li>
-            <li><a href="#" style="color:var(--neon-cyan)">Examples</a></li>
-            <li><a href="#contact" style="color:var(--neon-cyan)">Contact</a></li>
-          </ul>
-          <div style="margin-top:12px; color:var(--muted)">Frequently visited</div>
+          <h2 style="margin-top:0">System Status</h2>
+
+          <div class="status-row">
+            <span class="status-label">Station Chronometer</span>
+            <span id="facility-clock" class="status-clock">--:--:--</span>
+          </div>
+
+          <div class="status-row">
+            <span class="status-label">Last Data Sync</span>
+            <span class="status-value">{formatDateTime(lastSync)}</span>
+          </div>
+
+          <div class="status-updates">
+            <div class="status-label">Recent Log Updates</div>
+            <ul>
+              {recentUpdates.map((update) => (
+                <li>
+                  <a href={update.href}>{update.verb}: {update.title}</a>
+                  <time datetime={update.date.toISOString()}>{formatDate(update.date)}</time>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </aside>
     </section>
@@ -45,3 +126,14 @@
 
 
   <Footer></Footer>
+
+<script>
+  const clockEl = document.getElementById('facility-clock');
+  function tick() {
+    if (!clockEl) return;
+    clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+
