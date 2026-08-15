@@ -31,6 +31,7 @@
 
 /* Axion/style.css */
     :root{
+      --base-font-size:17px;
       --theme-fade-duration:.55s;
       --theme-fade-easing:ease;
       --motion-fast:.38s;
@@ -94,7 +95,7 @@
     }
 
     *{box-sizing:border-box}
-    html { scroll-behavior:smooth }
+    html { scroll-behavior:smooth; font-size:var(--base-font-size) }
     html.theme-switching::before,
     body.theme-switching,
     body.theme-switching::before,
@@ -131,7 +132,7 @@
       overflow-x:hidden;
       background-attachment:fixed;
       font-family: Eurostar Regular, sans-serif;
-      font-size:15px;
+      font-size:1rem;
       letter-spacing:0.02em;
     }
 
