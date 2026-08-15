@@ -101,3 +101,70 @@
       });
     }
   })();
+
+  // Animation toggle: apply and persist atmospheric motion preference
+  (function(){
+    var storageKey = 'animations';
+    var toggle = document.getElementById('animations-toggle');
+    var mediaQuery = null;
+    var userEnabled = true;
+
+    try {
+      mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    } catch (_) {
+      mediaQuery = null;
+    }
+
+    function systemForcesOff(){
+      return !!(mediaQuery && mediaQuery.matches);
+    }
+
+    function applyAnimations(enabled, lockedBySystem){
+      if (!document.body) return;
+      document.body.classList.toggle('animations-off', !enabled);
+      document.documentElement.setAttribute('data-animations', enabled ? 'on' : 'off');
+
+      if (!toggle) return;
+      toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+      toggle.textContent = enabled ? 'Animations On' : 'Animations Off';
+
+      if (lockedBySystem) {
+        toggle.disabled = true;
+        toggle.setAttribute('aria-disabled', 'true');
+        toggle.title = 'Animations disabled by system reduced-motion preference';
+      } else {
+        toggle.disabled = false;
+        toggle.removeAttribute('aria-disabled');
+        toggle.title = enabled ? 'Turn animations off' : 'Turn animations on';
+      }
+    }
+
+    function updateEffectiveState(){
+      var lockedBySystem = systemForcesOff();
+      var enabled = lockedBySystem ? false : userEnabled;
+      applyAnimations(enabled, lockedBySystem);
+    }
+
+    var stored = null;
+    try { stored = localStorage.getItem(storageKey); } catch (_) {}
+    userEnabled = stored !== 'off';
+    updateEffectiveState();
+
+    if (toggle) {
+      toggle.addEventListener('click', function(){
+        if (systemForcesOff()) return;
+        userEnabled = !userEnabled;
+        updateEffectiveState();
+        try { localStorage.setItem(storageKey, userEnabled ? 'on' : 'off'); } catch (_) {}
+      });
+    }
+
+    if (mediaQuery) {
+      var onChange = function(){ updateEffectiveState(); };
+      if (typeof mediaQuery.addEventListener === 'function') {
+        mediaQuery.addEventListener('change', onChange);
+      } else if (typeof mediaQuery.addListener === 'function') {
+        mediaQuery.addListener(onChange);
+      }
+    }
+  })();
