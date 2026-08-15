@@ -588,6 +588,10 @@
 
     /* Database page */
     .db-shell{ display:grid; grid-template-columns:240px minmax(0,1fr); gap:16px; align-items:start }
+    .db-shell > h1,
+    .db-shell > .lead{ grid-column:1 / -1 }
+    .db-shell > h1{ margin-bottom:4px }
+    .db-shell > .lead{ margin:2px 0 6px; font-size:0.94rem; line-height:1.35 }
     .db-pane-nav{ display:flex; flex-direction:column; gap:8px; position:sticky; top:14px }
     .db-tab{
       padding:9px 12px;
@@ -601,6 +605,7 @@
       text-align:left;
       cursor:pointer;
       clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+      transition: color .2s ease, border-color .2s ease, box-shadow .2s ease, background .2s ease;
     }
     .db-tab[aria-selected="true"]{
       color:var(--neon-cyan);
@@ -612,7 +617,12 @@
     .db-pane-right{ display:flex; flex-direction:column; gap:12px; min-width:0 }
     .db-panels{ min-width:0 }
     .db-panel{ margin:0 }
+    .db-panel.db-panel-active{ animation: db-panel-enter var(--motion-fast) ease-out both }
     .db-panel[hidden]{ display:none }
+    @keyframes db-panel-enter{
+      0%{ opacity:0; transform:translateY(-10px) }
+      100%{ opacity:1; transform:translateY(0) }
+    }
     .db-grid{ display:grid; gap:16px; grid-template-columns:repeat(auto-fit, minmax(240px,1fr)); margin-top:14px }
     .card.compact{ padding:14px }
     .db-legend{ grid-column:1 / -1; margin-top:2px }
