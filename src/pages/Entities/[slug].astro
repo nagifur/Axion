@@ -73,35 +73,36 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${entity.title}`} />
         )}
 
-        <dl class="info-dl">
-          <div>
-            <dt>Containment Class</dt>
-            <dd>{entity.containmentClass}</dd>
-          </div>
-          <div>
-            <dt>Type </dt>
-            <dd>{entity.type}</dd>
-          </div>
-          <div>
-            <dt>Species</dt>
-            <dd>{entity.species}</dd>
-          </div>
-          <div>
-            <dt>Gender</dt>
-            <dd>{entity.gender}</dd>
-          </div>
-          <div>
-            <dt>Age</dt>
-            <dd>{entity.age}</dd>
-          </div>
-          <div>
-            <dt>Found On</dt>
-            <dd>{entity.foundOn}</dd>
-          </div>
-          <div>
-            <dt>Vore Preference</dt>
-            <dd>{entity.vorePreference.join(', ')}</dd>
-        </dl>
+        <table class="info-table">
+          <tr style="--row-accent:var(--neon-cyan)">
+            <th><span class="info-icon" aria-hidden="true">📦</span>Containment Class</th>
+            <td>{entity.containmentClass}</td>
+          </tr>
+          <tr style="--row-accent:var(--neon-blue)">
+            <th><span class="info-icon" aria-hidden="true">🏷️</span>Type</th>
+            <td>{entity.type}</td>
+          </tr>
+          <tr style="--row-accent:var(--neon-pink)">
+            <th><span class="info-icon" aria-hidden="true">🧬</span>Species</th>
+            <td>{entity.species}</td>
+          </tr>
+          <tr style="--row-accent:var(--neon-yellow)">
+            <th><span class="info-icon" aria-hidden="true">⚧</span>Gender</th>
+            <td>{entity.gender}</td>
+          </tr>
+          <tr style="--row-accent:var(--neon-orange)">
+            <th><span class="info-icon" aria-hidden="true">🎂</span>Age</th>
+            <td>{entity.age}</td>
+          </tr>
+          <tr style="--row-accent:var(--neon-cyan)">
+            <th><span class="info-icon" aria-hidden="true">🌍</span>Found On</th>
+            <td>{entity.foundOn}</td>
+          </tr>
+          <tr style="--row-accent:var(--neon-orange)">
+            <th><span class="info-icon" aria-hidden="true">🍽️</span>Vore Preference</th>
+            <td>{entity.vorePreference?.length ? entity.vorePreference.join(', ') : 'None'}</td>
+          </tr>
+        </table>
       </div>
     </section>
 
