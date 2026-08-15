@@ -18,14 +18,20 @@ const personnelColumns = {
   right: [4, 5],
 };
 
-const entityGroups = {
+type EntityGroup = {
+  title: string;
+  entries: { href: string; label: string }[];
+  note?: string;
+};
+
+const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
   left: [
     {
       title: 'Class A',
       entries: [
         { href: '/Axion/Personnel/a1', label: 'A-001' },
         { href: '/Axion/Entities/a-071', label: 'A-071 (Levi)' },
-        { href: '/Axion/Entities/a-100', label: 'A-100' },
+        { href: '/Axion/Personnel/somni', label: 'A-100' },
       ],
     },
     {
@@ -67,7 +73,7 @@ const entityGroups = {
         { href: '/Axion/Entities/x-402', label: 'X-402' },
         { href: '/Axion/Entities/x-403', label: 'X-403' },
       ],
-      note: 'X-001 ... X-401',
+      
     },
   ],
 };
