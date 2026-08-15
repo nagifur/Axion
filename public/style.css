@@ -767,6 +767,7 @@
     body.animations-off .article-list > li,
     body.animations-off .features .feature,
     body.animations-off .gallery-grid figure,
+    body.animations-off .db-panel.db-panel-active,
     body.animations-off .card > h1,
     body.animations-off .article-header h1,
     body.animations-off p.lead,
@@ -775,6 +776,10 @@
       clip-path:inset(0 0 0 0);
       opacity:1;
       transform:none;
+    }
+    body.animations-off .db-tab,
+    body.animations-off .db-panel{
+      transition:none !important;
     }
     body.animations-off::after{
       animation:none !important;
