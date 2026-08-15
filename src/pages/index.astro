@@ -20,11 +20,13 @@ function lastUpdated(absPath: string): Date {
 }
 
 const contentDir = path.join(process.cwd(), 'src', 'content');
+const pagesDir = path.join(process.cwd(), 'src', 'pages');
 
-const [articles, personnel, entities] = await Promise.all([
+const [articles, personnel, entities, pages] = await Promise.all([
   getCollection('articles', ({ data }) => !data.draft),
   getCollection('personnel', ({ data }) => !data.draft),
   getCollection('entities', ({ data }) => !data.draft),
+  getCollection('pages'),
 ]);
 
 const updates = [
@@ -46,6 +48,24 @@ const updates = [
     verb: 'Entity file updated',
     date: lastUpdated(path.join(contentDir, 'entities', entry.id)),
   })),
+  ...pages.map((entry) => ({
+    title: entry.data.title,
+    href: `/Axion/${entry.id.replace(/\.md$/, '')}`,
+    verb: 'Page updated',
+    date: lastUpdated(path.join(contentDir, 'pages', entry.id)),
+  })),
+  {
+    title: 'Contact',
+    href: '/Axion/contact',
+    verb: 'Page updated',
+    date: lastUpdated(path.join(pagesDir, 'contact.astro')),
+  },
+  {
+    title: 'Home',
+    href: '/Axion',
+    verb: 'Page updated',
+    date: lastUpdated(path.join(pagesDir, 'index.astro')),
+  },
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
 const recentUpdates = updates.slice(0, 5);
