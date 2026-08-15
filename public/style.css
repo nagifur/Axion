@@ -627,10 +627,14 @@
     .db-legend{ grid-column:1 / -1; margin-top:2px }
     .db-legend-list{ display:flex; flex-wrap:wrap; gap:8px 20px; margin:8px 0 0; padding:0; list-style:none }
     .db-legend-item{ color:var(--muted) }
-    .db-legend-swatch{ font-weight:700 }
+    .db-legend-swatch{ font-weight:700; padding:1px 8px; border-radius:6px }
     .db-legend-cyan{ color:var(--neon-cyan) }
     .db-legend-red{ color:var(--neon-red) }
     .db-legend-orange{ color:var(--neon-orange) }
+    /* Light mode neon colors are darkened for contrast, so give the legend swatches a tinted chip + deeper hue to keep them from washing out */
+    body.light .db-legend-cyan{ color:#0a6b86; background:rgba(10,107,134,0.14) }
+    body.light .db-legend-red{ color:#a3242c; background:rgba(163,36,44,0.14) }
+    body.light .db-legend-orange{ color:#a85c00; background:rgba(168,92,0,0.14) }
     .db-list{ margin:6px 0 0 18px; padding:0; color:var(--muted) }
     .db-list a{ color:var(--neon-cyan); text-decoration:none }
     .db-list a.active{ color:var(--neon-cyan) }
