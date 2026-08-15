@@ -17,6 +17,13 @@ const articles = defineCollection({
   }),
 });
 
+// Simple static markdown pages (About, etc.) — no dates/category/author needed.
+const pages = defineCollection({
+  schema: z.object({
+    title: z.string(),
+  }),
+});
+
 const personnel = defineCollection({
   schema: z.object({
     title: z.string(),
@@ -57,4 +64,4 @@ const entities = defineCollection({
   }),
 });
 
-export const collections = { articles, personnel, entities };
+export const collections = { articles, personnel, entities, pages };
