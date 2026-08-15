@@ -102,6 +102,36 @@
     }
   })();
 
+  // Header intro animation: run on homepage or first visit only
+  (function(){
+    if (!document.body) return;
+
+    var pathname = '';
+    try {
+      pathname = (window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+    } catch (_) {
+      pathname = '';
+    }
+
+    var normalizedPath = pathname.replace(/\/+$/, '');
+    var isHome =
+      normalizedPath === '' ||
+      normalizedPath === '/' ||
+      normalizedPath === '/axion' ||
+      normalizedPath === '/axion/index.html';
+
+    var introSeenKey = 'axion-intro-seen';
+    var introSeen = false;
+    try { introSeen = localStorage.getItem(introSeenKey) === '1'; } catch (_) {}
+
+    var shouldRunIntro = isHome || !introSeen;
+    document.body.classList.toggle('header-intro', shouldRunIntro);
+
+    if (!introSeen) {
+      try { localStorage.setItem(introSeenKey, '1'); } catch (_) {}
+    }
+  })();
+
   // Animation toggle: apply and persist atmospheric motion preference
   (function(){
     var storageKey = 'animations';
