@@ -107,10 +107,15 @@
     }
 
     function applyTheme(theme){
-      if (!document.body) return;
-      document.body.classList.toggle('light', theme === 'light');
       document.documentElement.setAttribute('data-theme', theme);
     }
+
+    // Carry the current theme onto the incoming document before a view transition
+    // swap so client-side navigation never briefly flashes the default theme.
+    document.addEventListener('astro:before-swap', function (event) {
+      var current = document.documentElement.getAttribute('data-theme');
+      if (current) event.newDocument.documentElement.setAttribute('data-theme', current);
+    });
 
     function updateToggle(theme){
       var btn = document.getElementById('theme-toggle');
@@ -149,7 +154,7 @@
     var toggle = document.getElementById('theme-toggle');
     if (toggle){
       toggle.addEventListener('click', function(){
-        var currentIsLight = document.body.classList.contains('light');
+        var currentIsLight = document.documentElement.getAttribute('data-theme') === 'light';
         var next = currentIsLight ? 'dark' : 'light';
         beginThemeTransition();
         applyTheme(next);
