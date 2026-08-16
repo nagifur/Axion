@@ -48,21 +48,22 @@ const readLevelReferences = (): ProfileReference[] => {
     });
 };
 
-// "Class A - Ally".md yields multiple ways of writing it: "A class", "Class A", "Ally class", "Class Ally".
+// class-a.md -> letter "A" (from filename) + label from title, works whether the
+// title is just "Ally" or the older "Class A - Ally" format.
 const readClassReferences = (): ProfileReference[] => {
   return readdirSync(pagesDirectory)
     .filter((filename) => /^class-[a-z]\.md$/.test(filename))
     .flatMap((filename) => {
       const source = readFileSync(join(pagesDirectory, filename), 'utf8');
       const title = source.match(/^title:\s*(.+)$/m)?.[1]?.trim().replace(/^['"]|['"]$/g, '');
-      const match = title?.match(/^Class (\S+) - (.+)$/);
 
-      if (!match) {
-        throw new Error(`Unexpected title format in pages/${filename}`);
+      if (!title) {
+        throw new Error(`Missing title frontmatter in pages/${filename}`);
       }
 
-      const [, letter, label] = match;
       const slug = filename.slice('class-'.length, -3);
+      const letter = slug.toUpperCase();
+      const label = title.replace(/^Class\s+\S+\s*-\s*/i, '').trim();
       const aliases = [`${letter} class`, `Class ${letter}`, `${label} class`, `Class ${label}`];
       return aliases.map((name) => ({ name, slug }));
     });
