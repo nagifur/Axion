@@ -29,9 +29,9 @@ gallery:
 
 A former level 3 caretaker at Axion, went rogue after a containment breach incident. 
 
-Did not agree with Axion's containment procedures regarding alien lifeforms and went on a protestm stealing valuable Axion artifacts from containment and releasing them into the wild.
+Did not agree with Axion's containment procedures regarding alien lifeforms and went on a protest stealing valuable Axion artifacts from containment and releasing them into the wild.
 
-One of the most valuable artifacts that was stolen is S-688, whichhe uses offensively againts Axion and its employees. It seems he can use it efficiently due to his artistic skills.
+One of the most valuable artifacts that was stolen is S-688, which he uses offensively againts Axion and its employees. It seems he can use it efficiently due to his artistic skills.
 
 Our research did not find his hideout yet, but we are increasing the surveillance and security measures to find him. The only clues left around the city are anti-Axion graffiti and paintings, which are believed to be made by him.
 
