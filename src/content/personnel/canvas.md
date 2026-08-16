@@ -2,6 +2,7 @@
 title: Canvas
 position: FIRED!
 species: White Fox
+employeeID: 4824
 gender: Male
 height: 7' 0''
 age: 27

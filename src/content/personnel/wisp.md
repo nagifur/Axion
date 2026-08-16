@@ -3,6 +3,7 @@ title: Wisp
 position: Head of Containment
 species: Ghost
 gender: Female
+employeeID: 3666
 height: 6'7"
 age: 27
 accessLevel: 5

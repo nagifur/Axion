@@ -3,6 +3,7 @@ title: Skye
 position: Robotics Expert / Mech Pilot
 species: Canine
 gender: Intersex
+employeeID: 6382
 height: 5'8"
 age: 19
 accessLevel: 4

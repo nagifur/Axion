@@ -2,6 +2,7 @@
 title: Reef
 position: Head of Security
 species: Shark
+employeeID: █-███
 gender: Male
 height: 10'1"
 age: 27

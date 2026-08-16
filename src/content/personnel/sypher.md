@@ -2,6 +2,7 @@
 title: Sypher
 position: CEO/Owner
 species: Feline
+employeeID: 0001
 gender: Male
 height: 6'3"
 age: ██

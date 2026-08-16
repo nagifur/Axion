@@ -31,6 +31,7 @@ const personnel = defineCollection({
     species: z.string().default('None'),
     gender: z.string().default('None'),
     height: z.string().default('None'),
+    employeeID: z.union([z.string(), z.number()]).default('None'),
     age: z.union([z.string(), z.number()]).default('None'),
     accessLevel: z.union([z.string(), z.number()]).default('None'),
     birthplace: z.string().default('None'),
