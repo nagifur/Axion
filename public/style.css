@@ -31,7 +31,7 @@
 
 /* Axion/style.css */
     :root{
-      --base-font-size:17px;
+      --base-font-size:22px;
       --theme-fade-duration:.55s;
       --theme-fade-easing:ease;
       --motion-fast:.38s;
@@ -457,7 +457,6 @@
     h1{
       margin:0 0 8px 0;
       font-family: Ethnocentric, "Arial Black", sans-serif;
-      font-size:clamp(1.6rem,4vw,2.8rem);
       color:var(--neon-cyan);
       text-transform:uppercase;
       letter-spacing:0.08em;
