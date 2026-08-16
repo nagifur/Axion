@@ -85,7 +85,7 @@ const lastSync = updates.length ? updates[0].date : new Date();
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
   year: 'numeric', month: 'short', day: 'numeric',
 });
-const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`;
+const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 
 const bulletins = [
   { title: 'Gear 100% OFF!!', body: 'For all Axion employees, register for a new cybernetic magi-tech implant now!' },
@@ -171,6 +171,7 @@ const bulletins = [
     return `${formatLocalDate(date)} — ${new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',
       minute: '2-digit',
+      hour12: false,
     }).format(date)}`;
   }
 
