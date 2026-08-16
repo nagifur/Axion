@@ -3,7 +3,7 @@ title: Somni
 position: Containment Unit
 species: Feline
 gender: Female
-height: "{{5'2\"|1.57 m}}"
+height: "{{5'0\"|1.52 m}}"
 employeeID: A-100
 age: 23
 accessLevel: 3
