@@ -17,6 +17,24 @@
 
   document.querySelectorAll('img').forEach(setImageState);
 
+  document.querySelectorAll('.hover-tooltip').forEach((tooltip) => {
+    const bubble = tooltip.querySelector('.tooltip-bubble');
+    const setActive = () => {
+      tooltip.classList.add('is-tooltip-active');
+      bubble?.style.setProperty('opacity', '1');
+      bubble?.style.setProperty('transform', 'translateX(-50%) translateY(0)');
+    };
+    const setInactive = () => {
+      tooltip.classList.remove('is-tooltip-active');
+      bubble?.style.setProperty('opacity', '0');
+      bubble?.style.setProperty('transform', 'translateX(-50%) translateY(4px)');
+    };
+    tooltip.addEventListener('mouseenter', setActive);
+    tooltip.addEventListener('mouseleave', setInactive);
+    tooltip.addEventListener('focus', setActive);
+    tooltip.addEventListener('blur', setInactive);
+  });
+
   const overlay = document.getElementById('lightbox');
   const overlayImg = overlay ? overlay.querySelector('img') : null;
   const closeBtn = document.getElementById('lightbox-close');
@@ -166,6 +184,19 @@
     var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[role="tab"]'));
     var panels = Array.prototype.slice.call(document.querySelectorAll('.db-panel[role="tabpanel"]'));
     if (!tabs.length || !panels.length) return;
+
+    function updateScrollCue(){
+      var maxScroll = tablist.scrollWidth - tablist.clientWidth;
+      var progress = maxScroll > 0 ? tablist.scrollLeft / maxScroll : 0;
+      var scrollWrap = tablist.parentElement;
+      if (scrollWrap) {
+        scrollWrap.style.setProperty('--scroll-cue-opacity', String(Math.max(0.25, 1 - progress * 0.7)));
+      }
+    }
+
+    tablist.addEventListener('scroll', updateScrollCue, { passive: true });
+    window.addEventListener('resize', updateScrollCue);
+    updateScrollCue();
 
     function setActiveTab(tab, shouldFocus){
       var controlsId = tab.getAttribute('aria-controls');

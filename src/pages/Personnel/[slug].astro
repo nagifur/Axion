@@ -119,7 +119,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
             <span class="stat-value"><HoverText value={character.height} /></span>
           </div>
           <div class="stat-cell">
-            <span class="info-icon" aria-hidden="true"><StatIcon name="age" /> </span>Age
+            <span class="info-icon" aria-hidden="true"><StatIcon name="age" /> </span><HoverText value="{{Age|Relative to Ventria}}" />
             <span class="stat-value"><HoverText value={String(character.age)} /></span>
           </div>
           <div class="stat-cell">

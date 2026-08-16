@@ -105,13 +105,16 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
     <h1 id="db-title">Facility Database <span class="cursor" aria-hidden="true"></span></h1>
     <p class="lead">Browse internal docs by category.</p>
 
-    <nav class="db-pane-nav" role="tablist" aria-label="Database categories">
-      <button id="db-tab-personnel" class="db-tab" role="tab" type="button" aria-selected="true" aria-controls="db-panel-personnel" tabindex="0">Personnel</button>
-      <button id="db-tab-entities" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-entities" tabindex="-1">Entities</button>
-      <button id="db-tab-containment" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-containment" tabindex="-1">Containment Classes</button>
-      <button id="db-tab-levels" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-levels" tabindex="-1">Levels</button>
-      <button id="db-tab-articles" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-articles" tabindex="-1">Articles</button>
-    </nav>
+    <div class="db-pane-nav-wrap">
+      <nav class="db-pane-nav" role="tablist" aria-label="Database categories">
+        <button id="db-tab-personnel" class="db-tab" role="tab" type="button" aria-selected="true" aria-controls="db-panel-personnel" tabindex="0">Personnel</button>
+        <button id="db-tab-entities" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-entities" tabindex="-1">Entities</button>
+        <button id="db-tab-containment" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-containment" tabindex="-1">Containment Classes</button>
+        <button id="db-tab-levels" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-levels" tabindex="-1">Levels</button>
+        <button id="db-tab-articles" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-articles" tabindex="-1">Articles</button>
+      </nav>
+      <span class="db-scroll-cue" aria-hidden="true">›</span>
+    </div>
 
     <div class="db-pane-right">
       <div class="card compact db-legend" aria-labelledby="sec-link-legend">

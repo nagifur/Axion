@@ -14,6 +14,7 @@ const segments = parseHoverSegments(String(value));
     ? (
       <span class="hover-tooltip" data-tooltip={segment.tooltip} tabindex="0">
         {segment.text}
+        <span class="tooltip-bubble" aria-hidden="true">{segment.tooltip}</span>
         <span class="sr-only"> ({segment.tooltip})</span>
       </span>
     )

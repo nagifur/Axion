@@ -736,7 +736,9 @@
     .db-shell > .lead{ grid-column:1 / -1 }
     .db-shell > h1{ margin-bottom:4px }
     .db-shell > .lead{ margin:2px 0 6px; font-size:0.94rem; line-height:1.35 }
+    .db-pane-nav-wrap{ display:contents }
     .db-pane-nav{ display:flex; flex-direction:column; gap:8px; position:sticky; top:14px }
+    .db-scroll-cue{ display:none }
     .db-tab{
       padding:9px 12px;
       border:1px solid var(--control-border);
@@ -936,14 +938,40 @@
     .article-return{ padding:0 18px }
     @media (max-width:700px){
       .db-shell{ grid-template-columns:1fr; gap:12px }
+      .db-pane-nav-wrap{ display:grid; grid-template-columns:minmax(0,1fr) 34px; min-width:0; align-items:stretch; }
       .db-pane-nav{
         position:static;
         flex-direction:row;
         overflow-x:auto;
+        overflow-y:hidden;
         overscroll-behavior-x:contain;
-        padding-bottom:4px;
+        scroll-snap-type:x proximity;
+        scroll-padding-inline:18px;
+        padding:2px 2px 8px;
+        margin-right:-2px;
+        scrollbar-width:thin;
+        scrollbar-color:var(--neon-cyan) transparent;
       }
-      .db-tab{ flex:0 0 auto; white-space:nowrap }
+      .db-pane-nav::-webkit-scrollbar{ height:4px }
+      .db-pane-nav::-webkit-scrollbar-track{ background:rgba(126,245,255,0.08); border-radius:var(--radius) }
+      .db-pane-nav::-webkit-scrollbar-thumb{ background:var(--neon-cyan); border-radius:var(--radius) }
+      .db-scroll-cue{
+        display:grid;
+        width:34px;
+        min-height:42px;
+        display:grid;
+        place-items:center;
+        color:var(--neon-cyan);
+        font-family:Georgia, serif;
+        font-size:1.7rem;
+        line-height:1;
+        background:linear-gradient(90deg, var(--card-bottom), var(--card-bottom));
+        text-shadow:0 0 8px rgba(126,245,255,0.55);
+        border-left:1px solid var(--line-soft);
+        opacity:var(--scroll-cue-opacity, 1);
+        transition:opacity .12s ease-out;
+      }
+      .db-tab{ flex:0 0 auto; white-space:nowrap; scroll-snap-align:start }
       .db-content-grid{ grid-template-columns:1fr; gap:12px }
       .article-meta{ gap:4px 10px }
       .article-body{ line-height:1.6 }
@@ -1047,13 +1075,12 @@
       cursor:help;
       border-bottom:1px dotted rgba(57,255,234,0.6);
     }
-    .hover-tooltip::after{
-      content: attr(data-tooltip);
+    .tooltip-bubble{
       position:absolute;
       left:50%;
       bottom:calc(100% + 8px);
       transform:translateX(-50%) translateY(4px);
-      background: var(--panel-head, #12202a);
+      background:var(--panel-head, #12202a);
       color:var(--text, #e8fbff);
       border:1px solid rgba(57,255,234,0.35);
       border-radius:6px;
@@ -1066,10 +1093,14 @@
       transition:opacity .18s ease, transform .18s ease;
       z-index:20;
     }
-    .hover-tooltip:hover::after,
-    .hover-tooltip:focus::after{
+    .hover-tooltip:hover .tooltip-bubble,
+    .hover-tooltip:focus .tooltip-bubble,
+    .hover-tooltip.is-tooltip-active .tooltip-bubble{
       opacity:1;
       transform:translateX(-50%) translateY(0);
+    }
+    .hover-tooltip::after{
+      content:none;
     }
     .error-screen {
     position: relative;
@@ -1078,9 +1109,6 @@
     place-items: center;
     overflow: hidden;
     border: 1px solid var(--line-soft);
-    background:
-      linear-gradient(90deg, transparent 49.8%, rgba(126, 245, 255, 0.08) 50%, transparent 50.2%),
-      linear-gradient(180deg, var(--surface-top), var(--surface-bottom));
     box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28), inset 0 0 55px rgba(126, 245, 255, 0.04);
   }
 
@@ -1088,7 +1116,7 @@
     position: relative;
     z-index: 1;
     width: min(100% - 40px, 700px);
-    padding: 48px 24px;
+    padding: 96px 24px 48px;
     text-align: center;
   }
 
@@ -1104,7 +1132,7 @@
   .error-code {
     color: transparent;
     font-family: Ethnocentric, sans-serif;
-    font-size: clamp(5rem, 18vw, 11rem);
+    font-size: clamp(5rem, 18vw, 9rem);
     line-height: 0.9;
     letter-spacing: 0.04em;
     -webkit-text-stroke: 1px var(--neon-cyan);
@@ -1209,7 +1237,14 @@
 
     .error-content {
       width: min(100% - 24px, 700px);
-      padding: 32px 12px;
+      padding: 76px 12px 32px;
+    }
+
+    .error-corner-top{
+      width:64px;
+      height:64px;
+      top:12px;
+      right:12px;
     }
 
     .error-status-divider {
