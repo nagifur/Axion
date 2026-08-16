@@ -1,0 +1,16 @@
+---
+// Renders a plain string that may contain "{{visible|tooltip}}" hover segments.
+import { parseHoverSegments } from '../lib/hoverTooltip';
+
+interface Props {
+  value: string;
+}
+
+const { value } = Astro.props;
+const segments = parseHoverSegments(String(value));
+---
+{segments.map((segment) => (
+  segment.tooltip
+    ? <span class="hover-tooltip" data-tooltip={segment.tooltip}>{segment.text}</span>
+    : segment.text
+))}

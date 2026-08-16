@@ -4,6 +4,7 @@ import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
 import { parseHoverSegments } from '../../lib/hoverTooltip';
+import HoverText from '../../components/HoverText.astro';
 
 // getStaticPaths tells Astro which pages to build. For a dynamic route for [slug].astro
 export async function getStaticPaths() {
@@ -105,15 +106,15 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">💼</span>Facility Position</span>
-            <span class="stat-value">{character.position}</span>
+            <span class="stat-value"><HoverText value={character.position} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🧬</span>Species</span>
-            <span class="stat-value">{character.species}</span>
+            <span class="stat-value"><HoverText value={character.species} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">⚧</span>Gender</span>
-            <span class="stat-value">{character.gender}</span>
+            <span class="stat-value"><HoverText value={character.gender} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">📏</span>Height</span>
@@ -127,15 +128,15 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🎂</span>Age</span>
-            <span class="stat-value">{character.age}</span>
+            <span class="stat-value"><HoverText value={String(character.age)} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🌍</span>Birthplace</span>
-            <span class="stat-value">{character.birthplace}</span>
+            <span class="stat-value"><HoverText value={character.birthplace} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🍽️</span>Vore Preference</span>
-            <span class="stat-value">{character.vorePreference?.length ? character.vorePreference.join(', ') : 'None'}</span>
+            <span class="stat-value"><HoverText value={character.vorePreference?.length ? character.vorePreference.join(', ') : 'None'} /></span>
           </div>
         </div>
       </div>
@@ -153,7 +154,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
         <ul class="trait-list positive">
           {character.positiveTraits.length ? character.positiveTraits.map((trait) => (
-            <li>{trait}</li>
+            <li><HoverText value={trait} /></li>
           )) : <li>None</li>}
         </ul>
       </div>
@@ -161,7 +162,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
         <ul class="trait-list negative">
           {character.negativeTraits.length ? character.negativeTraits.map((trait) => (
-            <li>{trait}</li>
+            <li><HoverText value={trait} /></li>
           )) : <li>None</li>}
         </ul>
       </div>
@@ -183,7 +184,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
               ) : (
                 <Image src={imageSrc} class="pixelart" alt={character.galleryAlt} loading="lazy" />
               )}
-              <figcaption>{item.caption}</figcaption>
+              <figcaption><HoverText value={item.caption} /></figcaption>
             </figure>
           );
         })}

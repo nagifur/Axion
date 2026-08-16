@@ -3,6 +3,7 @@ import Header from '../../components/header.astro';
 import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
+import HoverText from '../../components/HoverText.astro';
 
 export async function getStaticPaths() {
   const entries = await getCollection('entities', ({ data }) => !data.draft);
@@ -99,27 +100,27 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🏷️</span>Type</span>
-            <span class="stat-value">{entity.type}</span>
+            <span class="stat-value"><HoverText value={entity.type} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🧬</span>Species</span>
-            <span class="stat-value">{entity.species}</span>
+            <span class="stat-value"><HoverText value={entity.species} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">⚧</span>Gender</span>
-            <span class="stat-value">{entity.gender}</span>
+            <span class="stat-value"><HoverText value={entity.gender} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🎂</span>Age</span>
-            <span class="stat-value">{entity.age}</span>
+            <span class="stat-value"><HoverText value={String(entity.age)} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🌍</span>Found On</span>
-            <span class="stat-value">{entity.foundOn}</span>
+            <span class="stat-value"><HoverText value={entity.foundOn} /></span>
           </div>
           <div class="stat-cell span-2">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🍽️</span>Vore Preference</span>
-            <span class="stat-value">{entity.vorePreference?.length ? entity.vorePreference.join(', ') : 'None'}</span>
+            <span class="stat-value"><HoverText value={entity.vorePreference?.length ? entity.vorePreference.join(', ') : 'None'} /></span>
           </div>
         </div>
       </div>
@@ -137,7 +138,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         <h2 id="pos-title" class="db-title-yellow">Useful Abilities</h2>
         <ul class="trait-list positive">
           {entity.usefulAbilities.length ? entity.usefulAbilities.map((trait) => (
-            <li>{trait}</li>
+            <li><HoverText value={trait} /></li>
           )) : <li>None</li>}
         </ul>
       </div>
@@ -145,7 +146,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         <h2 id="neg-title" class="db-title-pink">Noteable Events</h2>
         <ul class="trait-list negative">
           {entity.noteableEvents.length ? entity.noteableEvents.map((trait) => (
-            <li>{trait}</li>
+            <li><HoverText value={trait} /></li>
           )) : <li>None</li>}
         </ul>
       </div>
@@ -167,7 +168,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
               ) : (
                 <Image src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
               )}
-              <figcaption>{item.caption}</figcaption>
+              <figcaption><HoverText value={item.caption} /></figcaption>
             </figure>
           );
         })}
