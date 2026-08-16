@@ -25,12 +25,12 @@ const pagesDir = path.join(process.cwd(), 'src', 'pages');
 const pageHref = (id: string) => {
   const pageId = id.replace(/\.md$/, '');
   const levelMatch = pageId.match(/^level-(\d+)$/);
-  if (levelMatch) return `/Axion/Levels/${levelMatch[1]}`;
+  if (levelMatch) return `/Levels/${levelMatch[1]}`;
 
   const classMatch = pageId.match(/^class-([a-z])$/);
-  if (classMatch) return `/Axion/Classes/${classMatch[1]}`;
+  if (classMatch) return `/Classes/${classMatch[1]}`;
 
-  return `/Axion/${pageId}`;
+  return `/${pageId}`;
 };
 
 const [articles, personnel, entities, pages] = await Promise.all([
@@ -43,19 +43,19 @@ const [articles, personnel, entities, pages] = await Promise.all([
 const updates = [
   ...articles.map((entry) => ({
     title: entry.data.title,
-    href: `/Axion/Articles/${entry.slug}`,
+    href: `/Articles/${entry.slug}`,
     verb: 'Log filed',
     date: lastUpdated(path.join(contentDir, 'articles', entry.id)),
   })),
   ...personnel.map((entry) => ({
     title: entry.data.title,
-    href: `/Axion/Personnel/${entry.id.replace(/\.md$/, '')}`,
+    href: `/Personnel/${entry.id.replace(/\.md$/, '')}`,
     verb: 'Personnel record updated',
     date: lastUpdated(path.join(contentDir, 'personnel', entry.id)),
   })),
   ...entities.map((entry) => ({
     title: entry.data.title,
-    href: `/Axion/Entities/${entry.id.replace(/\.md$/, '')}`,
+    href: `/Entities/${entry.id.replace(/\.md$/, '')}`,
     verb: 'Entity file updated',
     date: lastUpdated(path.join(contentDir, 'entities', entry.id)),
   })),
@@ -67,13 +67,13 @@ const updates = [
   })),
   {
     title: 'Contact',
-    href: '/Axion/contact',
+    href: '/contact',
     verb: 'Page updated',
     date: lastUpdated(path.join(pagesDir, 'contact.astro')),
   },
   {
     title: 'Home',
-    href: '/Axion',
+    href: '/',
     verb: 'Page updated',
     date: lastUpdated(path.join(pagesDir, 'index.astro')),
   },
@@ -106,8 +106,8 @@ const bulletins = [
           <p class="lead"> A1oS - ver 1.0</p>
 
           <div class="cta" aria-hidden="false">
-            <a class="btn" href="/Axion/database">Access Database</a>
-            <a class="btn secondary" href="/Axion/about">Facility Overview</a>
+            <a class="btn" href="/database">Access Database</a>
+            <a class="btn secondary" href="/about">Facility Overview</a>
           </div>
 
           <div class="bulletin" role="complementary" aria-label="Facility bulletin">

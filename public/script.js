@@ -138,8 +138,8 @@
     var isHome =
       normalizedPath === '' ||
       normalizedPath === '/' ||
-      normalizedPath === '/axion' ||
-      normalizedPath === '/axion/index.html';
+      normalizedPath === '/' ||
+      normalizedPath === '/index.html';
 
     var introSeenKey = 'axion-intro-seen';
     var introSeen = false;

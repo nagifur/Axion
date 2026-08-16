@@ -14,7 +14,7 @@ You could say its also inspired by the SCP Foundation, that came more of as a co
 
 This website is a collection of information about the Axion universe, including information about the characters, the facility, and the different planets that are explored. It is also a place where I can share my art and stories for the community, read up on the lore, and learn more about the universe I have created.
 
-If you have any questions about the project, or want to reach out to me, please check out my [contact page](/Axion/contact) for more information.
+If you have any questions about the project, or want to reach out to me, please check out my [contact page](/contact) for more information.
 
 
 

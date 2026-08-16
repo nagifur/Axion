@@ -5,10 +5,10 @@ import remarkHoverTooltip from './src/lib/remarkHoverTooltip';
 
 // https://astro.build/config
 export default defineConfig({
-  site: 'https://nagifur.github.io',
-  base: '/Axion',
+  site: 'https://www.axionlabs.art',
+  base: '/',
   markdown: {
-    remarkPlugins: [[remarkAutoLinkReferences, { base: '/Axion' }], remarkHoverTooltip],
+    remarkPlugins: [[remarkAutoLinkReferences, { base: '' }], remarkHoverTooltip],
   },
   redirects: {
     "/caard": "http://nagifur.art",

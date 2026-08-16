@@ -2,7 +2,7 @@
 import Header from '../components/header.astro';
 import Footer from '../components/footer.astro';
 
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 const primaryLinks = [
   { label: 'Twitter', href: 'https://twitter.com/nagifur', icon: 'x' },

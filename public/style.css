@@ -1,8 +1,8 @@
 /* Custom Added Fonts */
 @font-face {
   font-family: 'Ethnocentric';
-  src: url('/Axion/fonts/Ethnocentric-Regular.woff') format('woff'),
-       url('/Axion/fonts/Ethnocentric-Regular.otf') format('opentype');
+    src: url('/fonts/Ethnocentric-Regular.woff') format('woff'),
+      url('/fonts/Ethnocentric-Regular.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -10,7 +10,7 @@
 
 @font-face {
   font-family: 'Eurostar Regular';
-  src: url('/Axion/fonts/Eurostar Regular.woff') format('woff');
+  src: url('/fonts/Eurostar Regular.woff') format('woff');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -18,7 +18,7 @@
 
 @font-face {
   font-family: 'BOMBARD';
-  src: url('/Axion/fonts/BOMBARD.woff') format('woff');
+  src: url('/fonts/BOMBARD.woff') format('woff');
   font-weight: normal;
   font-style: normal;
   font-display: swap;

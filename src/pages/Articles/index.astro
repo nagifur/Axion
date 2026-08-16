@@ -6,7 +6,7 @@ import { getCollection } from 'astro:content';
 const articles = (await getCollection('articles', ({ data }) => !data.draft))
   .sort((left, right) => right.data.publishedAt.getTime() - left.data.publishedAt.getTime());
 
-const articleBase = `${import.meta.env.BASE_URL}/Articles`;
+const articleBase = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/Articles`;
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'long',

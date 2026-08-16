@@ -1,5 +1,6 @@
 ---
-const base = import.meta.env.BASE_URL;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const rootUrl = (path: string) => `${base}/${path}`;
 ---
 
 <!doctype html>
@@ -8,11 +9,11 @@ const base = import.meta.env.BASE_URL;
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <!--Force load logo svg-->
-  <link rel="preload" href="/Axion/Logo.svg" as="image" type="image/svg+xml" />
-  <link rel="preload" href="/Axion/Logo-light.svg" as="image" type="image/svg+xml" />
-  <link rel="stylesheet" href="/Axion/style.css"/>
-  <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
-  <script src="/Axion/script.js" defer></script>
+  <link rel="preload" href={rootUrl('Logo.svg')} as="image" type="image/svg+xml" />
+  <link rel="preload" href={rootUrl('Logo-light.svg')} as="image" type="image/svg+xml" />
+  <link rel="stylesheet" href={rootUrl('style.css')}/>
+  <link rel="icon" type="image/svg+xml" href={rootUrl('favicon.svg')} />
+  <script src={rootUrl('script.js')} defer></script>
   <title>Axion Labs</title>
   <meta name="description" content="Welcome to Axion — simple, fast, and accessible." />
 </head>
@@ -22,10 +23,10 @@ const base = import.meta.env.BASE_URL;
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="site-header">
-  <a class="brand" href="/Axion" aria-label="Axion Labs home">
+  <a class="brand" href={base || '/'} aria-label="Axion Labs home">
     <div class="logo">
-      <img class="logo-dark" src="/Axion/Logo.svg" width="89" height="60" fetchpriority="high" decoding="sync" alt="" aria-hidden="true" />
-      <img class="logo-light" src="/Axion/Logo-light.svg" width="89" height="60" fetchpriority="high" decoding="sync" alt="" aria-hidden="true" />
+      <img class="logo-dark" src={rootUrl('Logo.svg')} width="89" height="60" fetchpriority="high" decoding="sync" alt="" aria-hidden="true" />
+      <img class="logo-light" src={rootUrl('Logo-light.svg')} width="89" height="60" fetchpriority="high" decoding="sync" alt="" aria-hidden="true" />
     </div>
     <div class="brand-copy">
       <div class="brand-title">Axion Labs</div>
@@ -39,8 +40,8 @@ const base = import.meta.env.BASE_URL;
       <span></span><span></span><span></span>
     </button>
     <nav id="site-nav" class="site-nav">
-      <a href="/Axion/about">About</a>
-      <a href="/Axion/contact">Contact</a>
+      <a href={rootUrl('about')}>About</a>
+      <a href={rootUrl('contact')}>Contact</a>
       <button id="animations-toggle" class="theme-toggle" aria-pressed="true" title="Toggle animations" aria-label="Toggle animations">Animations On</button>
     <button id="theme-toggle" class="theme-toggle" aria-pressed="false" title="Toggle theme">Light Mode</button>
     </nav>

@@ -6,15 +6,15 @@ import { getCollection } from 'astro:content';
 const personnel = await getCollection('personnel', ({ data }) => !data.draft);
 const entities = await getCollection('entities', ({ data }) => !data.draft);
 const contentSlug = (id: string) => id.replace(/\.md$/, '');
-const activePersonnelUrls = personnel.map((entry) => `/Axion/Personnel/${contentSlug(entry.id)}`);
-const activeEntityUrls = entities.map((entry) => `/Axion/Entities/${contentSlug(entry.id)}`);
+const activePersonnelUrls = personnel.map((entry) => `/Personnel/${contentSlug(entry.id)}`);
+const activeEntityUrls = entities.map((entry) => `/Entities/${contentSlug(entry.id)}`);
 const publishedArticles = await getCollection('articles', ({ data }) => !data.draft);
 const activeArticleUrls = [
-  '/Axion/Articles/',
-  ...publishedArticles.map((article) => `/Axion/Articles/${article.slug}`),
+  '/Articles/',
+  ...publishedArticles.map((article) => `/Articles/${article.slug}`),
 ];
-const activeClassUrls = ['a', 's', 'c', 'm'].map((cls) => `/Axion/Classes/${cls}`);
-const activeLevelUrls = [0, 1, 2, 3, 4, 5].map((level) => `/Axion/Levels/${level}`);
+const activeClassUrls = ['a', 's', 'c', 'm'].map((cls) => `/Classes/${cls}`);
+const activeLevelUrls = [0, 1, 2, 3, 4, 5].map((level) => `/Levels/${level}`);
 const personnelColumns = {
   left: [0, 1, 2, 3],
   right: [4, 5],
@@ -31,22 +31,22 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
     {
       title: 'Class A',
       entries: [
-        { href: '/Axion/Personnel/a1', label: 'A-001' },
-        { href: '/Axion/Entities/a-071', label: 'A-071 (Levi)' },
-        { href: '/Axion/Personnel/somni', label: 'A-100' },
+        { href: '/Personnel/a1', label: 'A-001' },
+        { href: '/Entities/a-071', label: 'A-071 (Levi)' },
+        { href: '/Personnel/somni', label: 'A-100' },
       ],
     },
     {
       title: 'Class S',
       entries: [
-        { href: '/Axion/Entities/s-002', label: 'S-002 - (Wisp Animation)' },
-        { href: '/Axion/Entities/s-003', label: 'S-003 - (A1 Tail Vore Animation)' },
-        { href: '/Axion/Entities/s-013', label: 'S-013 - (Soul Mirror)' },
-        { href: '/Axion/Entities/s-402', label: 'S-402 - (Alien Alcoholic)' },
-        { href: '/Axion/Entities/s-382', label: 'S-382 - (Mentioned in Not Enough Sleep)' },
-        { href: '/Axion/Entities/s-420', label: 'S-420 - (Star Mushrooms)' },
-        { href: '/Axion/Entities/s-552', label: 'S-552 - (Sprouty)' },
-        { href: '/Axion/Entities/s-688', label: 'S-688 - (Genesis Chroma)' },
+        { href: '/Entities/s-002', label: 'S-002 - (Wisp Animation)' },
+        { href: '/Entities/s-003', label: 'S-003 - (A1 Tail Vore Animation)' },
+        { href: '/Entities/s-013', label: 'S-013 - (Soul Mirror)' },
+        { href: '/Entities/s-402', label: 'S-402 - (Alien Alcoholic)' },
+        { href: '/Entities/s-382', label: 'S-382 - (Mentioned in Not Enough Sleep)' },
+        { href: '/Entities/s-420', label: 'S-420 - (Star Mushrooms)' },
+        { href: '/Entities/s-552', label: 'S-552 - (Sprouty)' },
+        { href: '/Entities/s-688', label: 'S-688 - (Genesis Chroma)' },
       ],
     },
   ],
@@ -54,26 +54,26 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
     {
       title: 'Class C',
       entries: [
-        { href: '/Axion/Entities/c-086', label: 'C-086 - (Bloom Lizard)' },
-        { href: '/Axion/Entities/c-2221', label: 'C-221 - (Wisp Animation)' },
-        { href: '/Axion/Entities/c-282', label: 'C-282 - (Eyless lizard)' },
-        { href: '/Axion/Entities/c-324', label: 'C-324 - (Tentacle Plant)' },
-        { href: '/Axion/Entities/c-400', label: 'C-400 - (Portal Cats)' },
-        { href: '/Axion/Entities/c-668', label: 'C-668 - (Wisp Animation)' },
+        { href: '/Entities/c-086', label: 'C-086 - (Bloom Lizard)' },
+        { href: '/Entities/c-2221', label: 'C-221 - (Wisp Animation)' },
+        { href: '/Entities/c-282', label: 'C-282 - (Eyless lizard)' },
+        { href: '/Entities/c-324', label: 'C-324 - (Tentacle Plant)' },
+        { href: '/Entities/c-400', label: 'C-400 - (Portal Cats)' },
+        { href: '/Entities/c-668', label: 'C-668 - (Wisp Animation)' },
       ],
     },
     {
       title: 'Class M',
       entries: [
-        { href: '/Axion/Entities/m-031', label: 'M-031' },
-        { href: '/Axion/Entities/m-227', label: 'M-227 - (Spore Lizard)' },
+        { href: '/Entities/m-031', label: 'M-031' },
+        { href: '/Entities/m-227', label: 'M-227 - (Spore Lizard)' },
       ],
     },
     {
       title: 'Unassigned',
       entries: [
-        { href: '/Axion/Entities/x-402', label: 'X-402' },
-        { href: '/Axion/Entities/x-403', label: 'X-403' },
+        { href: '/Entities/x-402', label: 'X-402' },
+        { href: '/Entities/x-403', label: 'X-403' },
       ],
       
     },
@@ -137,7 +137,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                       <ul class="db-list db-sublist">
                         {group.members.map((person) => (
                           <li>
-                            <a href={`/Axion/Personnel/${contentSlug(person.id)}`} class={linkState(`/Axion/Personnel/${contentSlug(person.id)}`)}>
+                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkState(`/Personnel/${contentSlug(person.id)}`)}>
                               {person.data.title}
                             </a>
                           </li>
@@ -151,7 +151,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                   <h3 class="db-section-title">Special</h3>
                   <ul class="db-list db-sublist">
                     <li>
-                      <a href="/Axion/Personnel/sypher" class={linkState('/Axion/Personnel/sypher')}>
+                      <a href="/Personnel/sypher" class={linkState('/Personnel/sypher')}>
                         Sypher
                       </a>
                     </li>
@@ -168,7 +168,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                       <ul class="db-list db-sublist">
                         {group.members.map((person) => (
                           <li>
-                            <a href={`/Axion/Personnel/${contentSlug(person.id)}`} class={linkState(`/Axion/Personnel/${contentSlug(person.id)}`)}>
+                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkState(`/Personnel/${contentSlug(person.id)}`)}>
                               {person.data.title}
                             </a>
                           </li>
@@ -220,10 +220,10 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
           <div class="card compact" aria-labelledby="sec-containment">
             <h2 id="sec-containment" class="db-title-cyan">Containment Classes</h2>
             <ul class="db-list">
-              <li><a href="/Axion/Classes/a" class={linkState('/Axion/Classes/a')}>A - Ally</a></li>
-              <li><a href="/Axion/Classes/s" class={linkState('/Axion/Classes/s')}>S - Safe </a></li>
-              <li><a href="/Axion/Classes/c" class={linkState('/Axion/Classes/c')}>C - Containment </a></li>
-              <li><a href="/Axion/Classes/m" class={linkState('/Axion/Classes/m')}>M - Maximum Containment </a></li>
+              <li><a href="/Classes/a" class={linkState('/Classes/a')}>A - Ally</a></li>
+              <li><a href="/Classes/s" class={linkState('/Classes/s')}>S - Safe </a></li>
+              <li><a href="/Classes/c" class={linkState('/Classes/c')}>C - Containment </a></li>
+              <li><a href="/Classes/m" class={linkState('/Classes/m')}>M - Maximum Containment </a></li>
             </ul>
           </div>
         </section>
@@ -232,12 +232,12 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
           <div class="card compact" aria-labelledby="sec-levels">
             <h2 id="sec-levels" class="db-title-pink">Levels</h2>
             <ul class="db-list">
-              <li><a href="/Axion/Levels/0" class={linkState('/Axion/Levels/0')}>Level 0</a></li>
-              <li><a href="/Axion/Levels/1" class={linkState('/Axion/Levels/1')}>Level 1</a></li>
-              <li><a href="/Axion/Levels/2" class={linkState('/Axion/Levels/2')}>Level 2</a></li>
-              <li><a href="/Axion/Levels/3" class={linkState('/Axion/Levels/3')}>Level 3</a></li>
-              <li><a href="/Axion/Levels/4" class={linkState('/Axion/Levels/4')}>Level 4</a></li>
-              <li><a href="/Axion/Levels/5" class={linkState('/Axion/Levels/5')}>Level 5</a></li>
+              <li><a href="/Levels/0" class={linkState('/Levels/0')}>Level 0</a></li>
+              <li><a href="/Levels/1" class={linkState('/Levels/1')}>Level 1</a></li>
+              <li><a href="/Levels/2" class={linkState('/Levels/2')}>Level 2</a></li>
+              <li><a href="/Levels/3" class={linkState('/Levels/3')}>Level 3</a></li>
+              <li><a href="/Levels/4" class={linkState('/Levels/4')}>Level 4</a></li>
+              <li><a href="/Levels/5" class={linkState('/Levels/5')}>Level 5</a></li>
             </ul>
           </div>
         </section>
@@ -247,12 +247,12 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
             <h2 id="sec-articles" class="db-title-blue">Articles</h2>
             <ul class="db-list">
               <li>
-                <a href="/Axion/Articles/" class={linkState('/Axion/Articles/')}>Browse Archive</a>
+                <a href="/Articles/" class={linkState('/Articles/')}>Browse Archive</a>
                 {publishedArticles.length > 0 && (
                   <ul class="db-list">
                     {publishedArticles.map((article) => (
                       <li>
-                        <a href={`/Axion/Articles/${article.slug}`} class={linkState(`/Axion/Articles/${article.slug}`)}>
+                        <a href={`/Articles/${article.slug}`} class={linkState(`/Articles/${article.slug}`)}>
                           {article.data.title}
                         </a>
                       </li>

@@ -41,7 +41,7 @@ const galleryImages = Object.fromEntries(
       return [key, value];
     }),
 ) as Record<string, any>;
-const base = (Astro as any).base ?? import.meta.env.BASE_URL ?? '';
+const base = ((Astro as any).base ?? import.meta.env.BASE_URL ?? '').replace(/\/$/, '');
 const placeholderImage = `${base}/placeholder.png`;
 const personnelBase = `${base}/Personnel`;
 // Link the access level stat to its Levels page when it's a known numeric level.
