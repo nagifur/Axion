@@ -338,7 +338,6 @@
       content:"";
       position:absolute;
       inset:3px;
-      border:1px solid rgba(126,245,255,0.12);
       clip-path:inherit;
       pointer-events:none;
     }
