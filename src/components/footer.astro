@@ -1,6 +1,11 @@
-  <footer>
+---
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const rootUrl = (path: string) => `${base}/${path}`;
+---
+
+      <footer>
     <div>© {new Date().getFullYear()} Axion</div>
-    <div><a href="#" style="color:var(--muted); text-decoration:none">Privacy</a> · <a href="#contact" style="color:var(--muted); text-decoration:none">Contact</a></div>
+    <div> <a href={rootUrl('contact')} style="color:var(--muted); text-decoration:none">Contact</a></div>
   </footer>
 
   <script>

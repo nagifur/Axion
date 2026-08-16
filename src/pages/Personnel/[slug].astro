@@ -4,6 +4,7 @@ import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
 import HoverText from '../../components/HoverText.astro';
+import StatIcon from '../../components/StatIcon.astro';
 
 // getStaticPaths tells Astro which pages to build. For a dynamic route for [slug].astro
 export async function getStaticPaths() {
@@ -96,37 +97,37 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 
         <div class="stat-grid">
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🔑</span>Access Level</span>
+           <span class="info-icon" aria-hidden="true"><StatIcon name="access" /></span>Access Level
             <span class="stat-value">
               {accessLevelHref ? <a href={accessLevelHref}>Level {character.accessLevel}</a> : `Level ${character.accessLevel}`}
             </span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">💼</span>Facility Position</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="position" /> </span>Facility Position
             <span class="stat-value"><HoverText value={character.position} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🧬</span>Species</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="species" /> </span>Species
             <span class="stat-value"><HoverText value={character.species} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">⚧</span>Gender</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="gender" /> </span>Gender
             <span class="stat-value"><HoverText value={character.gender} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">📏</span>Height</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="height" /> </span>Height
             <span class="stat-value"><HoverText value={character.height} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🎂</span>Age</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="age" /> </span>Age
             <span class="stat-value"><HoverText value={String(character.age)} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🌍</span>Birthplace</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="origin" /> </span>Birthplace
             <span class="stat-value"><HoverText value={character.birthplace} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🍽️</span>Trophic Role</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="trophic" /> </span>Trophic Role
             <span class="stat-value"><HoverText value={character.vorePreference?.length ? character.vorePreference.join(', ') : 'None'} /></span>
           </div>
         </div>

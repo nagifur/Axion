@@ -4,6 +4,7 @@ import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
 import HoverText from '../../components/HoverText.astro';
+import StatIcon from '../../components/StatIcon.astro';
 
 export async function getStaticPaths() {
   const entries = await getCollection('entities', ({ data }) => !data.draft);
@@ -93,33 +94,33 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 
         <div class="stat-grid">
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">📦</span>Containment Class</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="containment" /> </span>Containment Class
             <span class="stat-value">
               {containmentClassHref ? <a href={containmentClassHref}>{entity.containmentClass}</a> : entity.containmentClass}
             </span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🏷️</span>Type</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="type" /> </span>Type
             <span class="stat-value"><HoverText value={entity.type} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🧬</span>Species</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="species" /> </span>Species
             <span class="stat-value"><HoverText value={entity.species} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">⚧</span>Gender</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="gender" /> </span>Gender
             <span class="stat-value"><HoverText value={entity.gender} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🎂</span>Age</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="age" /> </span>Age
             <span class="stat-value"><HoverText value={String(entity.age)} /></span>
           </div>
           <div class="stat-cell">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🌍</span>Found On</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="foundOn" /> </span>Found On
             <span class="stat-value"><HoverText value={entity.foundOn} /></span>
           </div>
           <div class="stat-cell span-2">
-            <span class="stat-label"><span class="info-icon" aria-hidden="true">🍽️</span>Trophic Role</span>
+            <span class="info-icon" aria-hidden="true"><StatIcon name="trophic" /> </span>Trophic Role
             <span class="stat-value"><HoverText value={entity.vorePreference?.length ? entity.vorePreference.join(', ') : 'None'} /></span>
           </div>
         </div>

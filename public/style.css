@@ -87,7 +87,7 @@
       --line-soft:rgba(13, 61, 86, 0.24);
       --corner:rgba(15, 93, 122, 0.36);
       --neon-cyan:#0f5d7a;
-      --neon-green:#8e2e6a;
+      --neon-green:#1c7236;
       --neon-blue:#29589e;
       --neon-red:#a33636;
       --neon-orange:#9b5a16;
@@ -1138,3 +1138,10 @@
       animation: none;
     }
   }
+
+  .info-icon svg {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  color: var(--your-neon-accent, currentColor);
+}
