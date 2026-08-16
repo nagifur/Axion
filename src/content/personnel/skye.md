@@ -4,7 +4,7 @@ position: Robotics Expert / Mech Pilot
 species: Canine
 gender: Intersex
 employeeID: 6382
-height: 5'8"
+height: "{{5'8\"|1.73 m}}"
 age: 19
 accessLevel: 4
 birthplace: Ventria

@@ -4,7 +4,7 @@ position: CEO/Owner
 species: Feline
 employeeID: 0001
 gender: Male
-height: 6'3"
+height: "{{6'3\"|1.91 m}}"
 age: ██
 accessLevel: Admin
 birthplace: Ventria

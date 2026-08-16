@@ -4,7 +4,7 @@ position: Head of Containment
 species: Ghost
 gender: Female
 employeeID: 3666
-height: 6'7"
+height: "{{6'7\"|2.01 m}}"
 age: 27
 accessLevel: 5
 birthplace: Ventria

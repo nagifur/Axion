@@ -4,7 +4,7 @@ position: Head of R&D Department
 species: ████
 gender: Intersex
 employeeID: 0002
-height: 5'8"
+height: "{{5'8\"|1.73 m}}"
 age: 34
 accessLevel: 5
 birthplace: Ventria

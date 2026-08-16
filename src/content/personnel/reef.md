@@ -4,7 +4,7 @@ position: Head of Security
 species: Shark
 employeeID: █-███
 gender: Male
-height: 10'1"
+height: "{{10'1\"|3.07 m}}"
 age: 27
 accessLevel: 5
 birthplace: Azuron

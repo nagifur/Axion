@@ -4,7 +4,7 @@ position: FIRED!
 species: White Fox
 employeeID: 4824
 gender: Male
-height: 7' 0''
+height: "{{7' 0''|2.13 m}}"
 age: 27
 accessLevel: 3
 birthplace: Ventria

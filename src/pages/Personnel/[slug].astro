@@ -3,6 +3,7 @@ import Header from '../../components/header.astro';
 import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
+import { parseHoverSegments } from '../../lib/hoverTooltip';
 
 // getStaticPaths tells Astro which pages to build. For a dynamic route for [slug].astro
 export async function getStaticPaths() {
@@ -47,6 +48,8 @@ const personnelBase = `${base}/Personnel`;
 const accessLevelHref = /^\d+$/.test(String(character.accessLevel))
   ? `${base}/Levels/${character.accessLevel}`
   : undefined;
+// Height can embed a "{{5'10\"|1.78 m}}" hover conversion, written directly in the frontmatter.
+const heightSegments = parseHoverSegments(String(character.height));
 
 // Look up a gallery image by slug and filename.
 // If the exact filename is not found, fall back to the same basename with any supported extension.
@@ -114,7 +117,13 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">📏</span>Height</span>
-            <span class="stat-value">{character.height}</span>
+            <span class="stat-value">
+              {heightSegments.map((segment) => (
+                segment.tooltip
+                  ? <span class="hover-tooltip" data-tooltip={segment.tooltip}>{segment.text}</span>
+                  : segment.text
+              ))}
+            </span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🎂</span>Age</span>

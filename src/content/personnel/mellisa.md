@@ -4,7 +4,7 @@ position: Head of Biocare
 species: Bee
 gender: Intersex
 employeeID: █-███
-height: 20'1''
+height: "{{20'1''|6.12 m}}"
 age: 42
 accessLevel: 5
 birthplace: ████

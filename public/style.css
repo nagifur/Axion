@@ -912,3 +912,34 @@
       box-shadow:0 10px 30px rgba(0,0,0,0.4);
     }
     .lightbox-close:hover{ color:var(--neon-pink); border-color: rgba(255,77,210,0.3) }
+
+    /* Hover tooltips: {{visible|tooltip}} syntax in markdown, or via parseHoverSegments() for frontmatter fields */
+    .hover-tooltip{
+      position:relative;
+      cursor:help;
+      border-bottom:1px dotted rgba(57,255,234,0.6);
+    }
+    .hover-tooltip::after{
+      content: attr(data-tooltip);
+      position:absolute;
+      left:50%;
+      bottom:calc(100% + 8px);
+      transform:translateX(-50%) translateY(4px);
+      background: var(--panel-head, #12202a);
+      color:var(--text, #e8fbff);
+      border:1px solid rgba(57,255,234,0.35);
+      border-radius:6px;
+      padding:6px 10px;
+      white-space:nowrap;
+      font-size:0.85em;
+      box-shadow:0 10px 30px rgba(0,0,0,0.4);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:20;
+    }
+    .hover-tooltip:hover::after,
+    .hover-tooltip:focus-visible::after{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }

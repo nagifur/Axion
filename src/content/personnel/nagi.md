@@ -4,7 +4,7 @@ employeeID: 5538
 position: Caretaker
 species: Feline
 gender: Male
-height: 5'6"
+height: "{{5'7\"|1.70 m}}"
 age: 25
 accessLevel: 3
 birthplace: Ventria

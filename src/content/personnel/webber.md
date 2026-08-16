@@ -4,7 +4,7 @@ position: Maintenance
 species: Spider
 employeeID: 5592
 gender: Male
-height: 5'10"
+height: "{{5'10\"|1.78 m}}"
 age: 20
 accessLevel: 2
 birthplace: Ventria
