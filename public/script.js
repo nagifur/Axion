@@ -1,4 +1,14 @@
 
+// Carry the current theme onto the incoming document before a view transition
+// swap so client-side navigation never briefly flashes the default theme.
+document.addEventListener('astro:before-swap', function (event) {
+  var current = document.documentElement.getAttribute('data-theme');
+  if (current) event.newDocument.documentElement.setAttribute('data-theme', current);
+});
+
+// Astro view transitions swap the document without reloading script.js, so all
+// DOM bindings must be re-run after every navigation via astro:page-load.
+document.addEventListener('astro:page-load', function () {
   function setImageState(img) {
     if (!img || !img.getAttribute('src') || img.dataset.imageStateBound === 'true') return;
     img.dataset.imageStateBound = 'true';
@@ -109,13 +119,6 @@
     function applyTheme(theme){
       document.documentElement.setAttribute('data-theme', theme);
     }
-
-    // Carry the current theme onto the incoming document before a view transition
-    // swap so client-side navigation never briefly flashes the default theme.
-    document.addEventListener('astro:before-swap', function (event) {
-      var current = document.documentElement.getAttribute('data-theme');
-      if (current) event.newDocument.documentElement.setAttribute('data-theme', current);
-    });
 
     function updateToggle(theme){
       var btn = document.getElementById('theme-toggle');
@@ -320,3 +323,4 @@
       }
     }
   })();
+});
