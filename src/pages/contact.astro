@@ -31,7 +31,7 @@ const moreLinks = [
     <section class="card" role="article">
       <h1 id="contact-title" style="justify-content: center;">Comms Channel <span class="cursor" aria-hidden="true"></span></h1>
       <div class="contact-avatar-wrap">
-        <img class="contact-avatar" src={`${base}/profilePicture.png`} alt="Nagifur's profile picture" loading="lazy" />
+        <img class="contact-avatar" src={`${base}/profilePicture.png`} alt="Nagifur's profile picture" loading="eager" fetchpriority="high" decoding="async" />
       </div>
       <p class="lead" id="contact-text">
         Self-taught digital artist 🇨🇿 | Furry / Macro-Vore / Sci-Fi. 

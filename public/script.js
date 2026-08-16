@@ -1,4 +1,22 @@
 
+  function setImageState(img) {
+    if (!img || !img.getAttribute('src') || img.dataset.imageStateBound === 'true') return;
+    img.dataset.imageStateBound = 'true';
+    img.classList.add('image-loading');
+
+    function finish(state) {
+      img.classList.remove('image-loading');
+      img.classList.toggle('image-error', state === 'error');
+      img.dataset.imageState = state;
+    }
+
+    img.addEventListener('load', () => finish('loaded'), { once: true });
+    img.addEventListener('error', () => finish('error'), { once: true });
+    if (img.complete) finish(img.naturalWidth > 0 ? 'loaded' : 'error');
+  }
+
+  document.querySelectorAll('img').forEach(setImageState);
+
   const overlay = document.getElementById('lightbox');
   const overlayImg = overlay ? overlay.querySelector('img') : null;
   const closeBtn = document.getElementById('lightbox-close');
@@ -7,6 +25,7 @@
     if (!overlay || !overlayImg) return;
     overlayImg.src = src;
     overlayImg.alt = alt || '';
+    setImageState(overlayImg);
     overlay.hidden = false;
     overlay.focus();
   }
