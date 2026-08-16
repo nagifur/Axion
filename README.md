@@ -2,10 +2,11 @@
 
 The Axion Labs facility database is a static website built with [Astro](https://astro.build/)! It's a fictional universe I made for my OCs.
 
-Live site: [www.axionlabs.art](https://www.axionlabs.art)
+**Live site: [www.axionlabs.art](https://www.axionlabs.art)**
+
+You can also contribute to the project by adding new content or fixing issues! Although for adding new characters/entities, I keep it to [Patreon](https://www.patreon.com/nagifur) supporters only!
 
 If you want to launch a local copy of the site, follow the instructions below. 
-You can also contribute to the project by adding new content or fixing issues! Although for adding new characters/entities, I keep it to [Patreon](https://www.patreon.com/nagifur) supporters only!
 
 ## Requirements
 
@@ -77,8 +78,6 @@ Run these commands from the project directory:
 | --- | --- |
 | `npm run dev` | Start the local development server with hot reload. |
 | `npm run build` | Build the production site into `dist/`. |
-| `npm run preview` | Preview the production build locally. Run `npm run build` first. |
-| `npm run astro -- check` | Run Astro's type and project checks. |
 
 The development server is usually available at [http://localhost:4321](http://localhost:4321). Astro will report the exact URL in the terminal.
 
@@ -100,19 +99,8 @@ Images are stored in `src/assets/images/`, while files that need to be served di
 
 ## Production Build
 
-Create a production build with:
+Made automatically with GitHub Actions on the `main` branch. The production build is deployed to GitHub Pages at [https://www.axionlabs.art](https://www.axionlabs.art).
 
-```bash
-npm run build
-```
-
-Astro writes the generated static files to `dist/`. To inspect that build locally:
-
-```bash
-npm run preview
-```
-
-The configured site URL is `https://www.axionlabs.art`. `public/CNAME` contains the custom domain used by compatible static hosting providers.
 
 ## Project Layout
 
