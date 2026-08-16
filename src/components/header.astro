@@ -1,7 +1,31 @@
 ---
 import { ClientRouter } from 'astro:transitions';
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  imageAlt?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  type?: 'website' | 'article' | 'profile';
+}
+
+const {
+  title = 'Axion Labs',
+  description = 'Axion Labs main facility database — a fictional sci-fi universe of characters, creatures, and lore.',
+  image = '/og-image.png',
+  imageAlt = 'Axion Labs',
+  imageWidth = 1200,
+  imageHeight = 630,
+  type = 'website',
+} = Astro.props;
+
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const rootUrl = (path: string) => `${base}/${path}`;
+const pageTitle = title === 'Axion Labs' ? title : `${title} | Axion Labs`;
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImageURL = new URL(image, Astro.site);
 ---
 
 <!doctype html>
@@ -27,8 +51,24 @@ const rootUrl = (path: string) => `${base}/${path}`;
   <link rel="stylesheet" href={rootUrl('style.css')}/>
   <link rel="icon" type="image/svg+xml" href={rootUrl('favicon.svg')} />
   <script src={rootUrl('script.js')} defer></script>
-  <title>Axion Labs</title>
-  <meta name="description" content="Welcome to Axion Labs" />
+  <title>{pageTitle}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonicalURL} />
+
+  <meta property="og:type" content={type} />
+  <meta property="og:site_name" content="Axion Labs" />
+  <meta property="og:title" content={pageTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonicalURL} />
+  <meta property="og:image" content={ogImageURL} />
+  <meta property="og:image:alt" content={imageAlt} />
+  <meta property="og:image:width" content={String(imageWidth)} />
+  <meta property="og:image:height" content={String(imageHeight)} />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={pageTitle} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImageURL} />
 </head>
 
 <body>

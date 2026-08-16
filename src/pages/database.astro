@@ -98,7 +98,10 @@ const activeUrls = new Set([
 // Determine whether a given link target is currently active.
 const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
 ---
-<Header></Header>
+<Header
+  title="Database"
+  description="Browse the Axion Labs facility database of personnel, entities, and classifications."
+/>
 
 <main id="main" tabindex="-1">
   <section class="card db-shell" aria-labelledby="db-title">

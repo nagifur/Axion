@@ -22,7 +22,11 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
 });
 ---
 
-<Header />
+<Header
+  title={article.data.title}
+  description={article.data.description}
+  type="article"
+/>
 
 <main id="main" tabindex="-1">
   <article class="article-page">

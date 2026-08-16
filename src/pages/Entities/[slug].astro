@@ -72,7 +72,11 @@ const profileIsGif = /\.gif$/i.test(entity.profileImage);
 const profileIsPlaceholder = profileImport === placeholderImage;
 ---
 
-<Header />
+<Header
+  title={entity.title}
+  description={`Containment class ${entity.containmentClass} — Axion Labs entity file.`}
+  type="profile"
+/>
 
 <main id="main" tabindex="-1">
   <div class="page-stack">

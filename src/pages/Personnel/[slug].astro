@@ -76,7 +76,11 @@ const profileIsGif = /\.gif$/i.test(character.profileImage);
 const profileIsPlaceholder = profileImport === placeholderImage;
 ---
 
-<Header />
+<Header
+  title={character.title}
+  description={`${character.position} — Axion Labs personnel file.`}
+  type="profile"
+/>
 
 <main id="main" tabindex="-1">
   <div class="page-stack">

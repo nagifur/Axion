@@ -9,7 +9,7 @@
  }
  const { Content } = await render(page);
  ---
-<Header></Header>
+<Header title={page.data.title} />
 
 <main id="main" tabindex="-1">
   <article class="article-page">
