@@ -159,12 +159,18 @@ const bulletins = [
   <Footer></Footer>
 
 <script>
-  const clockEl = document.getElementById('facility-clock');
+  // Module scripts don't re-run after a view-transition swap, so (re)start the
+  // clock on every page load and clear the previous interval to avoid duplicates.
+  let clockInterval: ReturnType<typeof setInterval> | undefined;
   function tick() {
+    const clockEl = document.getElementById('facility-clock');
     if (!clockEl) return;
     clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }
-  tick();
-  setInterval(tick, 1000);
+  document.addEventListener('astro:page-load', () => {
+    tick();
+    clearInterval(clockInterval);
+    clockInterval = setInterval(tick, 1000);
+  });
 </script>
 
