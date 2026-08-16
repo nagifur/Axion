@@ -142,7 +142,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 
     <section class="traits-grid" aria-label="Traits">
       <div class="card" role="region" aria-labelledby="pos-title">
-        <h2 id="pos-title" class="db-title-yellow">Positive Traits</h2>
+        <h2 id="pos-title" class="db-title-green">Positive Traits</h2>
         <ul class="trait-list positive">
           {character.positiveTraits.length ? character.positiveTraits.map((trait) => (
             <li><HoverText value={trait} /></li>
@@ -150,7 +150,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         </ul>
       </div>
       <div class="card" role="region" aria-labelledby="neg-title">
-        <h2 id="neg-title" class="db-title-pink">Negative Traits</h2>
+        <h2 id="neg-title" class="db-title-red">Negative Traits</h2>
         <ul class="trait-list negative">
           {character.negativeTraits.length ? character.negativeTraits.map((trait) => (
             <li><HoverText value={trait} /></li>

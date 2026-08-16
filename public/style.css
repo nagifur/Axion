@@ -55,6 +55,7 @@
       --stat-cell:rgba(23, 96, 119, 0.28);
       --neon-cyan:#7ef5ff;
       --neon-pink:#ff4dd2;
+      --neon-green:#33FF99;
       --neon-blue:#7aa9ff;
       --neon-red:#ff7b7b;
       --neon-orange:#ffb15b;
@@ -86,7 +87,7 @@
       --line-soft:rgba(13, 61, 86, 0.24);
       --corner:rgba(15, 93, 122, 0.36);
       --neon-cyan:#0f5d7a;
-      --neon-pink:#8e2e6a;
+      --neon-green:#8e2e6a;
       --neon-blue:#29589e;
       --neon-red:#a33636;
       --neon-orange:#9b5a16;
@@ -708,9 +709,11 @@
     .db-divider{ list-style:none; margin:10px 0 }
     .db-divider hr{ border:none; border-top:1px dashed var(--line-soft); margin:0 }
     .db-title-yellow{ margin:0 0 8px 0; color:var(--neon-yellow) }
-    .db-title-pink{ margin:0 0 8px 0; color:var(--neon-pink) }
+    .db-title-green{ margin:0 0 8px 0; color:var(--neon-green) }
+    .db-title-pink{ margin:0 0 8px 0; color:var(--neon-green) }
     .db-title-cyan{ margin:0 0 8px 0; color:var(--neon-cyan) }
     .db-title-blue{ margin:0 0 8px 0; color:var(--neon-blue) }
+    .db-title-red{ margin:0 0 8px 0; color:var(--neon-red) }
     
     /* Personnel / entity profile header */
     .profile-header{ display:flex; flex-direction:column; margin-bottom:12px }
@@ -718,7 +721,7 @@
       margin:0; font-family:Ethnocentric, "Arial Black", sans-serif;
       font-size:clamp(1.6rem,4vw,2.8rem); color:var(--neon-cyan); text-transform:uppercase;
     }
-    .profile-nickname{ margin:2px 0 0; font-size:1.1rem; font-weight:700; color:var(--neon-pink) }
+    .profile-nickname{ margin:2px 0 0; font-size:1.1rem; font-weight:700; color:var(--neon-green) }
 
     /* Personnel profile */
     .profile{
@@ -831,7 +834,7 @@
     .article-body p, .article-body li{ color:var(--text); max-width:100% }
     .article-body ul, .article-body ol{ padding-left:1.5rem }
     .article-body a{ color:var(--neon-cyan) }
-    .article-body blockquote{ border-left:3px solid var(--neon-pink); color:var(--muted); margin:1.5rem 0; padding-left:1rem }
+    .article-body blockquote{ border-left:3px solid var(--neon-green); color:var(--muted); margin:1.5rem 0; padding-left:1rem }
     .article-body blockquote p{ color:var(--muted) }
     .article-body img{ border:1px solid rgba(255,255,255,0.12); border-radius:6px; display:block; height:auto; margin:1.5rem auto; max-width:100% }
     .article-body pre{ max-width:100%; overflow-x:auto }
@@ -941,7 +944,7 @@
       color:var(--text); display:grid; place-items:center; font-size:20px; line-height:1;
       box-shadow:0 10px 30px rgba(0,0,0,0.4);
     }
-    .lightbox-close:hover{ color:var(--neon-pink); border-color: rgba(255,77,210,0.3) }
+    .lightbox-close:hover{ color:var(--neon-green); border-color: rgba(255,77,210,0.3) }
 
     /* Hover tooltips: {{visible|tooltip}} syntax in markdown, or via parseHoverSegments() for frontmatter fields */
     .hover-tooltip{
@@ -1052,7 +1055,7 @@
   }
 
   .error-status-divider {
-    color: var(--neon-pink);
+    color: var(--neon-green);
   }
 
   .error-actions {

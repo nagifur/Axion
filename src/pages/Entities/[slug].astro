@@ -135,7 +135,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 
     <section class="traits-grid" aria-label="Traits">
       <div class="card" role="region" aria-labelledby="pos-title">
-        <h2 id="pos-title" class="db-title-yellow">Useful Abilities</h2>
+        <h2 id="pos-title" class="db-title-green">Useful Abilities</h2>
         <ul class="trait-list positive">
           {entity.usefulAbilities.length ? entity.usefulAbilities.map((trait) => (
             <li><HoverText value={trait} /></li>
@@ -143,7 +143,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         </ul>
       </div>
       <div class="card" role="region" aria-labelledby="neg-title">
-        <h2 id="neg-title" class="db-title-pink">Noteable Events</h2>
+        <h2 id="neg-title" class="db-title-red">Noteable Events</h2>
         <ul class="trait-list negative">
           {entity.noteableEvents.length ? entity.noteableEvents.map((trait) => (
             <li><HoverText value={trait} /></li>
