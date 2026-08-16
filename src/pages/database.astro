@@ -13,8 +13,10 @@ const activeArticleUrls = [
   '/Axion/Articles/',
   ...publishedArticles.map((article) => `/Axion/Articles/${article.slug}`),
 ];
+const activeClassUrls = ['a', 's', 'c', 'm'].map((cls) => `/Axion/Classes/${cls}`);
+const activeLevelUrls = [0, 1, 2, 3, 4, 5].map((level) => `/Axion/Levels/${level}`);
 const personnelColumns = {
-  left: [1, 2, 3],
+  left: [0, 1, 2, 3],
   right: [4, 5],
 };
 
@@ -78,7 +80,7 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
   ],
 };
 
-const personnelByAccessLevel = [1, 2, 3, 4, 5].map((level) => ({
+const personnelByAccessLevel = [0, 1, 2, 3, 4, 5].map((level) => ({
   level,
   members: personnel
     .filter((entry) => Number(entry.data.accessLevel ?? 1) === level)
@@ -86,7 +88,13 @@ const personnelByAccessLevel = [1, 2, 3, 4, 5].map((level) => ({
 }));
 
 // Keep a lookup set for active link styling.
-const activeUrls = new Set([...activePersonnelUrls, ...activeEntityUrls, ...activeArticleUrls]);
+const activeUrls = new Set([
+  ...activePersonnelUrls,
+  ...activeEntityUrls,
+  ...activeArticleUrls,
+  ...activeClassUrls,
+  ...activeLevelUrls,
+]);
 // Determine whether a given link target is currently active.
 const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
 ---
@@ -212,10 +220,10 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
           <div class="card compact" aria-labelledby="sec-containment">
             <h2 id="sec-containment" class="db-title-cyan">Containment Classes</h2>
             <ul class="db-list">
-              <li><a href="#" class={linkState('#')}>A - Ally</a></li>
-              <li><a href="#" class={linkState('#')}>S - Safe </a></li>
-              <li><a href="#" class={linkState('#')}>C - Containment </a></li>
-              <li><a href="#" class={linkState('#')}>M - Maximum Containment </a></li>
+              <li><a href="/Axion/Classes/a" class={linkState('/Axion/Classes/a')}>A - Ally</a></li>
+              <li><a href="/Axion/Classes/s" class={linkState('/Axion/Classes/s')}>S - Safe </a></li>
+              <li><a href="/Axion/Classes/c" class={linkState('/Axion/Classes/c')}>C - Containment </a></li>
+              <li><a href="/Axion/Classes/m" class={linkState('/Axion/Classes/m')}>M - Maximum Containment </a></li>
             </ul>
           </div>
         </section>
@@ -224,11 +232,12 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
           <div class="card compact" aria-labelledby="sec-levels">
             <h2 id="sec-levels" class="db-title-pink">Levels</h2>
             <ul class="db-list">
-              <li><a href="#" class={linkState('#')}>Level 1</a></li>
-              <li><a href="#" class={linkState('#')}>Level 2</a></li>
-              <li><a href="#" class={linkState('#')}>Level 3</a></li>
-              <li><a href="#" class={linkState('#')}>Level 4</a></li>
-              <li><a href="#" class={linkState('#')}>Level 5</a></li>
+              <li><a href="/Axion/Levels/0" class={linkState('/Axion/Levels/0')}>Level 0</a></li>
+              <li><a href="/Axion/Levels/1" class={linkState('/Axion/Levels/1')}>Level 1</a></li>
+              <li><a href="/Axion/Levels/2" class={linkState('/Axion/Levels/2')}>Level 2</a></li>
+              <li><a href="/Axion/Levels/3" class={linkState('/Axion/Levels/3')}>Level 3</a></li>
+              <li><a href="/Axion/Levels/4" class={linkState('/Axion/Levels/4')}>Level 4</a></li>
+              <li><a href="/Axion/Levels/5" class={linkState('/Axion/Levels/5')}>Level 5</a></li>
             </ul>
           </div>
         </section>

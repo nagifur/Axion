@@ -1,0 +1,27 @@
+---
+import Header from  '../../components/header.astro';
+import Footer from '../../components/footer.astro';
+import { getEntry, render } from 'astro:content';
+
+const page = await getEntry('pages', 'level-5');
+if (!page) {
+  throw new Error('Missing content/pages/level-5.md');
+}
+const { Content } = await render(page);
+---
+<Header></Header>
+
+<main>
+  <article class="article-page">
+    <header class="card article-header">
+      <h1>{page.data.title} <span class="cursor" aria-hidden="true"></span></h1>
+    </header>
+
+    <section class="card article-body">
+      <Content />
+    </section>
+  </article>
+</main>
+
+
+<Footer></Footer>
