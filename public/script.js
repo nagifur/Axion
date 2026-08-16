@@ -142,29 +142,15 @@
     }
   })();
 
-  // Header intro animation: run on homepage or first visit only
+  // Header intro animation: run once per browser until the visit flag is cleared.
   (function(){
     if (!document.body) return;
-
-    var pathname = '';
-    try {
-      pathname = (window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
-    } catch (_) {
-      pathname = '';
-    }
-
-    var normalizedPath = pathname.replace(/\/+$/, '');
-    var isHome =
-      normalizedPath === '' ||
-      normalizedPath === '/' ||
-      normalizedPath === '/' ||
-      normalizedPath === '/index.html';
 
     var introSeenKey = 'axion-intro-seen';
     var introSeen = false;
     try { introSeen = localStorage.getItem(introSeenKey) === '1'; } catch (_) {}
 
-    var shouldRunIntro = isHome || !introSeen;
+    var shouldRunIntro = !introSeen;
     document.body.classList.toggle('header-intro', shouldRunIntro);
 
     if (!introSeen) {
