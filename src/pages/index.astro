@@ -134,7 +134,7 @@ const bulletins = [
 
           <div class="status-row">
             <span class="status-label">Last Data Sync</span>
-            <span class="status-value">{formatDateTime(lastSync)}</span>
+            <span class="status-value" data-local-datetime={lastSync.toISOString()}>{formatDateTime(lastSync)}</span>
           </div>
 
           <div class="status-updates">
@@ -143,7 +143,7 @@ const bulletins = [
               {recentUpdates.map((update) => (
                 <li>
                   <a href={update.href}>{update.verb}: {update.title}</a>
-                  <time datetime={update.date.toISOString()}>{formatDate(update.date)}</time>
+                  <time datetime={update.date.toISOString()} data-local-date={update.date.toISOString()}>{formatDate(update.date)}</time>
                 </li>
               ))}
             </ul>
@@ -159,6 +159,33 @@ const bulletins = [
   <Footer></Footer>
 
 <script>
+  function formatLocalDate(date: Date) {
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  }
+
+  function formatLocalDateTime(date: Date) {
+    return `${formatLocalDate(date)} — ${new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(date)}`;
+  }
+
+  function localizeTimestamps() {
+    document.querySelectorAll<HTMLElement>('[data-local-datetime]').forEach((element) => {
+      const value = element.dataset.localDatetime;
+      if (value) element.textContent = formatLocalDateTime(new Date(value));
+    });
+
+    document.querySelectorAll<HTMLTimeElement>('[data-local-date]').forEach((element) => {
+      const value = element.dataset.localDate;
+      if (value) element.textContent = formatLocalDate(new Date(value));
+    });
+  }
+
   // Module scripts don't re-run after a view-transition swap, so (re)start the
   // clock on every page load and clear the previous interval to avoid duplicates.
   let clockInterval: ReturnType<typeof setInterval> | undefined;
@@ -168,6 +195,7 @@ const bulletins = [
     clockEl.textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
   }
   document.addEventListener('astro:page-load', () => {
+    localizeTimestamps();
     tick();
     clearInterval(clockInterval);
     clockInterval = setInterval(tick, 1000);
