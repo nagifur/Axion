@@ -1,4 +1,4 @@
-import { entityReferences, personnelReferences } from './profileReferences';
+import { classReferences, entityReferences, levelReferences, personnelReferences } from './profileReferences';
 
 type Reference = {
   name: string;
@@ -27,15 +27,25 @@ const protectedNodeTypes = new Set(['code', 'html', 'inlineCode', 'link', 'linkR
 
 const getCurrentProfileUrl = (file: MarkdownFile, base: string): string | undefined => {
   const filePath = file.path?.replaceAll('\\', '/');
-  const match = filePath?.match(/\/content\/(personnel|entities)\/([^/]+)\.md$/);
 
-  if (!match) {
-    return undefined;
+  const profileMatch = filePath?.match(/\/content\/(personnel|entities)\/([^/]+)\.md$/);
+  if (profileMatch) {
+    const [, collection, slug] = profileMatch;
+    const route = collection === 'personnel' ? 'Personnel' : 'Entities';
+    return `${base}/${route}/${slug}`;
   }
 
-  const [, collection, slug] = match;
-  const route = collection === 'personnel' ? 'Personnel' : 'Entities';
-  return `${base}/${route}/${slug}`;
+  const levelMatch = filePath?.match(/\/content\/pages\/level-(\d+)\.md$/);
+  if (levelMatch) {
+    return `${base}/Levels/${levelMatch[1]}`;
+  }
+
+  const classMatch = filePath?.match(/\/content\/pages\/class-([a-z])\.md$/);
+  if (classMatch) {
+    return `${base}/Classes/${classMatch[1]}`;
+  }
+
+  return undefined;
 };
 
 export default function remarkAutoLinkReferences({ base }: PluginOptions) {
@@ -48,6 +58,14 @@ export default function remarkAutoLinkReferences({ base }: PluginOptions) {
     ...entityReferences.map(({ name, slug }) => ({
       name,
       url: `${normalizedBase}/Entities/${slug}`,
+    })),
+    ...levelReferences.map(({ name, slug }) => ({
+      name,
+      url: `${normalizedBase}/Levels/${slug}`,
+    })),
+    ...classReferences.map(({ name, slug }) => ({
+      name,
+      url: `${normalizedBase}/Classes/${slug}`,
     })),
   ].sort((first, second) => second.name.length - first.name.length);
 

@@ -36,6 +36,16 @@ const base = (Astro as any).base ?? import.meta.env.BASE_URL ?? '';
 const placeholderImage = `${base}/placeholder.png`;
 const entitiesBase = `${base}/Entities`;
 const personnelBase = `${base}/Personnel`;
+// Link the containment class stat to its Classes page when the label matches a known class.
+const containmentClassSlugByLabel: Record<string, string> = {
+  Ally: 'a',
+  Safe: 's',
+  Containment: 'c',
+  'Maximum Containment': 'm',
+};
+const containmentClassHref = containmentClassSlugByLabel[entity.containmentClass]
+  ? `${base}/Classes/${containmentClassSlugByLabel[entity.containmentClass]}`
+  : undefined;
 
 // Look up a gallery image by slug and filename.
 // If the exact filename is not found, fall back to the same basename with any supported extension.
@@ -83,7 +93,9 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         <div class="stat-grid">
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">📦</span>Containment Class</span>
-            <span class="stat-value">{entity.containmentClass}</span>
+            <span class="stat-value">
+              {containmentClassHref ? <a href={containmentClassHref}>{entity.containmentClass}</a> : entity.containmentClass}
+            </span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🏷️</span>Type</span>

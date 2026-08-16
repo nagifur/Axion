@@ -43,6 +43,10 @@ const galleryImages = Object.fromEntries(
 const base = (Astro as any).base ?? import.meta.env.BASE_URL ?? '';
 const placeholderImage = `${base}/placeholder.png`;
 const personnelBase = `${base}/Personnel`;
+// Link the access level stat to its Levels page when it's a known numeric level.
+const accessLevelHref = /^\d+$/.test(String(character.accessLevel))
+  ? `${base}/Levels/${character.accessLevel}`
+  : undefined;
 
 // Look up a gallery image by slug and filename.
 // If the exact filename is not found, fall back to the same basename with any supported extension.
@@ -92,7 +96,9 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         <div class="stat-grid">
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🔑</span>Access Level</span>
-            <span class="stat-value">{character.accessLevel}</span>
+            <span class="stat-value">
+              {accessLevelHref ? <a href={accessLevelHref}>Level {character.accessLevel}</a> : `Level ${character.accessLevel}`}
+            </span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">💼</span>Facility Position</span>

@@ -28,3 +28,45 @@ const readReferences = (collection: 'personnel' | 'entities'): ProfileReference[
 
 export const personnelReferences = readReferences('personnel');
 export const entityReferences = readReferences('entities');
+
+const pagesDirectory = join(contentDirectory, 'pages');
+
+// "Level 0".md -> reference named "Level 0" pointing at slug "0".
+const readLevelReferences = (): ProfileReference[] => {
+  return readdirSync(pagesDirectory)
+    .filter((filename) => /^level-\d+\.md$/.test(filename))
+    .map((filename) => {
+      const source = readFileSync(join(pagesDirectory, filename), 'utf8');
+      const title = source.match(/^title:\s*(.+)$/m)?.[1]?.trim().replace(/^['"]|['"]$/g, '');
+
+      if (!title) {
+        throw new Error(`Missing title frontmatter in pages/${filename}`);
+      }
+
+      const level = filename.replace(/^level-|\.md$/g, '');
+      return { name: title, slug: level };
+    });
+};
+
+// "Class A - Ally".md yields multiple ways of writing it: "A class", "Class A", "Ally class", "Class Ally".
+const readClassReferences = (): ProfileReference[] => {
+  return readdirSync(pagesDirectory)
+    .filter((filename) => /^class-[a-z]\.md$/.test(filename))
+    .flatMap((filename) => {
+      const source = readFileSync(join(pagesDirectory, filename), 'utf8');
+      const title = source.match(/^title:\s*(.+)$/m)?.[1]?.trim().replace(/^['"]|['"]$/g, '');
+      const match = title?.match(/^Class (\S+) - (.+)$/);
+
+      if (!match) {
+        throw new Error(`Unexpected title format in pages/${filename}`);
+      }
+
+      const [, letter, label] = match;
+      const slug = filename.slice('class-'.length, -3);
+      const aliases = [`${letter} class`, `Class ${letter}`, `${label} class`, `Class ${label}`];
+      return aliases.map((name) => ({ name, slug }));
+    });
+};
+
+export const levelReferences = readLevelReferences();
+export const classReferences = readClassReferences();

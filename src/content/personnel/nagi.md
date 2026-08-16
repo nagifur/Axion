@@ -25,6 +25,6 @@ gallery:
 
 Nagi is a caretaker at the facility, known for his friendly demeanor and hardworking nature. Despite being clumsy and slow, he has a strong survival instinct and is dedicated to his duties.
 
-Born on Axion's home planet, ████, Nagi worked to Level 3 access through his passion for caring and studying alien biology. He has a deep connection with the creatures under his care, often going above and beyond to ensure their well-being and his commitment to the facility's mission.
+Born on Axion's home planet, ████, Nagi worked to Level 3 access through his passion for caring and studying alien biology. He has a deep connection with the creatures under his care, often going above and beyond to ensure their well-being and his commitment to the facility's mission. 
 
 Nagi got consumed by alien creatures multiple times, yet always managed to escape unscathed, showcasing his resilience. Based on our records, the containment team specialist Somni is often called to retrieve him from these incidents.
