@@ -3,9 +3,10 @@
   const overlayImg = overlay ? overlay.querySelector('img') : null;
   const closeBtn = document.getElementById('lightbox-close');
 
-  function openLightbox(src) {
+  function openLightbox(src, alt) {
     if (!overlay || !overlayImg) return;
     overlayImg.src = src;
+    overlayImg.alt = alt || '';
     overlay.hidden = false;
     overlay.focus();
   }
@@ -14,6 +15,7 @@
     if (!overlay || !overlayImg) return;
     overlay.hidden = true;
     overlayImg.src = '';
+    overlayImg.alt = '';
   }
 
   // Make gallery images clickable
@@ -22,7 +24,7 @@
     img.addEventListener('click', () => {
       // Prefer currentSrc when srcset is in use
       const src = img.currentSrc || img.src;
-      openLightbox(src);
+      openLightbox(src, img.alt);
     });
     // Keyboard accessibility
     img.tabIndex = 0;
@@ -30,10 +32,11 @@
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         const src = img.currentSrc || img.src;
-        openLightbox(src);
+        openLightbox(src, img.alt);
       }
     });
   });
+
 
   // Close interactions (only if lightbox exists)
   if (overlay && closeBtn) {

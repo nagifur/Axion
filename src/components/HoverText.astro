@@ -11,6 +11,11 @@ const segments = parseHoverSegments(String(value));
 ---
 {segments.map((segment) => (
   segment.tooltip
-    ? <span class="hover-tooltip" data-tooltip={segment.tooltip}>{segment.text}</span>
+    ? (
+      <span class="hover-tooltip" data-tooltip={segment.tooltip} tabindex="0">
+        {segment.text}
+        <span class="sr-only"> ({segment.tooltip})</span>
+      </span>
+    )
     : segment.text
 ))}

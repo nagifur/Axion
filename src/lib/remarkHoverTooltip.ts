@@ -41,9 +41,11 @@ export default function remarkHoverTooltip() {
           }
 
           const [, visible, tooltip] = match;
+          const visibleText = escapeHtml(visible.trim());
+          const tooltipText = escapeHtml(tooltip.trim());
           parts.push({
             type: 'html',
-            value: `<span class="hover-tooltip" data-tooltip="${escapeHtml(tooltip.trim())}">${escapeHtml(visible.trim())}</span>`,
+            value: `<span class="hover-tooltip" data-tooltip="${tooltipText}" tabindex="0">${visibleText}<span class="sr-only"> (${tooltipText})</span></span>`,
           });
           cursor = matchIndex + match[0].length;
         }

@@ -73,7 +73,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 
 <Header />
 
-<main>
+<main id="main" tabindex="-1">
   <div class="page-stack">
     <section class="card" role="article">
       <div class="profile-header">
@@ -162,11 +162,11 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           return (
             <figure>
               {isGif ? (
-                <img src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
+                <img src={imageSrc} class="pixelart" alt={`${entity.galleryAlt} — ${item.caption}`} data-caption={item.caption} loading="lazy" />
               ) : isPlaceholder ? (
-                <img src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
+                <img src={imageSrc} class="pixelart" alt={`${entity.galleryAlt} — ${item.caption}`} data-caption={item.caption} loading="lazy" />
               ) : (
-                <Image src={imageSrc} class="pixelart" alt={entity.galleryAlt} loading="lazy" />
+                <Image src={imageSrc} class="pixelart" alt={`${entity.galleryAlt} — ${item.caption}`} data-caption={item.caption} loading="lazy" />
               )}
               <figcaption><HoverText value={item.caption} /></figcaption>
             </figure>
@@ -181,7 +181,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 <div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" hidden tabindex="-1">
   <div class="lightbox-content">
     <button id="lightbox-close" class="lightbox-close" aria-label="Close image">×</button>
-    <img class="lightbox-img" alt="Expanded image" />
+    <img class="lightbox-img" alt="" />
   </div>
 </div>
 

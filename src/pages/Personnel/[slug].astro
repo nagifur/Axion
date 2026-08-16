@@ -3,7 +3,6 @@ import Header from '../../components/header.astro';
 import Footer from '../../components/footer.astro';
 import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
-import { parseHoverSegments } from '../../lib/hoverTooltip';
 import HoverText from '../../components/HoverText.astro';
 
 // getStaticPaths tells Astro which pages to build. For a dynamic route for [slug].astro
@@ -49,8 +48,6 @@ const personnelBase = `${base}/Personnel`;
 const accessLevelHref = /^\d+$/.test(String(character.accessLevel))
   ? `${base}/Levels/${character.accessLevel}`
   : undefined;
-// Height can embed a "{{5'10\"|1.78 m}}" hover conversion, written directly in the frontmatter.
-const heightSegments = parseHoverSegments(String(character.height));
 
 // Look up a gallery image by slug and filename.
 // If the exact filename is not found, fall back to the same basename with any supported extension.
@@ -80,7 +77,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 
 <Header />
 
-<main>
+<main id="main" tabindex="-1">
   <div class="page-stack">
     <section class="card" role="article">
       <div class="profile-header">
@@ -118,13 +115,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">📏</span>Height</span>
-            <span class="stat-value">
-              {heightSegments.map((segment) => (
-                segment.tooltip
-                  ? <span class="hover-tooltip" data-tooltip={segment.tooltip}>{segment.text}</span>
-                  : segment.text
-              ))}
-            </span>
+            <span class="stat-value"><HoverText value={character.height} /></span>
           </div>
           <div class="stat-cell">
             <span class="stat-label"><span class="info-icon" aria-hidden="true">🎂</span>Age</span>
@@ -178,11 +169,11 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           return (
             <figure>
               {isGif ? (
-                <img src={imageSrc} class="pixelart" alt={character.galleryAlt} loading="lazy" />
+                <img src={imageSrc} class="pixelart" alt={`${character.galleryAlt} — ${item.caption}`} data-caption={item.caption} loading="lazy" />
               ) : isPlaceholder ? (
-                <img src={imageSrc} class="pixelart" alt={character.galleryAlt} loading="lazy" />
+                <img src={imageSrc} class="pixelart" alt={`${character.galleryAlt} — ${item.caption}`} data-caption={item.caption} loading="lazy" />
               ) : (
-                <Image src={imageSrc} class="pixelart" alt={character.galleryAlt} loading="lazy" />
+                <Image src={imageSrc} class="pixelart" alt={`${character.galleryAlt} — ${item.caption}`} data-caption={item.caption} loading="lazy" />
               )}
               <figcaption><HoverText value={item.caption} /></figcaption>
             </figure>
@@ -197,7 +188,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 <div id="lightbox" class="lightbox-overlay" role="dialog" aria-modal="true" hidden tabindex="-1">
   <div class="lightbox-content">
     <button id="lightbox-close" class="lightbox-close" aria-label="Close image">×</button>
-    <img class="lightbox-img" alt="Expanded image" />
+    <img class="lightbox-img" alt="" />
   </div>
 </div>
 
