@@ -74,10 +74,13 @@ const rootUrl = (path: string) => `${base}/${path}`;
 </noscript>
 
 <script>
-  const navToggle = document.getElementById('nav-toggle');
-  const headerMenu = document.getElementById('header-menu');
-  navToggle?.addEventListener('click', () => {
-    const isOpen = headerMenu?.classList.toggle('nav-open');
-    navToggle.setAttribute('aria-expanded', String(!!isOpen));
+  // Module scripts don't re-run after a view-transition swap, so rebind on each page load.
+  document.addEventListener('astro:page-load', () => {
+    const navToggle = document.getElementById('nav-toggle');
+    const headerMenu = document.getElementById('header-menu');
+    navToggle?.addEventListener('click', () => {
+      const isOpen = headerMenu?.classList.toggle('nav-open');
+      navToggle.setAttribute('aria-expanded', String(!!isOpen));
+    });
   });
 </script>
