@@ -33,7 +33,6 @@ const ogImageURL = new URL(image, Astro.site);
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- Runs before first paint so the correct theme is set and no flash occurs -->
   <script is:inline>
     (function () {
       try {
@@ -45,7 +44,6 @@ const ogImageURL = new URL(image, Astro.site);
   </script>
   <meta name="color-scheme" content="dark light" />
   <ClientRouter />
-  <!--Force load logo svg-->
   <link rel="preload" href={rootUrl('Logo.svg')} as="image" type="image/svg+xml" />
   <link rel="preload" href={rootUrl('Logo-light.svg')} as="image" type="image/svg+xml" />
   <link rel="stylesheet" href={rootUrl('style.css')}/>
