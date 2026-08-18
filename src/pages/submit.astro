@@ -41,6 +41,11 @@ import Footer from '../components/footer.astro';
           <input id="f-title" name="title" type="text" placeholder="e.g. Nagi or M-031" required />
         </div>
 
+        <div class="form-field span-2">
+          <label for="f-author">Author / Owner credit</label>
+          <input id="f-author" name="author" type="text" placeholder="Optional — e.g. Your name or handle" />
+        </div>
+
         <div class="form-field field-personnel">
           <label for="f-employeeID">Employee ID</label>
           <input id="f-employeeID" name="employeeID" type="text" placeholder="e.g. 5538" />
@@ -372,6 +377,8 @@ import Footer from '../components/footer.astro';
     let statsHtml = '';
     let nicknameHtml = '';
     let traitsHtml = '';
+    const author = plainText(field('author')).trim();
+    const authorHtml = author ? `<p class="profile-author">Character by ${escapeHtml(author)}</p>` : '';
 
     if (type === 'personnel') {
       statsHtml = [
@@ -427,6 +434,7 @@ import Footer from '../components/footer.astro';
         <div class="profile-header">
           <h1 class="profile-name">${title}</h1>
           ${nicknameHtml}
+          ${authorHtml}
         </div>
         <div class="profile">
           <div class="profile-media">
@@ -453,16 +461,18 @@ import Footer from '../components/footer.astro';
     const title = field('title').trim() || 'Untitled';
     const slug = slugify(title) || 'slug';
     const bio = field('bio').trim();
+    const author = field('author').trim();
     const patreon = (document.getElementById('f-patreon') as HTMLInputElement).checked;
     const yamlList = (items: string[]) => `[${items.join(', ')}]`;
     const galleryYaml = galleryRows.length
-      ? galleryRows.map((row) => `  - file: ${row.filename}\n    caption: ${row.caption || 'Caption'}`).join('\n')
-      : '  - file: 1.png\n    caption: Caption';
+      ? `\n${galleryRows.map((row) => `  - file: ${row.filename}\n    caption: ${row.caption || 'Caption'}`).join('\n')}`
+      : ' []';
 
     let frontmatter = '';
     if (type === 'personnel') {
       frontmatter = [
         `title: ${title}`,
+        ...(author ? [`author: ${JSON.stringify(author)}`] : []),
         `employeeID: ${field('employeeID') || 'None'}`,
         `position: ${field('position') || 'None'}`,
         `species: ${field('species') || 'None'}`,
@@ -478,12 +488,12 @@ import Footer from '../components/footer.astro';
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
         `patreonSubmission: ${patreon}`,
-        `gallery:`,
-        galleryYaml,
+        `gallery:${galleryYaml}`,
       ].join('\n');
     } else {
       frontmatter = [
         `title: ${title}`,
+        ...(author ? [`author: ${JSON.stringify(author)}`] : []),
         `nickname: ${field('nickname') || 'None'}`,
         `containmentClass: ${field('containmentClass') || 'None'}`,
         `type: ${field('type') || 'None'}`,
@@ -498,8 +508,7 @@ import Footer from '../components/footer.astro';
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
         `patreonSubmission: ${patreon}`,
-        `gallery:`,
-        galleryYaml,
+        `gallery:${galleryYaml}`,
       ].join('\n');
     }
 

@@ -5,7 +5,7 @@ position: Caretaker
 species: Feline
 gender: Male
 height: "{{5'7\"|1.70 m}}"
-age: 25
+age: "{{25 | Birthday: 11/23}}"
 accessLevel: 3
 birthplace: Ventria
 profileImage: profile.png

@@ -27,6 +27,7 @@ const pages = defineCollection({
 const personnel = defineCollection({
   schema: z.object({
     title: z.string(),
+    author: z.string().optional(),
     position: z.string().default('None'),
     species: z.string().default('None'),
     gender: z.string().default('None'),
@@ -40,7 +41,7 @@ const personnel = defineCollection({
     positiveTraits: z.array(z.string()).default([]),
     negativeTraits: z.array(z.string()).default([]),
     vorePreference: z.array(z.string()).default(['None']),
-    gallery: z.array(galleryItem),
+    gallery: z.array(galleryItem).default([]),
     draft: z.boolean().default(false),
     patreonSubmission: z.boolean().default(false),
   }),
@@ -49,6 +50,7 @@ const personnel = defineCollection({
 const entities = defineCollection({
   schema: z.object({
     title: z.string(),
+    author: z.string().optional(),
     nickname: z.string().default('None'),
     containmentClass: z.string().default('None'),
     type: z.string().default('None'),
@@ -61,7 +63,7 @@ const entities = defineCollection({
     usefulAbilities: z.array(z.string()).default([]),
     noteableEvents: z.array(z.string()).default([]),
     vorePreference: z.array(z.string()).default(['None']),
-    gallery: z.array(galleryItem),
+    gallery: z.array(galleryItem).default([]),
     patreonSubmission: z.boolean().default(false),
     draft: z.boolean().default(false),
   }),

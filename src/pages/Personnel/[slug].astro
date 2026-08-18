@@ -88,6 +88,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
     <section class="card" role="article">
       <div class="profile-header">
         <h1 class="profile-name">{character.title}<span class="cursor" aria-hidden="true"></span></h1>
+        {character.author && <p class="profile-author">Submission by {character.author}</p>}
       </div>
 
       <div class="profile">
@@ -168,7 +169,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
     <section class="card" role="region" aria-labelledby="gallery-title">
       <h2 id="gallery-title">Gallery</h2>
       <div class="gallery-grid">
-        {character.gallery.map((item) => {
+        {character.gallery.length ? character.gallery.map((item) => {
           const imageSrc = getGalleryImage(slug, item.file) ?? placeholderImage;
           const isGif = /\.gif$/i.test(item.file);
           const isPlaceholder = imageSrc === placeholderImage;
@@ -184,7 +185,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
               <figcaption><HoverText value={item.caption} /></figcaption>
             </figure>
           );
-        })}
+        }) : <p class="field-hint">No gallery images added yet.</p>}
       </div>
     </section>
   </div>
