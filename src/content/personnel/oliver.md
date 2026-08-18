@@ -5,7 +5,7 @@ position: Caretaker Assistant
 species: Spotted Hare 
 gender: Male
 height: "{{5'8\" | 178.78 cm}}"
-age: 29
+age: "{{29 | Birthday: 10/26}}"
 accessLevel: 3
 birthplace: Ventria (Axion labs)
 profileImage: profile.png
