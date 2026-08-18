@@ -808,6 +808,11 @@
     .field-hint{ color:var(--muted); font-size:0.8rem; margin:2px 0 0 }
     @media (max-width:700px){ .form-grid{ grid-template-columns:1fr } }
 
+    /* Preview re-renders on every keystroke, so suppress entry animations that would otherwise replay */
+    #submit-preview, #submit-preview *, #submit-preview *::before, #submit-preview *::after{
+      animation:none !important;
+    }
+
     .gallery-editor-head{ display:flex; align-items:center; justify-content:space-between; gap:12px }
     .gallery-row{ display:grid; grid-template-columns:1.2fr 1.4fr auto auto; gap:8px; align-items:center; margin-top:8px }
     .gallery-row input[type="file"]{ font-size:0.78rem }
