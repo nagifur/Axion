@@ -137,7 +137,7 @@ import Footer from '../components/footer.astro';
         </div>
 
         <div class="form-field">
-          <label class="submit-checkbox"><input id="f-patreon" type="checkbox" name="patreonSubmission" /> This is a Patreon submission</label>
+          <label class="submit-checkbox"><input id="f-patreon" type="checkbox" name="patreonSubmission" checked /> This is a Patreon submission</label>
         </div>
 
         <div class="form-field span-2">
@@ -467,7 +467,7 @@ import Footer from '../components/footer.astro';
         `positiveTraits: ${yamlList(csvList(field('positiveTraits')))}`,
         `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
-        `draft: true`,
+        `draft: false`,
         `patreonSubmission: ${patreon}`,
         `gallery:`,
         galleryYaml,
@@ -487,7 +487,7 @@ import Footer from '../components/footer.astro';
         `usefulAbilities: ${yamlList(csvList(field('usefulAbilities')))}`,
         `noteableEvents: ${yamlList(csvList(field('noteableEvents')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
-        `draft: true`,
+        `draft: false`,
         `patreonSubmission: ${patreon}`,
         `gallery:`,
         galleryYaml,
