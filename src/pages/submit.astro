@@ -4,22 +4,22 @@ import Footer from '../components/footer.astro';
 ---
 
 <Header
-  title="Submit a Character"
+  title="Submit a File"
   description="Build your own Axion Labs personnel or entity file, preview it live, and export it ready to send in."
 />
 
 <main id="main" tabindex="-1">
   <div class="page-stack">
     <section class="card" role="article">
-      <h1 id="submit-title">Submit a Character <span class="cursor" aria-hidden="true"></span></h1>
+      <h1 id="submit-title">Submit a File <span class="cursor" aria-hidden="true"></span></h1>
       <p class="lead">
         Fill in the form below to build a Personnel or Entity file. The preview updates live so you can
         see exactly how your submission will look on the site. When you're happy with it, export the
         finished file and send it to me on Discord along with the images.
       </p>
       <p class="lead">
-        Nothing here is uploaded automatically — this page only runs in your browser. Exporting just
-        generates the text file and reminds you what to name your images.
+        Nothing here is uploaded automatically, this page only runs in your browser. Exporting just
+        generates the files in correct format for you to send. 
       </p>
     </section>
 
@@ -277,56 +277,55 @@ import Footer from '../components/footer.astro';
   const addGalleryRow = () => {
     const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
     galleryRows.push(row);
-    renderGalleryRows();
+    appendGalleryRow(row, galleryRows.length - 1);
+    updatePreview();
   };
 
-  const renderGalleryRows = () => {
-    galleryRowsEl.innerHTML = '';
-    galleryRows.forEach((row, index) => {
-      const wrap = document.createElement('div');
-      wrap.className = 'gallery-row';
-      wrap.innerHTML = `
-        <input type="file" accept="image/*" data-role="file" />
-        <input type="text" data-role="caption" placeholder="Caption" value="${row.caption.replace(/"/g, '&quot;')}" />
-        <span class="field-hint" data-role="filename">${row.filename}</span>
-        <button type="button" class="btn secondary" data-role="remove">Remove</button>
-      `;
+  const appendGalleryRow = (row: GalleryRow, index: number) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'gallery-row';
+    wrap.innerHTML = `
+      <input type="file" accept="image/*" data-role="file" />
+      <input type="text" data-role="caption" placeholder="Caption" value="${row.caption.replace(/"/g, '&quot;')}" />
+      <span class="field-hint" data-role="filename">${row.filename}</span>
+      <button type="button" class="btn secondary" data-role="remove">Remove</button>
+    `;
 
-      const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
-      const captionInput = wrap.querySelector('[data-role="caption"]') as HTMLInputElement;
-      const filenameLabel = wrap.querySelector('[data-role="filename"]') as HTMLElement;
-      const removeButton = wrap.querySelector('[data-role="remove"]') as HTMLButtonElement;
+    const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
+    const captionInput = wrap.querySelector('[data-role="caption"]') as HTMLInputElement;
+    const filenameLabel = wrap.querySelector('[data-role="filename"]') as HTMLElement;
+    const removeButton = wrap.querySelector('[data-role="remove"]') as HTMLButtonElement;
 
-      fileInput.addEventListener('change', () => {
-        const chosen = fileInput.files?.[0] ?? null;
-        row.file = chosen;
-        if (row.url) URL.revokeObjectURL(row.url);
-        row.url = chosen ? URL.createObjectURL(chosen) : null;
-        const ext = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
-        row.filename = `${index + 1}.${ext}`;
-        filenameLabel.textContent = row.filename;
-        updatePreview();
-      });
-
-      captionInput.addEventListener('input', () => {
-        row.caption = captionInput.value;
-        updatePreview();
-      });
-
-      removeButton.addEventListener('click', () => {
-        if (row.url) URL.revokeObjectURL(row.url);
-        galleryRows.splice(index, 1);
-        galleryRows.forEach((remainingRow, i) => {
-          const ext = remainingRow.filename.split('.').pop() || 'png';
-          remainingRow.filename = `${i + 1}.${ext}`;
-        });
-        renderGalleryRows();
-        updatePreview();
-      });
-
-      galleryRowsEl.appendChild(wrap);
+    fileInput.addEventListener('change', () => {
+      const chosen = fileInput.files?.[0] ?? null;
+      row.file = chosen;
+      if (row.url) URL.revokeObjectURL(row.url);
+      row.url = chosen ? URL.createObjectURL(chosen) : null;
+      const ext = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
+      row.filename = `${index + 1}.${ext}`;
+      filenameLabel.textContent = row.filename;
+      updatePreview();
     });
-    updatePreview();
+
+    captionInput.addEventListener('input', () => {
+      row.caption = captionInput.value;
+      updatePreview();
+    });
+
+    removeButton.addEventListener('click', () => {
+      if (row.url) URL.revokeObjectURL(row.url);
+      galleryRows.splice(index, 1);
+      wrap.remove();
+      galleryRows.forEach((remainingRow, i) => {
+        const ext = remainingRow.filename.split('.').pop() || 'png';
+        remainingRow.filename = `${i + 1}.${ext}`;
+        const remainingWrap = galleryRowsEl.children[i];
+        remainingWrap.querySelector('[data-role="filename"]')!.textContent = remainingRow.filename;
+      });
+      updatePreview();
+    });
+
+    galleryRowsEl.appendChild(wrap);
   };
 
   profileImageInput.addEventListener('change', () => {
