@@ -580,6 +580,7 @@
       font-size:0.72rem;
       position:relative;
       overflow:hidden;
+      cursor:pointer;
     }
     .btn:hover{ letter-spacing:0.12em; }
     .btn::before{
