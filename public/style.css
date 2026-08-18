@@ -863,7 +863,7 @@
     }
     .form-field textarea{ resize:vertical }
     .form-field input:focus, .form-field select:focus, .form-field textarea:focus{ outline:2px solid var(--line); outline-offset:1px }
-    .field-hint{ color:var(--muted); font-size:0.8rem; margin:2px 0 0 }
+    .field-hint{ color:var(--muted); font-size:0.8rem; margin:10px 0 0 }
     @media (prefers-reduced-motion: reduce){
       #submit-form .form-field:not([hidden]){ animation:none !important; }
     }

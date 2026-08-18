@@ -164,14 +164,21 @@ import Footer from '../components/footer.astro';
     <section class="card" aria-labelledby="export-title">
       <h2 id="export-title" class="db-title-cyan">3. Export &amp; Send</h2>
       <p class="lead">
-        Rename your uploaded images to match the list below, then copy or download the file text and
-        send both to us.
+        Download your .zip and send it to me on Discord. The .zip contains the generated .md file and all images, already named and placed as the site expects.
       </p>
+      <div class="article-body">
+        <blockquote>
+          <p class="lead">
+            If you prefer, you can also download just the .md or copy its text to your clipboard. Although you need to rename your image files to match the list below.
+          </p>
+        </blockquote>
+        
+      </div>
       <div id="export-image-list" class="field-hint"></div>
       <div class="cta">
-        <button type="button" id="export-copy" class="btn">Copy file text</button>
+        <button type="button" id="export-download-zip" class="btn">Download .zip (with images)</button>
         <button type="button" id="export-download" class="btn secondary">Download .md</button>
-        <button type="button" id="export-download-zip" class="btn secondary">Download .zip (with images)</button>
+        <button type="button" id="export-copy" class="btn secondary">Copy file text</button>
       </div>
       <pre id="export-output" class="export-output" aria-label="Generated file contents"></pre>
     </section>
