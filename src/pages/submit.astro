@@ -1,0 +1,554 @@
+---
+import Header from '../components/header.astro';
+import Footer from '../components/footer.astro';
+---
+
+<Header
+  title="Submit a File"
+  description="Build your own Axion Labs personnel or entity file, preview it live, and export it ready to send in."
+/>
+
+<main id="main" tabindex="-1">
+  <div class="page-stack">
+    <section class="card" role="article">
+      <h1 id="submit-title">Submit a File <span class="cursor" aria-hidden="true"></span></h1>
+      <p class="lead">
+        Fill in the form below to build a Personnel or Entity file. The preview updates live so you can
+        see exactly how your submission will look on the site. When you're happy with it, export the
+        finished file and send it to me on Discord along with the images.
+      </p>
+      <p class="lead">
+        Nothing here is uploaded automatically, this page only runs in your browser. Exporting just
+        generates the files in correct format for you to send. 
+      </p>
+    </section>
+
+    <section class="card" aria-labelledby="submit-form-title">
+      <h2 id="submit-form-title" class="db-title-cyan">1. Build your file</h2>
+
+      <div class="submit-type-toggle" role="radiogroup" aria-label="Submission type">
+        <label class="submit-radio">
+          <input type="radio" name="submit-type" value="personnel" checked /> Personnel
+        </label>
+        <label class="submit-radio">
+          <input type="radio" name="submit-type" value="entity" /> Entity
+        </label>
+      </div>
+
+      <form id="submit-form" class="form-grid" autocomplete="off">
+        <div class="form-field span-2">
+          <label for="f-title">Title / Name</label>
+          <input id="f-title" name="title" type="text" placeholder="e.g. Nagi or M-031" required />
+        </div>
+
+        <div class="form-field field-personnel">
+          <label for="f-employeeID">Employee ID</label>
+          <input id="f-employeeID" name="employeeID" type="text" placeholder="e.g. 5538" />
+        </div>
+        <div class="form-field field-personnel">
+          <label for="f-position">Facility Position</label>
+          <input id="f-position" name="position" type="text" placeholder="e.g. Caretaker" />
+        </div>
+        <div class="form-field field-personnel">
+          <label for="f-accessLevel">Access Level</label>
+          <select id="f-accessLevel" name="accessLevel">
+            <option value="0">Level 0</option>
+            <option value="1">Level 1</option>
+            <option value="2">Level 2</option>
+            <option value="3">Level 3</option>
+            <option value="4">Level 4</option>
+            <option value="5">Level 5</option>
+          </select>
+        </div>
+        <div class="form-field field-personnel">
+          <label for="f-height">Height</label>
+          <input id="f-height" name="height" type="text" placeholder={"e.g. 5'7\" or {{5'7\"|1.70 m}}"} />
+        </div>
+        <div class="form-field field-personnel">
+          <label for="f-birthplace">Birthplace</label>
+          <input id="f-birthplace" name="birthplace" type="text" placeholder="e.g. Ventria" />
+        </div>
+
+        <div class="form-field field-entity">
+          <label for="f-nickname">Nickname</label>
+          <input id="f-nickname" name="nickname" type="text" placeholder="Optional" />
+        </div>
+        <div class="form-field field-entity">
+          <label for="f-containmentClass">Containment Class</label>
+          <select id="f-containmentClass" name="containmentClass">
+            <option value="Ally">Ally (A)</option>
+            <option value="Safe">Safe (S)</option>
+            <option value="Containment">Containment (C)</option>
+            <option value="Maximum Containment">Maximum Containment (M)</option>
+          </select>
+        </div>
+        <div class="form-field field-entity">
+          <label for="f-type">Type</label>
+          <input id="f-type" name="type" type="text" placeholder="e.g. Creature, Object, Phenomenon" />
+        </div>
+        <div class="form-field field-entity">
+          <label for="f-foundOn">Found On</label>
+          <input id="f-foundOn" name="foundOn" type="text" placeholder="e.g. Planet name" />
+        </div>
+
+        <div class="form-field">
+          <label for="f-species">Species</label>
+          <input id="f-species" name="species" type="text" />
+        </div>
+        <div class="form-field">
+          <label for="f-gender">Gender</label>
+          <input id="f-gender" name="gender" type="text" />
+        </div>
+        <div class="form-field">
+          <label for="f-age">Age</label>
+          <input id="f-age" name="age" type="text" placeholder="e.g. 25 or -Unknown-" />
+        </div>
+        <div class="form-field">
+          <label for="f-vorePreference">Trophic Role</label>
+          <select id="f-vorePreference" name="vorePreference">
+            <option value="Prey">Prey</option>
+            <option value="Predator">Predator</option>
+            <option value="Switch">Switch</option>
+            <option value="None">None</option>
+          </select>
+        </div>
+
+        <div class="form-field field-personnel span-2">
+          <label for="f-positiveTraits">Positive Traits (comma separated)</label>
+          <input id="f-positiveTraits" name="positiveTraits" type="text" placeholder="Passionate, Friendly, Hardworking" />
+        </div>
+        <div class="form-field field-personnel span-2">
+          <label for="f-negativeTraits">Negative Traits (comma separated)</label>
+          <input id="f-negativeTraits" name="negativeTraits" type="text" placeholder="Clumsy, Slow" />
+        </div>
+
+        <div class="form-field field-entity span-2">
+          <label for="f-usefulAbilities">Useful Abilities (comma separated)</label>
+          <input id="f-usefulAbilities" name="usefulAbilities" type="text" placeholder="Shapeshifting, Flight" />
+        </div>
+        <div class="form-field field-entity span-2">
+          <label for="f-noteableEvents">Noteable Events (comma separated)</label>
+          <input id="f-noteableEvents" name="noteableEvents" type="text" placeholder="Escaped containment" />
+        </div>
+
+        <div class="form-field span-2">
+          <label for="f-bio">Bio</label>
+          <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line."></textarea>
+        </div>
+
+        <div class="form-field">
+          <label class="submit-checkbox"><input id="f-patreon" type="checkbox" name="patreonSubmission" checked /> This is a Patreon submission</label>
+        </div>
+
+        <div class="form-field span-2">
+          <label for="f-profile-image">Profile Image</label>
+          <input id="f-profile-image" type="file" accept="image/*" />
+          <p class="field-hint">Will be exported as <code>profile.&lt;ext&gt;</code>.</p>
+        </div>
+
+        <div class="form-field span-2">
+          <div class="gallery-editor-head">
+            <label>Gallery Images</label>
+            <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
+          </div>
+          <div id="gallery-rows"></div>
+        </div>
+      </form>
+    </section>
+
+    <section class="card" aria-labelledby="preview-title">
+      <h2 id="preview-title" class="db-title-cyan">2. Live Preview</h2>
+      <div id="submit-preview"></div>
+    </section>
+
+    <section class="card" aria-labelledby="export-title">
+      <h2 id="export-title" class="db-title-cyan">3. Export &amp; Send</h2>
+      <p class="lead">
+        Rename your uploaded images to match the list below, then copy or download the file text and
+        send both to us.
+      </p>
+      <div id="export-image-list" class="field-hint"></div>
+      <div class="cta">
+        <button type="button" id="export-copy" class="btn">Copy file text</button>
+        <button type="button" id="export-download" class="btn secondary">Download .md</button>
+        <button type="button" id="export-download-zip" class="btn secondary">Download .zip (with images)</button>
+      </div>
+      <pre id="export-output" class="export-output" aria-label="Generated file contents"></pre>
+    </section>
+  </div>
+</main>
+
+<Footer />
+
+<script>
+  import JSZip from 'jszip';
+
+  type GalleryRow = { file: File | null; url: string | null; caption: string; filename: string };
+
+  const form = document.getElementById('submit-form') as HTMLFormElement;
+  const typeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="submit-type"]'));
+  const previewEl = document.getElementById('submit-preview')!;
+  const galleryRowsEl = document.getElementById('gallery-rows')!;
+  const exportOutput = document.getElementById('export-output')!;
+  const exportImageList = document.getElementById('export-image-list')!;
+  const profileImageInput = document.getElementById('f-profile-image') as HTMLInputElement;
+
+  let profileImageUrl: string | null = null;
+  let profileImageFile: File | null = null;
+  let profileImageExt = 'png';
+  const galleryRows: GalleryRow[] = [];
+
+  const currentType = () => typeRadios.find((radio) => radio.checked)?.value ?? 'personnel';
+
+  const field = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? '';
+
+  // Show/hide fields specific to each submission type.
+  const syncFieldVisibility = () => {
+    const type = currentType();
+    document.querySelectorAll<HTMLElement>('.field-personnel').forEach((el) => { el.hidden = type !== 'personnel'; });
+    document.querySelectorAll<HTMLElement>('.field-entity').forEach((el) => { el.hidden = type !== 'entity'; });
+  };
+
+  // Derive the file slug from the title — it always matches, so no separate field is needed.
+  const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+  // Strip "{{visible|tooltip}}" hover syntax down to the visible text for the preview.
+  const plainText = (value: string) => value.replace(/\{\{([^|{}]*)\|[^{}]*\}\}/g, '$1');
+
+  const csvList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
+
+  const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Inline markdown: **bold**, *italic*, `code`, [text](url).
+  const renderInline = (value: string) => value
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // A small Markdown -> HTML converter covering the subset used across the site's bios (headings, quotes, lists, paragraphs).
+  const renderMarkdown = (value: string) => {
+    // Split on raw markdown syntax first, then escape each line's content — escaping upfront would
+    // turn a leading ">" into "&gt;" and break the blockquote match below.
+    const lines = plainText(value).split(/\r?\n/);
+    let html = '';
+    let inList = false;
+    let paragraphLines: string[] = [];
+
+    const flushParagraph = () => {
+      if (paragraphLines.length) {
+        html += `<p>${renderInline(paragraphLines.join(' '))}</p>`;
+        paragraphLines = [];
+      }
+    };
+    const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+
+    for (const line of lines) {
+      const heading = line.match(/^(#{1,6})\s+(.*)$/);
+      const quote = line.match(/^>\s?(.*)$/);
+      const listItem = line.match(/^[-*]\s+(.*)$/);
+
+      if (!line.trim()) { flushParagraph(); closeList(); continue; }
+      if (heading) {
+        flushParagraph(); closeList();
+        const level = heading[1].length;
+        html += `<h${level}>${renderInline(escapeHtml(heading[2]))}</h${level}>`;
+        continue;
+      }
+      if (quote) {
+        flushParagraph(); closeList();
+        html += `<blockquote>${renderInline(escapeHtml(quote[1]))}</blockquote>`;
+        continue;
+      }
+      if (listItem) {
+        flushParagraph();
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += `<li>${renderInline(escapeHtml(listItem[1]))}</li>`;
+        continue;
+      }
+      closeList();
+      paragraphLines.push(escapeHtml(line.trim()));
+    }
+    flushParagraph();
+    closeList();
+    return html;
+  };
+
+  const addGalleryRow = () => {
+    const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
+    galleryRows.push(row);
+    appendGalleryRow(row, galleryRows.length - 1);
+    updatePreview();
+  };
+
+  const appendGalleryRow = (row: GalleryRow, index: number) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'gallery-row';
+    wrap.innerHTML = `
+      <input type="file" accept="image/*" data-role="file" />
+      <input type="text" data-role="caption" placeholder="Caption" value="${row.caption.replace(/"/g, '&quot;')}" />
+      <span class="field-hint" data-role="filename">${row.filename}</span>
+      <button type="button" class="btn secondary" data-role="remove">Remove</button>
+    `;
+
+    const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
+    const captionInput = wrap.querySelector('[data-role="caption"]') as HTMLInputElement;
+    const filenameLabel = wrap.querySelector('[data-role="filename"]') as HTMLElement;
+    const removeButton = wrap.querySelector('[data-role="remove"]') as HTMLButtonElement;
+
+    fileInput.addEventListener('change', () => {
+      const chosen = fileInput.files?.[0] ?? null;
+      row.file = chosen;
+      if (row.url) URL.revokeObjectURL(row.url);
+      row.url = chosen ? URL.createObjectURL(chosen) : null;
+      const ext = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
+      row.filename = `${index + 1}.${ext}`;
+      filenameLabel.textContent = row.filename;
+      updatePreview();
+    });
+
+    captionInput.addEventListener('input', () => {
+      row.caption = captionInput.value;
+      updatePreview();
+    });
+
+    removeButton.addEventListener('click', () => {
+      if (row.url) URL.revokeObjectURL(row.url);
+      galleryRows.splice(index, 1);
+      wrap.remove();
+      galleryRows.forEach((remainingRow, i) => {
+        const ext = remainingRow.filename.split('.').pop() || 'png';
+        remainingRow.filename = `${i + 1}.${ext}`;
+        const remainingWrap = galleryRowsEl.children[i];
+        remainingWrap.querySelector('[data-role="filename"]')!.textContent = remainingRow.filename;
+      });
+      updatePreview();
+    });
+
+    galleryRowsEl.appendChild(wrap);
+  };
+
+  profileImageInput.addEventListener('change', () => {
+    const chosen = profileImageInput.files?.[0] ?? null;
+    if (profileImageUrl) URL.revokeObjectURL(profileImageUrl);
+    profileImageFile = chosen;
+    profileImageUrl = chosen ? URL.createObjectURL(chosen) : null;
+    profileImageExt = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
+    updatePreview();
+  });
+
+  document.getElementById('gallery-add')!.addEventListener('click', addGalleryRow);
+  typeRadios.forEach((radio) => radio.addEventListener('change', () => { syncFieldVisibility(); updatePreview(); }));
+  form.addEventListener('input', updatePreview);
+
+  // Build the preview markup, mirroring the real Personnel/Entities profile page layout.
+  function renderPreview() {
+    const type = currentType();
+    const title = plainText(field('title')) || 'Untitled';
+    const bioHtml = renderMarkdown(field('bio'));
+    const galleryHtml = galleryRows.map((row) => `
+      <figure>
+        <img src="${row.url ?? ''}" alt="${title} — ${row.caption}" />
+        <figcaption>${row.caption || '—'}</figcaption>
+      </figure>
+    `).join('') || '<p class="field-hint">No gallery images added yet.</p>';
+
+    const statCell = (label: string, value: string) => `
+      <div class="stat-cell">
+        ${label}
+        <span class="stat-value">${value || '—'}</span>
+      </div>
+    `;
+
+    let statsHtml = '';
+    let nicknameHtml = '';
+    let traitsHtml = '';
+
+    if (type === 'personnel') {
+      statsHtml = [
+        statCell('Access Level', `Level ${plainText(field('accessLevel')) || '?'}`),
+        statCell('Facility Position', plainText(field('position'))),
+        statCell('Species', plainText(field('species'))),
+        statCell('Gender', plainText(field('gender'))),
+        statCell('Height', plainText(field('height'))),
+        statCell('Age', plainText(field('age'))),
+        statCell('Birthplace', plainText(field('birthplace'))),
+        statCell('Trophic Role', plainText(field('vorePreference'))),
+      ].join('');
+      const positive = csvList(field('positiveTraits'));
+      const negative = csvList(field('negativeTraits'));
+      traitsHtml = `
+        <div class="traits-grid">
+          <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
+            <ul class="trait-list positive">${positive.length ? positive.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+          </div>
+          <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
+            <ul class="trait-list negative">${negative.length ? negative.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+          </div>
+        </div>
+      `;
+    } else {
+      const nickname = plainText(field('nickname'));
+      nicknameHtml = nickname ? `<p class="profile-nickname">"${nickname}"</p>` : '';
+      statsHtml = [
+        statCell('Containment Class', plainText(field('containmentClass'))),
+        statCell('Type', plainText(field('type'))),
+        statCell('Species', plainText(field('species'))),
+        statCell('Gender', plainText(field('gender'))),
+        statCell('Age', plainText(field('age'))),
+        statCell('Found On', plainText(field('foundOn'))),
+        statCell('Trophic Role', plainText(field('vorePreference'))),
+      ].join('');
+      const abilities = csvList(field('usefulAbilities'));
+      const events = csvList(field('noteableEvents'));
+      traitsHtml = `
+        <div class="traits-grid">
+          <div class="card" role="region"><h2 class="db-title-green">Useful Abilities</h2>
+            <ul class="trait-list positive">${abilities.length ? abilities.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+          </div>
+          <div class="card" role="region"><h2 class="db-title-red">Noteable Events</h2>
+            <ul class="trait-list negative">${events.length ? events.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+          </div>
+        </div>
+      `;
+    }
+
+    previewEl.innerHTML = `
+      <div class="card" role="article">
+        <div class="profile-header">
+          <h1 class="profile-name">${title}</h1>
+          ${nicknameHtml}
+        </div>
+        <div class="profile">
+          <div class="profile-media">
+            <img class="pixelart-profile" src="${profileImageUrl ?? ''}" alt="Profile image of ${title}" />
+          </div>
+          <div class="stat-grid">${statsHtml}</div>
+        </div>
+      </div>
+      <div class="card" role="region">
+        <h2 class="db-title-cyan">Bio</h2>
+        <div class="article-body">${bioHtml || '<p class="field-hint">Write a bio to see it here.</p>'}</div>
+      </div>
+      ${traitsHtml}
+      <div class="card" role="region">
+        <h2>Gallery</h2>
+        <div class="gallery-grid">${galleryHtml}</div>
+      </div>
+    `;
+  }
+
+  // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
+  function buildFileText() {
+    const type = currentType();
+    const title = field('title').trim() || 'Untitled';
+    const slug = slugify(title) || 'slug';
+    const bio = field('bio').trim();
+    const patreon = (document.getElementById('f-patreon') as HTMLInputElement).checked;
+    const yamlList = (items: string[]) => `[${items.join(', ')}]`;
+    const galleryYaml = galleryRows.length
+      ? galleryRows.map((row) => `  - file: ${row.filename}\n    caption: ${row.caption || 'Caption'}`).join('\n')
+      : '  - file: 1.png\n    caption: Caption';
+
+    let frontmatter = '';
+    if (type === 'personnel') {
+      frontmatter = [
+        `title: ${title}`,
+        `employeeID: ${field('employeeID') || 'None'}`,
+        `position: ${field('position') || 'None'}`,
+        `species: ${field('species') || 'None'}`,
+        `gender: ${field('gender') || 'None'}`,
+        `height: "${field('height') || 'None'}"`,
+        `age: ${field('age') || 'None'}`,
+        `accessLevel: ${field('accessLevel') || 1}`,
+        `birthplace: ${field('birthplace') || 'None'}`,
+        `profileImage: profile.${profileImageExt}`,
+        `galleryAlt: ${title} drawing`,
+        `positiveTraits: ${yamlList(csvList(field('positiveTraits')))}`,
+        `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
+        `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
+        `draft: false`,
+        `patreonSubmission: ${patreon}`,
+        `gallery:`,
+        galleryYaml,
+      ].join('\n');
+    } else {
+      frontmatter = [
+        `title: ${title}`,
+        `nickname: ${field('nickname') || 'None'}`,
+        `containmentClass: ${field('containmentClass') || 'None'}`,
+        `type: ${field('type') || 'None'}`,
+        `species: ${field('species') || 'None'}`,
+        `gender: ${field('gender') || 'None'}`,
+        `age: ${field('age') || 'None'}`,
+        `foundOn: ${field('foundOn') || 'None'}`,
+        `profileImage: profile.${profileImageExt}`,
+        `galleryAlt: ${title} drawing`,
+        `usefulAbilities: ${yamlList(csvList(field('usefulAbilities')))}`,
+        `noteableEvents: ${yamlList(csvList(field('noteableEvents')))}`,
+        `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
+        `draft: false`,
+        `patreonSubmission: ${patreon}`,
+        `gallery:`,
+        galleryYaml,
+      ].join('\n');
+    }
+
+    const fileText = `---\n${frontmatter}\n---\n\n${bio || 'Write the bio here.'}\n`;
+    const imageChecklist = [`profile.${profileImageExt} (profile image)`, ...galleryRows.map((row) => `${row.filename} (${row.caption || 'no caption'})`)];
+
+    return { slug, fileText, imageChecklist };
+  }
+
+  function updateExport() {
+    const { fileText, imageChecklist } = buildFileText();
+    exportOutput.textContent = fileText;
+    exportImageList.innerHTML = `<strong>Rename your images to:</strong> ${imageChecklist.join(', ')}`;
+  }
+
+  function updatePreview() {
+    renderPreview();
+    updateExport();
+  }
+
+  document.getElementById('export-copy')!.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(exportOutput.textContent ?? '');
+  });
+
+  document.getElementById('export-download')!.addEventListener('click', () => {
+    const { slug, fileText } = buildFileText();
+    const blob = new Blob([fileText], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${slug || 'submission'}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Bundle the generated .md alongside the actual uploaded images, already named/placed as the site expects.
+  document.getElementById('export-download-zip')!.addEventListener('click', async () => {
+    const { slug, fileText } = buildFileText();
+    const folder = slug || 'submission';
+    const zip = new JSZip();
+    zip.file(`${folder}.md`, fileText);
+    if (profileImageFile) {
+      zip.file(`${folder}/profile.${profileImageExt}`, profileImageFile);
+    }
+    galleryRows.forEach((row) => {
+      if (row.file) zip.file(`${folder}/${row.filename}`, row.file);
+    });
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${folder}.zip`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  syncFieldVisibility();
+  addGalleryRow();
+  updatePreview();
+</script>
