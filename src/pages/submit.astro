@@ -206,6 +206,63 @@ import Footer from '../components/footer.astro';
 
   const csvList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
 
+  const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Inline markdown: **bold**, *italic*, `code`, [text](url).
+  const renderInline = (value: string) => value
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // A small Markdown -> HTML converter covering the subset used across the site's bios (headings, quotes, lists, paragraphs).
+  const renderMarkdown = (value: string) => {
+    // Split on raw markdown syntax first, then escape each line's content — escaping upfront would
+    // turn a leading ">" into "&gt;" and break the blockquote match below.
+    const lines = plainText(value).split(/\r?\n/);
+    let html = '';
+    let inList = false;
+    let paragraphLines: string[] = [];
+
+    const flushParagraph = () => {
+      if (paragraphLines.length) {
+        html += `<p>${renderInline(paragraphLines.join(' '))}</p>`;
+        paragraphLines = [];
+      }
+    };
+    const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+
+    for (const line of lines) {
+      const heading = line.match(/^(#{1,6})\s+(.*)$/);
+      const quote = line.match(/^>\s?(.*)$/);
+      const listItem = line.match(/^[-*]\s+(.*)$/);
+
+      if (!line.trim()) { flushParagraph(); closeList(); continue; }
+      if (heading) {
+        flushParagraph(); closeList();
+        const level = heading[1].length;
+        html += `<h${level}>${renderInline(escapeHtml(heading[2]))}</h${level}>`;
+        continue;
+      }
+      if (quote) {
+        flushParagraph(); closeList();
+        html += `<blockquote>${renderInline(escapeHtml(quote[1]))}</blockquote>`;
+        continue;
+      }
+      if (listItem) {
+        flushParagraph();
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += `<li>${renderInline(escapeHtml(listItem[1]))}</li>`;
+        continue;
+      }
+      closeList();
+      paragraphLines.push(escapeHtml(line.trim()));
+    }
+    flushParagraph();
+    closeList();
+    return html;
+  };
+
   const addGalleryRow = () => {
     const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
     galleryRows.push(row);
@@ -277,7 +334,7 @@ import Footer from '../components/footer.astro';
   function renderPreview() {
     const type = currentType();
     const title = plainText(field('title')) || 'Untitled';
-    const bioParagraphs = plainText(field('bio')).split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+    const bioHtml = renderMarkdown(field('bio'));
     const galleryHtml = galleryRows.map((row) => `
       <figure>
         <img src="${row.url ?? ''}" alt="${title} — ${row.caption}" />
@@ -360,7 +417,7 @@ import Footer from '../components/footer.astro';
       </div>
       <div class="card" role="region">
         <h2 class="db-title-cyan">Bio</h2>
-        <div class="article-body">${bioParagraphs.length ? bioParagraphs.map((p) => `<p>${p}</p>`).join('') : '<p class="field-hint">Write a bio to see it here.</p>'}</div>
+        <div class="article-body">${bioHtml || '<p class="field-hint">Write a bio to see it here.</p>'}</div>
       </div>
       ${traitsHtml}
       <div class="card" role="region">
