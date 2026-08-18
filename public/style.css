@@ -875,8 +875,9 @@
     }
 
     .gallery-editor-head{ display:flex; align-items:center; justify-content:space-between; gap:12px }
-    .gallery-row{ display:grid; grid-template-columns:1.2fr 1.4fr auto auto; gap:8px; align-items:center; margin-top:8px }
-    .gallery-row input[type="file"]{ font-size:0.78rem }
+    .gallery-row{ display:grid; grid-template-columns:32px minmax(0, 1.2fr) minmax(0, 1.4fr) auto; gap:8px; align-items:center; margin-top:8px }
+    .gallery-remove{ width:32px; height:32px; padding:0; }
+    .gallery-row input[type="file"]{ font-size:0.78rem; min-width:0; max-width:100% }
     .gallery-row input[type="text"]{
       background:linear-gradient(180deg, var(--control-top), var(--control-bottom));
       border:1px solid var(--control-border);
@@ -884,8 +885,13 @@
       color:var(--text);
       padding:8px 10px;
       font:inherit;
+      min-width:0;
+      width:100%;
     }
-    @media (max-width:700px){ .gallery-row{ grid-template-columns:1fr } }
+    @media (max-width:700px){
+      .gallery-row{ grid-template-columns:32px minmax(0, 1fr) }
+      .gallery-row > :not(.gallery-remove){ grid-column:2 }
+    }
 
     .export-output{
       margin-top:10px;
@@ -1019,6 +1025,9 @@
 
     /* Page stack wrapper (centers and stacks sections) */
     .page-stack{ display:flex; flex-direction:column; gap:16px; width:100%; max-width:820px }
+    .submit-stack{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); max-width:1200px }
+    .submit-stack > .card:first-child, .submit-stack > .card:last-child{ grid-column:1 / -1 }
+    @media (max-width:880px){ .submit-stack{ display:flex; } }
 
     /* Article archive and reading view */
     .article-archive, .article-page{ width:100%; max-width:820px }

@@ -9,7 +9,7 @@ import Footer from '../components/footer.astro';
 />
 
 <main id="main" tabindex="-1">
-  <div class="page-stack">
+  <div class="page-stack submit-stack">
     <section class="card" role="article">
       <h1 id="submit-title">Submit a File <span class="cursor" aria-hidden="true"></span></h1>
       <p class="lead">
@@ -133,7 +133,7 @@ import Footer from '../components/footer.astro';
 
         <div class="form-field span-2">
           <label for="f-bio">Bio</label>
-          <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line."></textarea>
+          <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -"></textarea>
         </div>
 
         <div class="form-field">
@@ -284,18 +284,18 @@ import Footer from '../components/footer.astro';
   const addGalleryRow = () => {
     const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
     galleryRows.push(row);
-    appendGalleryRow(row, galleryRows.length - 1);
+    appendGalleryRow(row);
     updatePreview();
   };
 
-  const appendGalleryRow = (row: GalleryRow, index: number) => {
+  const appendGalleryRow = (row: GalleryRow) => {
     const wrap = document.createElement('div');
     wrap.className = 'gallery-row';
     wrap.innerHTML = `
+      <button type="button" class="btn secondary gallery-remove" data-role="remove" aria-label="Remove gallery image" title="Remove gallery image">X</button>
       <input type="file" accept="image/*" data-role="file" />
       <input type="text" data-role="caption" placeholder="Caption" value="${row.caption.replace(/"/g, '&quot;')}" />
       <span class="field-hint" data-role="filename">${row.filename}</span>
-      <button type="button" class="btn secondary" data-role="remove">Remove</button>
     `;
 
     const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
@@ -309,7 +309,7 @@ import Footer from '../components/footer.astro';
       if (row.url) URL.revokeObjectURL(row.url);
       row.url = chosen ? URL.createObjectURL(chosen) : null;
       const ext = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
-      row.filename = `${index + 1}.${ext}`;
+      row.filename = `${galleryRows.indexOf(row) + 1}.${ext}`;
       filenameLabel.textContent = row.filename;
       updatePreview();
     });
@@ -320,8 +320,10 @@ import Footer from '../components/footer.astro';
     });
 
     removeButton.addEventListener('click', () => {
+      const rowIndex = galleryRows.indexOf(row);
+      if (rowIndex === -1) return;
       if (row.url) URL.revokeObjectURL(row.url);
-      galleryRows.splice(index, 1);
+      galleryRows.splice(rowIndex, 1);
       wrap.remove();
       galleryRows.forEach((remainingRow, i) => {
         const ext = remainingRow.filename.split('.').pop() || 'png';
@@ -428,7 +430,7 @@ import Footer from '../components/footer.astro';
         </div>
         <div class="profile">
           <div class="profile-media">
-            <img class="pixelart-profile" src="${profileImageUrl ?? ''}" alt="Profile image of ${title}" />
+            <img class="pixelart-profile" src="${profileImageUrl ?? ''}"  />
           </div>
           <div class="stat-grid">${statsHtml}</div>
         </div>
