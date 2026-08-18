@@ -789,6 +789,7 @@
     .submit-radio, .submit-checkbox{ display:flex; align-items:center; gap:6px; color:var(--muted); cursor:pointer }
     .form-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 16px; margin-top:12px }
     .form-field{ display:flex; flex-direction:column; gap:4px }
+    .form-field[hidden]{ display:none }
     .form-field.span-2{ grid-column:1 / -1 }
     .form-field label{ font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted) }
     .form-field input[type="text"],
