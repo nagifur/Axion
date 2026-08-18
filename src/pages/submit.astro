@@ -531,7 +531,7 @@ import Footer from '../components/footer.astro';
     const { slug, fileText } = buildFileText();
     const folder = slug || 'submission';
     const zip = new JSZip();
-    zip.file(`${folder}/${folder}.md`, fileText);
+    zip.file(`${folder}.md`, fileText);
     if (profileImageFile) {
       zip.file(`${folder}/profile.${profileImageExt}`, profileImageFile);
     }
