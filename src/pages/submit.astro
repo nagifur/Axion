@@ -171,6 +171,7 @@ import Footer from '../components/footer.astro';
       <div class="cta">
         <button type="button" id="export-copy" class="btn">Copy file text</button>
         <button type="button" id="export-download" class="btn secondary">Download .md</button>
+        <button type="button" id="export-download-zip" class="btn secondary">Download .zip (with images)</button>
       </div>
       <pre id="export-output" class="export-output" aria-label="Generated file contents"></pre>
     </section>
@@ -180,6 +181,8 @@ import Footer from '../components/footer.astro';
 <Footer />
 
 <script>
+  import JSZip from 'jszip';
+
   type GalleryRow = { file: File | null; url: string | null; caption: string; filename: string };
 
   const form = document.getElementById('submit-form') as HTMLFormElement;
@@ -191,6 +194,7 @@ import Footer from '../components/footer.astro';
   const profileImageInput = document.getElementById('f-profile-image') as HTMLInputElement;
 
   let profileImageUrl: string | null = null;
+  let profileImageFile: File | null = null;
   let profileImageExt = 'png';
   const galleryRows: GalleryRow[] = [];
 
@@ -328,6 +332,7 @@ import Footer from '../components/footer.astro';
   profileImageInput.addEventListener('change', () => {
     const chosen = profileImageInput.files?.[0] ?? null;
     if (profileImageUrl) URL.revokeObjectURL(profileImageUrl);
+    profileImageFile = chosen;
     profileImageUrl = chosen ? URL.createObjectURL(chosen) : null;
     profileImageExt = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
     updatePreview();
@@ -518,6 +523,28 @@ import Footer from '../components/footer.astro';
     const link = document.createElement('a');
     link.href = url;
     link.download = `${slug || 'submission'}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Bundle the generated .md alongside the actual uploaded images, already named/placed as the site expects.
+  document.getElementById('export-download-zip')!.addEventListener('click', async () => {
+    const { slug, fileText } = buildFileText();
+    const folder = slug || 'submission';
+    const zip = new JSZip();
+    zip.file(`${folder}/${folder}.md`, fileText);
+    if (profileImageFile) {
+      zip.file(`${folder}/profile.${profileImageExt}`, profileImageFile);
+    }
+    galleryRows.forEach((row) => {
+      if (row.file) zip.file(`${folder}/${row.filename}`, row.file);
+    });
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${folder}.zip`;
     link.click();
     URL.revokeObjectURL(url);
   });
