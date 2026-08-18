@@ -783,6 +783,56 @@
     .db-list a.patreon{ color:var(--neon-orange) }
     html[data-theme="light"] .db-list a.patreon{ color:#a85c00 }
     .db-list a:hover{ text-decoration:underline }
+
+    /* Submit page: form + live preview */
+    .submit-type-toggle{ display:flex; gap:16px; margin:10px 0 4px }
+    .submit-radio, .submit-checkbox{ display:flex; align-items:center; gap:6px; color:var(--muted); cursor:pointer }
+    .form-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 16px; margin-top:12px }
+    .form-field{ display:flex; flex-direction:column; gap:4px }
+    .form-field.span-2{ grid-column:1 / -1 }
+    .form-field label{ font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted) }
+    .form-field input[type="text"],
+    .form-field input[type="file"],
+    .form-field select,
+    .form-field textarea{
+      background:linear-gradient(180deg, var(--control-top), var(--control-bottom));
+      border:1px solid var(--control-border);
+      border-radius:var(--radius);
+      color:var(--text);
+      padding:8px 10px;
+      font:inherit;
+    }
+    .form-field textarea{ resize:vertical }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus{ outline:2px solid var(--line); outline-offset:1px }
+    .field-hint{ color:var(--muted); font-size:0.8rem; margin:2px 0 0 }
+    @media (max-width:700px){ .form-grid{ grid-template-columns:1fr } }
+
+    .gallery-editor-head{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+    .gallery-row{ display:grid; grid-template-columns:1.2fr 1.4fr auto auto; gap:8px; align-items:center; margin-top:8px }
+    .gallery-row input[type="file"]{ font-size:0.78rem }
+    .gallery-row input[type="text"]{
+      background:linear-gradient(180deg, var(--control-top), var(--control-bottom));
+      border:1px solid var(--control-border);
+      border-radius:var(--radius);
+      color:var(--text);
+      padding:8px 10px;
+      font:inherit;
+    }
+    @media (max-width:700px){ .gallery-row{ grid-template-columns:1fr } }
+
+    .export-output{
+      margin-top:10px;
+      padding:12px;
+      background:var(--panel-alt);
+      border:1px solid var(--line-soft);
+      border-radius:var(--radius);
+      color:var(--text);
+      white-space:pre-wrap;
+      word-break:break-word;
+      max-height:360px;
+      overflow:auto;
+      font-size:0.82rem;
+    }
     .db-content-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; margin-top:8px }
     .db-content-column{ display:flex; flex-direction:column; gap:12px }
     .db-group{ margin:0 }
