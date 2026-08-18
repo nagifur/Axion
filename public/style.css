@@ -780,6 +780,8 @@
     .db-list a{ color:var(--neon-cyan); text-decoration:none }
     .db-list a.active{ color:var(--neon-cyan) }
     .db-list a.inactive{ color:var(--neon-red) }
+    .db-list a.patreon{ color:var(--neon-orange) }
+    html[data-theme="light"] .db-list a.patreon{ color:#a85c00 }
     .db-list a:hover{ text-decoration:underline }
     .db-content-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; margin-top:8px }
     .db-content-column{ display:flex; flex-direction:column; gap:12px }

@@ -8,6 +8,7 @@ height: "{{5'8\"|1.73 m}}"
 age: 19
 accessLevel: 4
 birthplace: Ventria
+patreonSubmission: false
 profileImage: profile.png
 galleryAlt: Skye drawing
 positiveTraits: [Smart, Fast working, Expert Pilot]

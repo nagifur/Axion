@@ -95,8 +95,15 @@ const activeUrls = new Set([
   ...activeClassUrls,
   ...activeLevelUrls,
 ]);
+// Keep a lookup set of links flagged as Patreon submissions.
+const patreonUrls = new Set([
+  ...personnel.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Personnel/${contentSlug(entry.id)}`),
+  ...entities.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Entities/${contentSlug(entry.id)}`),
+]);
 // Determine whether a given link target is currently active.
 const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
+// Combine active state with the Patreon-submission highlight, if applicable.
+const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} patreon` : linkState(href);
 ---
 <Header
   title="Database"
@@ -143,7 +150,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                       <ul class="db-list db-sublist">
                         {group.members.map((person) => (
                           <li>
-                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkState(`/Personnel/${contentSlug(person.id)}`)}>
+                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>
                               {person.data.title}
                             </a>
                           </li>
@@ -157,7 +164,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                   <h3 class="db-section-title">Special</h3>
                   <ul class="db-list db-sublist">
                     <li>
-                      <a href="/Personnel/sypher" class={linkState('/Personnel/sypher')}>
+                      <a href="/Personnel/sypher" class={linkClass('/Personnel/sypher')}>
                         Sypher
                       </a>
                     </li>
@@ -174,7 +181,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                       <ul class="db-list db-sublist">
                         {group.members.map((person) => (
                           <li>
-                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkState(`/Personnel/${contentSlug(person.id)}`)}>
+                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>
                               {person.data.title}
                             </a>
                           </li>
@@ -198,7 +205,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                     <h3 class="db-section-title">{group.title}</h3>
                     <ul class="db-list db-sublist">
                       {group.entries.map((entry) => (
-                        <li><a href={entry.href} class={linkState(entry.href)}>{entry.label}</a></li>
+                        <li><a href={entry.href} class={linkClass(entry.href)}>{entry.label}</a></li>
                       ))}
                     </ul>
                   </section>
@@ -212,7 +219,7 @@ const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) 
                     {group.note && <p class="db-group-note">{group.note}</p>}
                     <ul class="db-list db-sublist">
                       {group.entries.map((entry) => (
-                        <li><a href={entry.href} class={linkState(entry.href)}>{entry.label}</a></li>
+                        <li><a href={entry.href} class={linkClass(entry.href)}>{entry.label}</a></li>
                       ))}
                     </ul>
                   </section>

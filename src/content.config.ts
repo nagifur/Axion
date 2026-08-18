@@ -42,6 +42,7 @@ const personnel = defineCollection({
     vorePreference: z.array(z.string()).default(['None']),
     gallery: z.array(galleryItem),
     draft: z.boolean().default(false),
+    patreonSubmission: z.boolean().default(false),
   }),
 });
 
@@ -61,6 +62,7 @@ const entities = defineCollection({
     noteableEvents: z.array(z.string()).default([]),
     vorePreference: z.array(z.string()).default(['None']),
     gallery: z.array(galleryItem),
+    patreonSubmission: z.boolean().default(false),
     draft: z.boolean().default(false),
   }),
 });
