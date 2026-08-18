@@ -36,13 +36,9 @@ import Footer from '../components/footer.astro';
       </div>
 
       <form id="submit-form" class="form-grid" autocomplete="off">
-        <div class="form-field">
+        <div class="form-field span-2">
           <label for="f-title">Title / Name</label>
           <input id="f-title" name="title" type="text" placeholder="e.g. Nagi or M-031" required />
-        </div>
-        <div class="form-field">
-          <label for="f-slug">File slug (used for the URL &amp; image folder)</label>
-          <input id="f-slug" name="slug" type="text" placeholder="e.g. nagi or m-031" required />
         </div>
 
         <div class="form-field field-personnel">
@@ -202,15 +198,8 @@ import Footer from '../components/footer.astro';
     document.querySelectorAll<HTMLElement>('.field-entity').forEach((el) => { el.hidden = type !== 'entity'; });
   };
 
-  // Slugify a title into a safe filename, but only when the user hasn't typed their own slug yet.
-  const slugField = document.getElementById('f-slug') as HTMLInputElement;
-  let slugTouched = false;
-  slugField.addEventListener('input', () => { slugTouched = true; });
-  document.getElementById('f-title')!.addEventListener('input', (event) => {
-    if (slugTouched) return;
-    const value = (event.target as HTMLInputElement).value;
-    slugField.value = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  });
+  // Derive the file slug from the title — it always matches, so no separate field is needed.
+  const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   // Strip "{{visible|tooltip}}" hover syntax down to the visible text for the preview.
   const plainText = (value: string) => value.replace(/\{\{([^|{}]*)\|[^{}]*\}\}/g, '$1');
@@ -384,8 +373,8 @@ import Footer from '../components/footer.astro';
   // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
   function buildFileText() {
     const type = currentType();
-    const slug = field('slug').trim() || 'slug';
     const title = field('title').trim() || 'Untitled';
+    const slug = slugify(title) || 'slug';
     const bio = field('bio').trim();
     const patreon = (document.getElementById('f-patreon') as HTMLInputElement).checked;
     const yamlList = (items: string[]) => `[${items.join(', ')}]`;
