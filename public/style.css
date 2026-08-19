@@ -512,6 +512,36 @@
       background:linear-gradient(90deg, rgba(122,169,255,0), rgba(122,169,255,0.04));
       pointer-events:none;
     }
+    .profile-page{
+      --profile-tint-soft:color-mix(in srgb, var(--profile-tint) 18%, transparent);
+      --profile-tint-faint:color-mix(in srgb, var(--profile-tint) 7%, transparent);
+    }
+    .profile-page .card{
+      border-color:color-mix(in srgb, var(--profile-tint) 38%, transparent);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        0 14px 32px rgba(0,0,0,0.2),
+        0 0 18px var(--profile-tint-faint);
+    }
+    .profile-page .card::before{
+      background:linear-gradient(180deg, var(--profile-tint), color-mix(in srgb, var(--profile-tint) 62%, var(--neon-blue)));
+    }
+    .profile-page .card::after{
+      background:linear-gradient(90deg, transparent, var(--profile-tint-faint));
+    }
+    .profile-page .profile-name,
+    .profile-page .db-title-cyan{
+      color:var(--profile-tint);
+      text-shadow:0 0 12px var(--profile-tint-soft);
+    }
+    .profile-page .profile-nickname{ color:color-mix(in srgb, var(--profile-tint) 72%, var(--neon-green)) }
+    .profile-page .profile{ border-top-color:color-mix(in srgb, var(--profile-tint) 35%, var(--line-soft)) }
+    .profile-page .stat-cell{
+      background:linear-gradient(90deg, var(--profile-tint-faint), var(--stat-cell));
+      border-left-color:var(--profile-tint);
+    }
+    .profile-page .stat-value a{ color:var(--profile-tint) }
+    .profile-page .info-icon{ color:var(--profile-tint) }
     html[data-theme="light"] .card::after{
       background:linear-gradient(90deg, rgba(41,88,158,0), rgba(41,88,158,0.05));
     }

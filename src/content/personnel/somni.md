@@ -7,6 +7,7 @@ height: "{{5'0\"|1.52 m}}"
 employeeID: A-100
 age: 23
 accessLevel: 3
+colorTint: "#ff2aa3"
 birthplace: ████
 profileImage: profile.png
 galleryAlt: Somni drawing

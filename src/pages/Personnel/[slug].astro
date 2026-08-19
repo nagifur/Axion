@@ -83,7 +83,12 @@ const profileIsPlaceholder = profileImport === placeholderImage;
   type="profile"
 />
 
-<main id="main" tabindex="-1">
+<main
+  id="main"
+  class="profile-page"
+  tabindex="-1"
+  style={`--profile-tint: ${character.colorTint ?? 'var(--neon-cyan)'}`}
+>
   <div class="page-stack">
     <section class="card" role="article">
       <div class="profile-header">

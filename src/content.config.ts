@@ -1,5 +1,10 @@
 import { defineCollection, z } from 'astro:content';
 
+const colorTint = z.string().regex(
+  /^(#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})|rgba?\(\s*(?:\d{1,3}%?\s*,\s*){2}\d{1,3}%?(?:\s*,\s*(?:0|1|0?\.\d+))?\s*\))$/,
+  'colorTint must be a hex, rgb(), or rgba() color',
+).optional();
+
 const galleryItem = z.object({
   file: z.string(),
   caption: z.string(),
@@ -28,6 +33,7 @@ const personnel = defineCollection({
   schema: z.object({
     title: z.string(),
     author: z.string().optional(),
+    colorTint,
     position: z.string().default('None'),
     species: z.string().default('None'),
     gender: z.string().default('None'),
@@ -51,6 +57,7 @@ const entities = defineCollection({
   schema: z.object({
     title: z.string(),
     author: z.string().optional(),
+    colorTint,
     nickname: z.string().default('None'),
     containmentClass: z.string().default('None'),
     type: z.string().default('None'),
