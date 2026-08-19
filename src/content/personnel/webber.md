@@ -7,6 +7,7 @@ gender: Male
 height: "{{5'10\"|1.78 m}}"
 age: 20
 accessLevel: 2
+colorTint: "#6fadff"
 birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Webber drawing

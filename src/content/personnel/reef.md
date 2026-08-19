@@ -7,6 +7,7 @@ gender: Male
 height: "{{10'1\"|3.07 m}}"
 age: 27
 accessLevel: 5
+colorTint: "#f61743"
 birthplace: Azuron
 profileImage: profile.png
 galleryAlt: Reef drawing

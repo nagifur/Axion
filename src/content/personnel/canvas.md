@@ -7,6 +7,7 @@ gender: Male
 height: "{{7' 0''|2.13 m}}"
 age: 27
 accessLevel: 3
+colorTint: "#828282"
 birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Canvas drawing

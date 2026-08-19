@@ -7,6 +7,7 @@ employeeID: 0002
 height: "{{5'8\"|1.73 m}}"
 age: 34
 accessLevel: 5
+colorTint: "#12dc63"
 birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Dr. Mages drawing

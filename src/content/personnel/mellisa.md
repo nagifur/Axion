@@ -7,6 +7,7 @@ employeeID: █-███
 height: "{{20'1''|6.12 m}}"
 age: 42
 accessLevel: 5
+colorTint: "rgb(255, 102, 0)"
 birthplace: ████
 profileImage: profile.png
 galleryAlt: Mellisa drawing
