@@ -674,6 +674,32 @@
     .status-updates a:hover{ text-decoration:underline }
     .status-updates time{ display:block; color:var(--muted); font-size:0.76rem; margin-top:2px }
 
+    /* Bluesky feed */
+    .bsky-section{ margin-top:16px; text-align:left }
+    #bsky-feed{ display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:14px; margin-top:12px }
+    .bsky-post{
+      background:color-mix(in srgb, var(--panel-alt) 84%, transparent);
+      border:1px solid rgba(126,245,255,0.16);
+      border-radius:var(--radius);
+      padding:12px 14px;
+    }
+    .bsky-reason{ color:var(--muted); font-size:0.74rem; text-transform:uppercase; letter-spacing:0.06em; margin:0 0 6px }
+    .bsky-post-head{ display:flex; align-items:center; gap:10px }
+    .bsky-avatar{ width:36px; height:36px; border-radius:50%; object-fit:cover; background:var(--panel-alt) }
+    .bsky-name{ display:block; color:var(--text); font-weight:700; font-size:0.88rem }
+    .bsky-handle{ display:block; color:var(--muted); font-size:0.78rem }
+    .bsky-text{ color:var(--text); font-size:0.92rem; margin:10px 0 0; overflow-wrap:anywhere }
+    .bsky-images{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px,1fr)); gap:6px; margin-top:10px }
+    .bsky-images img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:calc(var(--radius) / 2) }
+    .bsky-video{ position:relative; display:block; margin-top:10px; border-radius:calc(var(--radius) / 2); overflow:hidden }
+    .bsky-video img{ width:100%; aspect-ratio:16/9; object-fit:cover; display:block }
+    .bsky-video-play{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      font-size:1.6rem; color:#fff; background:rgba(4,26,37,0.35);
+    }
+    .bsky-timestamp{ display:inline-block; margin-top:10px; color:var(--neon-cyan); font-size:0.78rem; text-decoration:none }
+    .bsky-timestamp:hover{ text-decoration:underline }
+
     footer{
       max-width:1200px; width:100%; margin:0 auto; display:flex; justify-content:space-between; align-items:center;
       color:var(--muted); font-size:0.8rem; padding:10px 18px 0; border-top:1px solid var(--line-soft); letter-spacing:0.12em; text-transform:uppercase;

@@ -151,7 +151,16 @@ const bulletins = [
       </aside>
     </section>
 
-   
+    <section class="card bsky-section" role="region" aria-labelledby="bsky-title">
+      <h2 id="bsky-title" class="db-title-cyan">Latest Bluesky Posts</h2>
+      <div id="bsky-feed" aria-live="polite">
+        <p class="field-hint">Loading posts…</p>
+      </div>
+      <p class="field-hint">
+        <a href="https://bsky.app/profile/nagifur.bsky.social" target="_blank" rel="noopener noreferrer">View more on Bluesky</a>
+      </p>
+    </section>
+
   </main>
 
 
@@ -200,5 +209,94 @@ const bulletins = [
     clearInterval(clockInterval);
     clockInterval = setInterval(tick, 1000);
   });
+
+  const BSKY_ACTOR = 'nagifur.bsky.social';
+  const BSKY_FEED_ENDPOINT = `https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${BSKY_ACTOR}&limit=6&filter=posts_no_replies`;
+
+  const escapeHtml = (value: string) => value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Convert an at:// post URI into a bsky.app permalink using the author's handle.
+  const postUrl = (uri: string) => {
+    const rkey = uri.split('/').pop();
+    return `https://bsky.app/profile/${BSKY_ACTOR}/post/${rkey}`;
+  };
+
+  const relativeTime = (iso: string) => {
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const minutes = Math.round(diffMs / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.round(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  async function loadBskyFeed() {
+    const feedEl = document.getElementById('bsky-feed');
+    if (!feedEl) return;
+
+    try {
+      const response = await fetch(BSKY_FEED_ENDPOINT);
+      if (!response.ok) throw new Error(`Bluesky API responded with ${response.status}`);
+      const data = await response.json();
+      const items = Array.isArray(data.feed) ? data.feed.slice(0, 5) : [];
+
+      if (!items.length) {
+        feedEl.innerHTML = '<p class="field-hint">No recent posts found.</p>';
+        return;
+      }
+
+      feedEl.innerHTML = items.map((item: any) => {
+        const post = item.post;
+        const record = post?.record ?? {};
+        const author = post?.author ?? {};
+        const text = escapeHtml(String(record.text ?? '')).replace(/\n/g, '<br />');
+        const embed = post?.embed ?? {};
+        const media = embed?.media ?? embed;
+        const images = media?.images ?? [];
+        // Bluesky videos are HLS (.m3u8) streams, which <video> can't play directly, so link out via the thumbnail instead.
+        const video = media?.$type === 'app.bsky.embed.video#view' ? media : undefined;
+        const isRepost = Boolean(item.reason && item.reason.$type?.includes('reasonRepost'));
+
+        const imagesHtml = images.length
+          ? `<div class="bsky-images">${images.map((img: any) => `<img src="${img.thumb}" alt="${escapeHtml(img.alt || '')}" loading="lazy" />`).join('')}</div>`
+          : '';
+
+        const videoHtml = video
+          ? `<a class="bsky-video" href="${postUrl(post.uri)}" target="_blank" rel="noopener noreferrer" aria-label="Watch video on Bluesky">
+              <img src="${video.thumbnail}" alt="${escapeHtml(video.alt || '')}" loading="lazy" />
+              <span class="bsky-video-play" aria-hidden="true">▶</span>
+            </a>`
+          : '';
+
+        return `
+          <article class="bsky-post">
+            ${isRepost ? '<p class="bsky-reason">Reposted</p>' : ''}
+            <div class="bsky-post-head">
+              <img class="bsky-avatar" src="${author.avatar ?? ''}" alt="" loading="lazy" />
+              <div>
+                <span class="bsky-name">${escapeHtml(author.displayName || author.handle || BSKY_ACTOR)}</span>
+                <span class="bsky-handle">@${escapeHtml(author.handle || BSKY_ACTOR)}</span>
+              </div>
+            </div>
+            <p class="bsky-text">${text}</p>
+            ${imagesHtml}
+            ${videoHtml}
+            <a class="bsky-timestamp" href="${postUrl(post.uri)}" target="_blank" rel="noopener noreferrer">${relativeTime(record.createdAt)}</a>
+          </article>
+        `;
+      }).join('');
+    } catch (error) {
+      feedEl.innerHTML = '<p class="field-hint">Couldn\'t load Bluesky posts right now.</p>';
+      console.error('Failed to load Bluesky feed', error);
+    }
+  }
+
+  document.addEventListener('astro:page-load', loadBskyFeed);
 </script>
 
