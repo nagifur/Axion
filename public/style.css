@@ -723,6 +723,18 @@
     .bsky-images{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px,1fr)); gap:6px; margin-top:10px }
     .bsky-images img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:calc(var(--radius) / 2) }
     .bsky-video{ width:100%; aspect-ratio:16/9; border-radius:calc(var(--radius) / 2); margin-top:10px; background:#000; display:block }
+
+    .bsky-cw{ position:relative; margin-top:10px }
+    .bsky-cw-content{ transition:filter .15s ease }
+    .bsky-cw:not(.revealed) .bsky-cw-content{ filter:blur(20px); pointer-events:none; user-select:none }
+    .bsky-cw.revealed .bsky-cw-overlay{ display:none }
+    .bsky-cw-overlay{
+      position:absolute; inset:0; z-index:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+      background:rgba(4,26,37,0.55); border:1px dashed rgba(255,107,129,0.55); border-radius:calc(var(--radius) / 2);
+      color:var(--text); font:inherit; cursor:pointer; padding:10px;
+    }
+    .bsky-cw-label{ color:var(--neon-red, #ff6b81); font-weight:700; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.06em }
+    .bsky-cw-hint{ color:var(--muted); font-size:0.72rem }
     .bsky-timestamp{
       display:inline-block; margin-top:12px; color:var(--neon-cyan); font-size:0.72rem; text-decoration:none;
       text-transform:uppercase; letter-spacing:0.08em;

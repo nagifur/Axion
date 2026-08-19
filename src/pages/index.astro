@@ -239,6 +239,14 @@ const bulletins = [
     return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
+  // Self-applied or labeler-applied adult-content tags; anything else (e.g. spam) is left unblurred.
+  const ADULT_LABELS = new Set(['porn',  'nudity']);
+  const adultLabel = (post: any): string | undefined => {
+    const labels = Array.isArray(post?.labels) ? post.labels : [];
+    const match = labels.find((label: any) => ADULT_LABELS.has(label?.val));
+    return match?.val;
+  };
+
   async function loadBskyFeed() {
     const feedEl = document.getElementById('bsky-feed');
     if (!feedEl) return;
@@ -274,6 +282,18 @@ const bulletins = [
           ? `<video class="bsky-video" poster="${video.thumbnail}" controls playsinline preload="none" data-hls-src="${video.playlist}"></video>`
           : '';
 
+        const label = adultLabel(post);
+        const mediaHtml = `${imagesHtml}${videoHtml}`;
+        const gatedMediaHtml = mediaHtml && label
+          ? `<div class="bsky-cw">
+              <button type="button" class="bsky-cw-overlay">
+                <span class="bsky-cw-label">⚠ Adult Content</span>
+                <span class="bsky-cw-hint">Click to view</span>
+              </button>
+              <div class="bsky-cw-content">${mediaHtml}</div>
+            </div>`
+          : mediaHtml;
+
         return `
           <article class="bsky-post">
             ${isRepost ? '<p class="bsky-reason">Reposted</p>' : ''}
@@ -285,12 +305,15 @@ const bulletins = [
               </div>
             </div>
             <p class="bsky-text">${text}</p>
-            ${imagesHtml}
-            ${videoHtml}
+            ${gatedMediaHtml}
             <a class="bsky-timestamp" href="${postUrl(post.uri)}" target="_blank" rel="noopener noreferrer">${relativeTime(record.createdAt)}</a>
           </article>
         `;
       }).join('');
+
+      feedEl.querySelectorAll<HTMLButtonElement>('.bsky-cw-overlay').forEach((button) => {
+        button.addEventListener('click', () => button.closest('.bsky-cw')?.classList.add('revealed'));
+      });
 
       await hydrateHlsVideos(feedEl);
     } catch (error) {
