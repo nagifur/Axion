@@ -691,12 +691,7 @@
     .bsky-text{ color:var(--text); font-size:0.92rem; margin:10px 0 0; overflow-wrap:anywhere }
     .bsky-images{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px,1fr)); gap:6px; margin-top:10px }
     .bsky-images img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:calc(var(--radius) / 2) }
-    .bsky-video{ position:relative; display:block; margin-top:10px; border-radius:calc(var(--radius) / 2); overflow:hidden }
-    .bsky-video img{ width:100%; aspect-ratio:16/9; object-fit:cover; display:block }
-    .bsky-video-play{
-      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      font-size:1.6rem; color:#fff; background:rgba(4,26,37,0.35);
-    }
+    .bsky-video{ width:100%; aspect-ratio:16/9; border-radius:calc(var(--radius) / 2); margin-top:10px; background:#000; display:block }
     .bsky-timestamp{ display:inline-block; margin-top:10px; color:var(--neon-cyan); font-size:0.78rem; text-decoration:none }
     .bsky-timestamp:hover{ text-decoration:underline }
 

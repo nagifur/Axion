@@ -259,7 +259,7 @@ const bulletins = [
         const embed = post?.embed ?? {};
         const media = embed?.media ?? embed;
         const images = media?.images ?? [];
-        // Bluesky videos are HLS (.m3u8) streams, which <video> can't play directly, so link out via the thumbnail instead.
+        // Bluesky videos are HLS (.m3u8) streams; hydrated below via hls.js so they can play inline.
         const video = media?.$type === 'app.bsky.embed.video#view' ? media : undefined;
         const isRepost = Boolean(item.reason && item.reason.$type?.includes('reasonRepost'));
 
@@ -268,10 +268,7 @@ const bulletins = [
           : '';
 
         const videoHtml = video
-          ? `<a class="bsky-video" href="${postUrl(post.uri)}" target="_blank" rel="noopener noreferrer" aria-label="Watch video on Bluesky">
-              <img src="${video.thumbnail}" alt="${escapeHtml(video.alt || '')}" loading="lazy" />
-              <span class="bsky-video-play" aria-hidden="true">▶</span>
-            </a>`
+          ? `<video class="bsky-video" poster="${video.thumbnail}" controls playsinline preload="none" data-hls-src="${video.playlist}"></video>`
           : '';
 
         return `
@@ -291,10 +288,40 @@ const bulletins = [
           </article>
         `;
       }).join('');
+
+      await hydrateHlsVideos(feedEl);
     } catch (error) {
       feedEl.innerHTML = '<p class="field-hint">Couldn\'t load Bluesky posts right now.</p>';
       console.error('Failed to load Bluesky feed', error);
     }
+  }
+
+  // Most browsers can't play .m3u8 natively, so load hls.js from a CDN on demand and attach it to each video.
+  async function hydrateHlsVideos(container: HTMLElement) {
+    const videos = Array.from(container.querySelectorAll<HTMLVideoElement>('video[data-hls-src]'));
+    if (!videos.length) return;
+
+    const supportsNativeHls = videos[0].canPlayType('application/vnd.apple.mpegurl') !== '';
+    let HlsCtor: any = null;
+    if (!supportsNativeHls) {
+      try {
+        ({ default: HlsCtor } = await import(/* @vite-ignore */ 'https://esm.sh/hls.js@1.5.17'));
+      } catch (error) {
+        console.error('Failed to load hls.js', error);
+      }
+    }
+
+    videos.forEach((video) => {
+      const src = video.dataset.hlsSrc;
+      if (!src) return;
+      if (supportsNativeHls) {
+        video.src = src;
+      } else if (HlsCtor?.isSupported()) {
+        const hls = new HlsCtor();
+        hls.loadSource(src);
+        hls.attachMedia(video);
+      }
+    });
   }
 
   document.addEventListener('astro:page-load', loadBskyFeed);
