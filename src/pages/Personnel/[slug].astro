@@ -89,6 +89,10 @@ const profileIsPlaceholder = profileImport === placeholderImage;
   tabindex="-1"
   style={`--profile-tint: ${character.colorTint ?? 'var(--neon-cyan)'}`}
 >
+<nav class="article-return" aria-label="Database navigation">
+      <a href={`${base}/database`}>← Back to Database</a>
+    </nav>
+  </div>
   <div class="page-stack">
     <section class="card" role="article">
       <div class="profile-header">
@@ -199,6 +203,10 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         }) : <p class="field-hint">No gallery images added yet.</p>}
       </div>
     </section>
+
+    <nav class="article-return" aria-label="Database navigation">
+      <a href={`${base}/database`}>← Back to Database</a>
+    </nav>
   </div>
 </main>
 

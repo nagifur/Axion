@@ -206,6 +206,8 @@ document.addEventListener('astro:page-load', function () {
     window.addEventListener('resize', updateScrollCue);
     updateScrollCue();
 
+    var tabStorageKey = 'db-active-tab';
+
     function setActiveTab(tab, shouldFocus){
       var controlsId = tab.getAttribute('aria-controls');
 
@@ -220,6 +222,8 @@ document.addEventListener('astro:page-load', function () {
         panel.hidden = !isTarget;
         panel.classList.toggle('db-panel-active', isTarget);
       });
+
+      try { localStorage.setItem(tabStorageKey, tab.id); } catch (_) {}
 
       if (shouldFocus) {
         tab.focus();
@@ -253,7 +257,11 @@ document.addEventListener('astro:page-load', function () {
       });
     });
 
-    var initial = tabs.find(function(tab){ return tab.getAttribute('aria-selected') === 'true'; }) || tabs[0];
+    var storedTabId = null;
+    try { storedTabId = localStorage.getItem(tabStorageKey); } catch (_) {}
+    var initial = (storedTabId && tabs.find(function(tab){ return tab.id === storedTabId; }))
+      || tabs.find(function(tab){ return tab.getAttribute('aria-selected') === 'true'; })
+      || tabs[0];
     setActiveTab(initial, false);
   })();
 
