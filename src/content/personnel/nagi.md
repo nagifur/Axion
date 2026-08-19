@@ -7,7 +7,7 @@ gender: Male
 height: "{{5'7\"|1.70 m}}"
 age: "{{25 | Birthday: 11/23}}"
 accessLevel: 3
-colorTint: "#FFA500"
+colorTint: "#ff860e"
 birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Nagi drawing
