@@ -378,7 +378,7 @@ import Footer from '../components/footer.astro';
     let nicknameHtml = '';
     let traitsHtml = '';
     const author = plainText(field('author')).trim();
-    const authorHtml = author ? `<p class="profile-author">Character by ${escapeHtml(author)}</p>` : '';
+    const authorHtml = author ? `<p class="profile-author">Submission by ${escapeHtml(author)}</p>` : '';
 
     if (type === 'personnel') {
       statsHtml = [
@@ -567,6 +567,5 @@ import Footer from '../components/footer.astro';
   });
 
   syncFieldVisibility();
-  addGalleryRow();
   updatePreview();
 </script>
