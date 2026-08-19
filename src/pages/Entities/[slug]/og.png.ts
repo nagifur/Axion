@@ -1,15 +1,6 @@
 import sharp from 'sharp';
 import { getCollection } from 'astro:content';
-import { createDatabaseOgImage } from '../../../lib/databaseOgImage';
-
-const images = import.meta.glob('../../../assets/images/*/*', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-
-const getProfileImage = (slug: string, filename: string) => {
-  const exactPath = `../../../assets/images/${slug}/${filename}`;
-  if (images[exactPath]) return images[exactPath];
-  const basename = filename.replace(/\.[^/.]+$/, '');
-  return Object.entries(images).find(([path]) => path.includes(`/${slug}/`) && path.split('/').pop()?.replace(/\.[^/.]+$/, '') === basename)?.[1];
-};
+import { createDatabaseOgImage, getDatabaseImageDataUri } from '../../../lib/databaseOgImage';
 
 export async function getStaticPaths() {
   const entries = await getCollection('entities', ({ data }) => !data.draft);
@@ -27,7 +18,7 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
     subtitle: entity.nickname,
     id: slug,
     tint: entity.colorTint,
-    image: getProfileImage(slug, entity.profileImage),
+    image: await getDatabaseImageDataUri(slug, entity.profileImage),
     fields: [
       { label: 'Containment Class', value: entity.containmentClass },
       { label: 'Type', value: entity.type },

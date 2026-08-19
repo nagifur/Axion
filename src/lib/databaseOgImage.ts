@@ -1,3 +1,8 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { parseHoverSegments } from './hoverTooltip';
+
 export interface DatabaseOgField {
   label: string;
   value: string;
@@ -11,6 +16,36 @@ interface DatabaseOgImageOptions {
   image?: string;
   fields: DatabaseOgField[];
 }
+
+export const toOgText = (value: unknown) => parseHoverSegments(String(value))
+  .map((segment) => segment.text)
+  .join('');
+
+export const getDatabaseImageDataUri = async (slug: string, filename: string) => {
+  const directory = path.resolve(process.cwd(), 'src/assets/images', slug);
+  const requestedPath = path.join(directory, filename);
+  let imagePath = requestedPath;
+
+  try {
+    await readFile(imagePath);
+  } catch {
+    const basename = filename.replace(/\.[^/.]+$/, '');
+    const match = (await readdir(directory)).find((candidate) => {
+      return candidate.replace(/\.[^/.]+$/, '') === basename;
+    });
+    if (!match) return undefined;
+    imagePath = path.join(directory, match);
+  }
+
+  const extension = path.extname(imagePath).toLowerCase();
+  const mime = extension === '.jpg' || extension === '.jpeg'
+    ? 'image/jpeg'
+    : extension === '.gif'
+      ? 'image/gif'
+      : 'image/png';
+  const image = await readFile(imagePath);
+  return `data:${mime};base64,${image.toString('base64')}`;
+};
 
 const escapeXml = (value: string) => value
   .replaceAll('&', '&amp;')
@@ -39,7 +74,7 @@ export const createDatabaseOgImage = ({
     const x = column === 0 ? 280 : 690;
     const y = 190 + row * 92;
     const safeLabel = escapeXml(field.label.toUpperCase());
-    const safeValue = escapeXml(truncate(field.value));
+    const safeValue = escapeXml(truncate(toOgText(field.value)));
 
     return `
       <g transform="translate(${x} ${y})">
@@ -67,7 +102,8 @@ export const createDatabaseOgImage = ({
       <stop offset="1" stop-color="${safeTint}" stop-opacity=".04" />
     </linearGradient>
     <style>
-      .title { fill: ${safeTint}; font: 800 54px 'Arial Black', Arial, sans-serif; letter-spacing: 3px; }
+      @font-face { font-family: 'Ethnocentric'; src: url('data:font/woff;base64,${readFileSync(path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.woff')).toString('base64')}') format('woff'); }
+      .title { fill: ${safeTint}; font: 800 54px 'Ethnocentric', sans-serif; letter-spacing: 3px; }
       .subtitle { fill: ${safeTint}; font: 700 22px Arial, sans-serif; }
       .eyebrow { fill: #9ab6bf; font: 700 16px monospace; letter-spacing: 4px; }
       .label { fill: #c4dce2; font: 15px monospace; letter-spacing: 1px; }

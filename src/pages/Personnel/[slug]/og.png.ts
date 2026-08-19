@@ -1,15 +1,6 @@
 import sharp from 'sharp';
 import { getCollection } from 'astro:content';
-import { createDatabaseOgImage } from '../../../lib/databaseOgImage';
-
-const images = import.meta.glob('../../../assets/images/*/*', { eager: true, query: '?url', import: 'default' }) as Record<string, string>;
-
-const getProfileImage = (slug: string, filename: string) => {
-  const exactPath = `../../../assets/images/${slug}/${filename}`;
-  if (images[exactPath]) return images[exactPath];
-  const basename = filename.replace(/\.[^/.]+$/, '');
-  return Object.entries(images).find(([path]) => path.includes(`/${slug}/`) && path.split('/').pop()?.replace(/\.[^/.]+$/, '') === basename)?.[1];
-};
+import { createDatabaseOgImage, getDatabaseImageDataUri } from '../../../lib/databaseOgImage';
 
 export async function getStaticPaths() {
   const entries = await getCollection('personnel', ({ data }) => !data.draft);
@@ -26,7 +17,7 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
     title: character.title,
     id: String(character.employeeID),
     tint: character.colorTint,
-    image: getProfileImage(slug, character.profileImage),
+    image: await getDatabaseImageDataUri(slug, character.profileImage),
     fields: [
       { label: 'Access Level', value: `Level ${character.accessLevel}` },
       { label: 'Facility Position', value: character.position },
