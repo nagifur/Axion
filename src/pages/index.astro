@@ -121,6 +121,19 @@ const bulletins = [
             </div>
           </div>
         </div>
+
+        <section class="card bsky-section" role="region" aria-labelledby="bsky-title">
+          <h2 id="bsky-title" class="db-title-cyan">
+            <span class="bsky-live" aria-hidden="true"></span>
+            Latest Bluesky Posts
+          </h2>
+          <div id="bsky-feed" class="bsky-feed" aria-live="polite">
+            <p class="field-hint">Loading posts…</p>
+          </div>
+          <p class="field-hint">
+            <a href="https://bsky.app/profile/nagifur.bsky.social" target="_blank" rel="noopener noreferrer">View more on Bluesky</a>
+          </p>
+        </section>
       </div>
       <aside>
         <div class="card" style="text-align:left">
@@ -149,16 +162,6 @@ const bulletins = [
           </div>
         </div>
       </aside>
-    </section>
-
-    <section class="card bsky-section" role="region" aria-labelledby="bsky-title">
-      <h2 id="bsky-title" class="db-title-cyan">Latest Bluesky Posts</h2>
-      <div id="bsky-feed" aria-live="polite">
-        <p class="field-hint">Loading posts…</p>
-      </div>
-      <p class="field-hint">
-        <a href="https://bsky.app/profile/nagifur.bsky.social" target="_blank" rel="noopener noreferrer">View more on Bluesky</a>
-      </p>
     </section>
 
   </main>
