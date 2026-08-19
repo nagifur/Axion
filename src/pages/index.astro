@@ -296,7 +296,7 @@ const bulletins = [
 
         return `
           <article class="bsky-post">
-            ${isRepost ? '<p class="bsky-reason">Reposted</p>' : ''}
+            <p class="bsky-reason${isRepost ? '' : ' bsky-reason--hidden'}">Reposted</p>
             <div class="bsky-post-head">
               <img class="bsky-avatar" src="${author.avatar ?? ''}" alt="" loading="lazy" />
               <div>

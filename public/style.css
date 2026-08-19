@@ -697,6 +697,8 @@
     .bsky-feed::-webkit-scrollbar-track{ background:transparent }
     .bsky-post{
       flex:0 0 280px;
+      display:flex;
+      flex-direction:column;
       scroll-snap-align:start;
       position:relative;
       background:linear-gradient(180deg, color-mix(in srgb, var(--panel-alt) 92%, transparent), color-mix(in srgb, var(--panel-alt) 78%, transparent));
@@ -713,13 +715,19 @@
     }
     .bsky-reason{
       color:var(--neon-green); font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; margin:0 0 8px;
-      font-weight:700;
+      font-weight:700; line-height:1; height:0.7rem;
     }
-    .bsky-post-head{ display:flex; align-items:center; gap:10px }
-    .bsky-avatar{ width:36px; height:36px; border-radius:50%; object-fit:cover; background:var(--panel-alt); border:1px solid rgba(126,245,255,0.3) }
-    .bsky-name{ display:block; color:var(--text); font-weight:700; font-size:0.86rem; letter-spacing:0.02em }
-    .bsky-handle{ display:block; color:var(--neon-cyan); font-size:0.74rem; text-transform:lowercase }
-    .bsky-text{ color:var(--text); font-size:0.88rem; margin:10px 0 0; overflow-wrap:anywhere }
+    .bsky-reason--hidden{ visibility:hidden }
+    .bsky-post-head{ display:flex; align-items:center; gap:10px; min-height:36px }
+    .bsky-avatar{ width:36px; height:36px; border-radius:50%; object-fit:cover; background:var(--panel-alt); border:1px solid rgba(126,245,255,0.3); flex-shrink:0 }
+    .bsky-post-head > div{ min-width:0 }
+    .bsky-name{ display:block; color:var(--text); font-weight:700; font-size:0.86rem; letter-spacing:0.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+    .bsky-handle{ display:block; color:var(--neon-cyan); font-size:0.74rem; text-transform:lowercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+    .bsky-text{
+      color:var(--text); font-size:0.88rem; margin:10px 0 0; overflow-wrap:anywhere;
+      display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+      min-height:calc(1.4em * 3);
+    }
     .bsky-images{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px,1fr)); gap:6px; margin-top:10px }
     .bsky-images img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:calc(var(--radius) / 2) }
     .bsky-video{ width:100%; aspect-ratio:16/9; border-radius:calc(var(--radius) / 2); margin-top:10px; background:#000; display:block }
