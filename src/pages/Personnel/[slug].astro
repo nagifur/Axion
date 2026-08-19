@@ -89,10 +89,12 @@ const profileIsPlaceholder = profileImport === placeholderImage;
   tabindex="-1"
   style={`--profile-tint: ${character.colorTint ?? 'var(--neon-cyan)'}`}
 >
-<nav class="article-return" aria-label="Database navigation">
-      <a href={`${base}/database`}>← Back to Database</a>
-    </nav>
-  </div>
+  <nav class="article-return-top" aria-label="Database navigation">
+    <a href={`${base}/database`}>
+      <span class="article-return-arrow" aria-hidden="true">←</span>
+      <span>Back</span>
+    </a>
+  </nav>
   <div class="page-stack">
     <section class="card" role="article">
       <div class="profile-header">
