@@ -7,6 +7,7 @@ employeeID: 6382
 height: "{{5'8\"|1.73 m}}"
 age: 19
 accessLevel: 4
+colorTint: "#4665ff"
 birthplace: Ventria
 patreonSubmission: false
 profileImage: profile.png

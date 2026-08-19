@@ -7,6 +7,7 @@ gender: Male
 height: "{{6'3\"|1.91 m}}"
 age: ██
 accessLevel: Admin
+colorTint: "#c33700"
 birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Sypher drawing

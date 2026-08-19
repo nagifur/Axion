@@ -65,6 +65,9 @@
       --text:#edf8ff;
       --accent:var(--neon-cyan);
       --corner: rgba(126, 245, 255, 0.55);
+      --card-corner:var(--corner);
+      --card-surface-top:var(--card-top);
+      --card-surface-bottom:var(--card-bottom);
       font-family: ui-monospace, SFMono-Regular, "Segoe UI Mono", "Roboto Mono", "Courier New", monospace;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -474,15 +477,15 @@
     .card{
       background:
         /* corner tick marks, HUD-panel style */
-        linear-gradient(var(--corner), var(--corner)) top left / 18px 2px no-repeat,
-        linear-gradient(var(--corner), var(--corner)) top left / 2px 18px no-repeat,
-        linear-gradient(var(--corner), var(--corner)) top right / 18px 2px no-repeat,
-        linear-gradient(var(--corner), var(--corner)) top right / 2px 18px no-repeat,
-        linear-gradient(var(--corner), var(--corner)) bottom left / 18px 2px no-repeat,
-        linear-gradient(var(--corner), var(--corner)) bottom left / 2px 18px no-repeat,
-        linear-gradient(var(--corner), var(--corner)) bottom right / 18px 2px no-repeat,
-        linear-gradient(var(--corner), var(--corner)) bottom right / 2px 18px no-repeat,
-        linear-gradient(180deg, var(--card-top), var(--card-bottom));
+        linear-gradient(var(--card-corner), var(--card-corner)) top left / 18px 2px no-repeat,
+        linear-gradient(var(--card-corner), var(--card-corner)) top left / 2px 18px no-repeat,
+        linear-gradient(var(--card-corner), var(--card-corner)) top right / 18px 2px no-repeat,
+        linear-gradient(var(--card-corner), var(--card-corner)) top right / 2px 18px no-repeat,
+        linear-gradient(var(--card-corner), var(--card-corner)) bottom left / 18px 2px no-repeat,
+        linear-gradient(var(--card-corner), var(--card-corner)) bottom left / 2px 18px no-repeat,
+        linear-gradient(var(--card-corner), var(--card-corner)) bottom right / 18px 2px no-repeat,
+        linear-gradient(var(--card-corner), var(--card-corner)) bottom right / 2px 18px no-repeat,
+        linear-gradient(180deg, var(--card-surface-top), var(--card-surface-bottom));
       border:1px solid rgba(137, 189, 255, 0.18);
       padding:18px 20px 16px;
       box-shadow:
@@ -515,6 +518,9 @@
     .profile-page{
       --profile-tint-soft:color-mix(in srgb, var(--profile-tint) 18%, transparent);
       --profile-tint-faint:color-mix(in srgb, var(--profile-tint) 7%, transparent);
+      --card-corner:color-mix(in srgb, var(--profile-tint) 68%, transparent);
+      --card-surface-top:color-mix(in srgb, var(--card-top) 88%, var(--profile-tint) 12%);
+      --card-surface-bottom:color-mix(in srgb, var(--card-bottom) 94%, var(--profile-tint) 6%);
     }
     .profile-page .card{
       border-color:color-mix(in srgb, var(--profile-tint) 38%, transparent);

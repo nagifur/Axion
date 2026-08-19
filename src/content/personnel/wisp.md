@@ -7,6 +7,7 @@ employeeID: 3666
 height: "{{6'7\"|2.01 m}}"
 age: 27
 accessLevel: 5
+colorTint: "#9e1ce4"
 birthplace: Ventria
 profileImage: profile.png
 galleryAlt: Wisp drawing
