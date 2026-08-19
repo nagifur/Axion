@@ -1,13 +1,16 @@
 ---
 import Header from  '../../components/header.astro';
 import Footer from '../../components/footer.astro';
-import { getEntry, render } from 'astro:content';
+import { getCollection, getEntry, render } from 'astro:content';
 
 const page = await getEntry('pages', 'class-m');
 if (!page) {
   throw new Error('Missing content/pages/class-m.md');
 }
 const { Content } = await render(page);
+const entities = await getCollection('entities', ({ data }) => (
+  !data.draft && data.containmentClass === page.data.title
+));
 ---
 <Header title={page.data.title} />
 
@@ -19,6 +22,21 @@ const { Content } = await render(page);
 
     <section class="card article-body">
       <Content />
+    </section>
+
+    <section class="card article-body" aria-labelledby="entities-title">
+      <h2 id="entities-title">Entities</h2>
+      {entities.length ? (
+        <ul class="db-list">
+          {entities
+            .sort((first, second) => first.data.title.localeCompare(second.data.title))
+            .map((entity) => (
+              <li>
+                <a href={`/Entities/${entity.id.replace(/\.md$/, '')}`}>{entity.data.title}</a>
+              </li>
+            ))}
+        </ul>
+      ) : <p>No entities are currently assigned to this class.</p>}
     </section>
   </article>
 </main>

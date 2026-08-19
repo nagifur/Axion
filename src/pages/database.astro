@@ -26,6 +26,13 @@ type EntityGroup = {
   note?: string;
 };
 
+const maximumContainmentEntries = entities
+  .filter((entry) => entry.data.containmentClass === 'Maximum Containment')
+  .map((entry) => ({
+    href: `/Entities/${contentSlug(entry.id)}`,
+    label: entry.data.title,
+  }));
+
 const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
   left: [
     {
@@ -65,7 +72,7 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
     {
       title: 'Class M',
       entries: [
-        { href: '/Entities/m-031', label: 'M-031' },
+        ...maximumContainmentEntries,
         { href: '/Entities/m-227', label: 'M-227 - (Spore Lizard)' },
       ],
     },
