@@ -383,6 +383,7 @@ const bulletins = [
     let HlsCtor: any = null;
     if (!supportsNativeHls) {
       try {
+        // @ts-expect-error - CDN URL import has no type declarations
         ({ default: HlsCtor } = await import(/* @vite-ignore */ 'https://esm.sh/hls.js@1.5.17'));
       } catch (error) {
         console.error('Failed to load hls.js', error);
