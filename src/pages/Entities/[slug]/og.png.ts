@@ -1,4 +1,5 @@
-import sharp from 'sharp';
+import path from 'node:path';
+import { Resvg } from '@resvg/resvg-js';
 import { getCollection } from 'astro:content';
 import { createDatabaseOgImage, getDatabaseImageDataUri } from '../../../lib/databaseOgImage';
 
@@ -29,6 +30,8 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
       { label: 'Trophic Role', value: entity.vorePreference.join(', ') },
     ],
   });
-  const png = await sharp(Buffer.from(svg)).png().toBuffer();
+  const png = new Resvg(svg, {
+    font: { fontFiles: [path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.otf')] },
+  }).render().asPng();
   return new Response(png, { headers: { 'Content-Type': 'image/png' } });
 }

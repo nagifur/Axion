@@ -102,8 +102,8 @@ export const createDatabaseOgImage = ({
       <stop offset="1" stop-color="${safeTint}" stop-opacity=".04" />
     </linearGradient>
     <style>
-      @font-face { font-family: 'Ethnocentric'; src: url('data:font/woff;base64,${readFileSync(path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.woff')).toString('base64')}') format('woff'); }
-      .title { fill: ${safeTint}; font: 800 54px 'Ethnocentric', sans-serif; letter-spacing: 3px; }
+      @font-face { font-family: 'Ethnocentric'; src: url('data:font/opentype;base64,${readFileSync(path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.otf')).toString('base64')}') format('opentype'); }
+      .title { fill: ${safeTint}; font-family: 'Ethnocentric'; font-size: 54px; font-weight: 800; letter-spacing: 3px; }
       .subtitle { fill: ${safeTint}; font: 700 22px Arial, sans-serif; }
       .eyebrow { fill: #9ab6bf; font: 700 16px monospace; letter-spacing: 4px; }
       .label { fill: #c4dce2; font: 15px monospace; letter-spacing: 1px; }
