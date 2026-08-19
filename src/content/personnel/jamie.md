@@ -26,11 +26,19 @@ gallery:
 AXION MEDICAL & PERSONNEL DOSSIER
 
 FILE: ████
+
 SUBJECT NAME: Jamie
-SPECIES: Human-Shark Hybrid (Genetic Sub-strain: ████████)
+
+SPECIES: Human-Shark Hybrid (Genetic 
+
+Sub-strain: ████████)
+
 STATUS: Active Duty
+
 OCCUPATION: Resident Therapist / Mental Evaluator
+
 CREDENTIALS: Fully Certified & Licensed
+
 CLEARANCE: General (RESTRICTION: Excludes Level 5 Personnel/Areas and Project ████████)
 
 BACKGROUND & ACQUISITION
@@ -59,6 +67,7 @@ Subject experiences a severe and unique form of sleepwalking. In this state, she
 ███████ █████████████████
 █████████████████ ████████████
 ███████████████████████████████████████████████████
+
 
 Instinctual Blood Tracking: While unconscious, the subject actively relies on primal olfactory senses to detect and track the source of blood within the facility. If a breach occurs, personnel in the ████████ Ward are to be evacuated immediately.
 
