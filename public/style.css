@@ -705,6 +705,7 @@
       border:1px solid rgba(126,245,255,0.22);
       clip-path:polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
       padding:14px 16px;
+      cursor:pointer;
       transition: border-color .15s ease, box-shadow .15s ease;
     }
     .bsky-post:hover{ border-color:rgba(126,245,255,0.5); box-shadow:0 0 16px rgba(126,245,255,0.12) }
@@ -743,6 +744,34 @@
     }
     .bsky-cw-label{ color:var(--neon-red, #ff6b81); font-weight:700; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.06em }
     .bsky-cw-hint{ color:var(--muted); font-size:0.72rem }
+
+    /* Enlarged focus view shown inside the modal — same markup, bigger and unclamped */
+    .bsky-post--full{
+      flex:none; width:100%; cursor:default; padding:18px 20px;
+    }
+    .bsky-post--full .bsky-name{ font-size:1rem; white-space:normal }
+    .bsky-post--full .bsky-handle{ font-size:0.86rem; white-space:normal }
+    .bsky-post--full .bsky-text{
+      font-size:1rem; -webkit-line-clamp:unset; min-height:0; margin-top:14px;
+    }
+    .bsky-post--full .bsky-images{ grid-template-columns:repeat(auto-fit, minmax(180px,1fr)) }
+    .bsky-post--full .bsky-video{ aspect-ratio:16/9 }
+
+    .bsky-modal{
+      position:fixed; inset:0; z-index:80; display:flex; align-items:center; justify-content:center; padding:20px;
+    }
+    .bsky-modal[hidden]{ display:none }
+    .bsky-modal-backdrop{ position:absolute; inset:0; background:rgba(4,10,16,0.78); backdrop-filter:blur(4px) }
+    .bsky-modal-panel{
+      position:relative; z-index:1; width:100%; max-width:560px; max-height:88vh; overflow-y:auto;
+    }
+    .bsky-modal-close{
+      position:absolute; top:8px; right:8px; z-index:2; width:32px; height:32px; border-radius:50%;
+      border:1px solid rgba(126,245,255,0.4); background:color-mix(in srgb, var(--panel-alt) 88%, transparent);
+      color:var(--text); font-size:1rem; cursor:pointer;
+    }
+    .bsky-modal-close:hover{ border-color:var(--neon-cyan); color:var(--neon-cyan) }
+    body.bsky-modal-open{ overflow:hidden }
     .bsky-timestamp{
       display:inline-block; margin-top:12px; color:var(--neon-cyan); font-size:0.72rem; text-decoration:none;
       text-transform:uppercase; letter-spacing:0.08em;

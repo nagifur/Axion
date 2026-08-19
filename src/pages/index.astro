@@ -166,6 +166,13 @@ const bulletins = [
 
   </main>
 
+  <div id="bsky-modal" class="bsky-modal" hidden>
+    <div class="bsky-modal-backdrop" data-role="close"></div>
+    <div class="bsky-modal-panel" role="dialog" aria-modal="true" aria-label="Bluesky post">
+      <button type="button" class="bsky-modal-close" data-role="close" aria-label="Close">✕</button>
+      <div id="bsky-modal-content"></div>
+    </div>
+  </div>
 
   <Footer></Footer>
 
@@ -247,6 +254,90 @@ const bulletins = [
     return match?.val;
   };
 
+  // Shared markup for a post, used both in the horizontal feed strip and the enlarged focus modal.
+  function renderPost(item: any, index: number, full: boolean): string {
+    const post = item.post;
+    const record = post?.record ?? {};
+    const author = post?.author ?? {};
+    const text = escapeHtml(String(record.text ?? '')).replace(/\n/g, '<br />');
+    const embed = post?.embed ?? {};
+    const media = embed?.media ?? embed;
+    const images = media?.images ?? [];
+    // Bluesky videos are HLS (.m3u8) streams; hydrated below via hls.js so they can play inline.
+    const video = media?.$type === 'app.bsky.embed.video#view' ? media : undefined;
+    const isRepost = Boolean(item.reason && item.reason.$type?.includes('reasonRepost'));
+
+    const imagesHtml = images.length
+      ? `<div class="bsky-images">${images.map((img: any) => `<img src="${full ? (img.fullsize ?? img.thumb) : img.thumb}" alt="${escapeHtml(img.alt || '')}" loading="lazy" />`).join('')}</div>`
+      : '';
+
+    const videoHtml = video
+      ? `<video class="bsky-video" poster="${video.thumbnail}" controls playsinline preload="none" data-hls-src="${video.playlist}"></video>`
+      : '';
+
+    const label = adultLabel(post);
+    const mediaHtml = `${imagesHtml}${videoHtml}`;
+    const gatedMediaHtml = mediaHtml && label
+      ? `<div class="bsky-cw">
+          <button type="button" class="bsky-cw-overlay">
+            <span class="bsky-cw-label">⚠ Adult Content</span>
+            <span class="bsky-cw-hint">Click to view</span>
+          </button>
+          <div class="bsky-cw-content">${mediaHtml}</div>
+        </div>`
+      : mediaHtml;
+
+    return `
+      <article class="bsky-post${full ? ' bsky-post--full' : ''}" data-index="${index}">
+        <p class="bsky-reason${isRepost ? '' : ' bsky-reason--hidden'}">Reposted</p>
+        <div class="bsky-post-head">
+          <img class="bsky-avatar" src="${author.avatar ?? ''}" alt="" loading="lazy" />
+          <div>
+            <span class="bsky-name">${escapeHtml(author.displayName || author.handle || BSKY_ACTOR)}</span>
+            <span class="bsky-handle">@${escapeHtml(author.handle || BSKY_ACTOR)}</span>
+          </div>
+        </div>
+        <p class="bsky-text">${text}</p>
+        ${gatedMediaHtml}
+        <a class="bsky-timestamp" href="${postUrl(post.uri)}" target="_blank" rel="noopener noreferrer">${relativeTime(record.createdAt)}</a>
+      </article>
+    `;
+  }
+
+  function wireUpPost(container: HTMLElement) {
+    container.querySelectorAll<HTMLButtonElement>('.bsky-cw-overlay').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        button.closest('.bsky-cw')?.classList.add('revealed');
+      });
+    });
+  }
+
+  let bskyItems: any[] = [];
+
+  function openBskyModal(index: number) {
+    const item = bskyItems[index];
+    const modal = document.getElementById('bsky-modal');
+    const content = document.getElementById('bsky-modal-content');
+    if (!item || !modal || !content) return;
+
+    content.innerHTML = renderPost(item, index, true);
+    wireUpPost(content);
+    hydrateHlsVideos(content);
+
+    modal.hidden = false;
+    document.body.classList.add('bsky-modal-open');
+  }
+
+  function closeBskyModal() {
+    const modal = document.getElementById('bsky-modal');
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.classList.remove('bsky-modal-open');
+    const content = document.getElementById('bsky-modal-content');
+    if (content) content.innerHTML = '';
+  }
+
   async function loadBskyFeed() {
     const feedEl = document.getElementById('bsky-feed');
     if (!feedEl) return;
@@ -256,63 +347,24 @@ const bulletins = [
       if (!response.ok) throw new Error(`Bluesky API responded with ${response.status}`);
       const data = await response.json();
       const items = Array.isArray(data.feed) ? data.feed.slice(0, 5) : [];
+      bskyItems = items;
 
       if (!items.length) {
         feedEl.innerHTML = '<p class="field-hint">No recent posts found.</p>';
         return;
       }
 
-      feedEl.innerHTML = items.map((item: any) => {
-        const post = item.post;
-        const record = post?.record ?? {};
-        const author = post?.author ?? {};
-        const text = escapeHtml(String(record.text ?? '')).replace(/\n/g, '<br />');
-        const embed = post?.embed ?? {};
-        const media = embed?.media ?? embed;
-        const images = media?.images ?? [];
-        // Bluesky videos are HLS (.m3u8) streams; hydrated below via hls.js so they can play inline.
-        const video = media?.$type === 'app.bsky.embed.video#view' ? media : undefined;
-        const isRepost = Boolean(item.reason && item.reason.$type?.includes('reasonRepost'));
+      feedEl.innerHTML = items.map((item: any, index: number) => renderPost(item, index, false)).join('');
 
-        const imagesHtml = images.length
-          ? `<div class="bsky-images">${images.map((img: any) => `<img src="${img.thumb}" alt="${escapeHtml(img.alt || '')}" loading="lazy" />`).join('')}</div>`
-          : '';
+      wireUpPost(feedEl);
 
-        const videoHtml = video
-          ? `<video class="bsky-video" poster="${video.thumbnail}" controls playsinline preload="none" data-hls-src="${video.playlist}"></video>`
-          : '';
-
-        const label = adultLabel(post);
-        const mediaHtml = `${imagesHtml}${videoHtml}`;
-        const gatedMediaHtml = mediaHtml && label
-          ? `<div class="bsky-cw">
-              <button type="button" class="bsky-cw-overlay">
-                <span class="bsky-cw-label">⚠ Adult Content</span>
-                <span class="bsky-cw-hint">Click to view</span>
-              </button>
-              <div class="bsky-cw-content">${mediaHtml}</div>
-            </div>`
-          : mediaHtml;
-
-        return `
-          <article class="bsky-post">
-            <p class="bsky-reason${isRepost ? '' : ' bsky-reason--hidden'}">Reposted</p>
-            <div class="bsky-post-head">
-              <img class="bsky-avatar" src="${author.avatar ?? ''}" alt="" loading="lazy" />
-              <div>
-                <span class="bsky-name">${escapeHtml(author.displayName || author.handle || BSKY_ACTOR)}</span>
-                <span class="bsky-handle">@${escapeHtml(author.handle || BSKY_ACTOR)}</span>
-              </div>
-            </div>
-            <p class="bsky-text">${text}</p>
-            ${gatedMediaHtml}
-            <a class="bsky-timestamp" href="${postUrl(post.uri)}" target="_blank" rel="noopener noreferrer">${relativeTime(record.createdAt)}</a>
-          </article>
-        `;
-      }).join('');
-
-      feedEl.querySelectorAll<HTMLButtonElement>('.bsky-cw-overlay').forEach((button) => {
-        button.addEventListener('click', () => button.closest('.bsky-cw')?.classList.add('revealed'));
+      // Clicking a post (but not its links/buttons/video controls) opens the enlarged focus view.
+      feedEl.querySelectorAll<HTMLElement>('.bsky-post').forEach((article) => {
+        article.addEventListener('click', (event) => {
+          if ((event.target as HTMLElement).closest('a, button, video')) return;
+          const index = Number(article.dataset.index);
+          if (!Number.isNaN(index)) openBskyModal(index);
+        });
       });
 
       await hydrateHlsVideos(feedEl);
@@ -351,5 +403,18 @@ const bulletins = [
   }
 
   document.addEventListener('astro:page-load', loadBskyFeed);
+
+  document.addEventListener('astro:page-load', () => {
+    const modal = document.getElementById('bsky-modal');
+    if (!modal) return;
+
+    modal.querySelectorAll<HTMLElement>('[data-role="close"]').forEach((el) => {
+      el.addEventListener('click', closeBskyModal);
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modal.hidden) closeBskyModal();
+    });
+  });
 </script>
 
