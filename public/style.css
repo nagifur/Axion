@@ -932,7 +932,24 @@
     .db-title-red{ margin:0 0 8px 0; color:var(--neon-red) }
     
     /* Personnel / entity profile header */
-    .profile-header{ display:flex; flex-direction:column; margin-bottom:12px }
+    .profile-header{ position:relative; display:flex; flex-direction:column; margin-bottom:12px; padding-right:170px }
+    .patreon-indicator{
+      position:absolute; top:2px; right:0;
+      display:inline-flex; align-items:center; gap:7px;
+      color:var(--neon-orange); font-family:BOMBARD, sans-serif; font-size:0.7rem;
+      letter-spacing:0.06em; text-transform:uppercase; white-space:nowrap;
+    }
+    .patreon-indicator-light{
+      width:8px; height:8px; flex:0 0 8px; border-radius:50%;
+      background:var(--neon-orange); box-shadow:0 0 5px var(--neon-orange), 0 0 12px rgba(255,157,63,0.8);
+      animation:patreon-pulse 2.2s ease-in-out infinite;
+    }
+    @keyframes patreon-pulse{
+      0%, 100%{ opacity:0.72; box-shadow:0 0 4px var(--neon-orange), 0 0 9px rgba(255,157,63,0.55) }
+      50%{ opacity:1; box-shadow:0 0 7px var(--neon-orange), 0 0 16px rgba(255,157,63,0.9) }
+    }
+    html[data-theme="light"] .patreon-indicator{ color:#a85c00 }
+    html[data-theme="light"] .patreon-indicator-light{ background:#c06a00; box-shadow:0 0 5px rgba(192,106,0,0.75), 0 0 12px rgba(192,106,0,0.35) }
     .profile-name{
       margin:0; font-family:Ethnocentric, "Arial Black", sans-serif;
       font-size:clamp(1.6rem,4vw,2.8rem); color:var(--neon-cyan); text-transform:uppercase;
