@@ -2,9 +2,9 @@
 title: Level 1
 ---
 
-Level 1 clearance grants access to general, publicly available information and low-sensitivity facility documents.
+Level 1 clearance grants access to low sensitive areas of the facility, including office spaces, {{most data servers | Not including servers containing top secret infomation}} and dormitory areas. 
 
-This area includes Offices, Data Servers and employee dormitories.
+This level of clearance is granted to all employees, contractors, and interns who have completed the initial  training and background checks.
 
 ## Sectors On this Level
 <hr />
