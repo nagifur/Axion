@@ -358,7 +358,7 @@ import Footer from '../components/footer.astro';
   // Build the preview markup, mirroring the real Personnel/Entities profile page layout.
   function renderPreview() {
     const type = currentType();
-    const title = plainText(field('title')) || 'Untitled';
+    const title = plainText(field('title')) || 'Title';
     const bioHtml = renderMarkdown(field('bio'));
     const galleryHtml = galleryRows.map((row) => `
       <figure>

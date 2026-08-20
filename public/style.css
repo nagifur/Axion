@@ -31,6 +31,7 @@
 
 /* Axion/style.css */
     :root{
+      color-scheme:dark;
       --base-font-size:18px;
       --theme-fade-duration:.55s;
       --theme-fade-easing:ease;
@@ -75,6 +76,7 @@
 
     /* Light theme overrides */
     html[data-theme="light"]{
+      color-scheme:light;
       --bg:#edf5fa;
       --bg-deep:#dfeaf2;
       --panel:#ffffff;
@@ -900,6 +902,8 @@
       padding:8px 10px;
       font:inherit;
     }
+    /* Chrome paints the native dropdown popup with system colors, so options need explicit ones */
+    .form-field select option{ background-color:var(--panel); color:var(--text) }
     .form-field textarea{ resize:vertical }
     .form-field input:focus, .form-field select:focus, .form-field textarea:focus{ outline:2px solid var(--line); outline-offset:1px }
     .field-hint{ color:var(--muted); font-size:0.8rem; margin:10px 0 0 }
@@ -991,6 +995,8 @@
     .profile-name{
       margin:0; font-family:Ethnocentric, "Arial Black", sans-serif;
       font-size:clamp(1.6rem,4vw,2.8rem); color:var(--neon-cyan); text-transform:uppercase;
+      /* h1 is a clipped flex container; long names would overflow and get cut off */
+      display:block; clip-path:none; overflow-wrap:anywhere;
     }
     .profile-nickname{ margin:2px 0 0; font-size:1.1rem; font-weight:700; color:var(--neon-green) }
     .profile-author{ margin:4px 0 0; color:var(--muted); font-size:0.88rem; }
