@@ -104,12 +104,12 @@ export const createDatabaseOgImage = ({
     <style>
       @font-face { font-family: 'Ethnocentric'; src: url('data:font/opentype;base64,${readFileSync(path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.otf')).toString('base64')}') format('opentype'); }
       .title { fill: ${safeTint}; font-family: 'Ethnocentric'; font-size: 54px; font-weight: 800; letter-spacing: 3px; }
-      .subtitle { fill: ${safeTint}; font: 700 22px Arial, sans-serif; }
-      .eyebrow { fill: #9ab6bf; font: 700 16px monospace; letter-spacing: 4px; }
-      .label { fill: #c4dce2; font: 15px monospace; letter-spacing: 1px; }
-      .value { fill: #f0fbff; font: 20px monospace; }
-      .id { fill: #aac4cb; font: 16px monospace; letter-spacing: 2px; }
-      .brand { fill: #8faab2; font: 700 15px monospace; letter-spacing: 4px; }
+      .subtitle { fill: ${safeTint}; font-family: Arial, sans-serif; font-size: 22px; font-weight: 700; }
+      .eyebrow { fill: #9ab6bf; font-family: 'Ethnocentric'; font-size: 16px; font-weight: 700; letter-spacing: 4px; }
+      .label { fill: #c4dce2; font-family: Arial, sans-serif; font-size: 15px; letter-spacing: 1px; }
+      .value { fill: #f0fbff; font-family: Arial, sans-serif; font-size: 20px; }
+      .id { fill: #aac4cb; font-family: Arial, sans-serif; font-size: 16px; letter-spacing: 2px; }
+      .brand { fill: #8faab2; font-family: 'Ethnocentric'; font-size: 15px; font-weight: 700; letter-spacing: 4px; }
     </style>
   </defs>
   <rect width="1200" height="630" fill="url(#background)" />
