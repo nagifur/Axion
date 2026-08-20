@@ -1307,6 +1307,8 @@
       cursor:help;
       border-bottom:1px dotted rgba(57,255,234,0.6);
     }
+    /* Inline bubble is only a no-JS/accessibility fallback; JS moves the visible bubble to a
+       body-level portal (below) so it can't be clipped by any ancestor's overflow. */
     .tooltip-bubble{
       position:absolute;
       left:50%;
@@ -1333,6 +1335,33 @@
     }
     .hover-tooltip::after{
       content:none;
+    }
+    /* JS-driven portal bubble, appended directly to <body> so it always renders above every div.
+       JS sets `transform` inline for positioning; CSS only animates opacity for the fade. */
+    .tooltip-bubble-portal{
+      position:fixed;
+      left:0;
+      top:0;
+      background:var(--panel-head, #12202a);
+      color:var(--text, #e8fbff);
+      border:1px solid rgba(57,255,234,0.35);
+      border-radius:6px;
+      padding:6px 10px;
+      font-size:0.85em;
+      max-width:min(320px, 90vw);
+      white-space:normal;
+      box-shadow:0 10px 30px rgba(0,0,0,0.4);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease;
+      z-index:9999;
+    }
+    .tooltip-bubble-portal.is-active{
+      opacity:1;
+    }
+    /* JS took over rendering the bubble via the portal above, so hide the inline copy visually */
+    .js .hover-tooltip .tooltip-bubble{
+      display:none;
     }
     .error-screen {
     position: relative;

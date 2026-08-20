@@ -4,7 +4,54 @@
 document.addEventListener('astro:before-swap', function (event) {
   var current = document.documentElement.getAttribute('data-theme');
   if (current) event.newDocument.documentElement.setAttribute('data-theme', current);
+  // The incoming document's <html> is fresh (no 'js' class yet), so the inline
+  // .tooltip-bubble fallback would flash alongside the JS portal without this.
+  event.newDocument.documentElement.classList.add('js');
 });
+
+// Shared "portal" bubble for .hover-tooltip: appended directly to <body> so tooltips render
+// above every div instead of being clipped by whichever ancestor has overflow:hidden. View
+// transitions can remove/replace this node, so it's always re-fetched via getTooltipPortal()
+// rather than cached in a closure.
+function getTooltipPortal() {
+  var portal = document.querySelector('.tooltip-bubble-portal');
+  if (!portal) {
+    portal = document.createElement('div');
+    portal.className = 'tooltip-bubble-portal';
+    portal.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(portal);
+  }
+  return portal;
+}
+
+function positionTooltipPortal(trigger, portal) {
+  const rect = trigger.getBoundingClientRect();
+  const gap = 8;
+  const bubbleRect = portal.getBoundingClientRect();
+  const margin = 8;
+
+  const centerX = Math.min(
+    Math.max(rect.left + rect.width / 2, bubbleRect.width / 2 + margin),
+    window.innerWidth - bubbleRect.width / 2 - margin
+  );
+
+  const fitsAbove = rect.top - gap - bubbleRect.height >= margin;
+  const top = fitsAbove ? rect.top - gap : rect.bottom + gap;
+  const translateY = fitsAbove ? '-100%' : '0%';
+
+  portal.style.left = `${centerX}px`;
+  portal.style.top = `${top}px`;
+  portal.style.transform = `translate(-50%, ${translateY})`;
+}
+
+// Keep the active bubble aligned with its trigger while the page scrolls/resizes. Bound once
+// at script load (not inside astro:page-load) so it never gets duplicated across navigations.
+function repositionActiveTooltip() {
+  const active = document.querySelector('.hover-tooltip.is-tooltip-active');
+  if (active) positionTooltipPortal(active, getTooltipPortal());
+}
+window.addEventListener('scroll', repositionActiveTooltip, { passive: true, capture: true });
+window.addEventListener('resize', repositionActiveTooltip);
 
 // Astro view transitions swap the document without reloading script.js, so all
 // DOM bindings must be re-run after every navigation via astro:page-load.
@@ -28,16 +75,16 @@ document.addEventListener('astro:page-load', function () {
   document.querySelectorAll('img').forEach(setImageState);
 
   document.querySelectorAll('.hover-tooltip').forEach((tooltip) => {
-    const bubble = tooltip.querySelector('.tooltip-bubble');
     const setActive = () => {
       tooltip.classList.add('is-tooltip-active');
-      bubble?.style.setProperty('opacity', '1');
-      bubble?.style.setProperty('transform', 'translateX(-50%) translateY(0)');
+      const portal = getTooltipPortal();
+      portal.textContent = tooltip.dataset.tooltip || '';
+      positionTooltipPortal(tooltip, portal);
+      portal.classList.add('is-active');
     };
     const setInactive = () => {
       tooltip.classList.remove('is-tooltip-active');
-      bubble?.style.setProperty('opacity', '0');
-      bubble?.style.setProperty('transform', 'translateX(-50%) translateY(4px)');
+      getTooltipPortal().classList.remove('is-active');
     };
     tooltip.addEventListener('mouseenter', setActive);
     tooltip.addEventListener('mouseleave', setInactive);
