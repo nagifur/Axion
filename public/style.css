@@ -842,9 +842,17 @@
     html[data-theme="light"] .db-legend-red{ color:#a3242c; background:rgba(163,36,44,0.14) }
     html[data-theme="light"] .db-legend-orange{ color:#a85c00; background:rgba(168,92,0,0.14) }
     .db-list{ margin:6px 0 0 18px; padding:0; color:var(--muted) }
-    .db-tree-list{ margin-left:14px; list-style:none; border-left:1px solid var(--line-soft); }
+    .db-tree-list{ margin-left:14px; list-style:none; border-left:2px solid var(--neon-green); }
     .db-tree-list > li{ position:relative; padding-left:18px; }
-    .db-tree-list > li::before{ content:'|-'; position:absolute; left:-1px; top:0; color:var(--line-soft); }
+    .db-tree-list > li::before{
+      content:"";
+      position:absolute;
+      left:-1px;
+      top:0.72em;
+      width:18px;
+      border-top:2px solid var(--neon-green);
+      box-shadow:0 0 5px rgba(51,255,153,0.65);
+    }
     .db-sublist{ margin:4px 0 0; padding-left:18px; list-style:none; }
     .db-sublist > li{ position:relative; padding-left:14px; }
     .db-sublist > li::before{
