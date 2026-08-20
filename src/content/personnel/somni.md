@@ -11,7 +11,7 @@ colorTint: "#ff2aa3"
 birthplace: ████
 profileImage: profile.png
 galleryAlt: Somni drawing
-positiveTraits: [Strong, Dependant, Magical, Efficient]
+positiveTraits: [Strong, Dependable, Psychic / ESP Powers, Efficient]
 negativeTraits: [Sleepy, Short, Cannot work for extended periods]
 vorePreference: [Switch]
 gallery:

@@ -11,7 +11,7 @@ colorTint: "#f61743"
 birthplace: Azuron
 profileImage: profile.png
 galleryAlt: Reef drawing
-positiveTraits: [Super strength, Super speed, Bruiser]
+positiveTraits: [Strong,Fast, Figting skills, Breathes underwater]
 negativeTraits: [Mind influenced by the artifact, Needs to eat a lot, Short temper]
 vorePreference: [Predator]
 gallery:
