@@ -784,10 +784,10 @@
     }
 
     /* Database page */
-    .db-shell{ display:grid; grid-template-columns:240px minmax(0,1fr); gap:16px; align-items:start; width:80% }
+    .db-shell{ display:grid; grid-template-columns:240px minmax(0,1fr); gap:16px; align-items:start; width:100%; min-width:0 }
     .db-shell > h1,
     .db-shell > .lead{ grid-column:1 / -1 }
-    .db-shell > h1{ margin-bottom:4px }
+    .db-shell > h1{ margin-bottom:4px; min-width:0; overflow-wrap:anywhere }
     .db-shell > .lead{ margin:2px 0 6px; font-size:0.94rem; line-height:1.35 }
     .db-pane-nav-wrap{ display:contents }
     .db-pane-nav{ display:flex; flex-direction:column; gap:8px; position:sticky; top:14px }
@@ -837,7 +837,7 @@
     html[data-theme="light"] .db-legend-red{ color:#a3242c; background:rgba(163,36,44,0.14) }
     html[data-theme="light"] .db-legend-orange{ color:#a85c00; background:rgba(168,92,0,0.14) }
     .db-list{ margin:6px 0 0 18px; padding:0; color:var(--muted) }
-    .db-list a{ color:var(--neon-cyan); text-decoration:none }
+    .db-list a{ color:var(--neon-cyan); text-decoration:none; overflow-wrap:anywhere }
     .db-list a.active{ color:var(--neon-cyan) }
     .db-list a.inactive{ color:var(--neon-red) }
     .db-list a.patreon{ color:var(--neon-orange) }
@@ -1252,6 +1252,13 @@
     }
     @media (max-width:700px){
       .db-shell{ grid-template-columns:1fr; gap:12px }
+      .db-shell > h1{
+        display:block;
+        font-size:clamp(1.55rem, 9vw, 2.4rem);
+        line-height:1.15;
+      }
+      .db-shell > h1 .cursor{ display:inline-block; vertical-align:middle; }
+      .db-shell > .lead{ max-width:none; }
       .db-pane-nav-wrap{ display:grid; grid-template-columns:minmax(0,1fr) 34px; min-width:0; align-items:stretch; }
       .db-pane-nav{
         position:static;
@@ -1285,8 +1292,10 @@
         opacity:var(--scroll-cue-opacity, 1);
         transition:opacity .12s ease-out;
       }
-      .db-tab{ flex:0 0 auto; width:160px; white-space:nowrap; text-align:center; scroll-snap-align:start }
+      .db-tab{ flex:0 0 auto; width:auto; min-width:128px; max-width:calc(100vw - 88px); white-space:normal; text-align:center; scroll-snap-align:start }
       .db-content-grid{ grid-template-columns:1fr; gap:12px }
+      .db-legend-list{ display:grid; gap:8px; }
+      .db-legend-item{ overflow-wrap:anywhere; }
       .article-meta{ gap:4px 10px }
       .article-body{ line-height:1.6 }
       .article-return{ padding:0 4px }
