@@ -850,16 +850,13 @@
     .db-sublist > li::before{
       content:"";
       position:absolute;
-      left:0;
+      left:-18px;
       top:0.72em;
-      width:12px;
-      border-top:2px solid currentColor;
-      box-shadow:0 0 5px currentColor;
+      width:30px;
+      border-top:2px solid var(--neon-yellow);
+      box-shadow:0 0 5px rgba(51,255,153,0.65);
     }
-    .db-sublist > li:has(a.active){ color:var(--neon-cyan) }
-    .db-sublist > li:has(a.inactive){ color:var(--neon-red) }
-    .db-sublist > li:has(a.patreon){ color:var(--neon-orange) }
-    .db-list a{ color:var(--neon-cyan); text-decoration:none; overflow-wrap:anywhere }
+    .db-list a{ color:var(--neon-cyan); text-decoration:none; overflow-wrap:anywhere; margin: 0 0 0 0.5em }
     .db-list a.active{ color:var(--neon-cyan) }
     .db-list a.inactive{ color:var(--neon-red) }
     .db-list a.patreon{ color:var(--neon-orange) }
@@ -999,8 +996,9 @@
       left:18px;
       top:1.65em;
       bottom:5px;
-      border-left:2px solid var(--neon-green);
+      border-left:2px solid var(--neon-yellow);
       box-shadow:0 0 6px rgba(51,255,153,0.7);
+      margin: 0 0 4px;
     }
     .db-section-title{
       margin:0;
