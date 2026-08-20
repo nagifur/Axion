@@ -14,13 +14,8 @@ const activeArticleUrls = [
   '/Articles/',
   ...publishedArticles.map((article) => `/Articles/${article.slug}`),
 ];
-const activeClassUrls = ['a', 's', 'c', 'm'].map((cls) => `/Classes/${cls}`);
+const activeClassUrls = ['a', 's', 'c', 'm', 'x'].map((cls) => `/Classes/${cls}`);
 const activeLevelUrls = [0, 1, 2, 3, 4, 5].map((level) => `/Levels/${level}`);
-const personnelColumns = {
-  left: [0, 1, 2, 3],
-  right: [4, 5],
-};
-
 type EntityGroup = {
   title: string;
   entries: { href: string; label: string }[];
@@ -150,54 +145,22 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
             <h2 id="sec-personnel" class="db-title-yellow">Personnel</h2>
             <div class="db-content-grid">
               <div class="db-content-column">
-                {personnelColumns.left.map((level) => {
-                  const group = personnelByAccessLevel.find((entry) => entry.level === level);
-                  return group ? (
-                    <section class="db-group" aria-label={`Personnel level ${level}`}>
-                      <h3 class="db-section-title">Level {level}</h3>
-                      <ul class="db-list db-sublist">
-                        {group.members.map((person) => (
-                          <li>
-                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>
-                              {person.data.title}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null;
-                })}
-
+                {personnelByAccessLevel.map((group) => (
+                  <section class="db-group" aria-label={`Personnel level ${group.level}`}>
+                    <h3 class="db-section-title">Level {group.level}</h3>
+                    <ul class="db-list db-sublist">
+                      {group.members.map((person) => (
+                        <li><a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>{person.data.title}</a></li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
                 <section class="db-group" aria-label="Special personnel">
                   <h3 class="db-section-title">Special</h3>
                   <ul class="db-list db-sublist">
-                    <li>
-                      <a href="/Personnel/sypher" class={linkClass('/Personnel/sypher')}>
-                        Sypher
-                      </a>
-                    </li>
+                    <li><a href="/Personnel/sypher" class={linkClass('/Personnel/sypher')}>Sypher</a></li>
                   </ul>
                 </section>
-              </div>
-
-              <div class="db-content-column">
-                {personnelColumns.right.map((level) => {
-                  const group = personnelByAccessLevel.find((entry) => entry.level === level);
-                  return group ? (
-                    <section class="db-group" aria-label={`Personnel level ${level}`}>
-                      <h3 class="db-section-title">Level {level}</h3>
-                      <ul class="db-list db-sublist">
-                        {group.members.map((person) => (
-                          <li>
-                            <a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>
-                              {person.data.title}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    </section>
-                  ) : null;
-                })}
               </div>
             </div>
           </div>
@@ -208,20 +171,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
             <h2 id="sec-entities" class="db-title-blue">Entities</h2>
             <div class="db-content-grid">
               <div class="db-content-column">
-                {entityGroups.left.map((group) => (
-                  <section class="db-group" aria-label={group.title}>
-                    <h3 class="db-section-title">{group.title}</h3>
-                    <ul class="db-list db-sublist">
-                      {group.entries.map((entry) => (
-                        <li><a href={entry.href} class={linkClass(entry.href)}>{entry.label}</a></li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-              </div>
-
-              <div class="db-content-column">
-                {entityGroups.right.map((group) => (
+                {[...entityGroups.left, ...entityGroups.right].map((group) => (
                   <section class="db-group" aria-label={group.title}>
                     <h3 class="db-section-title">{group.title}</h3>
                     {group.note && <p class="db-group-note">{group.note}</p>}
@@ -245,6 +195,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
               <li><a href="/Classes/s" class={linkState('/Classes/s')}>S - Safe </a></li>
               <li><a href="/Classes/c" class={linkState('/Classes/c')}>C - Containment </a></li>
               <li><a href="/Classes/m" class={linkState('/Classes/m')}>M - Maximum Containment </a></li>
+              <li><a href="/Classes/x" class={linkState('/Classes/x')}>X - Unassigned</a></li>
             </ul>
           </div>
         </section>
