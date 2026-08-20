@@ -842,7 +842,18 @@
     html[data-theme="light"] .db-legend-red{ color:#a3242c; background:rgba(163,36,44,0.14) }
     html[data-theme="light"] .db-legend-orange{ color:#a85c00; background:rgba(168,92,0,0.14) }
     .db-list{ margin:6px 0 0 18px; padding:0; color:var(--muted) }
-    .db-tree-list{ margin-left:14px; list-style:none; border-left:2px solid var(--neon-yellow); }
+    .db-tree-list{ position:relative; margin-left:14px; list-style:none; border-left:0; }
+    .db-tree-list::before{
+      content:"";
+      position:absolute;
+      left:0;
+      top:0;
+      bottom:calc(0.28em - 1px);
+      border-left:2px solid var(--neon-yellow);
+      box-shadow:0 0 6px rgba(245,217,112,0.7);
+      margin-left:-1px;
+      margin-bottom: 5px;
+    }
     .db-tree-list > li{ position:relative; padding-left:18px; }
     .db-tree-list > li::before{
       content:"";
@@ -860,11 +871,11 @@
       position:absolute;
       left:-18px;
       top:0.72em;
-      width:30px;
+      width:18px;;
       border-top:2px solid var(--neon-yellow);
       box-shadow:0 0 5px rgba(245,217,112,0.65);
     }
-    .db-list a{ color:var(--neon-cyan); text-decoration:none; overflow-wrap:anywhere; margin: 0 0 0 0.5em }
+    .db-list a{ color:var(--neon-cyan); text-decoration:none; overflow-wrap:anywhere;}
     .db-list a.active{ color:var(--neon-cyan) }
     .db-list a.inactive{ color:var(--neon-red) }
     .db-list a.patreon{ color:var(--neon-orange) }
