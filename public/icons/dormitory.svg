@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="200" height="200" shape-rendering="crispEdges">
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+    <filter id="borderGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="0.5"/>
+    </filter>
+  </defs>
+  <rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#00f0ff" opacity="0.6" filter="url(#borderGlow)"/>
+  <rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#7CFBFF"/>
+  <g filter="url(#glow)" fill="#00f0ff" opacity="0.85">
+    <path d="M4 14h16v5H4zM5 10h5v4H5zM4 19h2v2H4zM18 19h2v2h-2z"/>
+    <path d="M9 11h10v3H9z" fill="#0090ff"/>
+  </g>
+  <g fill="#7CFBFF">
+    <path d="M4 14h16v5H4zM5 10h5v4H5zM4 19h2v2H4zM18 19h2v2h-2z"/>
+    <path d="M9 11h10v3H9z" fill="#3FD8FF"/>
+    <path d="M10 12h8v1h-8z" fill="#EAFCFF"/>
+  </g>
+</svg>
