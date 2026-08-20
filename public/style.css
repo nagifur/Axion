@@ -39,7 +39,24 @@
       --motion-base:.62s;
       --motion-slow:1.05s;
       --motion-stagger:.11s;
+      /* 8pt spacing scale (half-step at 4px) — use these instead of one-off margin/padding values */
+      --space-1:4px;
+      --space-2:8px;
+      --space-3:12px;
+      --space-4:16px;
+      --space-5:24px;
+      --space-6:32px;
+      --space-7:48px;
+      --space-8:64px;
+      /* Border-radius scale — --radius is the default for cards/controls */
+      --radius-sm:4px;
       --radius:6px;
+      --radius-lg:10px;
+      --radius-pill:999px;
+      /* Elevation scale — one reusable shadow per depth, layered under any color-specific glow */
+      --shadow-sm:0 8px 20px rgba(0,0,0,0.28);
+      --shadow-md:0 10px 30px rgba(0,0,0,0.35);
+      --shadow-lg:0 14px 32px rgba(0,0,0,0.2);
       --bg:#070c10;
       --bg-deep:#020506;
       --panel:#0a1319;
@@ -103,6 +120,8 @@
     }
 
     *{box-sizing:border-box}
+    /* Form controls and buttons don't inherit the page font by default in browsers, which breaks the font pairing */
+    button, input, select, textarea{ font:inherit }
     html { scroll-behavior:smooth; font-size:var(--base-font-size); background-color:var(--bg-deep) }
     html.theme-switching::before,
     body.theme-switching,
@@ -492,7 +511,7 @@
       padding:18px 20px 16px;
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.06),
-        0 14px 32px rgba(0,0,0,0.2),
+        var(--shadow-lg),
         0 0 0 1px rgba(122, 169, 255, 0.05);
       color:var(--muted);
       position:relative;
@@ -530,7 +549,7 @@
       border-color:color-mix(in srgb, var(--profile-tint) 38%, transparent);
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,0.06),
-        0 14px 32px rgba(0,0,0,0.2),
+        var(--shadow-lg),
         0 0 18px var(--profile-tint-faint);
     }
     .profile-page .card::before{
@@ -755,7 +774,7 @@
       background:var(--panel-head, #12202a);
       color:var(--text, #e8fbff);
       border:2px solid var(--neon-cyan, #39ffea);
-      border-radius:6px;
+      border-radius:var(--radius);
       padding:10px 16px;
       text-decoration:none;
       font-weight:700;
@@ -1042,7 +1061,7 @@
     .contact-avatar-wrap{ display:flex; justify-content:center; margin-bottom:6px }
     .contact-avatar{
       width:140px; height:140px; border-radius:50%; object-fit:cover;
-      border:3px solid var(--line-soft); box-shadow:0 8px 20px rgba(0,0,0,0.3);
+      border:3px solid var(--line-soft); box-shadow:var(--shadow-sm);
       background:var(--panel-alt);
     }
     .contact-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:12px; margin-top:14px }
@@ -1055,7 +1074,7 @@
     }
     .contact-card:hover, .contact-card:focus-visible{
       transform:translateY(-3px); border-color:var(--neon-cyan);
-      box-shadow:0 10px 20px rgba(0,0,0,0.25);
+      box-shadow:var(--shadow-md);
     }
     /* Brand SVGs are single-color paths; render them via mask so they always match the theme */
     .contact-icon{
@@ -1284,7 +1303,7 @@
       display: block;
       border:2px solid var(--line-soft);
       border-radius:var(--radius);
-      box-shadow:0 8px 20px rgba(0,0,0,0.25);
+      box-shadow:var(--shadow-sm);
       background:var(--panel-alt);
       }
 
@@ -1359,7 +1378,7 @@
       border:2px solid rgba(255,255,255,0.12);
       background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.4));
       color:var(--text); display:grid; place-items:center; font-size:20px; line-height:1;
-      box-shadow:0 10px 30px rgba(0,0,0,0.4);
+      box-shadow:var(--shadow-md);
     }
     .lightbox-close:hover{ color:var(--neon-green); border-color: rgba(255,77,210,0.3) }
 
@@ -1379,11 +1398,11 @@
       background:var(--panel-head, #12202a);
       color:var(--text, #e8fbff);
       border:1px solid rgba(57,255,234,0.35);
-      border-radius:6px;
+      border-radius:var(--radius);
       padding:6px 10px;
       white-space:nowrap;
       font-size:0.85em;
-      box-shadow:0 10px 30px rgba(0,0,0,0.4);
+      box-shadow:var(--shadow-md);
       opacity:0;
       pointer-events:none;
       transition:opacity .18s ease, transform .18s ease;
@@ -1407,12 +1426,12 @@
       background:var(--panel-head, #12202a);
       color:var(--text, #e8fbff);
       border:1px solid rgba(57,255,234,0.35);
-      border-radius:6px;
+      border-radius:var(--radius);
       padding:6px 10px;
       font-size:0.85em;
       max-width:min(320px, 90vw);
       white-space:normal;
-      box-shadow:0 10px 30px rgba(0,0,0,0.4);
+      box-shadow:var(--shadow-md);
       opacity:0;
       pointer-events:none;
       transition:opacity .18s ease;
