@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="200" height="200" shape-rendering="crispEdges">
+  <defs>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+    <filter id="borderGlow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="0.5"/>
+    </filter>
+  </defs>
+  <rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#00f0ff" opacity="0.6" filter="url(#borderGlow)"/>
+  <rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#7CFBFF"/>
+  <g filter="url(#glow)" fill="#00f0ff" opacity="0.85">
+    <path d="M4 4h7v16H4zM13 4h7v16h-7z"/>
+    <path d="M5 6h5v3H5zM5 11h5v3H5zM5 16h5v3H5zM14 6h5v3h-5zM14 11h5v3h-5zM14 16h5v3h-5z" fill="#0090ff"/>
+  </g>
+  <g fill="#7CFBFF">
+    <path d="M4 4h7v16H4zM13 4h7v16h-7z"/>
+    <path d="M5 6h5v3H5zM5 11h5v3H5zM5 16h5v3H5zM14 6h5v3h-5zM14 11h5v3h-5zM14 16h5v3h-5z" fill="#3FD8FF"/>
+    <path d="M6 7h2v1H6zM15 7h2v1h-2zM6 12h2v1H6zM15 12h2v1h-2zM6 17h2v1H6zM15 17h2v1h-2z" fill="#EAFCFF"/>
+  </g>
+</svg>
