@@ -1,6 +1,7 @@
 ---
 import Header from  '../components/header.astro';
 import Footer from '../components/footer.astro';
+import HoverText from '../components/HoverText.astro';
 import { getCollection } from 'astro:content';
 
 const personnel = await getCollection('personnel', ({ data }) => !data.draft);
@@ -139,7 +140,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         <ul class="db-legend-list">
           <li class="db-legend-item"><span class="db-legend-swatch db-legend-cyan">Cyan</span> - Canon </li>
           <li class="db-legend-item"><span class="db-legend-swatch db-legend-red">Red</span> - Unavailable</li>
-          <li class="db-legend-item"><span class="db-legend-swatch db-legend-orange">Orange</span> - Patreon submission</li>
+          <li class="db-legend-item"><span class="db-legend-swatch db-legend-orange"><HoverText value={'{{Orange | May not be canon}}'} /></span> - Patreon submission</li>
         </ul>
       </div>
 
