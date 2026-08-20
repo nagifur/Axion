@@ -119,7 +119,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
     <p class="lead">Browse internal docs by category.</p>
 
     <div class="db-pane-nav-wrap">
-      <nav class="db-pane-nav" role="tablist" aria-label="Database categories">
+      <nav class="db-pane-nav" role="tablist" aria-label="Database folders">
         <button id="db-tab-personnel" class="db-tab" role="tab" type="button" aria-selected="true" aria-controls="db-panel-personnel" tabindex="0">Personnel</button>
         <button id="db-tab-entities" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-entities" tabindex="-1">Entities</button>
         <button id="db-tab-containment" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-containment" tabindex="-1">Containment Classes</button>
@@ -131,6 +131,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
 
     <div class="db-pane-right">
       <div class="card compact db-legend" aria-labelledby="sec-link-legend">
+        <p class="db-terminal-path" aria-hidden="true">/axion/facility/database</p>
         <h2 id="sec-link-legend" class="db-title-cyan">Link Legend</h2>
         <ul class="db-legend-list">
           <li class="db-legend-item"><span class="db-legend-swatch db-legend-cyan">Cyan</span> - Canon </li>
@@ -143,7 +144,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         <section id="db-panel-personnel" class="db-panel db-panel-active" role="tabpanel" aria-labelledby="db-tab-personnel">
           <div class="card compact" aria-labelledby="sec-personnel">
             <h2 id="sec-personnel" class="db-title-yellow">Personnel</h2>
-            <div class="db-content-grid">
+            <div class="db-content-grid db-tree">
               <div class="db-content-column">
                 {personnelByAccessLevel.map((group) => (
                   <section class="db-group" aria-label={`Personnel level ${group.level}`}>
@@ -169,7 +170,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         <section id="db-panel-entities" class="db-panel" role="tabpanel" aria-labelledby="db-tab-entities" hidden>
           <div class="card compact" aria-labelledby="sec-entities">
             <h2 id="sec-entities" class="db-title-blue">Entities</h2>
-            <div class="db-content-grid">
+            <div class="db-content-grid db-tree">
               <div class="db-content-column">
                 {[...entityGroups.left, ...entityGroups.right].map((group) => (
                   <section class="db-group" aria-label={group.title}>
@@ -190,7 +191,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         <section id="db-panel-containment" class="db-panel" role="tabpanel" aria-labelledby="db-tab-containment" hidden>
           <div class="card compact" aria-labelledby="sec-containment">
             <h2 id="sec-containment" class="db-title-cyan">Containment Classes</h2>
-            <ul class="db-list">
+            <ul class="db-list db-tree-list">
               <li><a href="/Classes/a" class={linkState('/Classes/a')}>A - Ally</a></li>
               <li><a href="/Classes/s" class={linkState('/Classes/s')}>S - Safe </a></li>
               <li><a href="/Classes/c" class={linkState('/Classes/c')}>C - Containment </a></li>
@@ -203,7 +204,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         <section id="db-panel-levels" class="db-panel" role="tabpanel" aria-labelledby="db-tab-levels" hidden>
           <div class="card compact" aria-labelledby="sec-levels">
             <h2 id="sec-levels" class="db-title-pink">Levels</h2>
-            <ul class="db-list">
+            <ul class="db-list db-tree-list">
               <li><a href="/Levels/0" class={linkState('/Levels/0')}>Level 0</a></li>
               <li><a href="/Levels/1" class={linkState('/Levels/1')}>Level 1</a></li>
               <li><a href="/Levels/2" class={linkState('/Levels/2')}>Level 2</a></li>
@@ -217,11 +218,11 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         <section id="db-panel-articles" class="db-panel" role="tabpanel" aria-labelledby="db-tab-articles" hidden>
           <div class="card compact" aria-labelledby="sec-articles">
             <h2 id="sec-articles" class="db-title-blue">Articles</h2>
-            <ul class="db-list">
+            <ul class="db-list db-tree-list">
               <li>
                 <a href="/Articles/" class={linkState('/Articles/')}>Browse Archive</a>
                 {publishedArticles.length > 0 && (
-                  <ul class="db-list">
+                  <ul class="db-list db-tree-list">
                     {publishedArticles.map((article) => (
                       <li>
                         <a href={`/Articles/${article.slug}`} class={linkState(`/Articles/${article.slug}`)}>
