@@ -7,6 +7,8 @@ Level 1 clearance grants access to low sensitive areas of the facility, includin
 This level of clearance is granted to all employees and interns who have completed the initial  training and background checks.
 
 ## Sectors On this Level
+
+
 <hr />
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
@@ -35,6 +37,12 @@ The data servers store general facility records and other sensitive information.
 Every visit to the data servers must have a valid reason (eg. expanding storage, connecting new equipment, or performing maintenance)
 
 <hr />
+
+<div class="level-preview">
+	<span class="level-preview-tag">Live Feed</span>
+	<img src="/level-1.gif" alt="Level 1 sector walkthrough preview" loading="lazy" />
+	<p class="level-preview-caption">Sector surveillance loop — Level 1</p>
+</div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
 	<h3 style="margin:0;">Dormitory</h3>

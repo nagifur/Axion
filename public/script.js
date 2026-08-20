@@ -113,7 +113,7 @@ document.addEventListener('astro:page-load', function () {
   }
 
   // Make gallery images clickable
-  document.querySelectorAll('.gallery-grid img').forEach((img) => {
+  document.querySelectorAll('.gallery-grid img, .level-preview img').forEach((img) => {
     img.style.cursor = 'zoom-in';
     img.addEventListener('click', () => {
       // Prefer currentSrc when srcset is in use
