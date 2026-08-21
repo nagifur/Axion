@@ -875,7 +875,7 @@
       position:absolute;
       left:0;
       top:0.72em;
-      bottom:0.72em;
+      bottom:0.5em;
       border-left:2px solid var(--neon-yellow);
       box-shadow:0 0 6px rgba(245,217,112,0.7);
       margin-left:-1px;
@@ -1111,10 +1111,11 @@
       position:absolute;
       left:0;
       top:0.75em;
-      bottom:1.7em;
+      bottom:1.73em;
       border-left:2px solid var(--neon-yellow);
       box-shadow:0 0 6px rgba(245,217,112,0.7);
       margin-left:-1px;
+      height:100%
     }
     .db-section-branch::before{
       content:"";
