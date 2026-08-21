@@ -1,0 +1,12 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className = '' } = Astro.props;
+---
+
+<span class={`db-folder-icon ${className}`} aria-hidden="true">
+  <img class="db-folder-closed" src="/icons/folder.svg" alt="" />
+  <img class="db-folder-open" src="/icons/folderOpen.svg" alt="" />
+</span>
