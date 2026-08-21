@@ -29,6 +29,21 @@ const maximumContainmentEntries = entities
     label: entry.data.title,
   }));
 
+const unassignedEntries = Array.from(
+  new Map(
+    [
+      { href: '/Entities/x-402', label: 'X-402' },
+      { href: '/Entities/x-403', label: 'X-403' },
+      ...entities
+        .filter((entry) => entry.data.containmentClass === 'Unassigned')
+        .map((entry) => ({
+          href: `/Entities/${contentSlug(entry.id)}`,
+          label: entry.data.title,
+        })),
+    ].map((entry) => [entry.href, entry] as const)),
+  ).map(([, entry]) => entry)
+  .sort((first, second) => first.label.localeCompare(second.label));
+
 const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
   left: [
     {
@@ -74,11 +89,7 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
     },
     {
       title: 'Unassigned',
-      entries: [
-        { href: '/Entities/x-402', label: 'X-402' },
-        { href: '/Entities/x-403', label: 'X-403' },
-      ],
-      
+      entries: unassignedEntries,
     },
   ],
 };
