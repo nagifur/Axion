@@ -37,5 +37,5 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
       ],
     },
   }).render().asPng();
-  return new Response(png, { headers: { 'Content-Type': 'image/png' } });
+  return new Response(new Uint8Array(png), { headers: { 'Content-Type': 'image/png' } });
 }
