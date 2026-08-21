@@ -103,11 +103,12 @@ export const createDatabaseOgImage = ({
     </linearGradient>
     <style>
       @font-face { font-family: 'Ethnocentric'; src: url('data:font/opentype;base64,${readFileSync(path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.otf')).toString('base64')}') format('opentype'); }
+      @font-face { font-family: 'Bombardier'; src: url('data:font/ttf;base64,${readFileSync(path.resolve(process.cwd(), 'public/fonts/BOMBARD.ttf')).toString('base64')}') format('truetype'); }
       .title { fill: ${safeTint}; font-family: 'Ethnocentric'; font-size: 54px; font-weight: 800; letter-spacing: 3px; }
       .subtitle { fill: ${safeTint}; font-family: Arial, sans-serif; font-size: 22px; font-weight: 700; }
       .eyebrow { fill: #9ab6bf; font-family: 'Ethnocentric'; font-size: 16px; font-weight: 700; letter-spacing: 4px; }
-      .label { fill: #c4dce2; font-family: Arial, sans-serif; font-size: 15px; letter-spacing: 1px; }
-      .value { fill: #f0fbff; font-family: Arial, sans-serif; font-size: 20px; }
+      .label { fill: #c4dce2; font-family: 'Bombardier'; font-size: 15px; letter-spacing: 1px; }
+      .value { fill: #f0fbff; font-family: 'Bombardier'; font-size: 20px; }
       .id { fill: #aac4cb; font-family: Arial, sans-serif; font-size: 16px; letter-spacing: 2px; }
       .brand { fill: #8faab2; font-family: 'Ethnocentric'; font-size: 15px; font-weight: 700; letter-spacing: 4px; }
     </style>

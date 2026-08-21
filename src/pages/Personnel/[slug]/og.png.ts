@@ -30,7 +30,12 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
     ],
   });
   const png = new Resvg(svg, {
-    font: { fontFiles: [path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.otf')] },
+    font: {
+      fontFiles: [
+        path.resolve(process.cwd(), 'public/fonts/Ethnocentric-Regular.otf'),
+        path.resolve(process.cwd(), 'public/fonts/BOMBARD.ttf'),
+      ],
+    },
   }).render().asPng();
   return new Response(png, { headers: { 'Content-Type': 'image/png' } });
 }
