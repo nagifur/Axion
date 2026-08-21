@@ -97,6 +97,12 @@ const profileIsPlaceholder = profileImport === placeholderImage;
   <div class="page-stack">
     <section class="card" role="article">
       <div class="profile-header">
+        {entity.patreonSubmission && (
+          <span class="patreon-indicator" title="Patreon submission">
+            <span class="patreon-indicator-light" aria-hidden="true"></span>
+            Patreon submission
+          </span>
+        )}
         <h1 class="profile-name">{entity.title}<span class="cursor" aria-hidden="true"></span></h1>
         {entity.nickname && <p class="profile-nickname">"{entity.nickname}"</p>}
         {entity.author && <p class="profile-author">Submission by {entity.author}</p>}
