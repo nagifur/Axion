@@ -1095,10 +1095,11 @@
       content:"";
       position:absolute;
       left:8px;
-      top:86%;
-      height:30px;
+      top:100%;
+      height:10px;
       border-left:2px solid var(--neon-yellow);
       box-shadow:0 0 5px rgba(245,217,112,0.62);
+      height: 100%
     }
     .db-section-branch{
       position:relative;
@@ -1111,11 +1112,10 @@
       position:absolute;
       left:0;
       top:0.75em;
-      bottom:1.73em;
+      bottom:0.5em;
       border-left:2px solid var(--neon-yellow);
       box-shadow:0 0 6px rgba(245,217,112,0.7);
       margin-left:-1px;
-      height:100%
     }
     .db-section-branch::before{
       content:"";
