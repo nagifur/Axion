@@ -44,6 +44,7 @@ const containmentClassSlugByLabel: Record<string, string> = {
   Safe: 's',
   Containment: 'c',
   'Maximum Containment': 'm',
+  Unassigned: 'x',
 };
 const containmentClassHref = containmentClassSlugByLabel[entity.containmentClass]
   ? `${base}/Classes/${containmentClassSlugByLabel[entity.containmentClass]}`
