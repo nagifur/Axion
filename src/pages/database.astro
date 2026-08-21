@@ -155,25 +155,29 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
       <div class="db-panels">
         <section id="db-panel-personnel" class="db-panel db-panel-active" role="tabpanel" aria-labelledby="db-tab-personnel">
           <div class="card compact" aria-labelledby="sec-personnel">
-            <h2 id="sec-personnel" class="db-title-yellow">Personnel</h2>
-            <div class="db-content-grid db-tree">
-              <div class="db-content-column">
-                {personnelByAccessLevel.map((group) => (
-                  <section class="db-group" aria-label={`Personnel level ${group.level}`}>
-                    <h3 class="db-section-title"><DatabaseFolderIcon />Level {group.level}</h3>
-                    <ul class="db-list db-sublist">
-                      {group.members.map((person) => (
-                        <li><a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>{person.data.title}</a></li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-                <section class="db-group" aria-label="Special personnel">
-                  <h3 class="db-section-title"><DatabaseFolderIcon />Special</h3>
-                  <ul class="db-list db-sublist">
-                    <li><a href="/Personnel/sypher" class={linkClass('/Personnel/sypher')}>Sypher</a></li>
-                  </ul>
-                </section>
+            <div class="db-section-tree">
+              <h2 id="sec-personnel" class="db-title-yellow db-title-node"><DatabaseFolderIcon />Personnel</h2>
+              <div class="db-section-branch">
+                <div class="db-content-grid db-tree">
+                  <div class="db-content-column">
+                    {personnelByAccessLevel.map((group) => (
+                      <section class="db-group" aria-label={`Personnel level ${group.level}`}>
+                        <h3 class="db-section-title"><DatabaseFolderIcon />Level {group.level}</h3>
+                        <ul class="db-list db-sublist">
+                          {group.members.map((person) => (
+                            <li><a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>{person.data.title}</a></li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                    <section class="db-group" aria-label="Special personnel">
+                      <h3 class="db-section-title"><DatabaseFolderIcon />Special</h3>
+                      <ul class="db-list db-sublist">
+                        <li><a href="/Personnel/sypher" class={linkClass('/Personnel/sypher')}>Sypher</a></li>
+                      </ul>
+                    </section>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -181,20 +185,24 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
 
         <section id="db-panel-entities" class="db-panel" role="tabpanel" aria-labelledby="db-tab-entities" hidden>
           <div class="card compact" aria-labelledby="sec-entities">
-            <h2 id="sec-entities" class="db-title-blue">Entities</h2>
-            <div class="db-content-grid db-tree">
-              <div class="db-content-column">
-                {[...entityGroups.left, ...entityGroups.right].map((group) => (
-                  <section class="db-group" aria-label={group.title}>
-                    <h3 class="db-section-title"><DatabaseFolderIcon />{group.title}</h3>
-                    {group.note && <p class="db-group-note">{group.note}</p>}
-                    <ul class="db-list db-sublist">
-                      {group.entries.map((entry) => (
-                        <li><a href={entry.href} class={linkClass(entry.href)}>{entry.label}</a></li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
+            <div class="db-section-tree">
+              <h2 id="sec-entities" class="db-title-blue db-title-node"><DatabaseFolderIcon />Entities</h2>
+              <div class="db-section-branch">
+                <div class="db-content-grid db-tree">
+                  <div class="db-content-column">
+                    {[...entityGroups.left, ...entityGroups.right].map((group) => (
+                      <section class="db-group" aria-label={group.title}>
+                        <h3 class="db-section-title"><DatabaseFolderIcon />{group.title}</h3>
+                        {group.note && <p class="db-group-note">{group.note}</p>}
+                        <ul class="db-list db-sublist">
+                          {group.entries.map((entry) => (
+                            <li><a href={entry.href} class={linkClass(entry.href)}>{entry.label}</a></li>
+                          ))}
+                        </ul>
+                      </section>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -202,50 +210,62 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
 
         <section id="db-panel-containment" class="db-panel" role="tabpanel" aria-labelledby="db-tab-containment" hidden>
           <div class="card compact" aria-labelledby="sec-containment">
-            <h2 id="sec-containment" class="db-title-cyan">Containment Classes</h2>
-            <ul class="db-list db-tree-list">
-              <li><a href="/Classes/a" class={linkState('/Classes/a')}>A - Ally</a></li>
-              <li><a href="/Classes/s" class={linkState('/Classes/s')}>S - Safe </a></li>
-              <li><a href="/Classes/c" class={linkState('/Classes/c')}>C - Containment </a></li>
-              <li><a href="/Classes/m" class={linkState('/Classes/m')}>M - Maximum Containment </a></li>
-              <li><a href="/Classes/x" class={linkState('/Classes/x')}>X - Unassigned</a></li>
-            </ul>
+            <div class="db-section-tree">
+              <h2 id="sec-containment" class="db-title-cyan db-title-node"><DatabaseFolderIcon />Containment Classes</h2>
+              <div class="db-section-branch">
+                <ul class="db-list db-tree-list">
+                  <li><a href="/Classes/a" class={linkState('/Classes/a')}>A - Ally</a></li>
+                  <li><a href="/Classes/s" class={linkState('/Classes/s')}>S - Safe </a></li>
+                  <li><a href="/Classes/c" class={linkState('/Classes/c')}>C - Containment </a></li>
+                  <li><a href="/Classes/m" class={linkState('/Classes/m')}>M - Maximum Containment </a></li>
+                  <li><a href="/Classes/x" class={linkState('/Classes/x')}>X - Unassigned</a></li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
 
         <section id="db-panel-levels" class="db-panel" role="tabpanel" aria-labelledby="db-tab-levels" hidden>
           <div class="card compact" aria-labelledby="sec-levels">
-            <h2 id="sec-levels" class="db-title-pink">Levels</h2>
-            <ul class="db-list db-tree-list">
-              <li><a href="/Levels/0" class={linkState('/Levels/0')}>Level 0</a></li>
-              <li><a href="/Levels/1" class={linkState('/Levels/1')}>Level 1</a></li>
-              <li><a href="/Levels/2" class={linkState('/Levels/2')}>Level 2</a></li>
-              <li><a href="/Levels/3" class={linkState('/Levels/3')}>Level 3</a></li>
-              <li><a href="/Levels/4" class={linkState('/Levels/4')}>Level 4</a></li>
-              <li><a href="/Levels/5" class={linkState('/Levels/5')}>Level 5</a></li>
-            </ul>
+            <div class="db-section-tree">
+              <h2 id="sec-levels" class="db-title-pink db-title-node"><DatabaseFolderIcon />Levels</h2>
+              <div class="db-section-branch">
+                <ul class="db-list db-tree-list">
+                  <li><a href="/Levels/0" class={linkState('/Levels/0')}>Level 0</a></li>
+                  <li><a href="/Levels/1" class={linkState('/Levels/1')}>Level 1</a></li>
+                  <li><a href="/Levels/2" class={linkState('/Levels/2')}>Level 2</a></li>
+                  <li><a href="/Levels/3" class={linkState('/Levels/3')}>Level 3</a></li>
+                  <li><a href="/Levels/4" class={linkState('/Levels/4')}>Level 4</a></li>
+                  <li><a href="/Levels/5" class={linkState('/Levels/5')}>Level 5</a></li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
 
         <section id="db-panel-articles" class="db-panel" role="tabpanel" aria-labelledby="db-tab-articles" hidden>
           <div class="card compact" aria-labelledby="sec-articles">
-            <h2 id="sec-articles" class="db-title-blue">Articles</h2>
-            <ul class="db-list db-tree-list">
-              <li>
-                <a href="/Articles/" class={linkState('/Articles/')}>Browse Archive</a>
-                {publishedArticles.length > 0 && (
-                  <ul class="db-list db-tree-list">
-                    {publishedArticles.map((article) => (
-                      <li>
-                        <a href={`/Articles/${article.slug}`} class={linkState(`/Articles/${article.slug}`)}>
-                          {article.data.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            </ul>
+            <div class="db-section-tree">
+              <h2 id="sec-articles" class="db-title-blue db-title-node"><DatabaseFolderIcon />Articles</h2>
+              <div class="db-section-branch">
+                <ul class="db-list db-tree-list">
+                  <li>
+                    <a href="/Articles/" class={linkState('/Articles/')}>Browse Archive</a>
+                    {publishedArticles.length > 0 && (
+                      <ul class="db-list db-tree-list">
+                        {publishedArticles.map((article) => (
+                          <li>
+                            <a href={`/Articles/${article.slug}`} class={linkState(`/Articles/${article.slug}`)}>
+                              {article.data.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </section>
       </div>
