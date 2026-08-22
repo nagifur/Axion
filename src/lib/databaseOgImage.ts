@@ -30,9 +30,11 @@ export const getDatabaseImageDataUri = async (slug: string, filename: string) =>
     await readFile(imagePath);
   } catch {
     const basename = filename.replace(/\.[^/.]+$/, '');
-    const match = (await readdir(directory)).find((candidate) => {
-      return candidate.replace(/\.[^/.]+$/, '') === basename;
-    });
+    const match = await readdir(directory)
+      .then((candidates) => candidates.find((candidate) => {
+        return candidate.replace(/\.[^/.]+$/, '') === basename;
+      }))
+      .catch(() => undefined);
     if (!match) return undefined;
     imagePath = path.join(directory, match);
   }
