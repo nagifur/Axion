@@ -5,7 +5,7 @@ import Footer from '../components/footer.astro';
 
 <Header
   title="Submit a File"
-  description="Build your own Axion Labs personnel or entity file, preview it live, and export it ready to send in."
+  description="Build your own Axion Labs personnel, entity, or article file, preview it live, and export it ready to send in."
 />
 
 <main id="main" tabindex="-1">
@@ -13,9 +13,9 @@ import Footer from '../components/footer.astro';
     <section class="card" role="article">
       <h1 id="submit-title">Submit a File <span class="cursor" aria-hidden="true"></span></h1>
       <p class="lead">
-        Fill in the form below to build a Personnel or Entity file. The preview updates live so you can
+        Fill in the form below to build a Personnel, Entity, or Article file. The preview updates live so you can
         see exactly how your submission will look on the site. When you're happy with it, export the
-        finished file and send it to me on Discord along with the images.
+        finished file and send it to me on Discord along with any images.
       </p>
       <p class="lead">
         Nothing here is uploaded automatically, this page only runs in your browser. Exporting just
@@ -33,17 +33,33 @@ import Footer from '../components/footer.astro';
         <label class="submit-radio">
           <input type="radio" name="submit-type" value="entity" /> Entity
         </label>
+        <label class="submit-radio">
+          <input type="radio" name="submit-type" value="article" /> Article
+        </label>
       </div>
 
       <form id="submit-form" class="form-grid" autocomplete="off">
         <div class="form-field span-2">
-          <label for="f-title">Name / Entity number</label>
+          <label id="f-title-label" for="f-title">Name / Entity number</label>
           <input id="f-title" name="title" type="text" placeholder="e.g. Nagi or M-031" required />
         </div>
 
         <div class="form-field span-2">
           <label for="f-author">Author / Owner credit</label>
           <input id="f-author" name="author" type="text" placeholder="Optional — e.g. Your name or handle" />
+        </div>
+
+        <div class="form-field field-article span-2">
+          <label for="f-description">Description</label>
+          <input id="f-description" name="description" type="text" placeholder="A short summary shown in the article archive" />
+        </div>
+        <div class="form-field field-article">
+          <label for="f-publishedAt">Publication Date</label>
+          <input id="f-publishedAt" name="publishedAt" type="date" />
+        </div>
+        <div class="form-field field-article">
+          <label for="f-category">Category</label>
+          <input id="f-category" name="category" type="text" placeholder="e.g. Worldbuilding" />
         </div>
 
         <div class="form-field field-personnel">
@@ -97,19 +113,19 @@ import Footer from '../components/footer.astro';
           <input id="f-foundOn" name="foundOn" type="text" placeholder="e.g. Planet name" />
         </div>
 
-        <div class="form-field">
+        <div class="form-field field-profile">
           <label for="f-species">Species</label>
           <input id="f-species" name="species" type="text" />
         </div>
-        <div class="form-field">
+        <div class="form-field field-profile">
           <label for="f-gender">Gender</label>
           <input id="f-gender" name="gender" type="text" />
         </div>
-        <div class="form-field">
+        <div class="form-field field-profile">
           <label for="f-age">Age</label>
           <input id="f-age" name="age" type="text" placeholder="e.g. 25 or -Unknown-" />
         </div>
-        <div class="form-field">
+        <div class="form-field field-profile">
           <label for="f-vorePreference">Trophic Role</label>
           <select id="f-vorePreference" name="vorePreference">
             <option value="Prey">Prey</option>
@@ -138,21 +154,21 @@ import Footer from '../components/footer.astro';
         </div>
 
         <div class="form-field span-2">
-          <label for="f-bio">Bio</label>
+          <label id="f-body-label" for="f-bio">Bio</label>
           <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -"></textarea>
         </div>
 
-        <div class="form-field">
+        <div class="form-field field-profile">
           <label class="submit-checkbox"><input id="f-patreon" type="checkbox" name="patreonSubmission" checked /> This is a Patreon submission</label>
         </div>
 
-        <div class="form-field span-2">
+        <div class="form-field field-profile span-2">
           <label for="f-profile-image">Profile Image</label>
           <input id="f-profile-image" type="file" accept="image/*" />
           <p class="field-hint">Will be exported as <code>profile.&lt;ext&gt;</code>.</p>
         </div>
 
-        <div class="form-field span-2">
+        <div class="form-field field-profile span-2">
           <div class="gallery-editor-head">
             <label>Gallery Images</label>
             <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
@@ -170,19 +186,19 @@ import Footer from '../components/footer.astro';
     <section class="card" aria-labelledby="export-title">
       <h2 id="export-title" class="db-title-cyan">3. Export &amp; Send</h2>
       <p class="lead">
-        Download your .zip and send it to me on Discord. The .zip contains the generated .md file and all images, already named and placed as the site expects.
+        Download your .zip and send it to me on Discord. The .zip contains the generated .md file and any images, already named and placed as the site expects.
       </p>
       <div class="article-body">
         <blockquote>
           <p class="lead">
-            If you prefer, you can also download just the .md or copy its text to your clipboard. Although you need to rename your image files to match the list below.
+            You can also download just the .md or copy its text to your clipboard. For submissions with images, rename them to match the list below.
           </p>
         </blockquote>
         
       </div>
       <div id="export-image-list" class="field-hint"></div>
       <div class="cta">
-        <button type="button" id="export-download-zip" class="btn">Download .zip (with images)</button>
+        <button type="button" id="export-download-zip" class="btn">Download .zip</button>
         <button type="button" id="export-download" class="btn secondary">Download .md</button>
         <button type="button" id="export-copy" class="btn secondary">Copy file text</button>
       </div>
@@ -205,6 +221,10 @@ import Footer from '../components/footer.astro';
   const exportOutput = document.getElementById('export-output')!;
   const exportImageList = document.getElementById('export-image-list')!;
   const profileImageInput = document.getElementById('f-profile-image') as HTMLInputElement;
+  const titleLabel = document.getElementById('f-title-label')!;
+  const titleInput = document.getElementById('f-title') as HTMLInputElement;
+  const bodyLabel = document.getElementById('f-body-label')!;
+  const bodyInput = document.getElementById('f-bio') as HTMLTextAreaElement;
 
   let profileImageUrl: string | null = null;
   let profileImageFile: File | null = null;
@@ -220,6 +240,15 @@ import Footer from '../components/footer.astro';
     const type = currentType();
     document.querySelectorAll<HTMLElement>('.field-personnel').forEach((el) => { el.hidden = type !== 'personnel'; });
     document.querySelectorAll<HTMLElement>('.field-entity').forEach((el) => { el.hidden = type !== 'entity'; });
+    document.querySelectorAll<HTMLElement>('.field-article').forEach((el) => { el.hidden = type !== 'article'; });
+    document.querySelectorAll<HTMLElement>('.field-profile').forEach((el) => { el.hidden = type === 'article'; });
+    const isArticle = type === 'article';
+    titleLabel.textContent = isArticle ? 'Article Title' : 'Name / Entity number';
+    titleInput.placeholder = isArticle ? 'e.g. World info' : 'e.g. Nagi or M-031';
+    bodyLabel.textContent = isArticle ? 'Article Body' : 'Bio';
+    bodyInput.placeholder = isArticle
+      ? 'Write the article here using Markdown. Separate paragraphs with a blank line.'
+      : 'Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -';
   };
 
   // Derive the file slug from the title — it always matches, so no separate field is needed.
@@ -361,6 +390,32 @@ import Footer from '../components/footer.astro';
     const type = currentType();
     const title = plainText(field('title')) || 'Title';
     const bioHtml = renderMarkdown(field('bio'));
+    const author = plainText(field('author')).trim();
+
+    if (type === 'article') {
+      const rawDate = field('publishedAt');
+      const publishedAt = rawDate
+        ? new Date(`${rawDate}T00:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+        : 'Publication date';
+      previewEl.innerHTML = `
+        <article class="article-page">
+          <header class="card article-header">
+            <p class="article-meta">
+              <span>${escapeHtml(plainText(field('category')) || 'Category')}</span>
+              <time>${publishedAt}</time>
+            </p>
+            <h1>${escapeHtml(title)} <span class="cursor" aria-hidden="true"></span></h1>
+            <p class="article-description">${escapeHtml(plainText(field('description')) || 'Add a short article description.')}</p>
+            ${author ? `<p class="article-byline">Filed by ${escapeHtml(author)}</p>` : ''}
+          </header>
+          <section class="card article-body">
+            ${bioHtml || '<p class="field-hint">Write the article body to see it here.</p>'}
+          </section>
+        </article>
+      `;
+      return;
+    }
+
     const galleryHtml = galleryRows.map((row) => `
       <figure>
         <img src="${row.url ?? ''}" alt="${title} — ${row.caption}" />
@@ -378,7 +433,6 @@ import Footer from '../components/footer.astro';
     let statsHtml = '';
     let nicknameHtml = '';
     let traitsHtml = '';
-    const author = plainText(field('author')).trim();
     const authorHtml = author ? `<p class="profile-author">Submission by ${escapeHtml(author)}</p>` : '';
 
     if (type === 'personnel') {
@@ -470,7 +524,16 @@ import Footer from '../components/footer.astro';
       : ' []';
 
     let frontmatter = '';
-    if (type === 'personnel') {
+    if (type === 'article') {
+      frontmatter = [
+        `title: ${JSON.stringify(title)}`,
+        `description: ${JSON.stringify(field('description').trim() || 'Article description')}`,
+        `publishedAt: ${field('publishedAt') || new Date().toISOString().slice(0, 10)}`,
+        `category: ${JSON.stringify(field('category').trim() || 'Uncategorized')}`,
+        ...(author ? [`author: ${JSON.stringify(author)}`] : []),
+        `draft: false`,
+      ].join('\n');
+    } else if (type === 'personnel') {
       frontmatter = [
         `title: ${title}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
@@ -513,8 +576,10 @@ import Footer from '../components/footer.astro';
       ].join('\n');
     }
 
-    const fileText = `---\n${frontmatter}\n---\n\n${bio || 'Write the bio here.'}\n`;
-    const imageChecklist = [`profile.${profileImageExt} (profile image)`, ...galleryRows.map((row) => `${row.filename} (${row.caption || 'no caption'})`)];
+    const fileText = `---\n${frontmatter}\n---\n\n${bio || (type === 'article' ? 'Write the article here.' : 'Write the bio here.')}\n`;
+    const imageChecklist = type === 'article'
+      ? []
+      : [`profile.${profileImageExt} (profile image)`, ...galleryRows.map((row) => `${row.filename} (${row.caption || 'no caption'})`)];
 
     return { slug, fileText, imageChecklist };
   }
@@ -522,7 +587,9 @@ import Footer from '../components/footer.astro';
   function updateExport() {
     const { fileText, imageChecklist } = buildFileText();
     exportOutput.textContent = fileText;
-    exportImageList.innerHTML = `<strong>Rename your images to:</strong> ${imageChecklist.join(', ')}`;
+    exportImageList.innerHTML = imageChecklist.length
+      ? `<strong>Rename your images to:</strong> ${imageChecklist.join(', ')}`
+      : '<strong>No images are required for an article submission.</strong>';
   }
 
   function updatePreview() {
@@ -548,15 +615,18 @@ import Footer from '../components/footer.astro';
   // Bundle the generated .md alongside the actual uploaded images, already named/placed as the site expects.
   document.getElementById('export-download-zip')!.addEventListener('click', async () => {
     const { slug, fileText } = buildFileText();
+    const type = currentType();
     const folder = slug || 'submission';
     const zip = new JSZip();
     zip.file(`${folder}.md`, fileText);
-    if (profileImageFile) {
+    if (type !== 'article' && profileImageFile) {
       zip.file(`${folder}/profile.${profileImageExt}`, profileImageFile);
     }
-    galleryRows.forEach((row) => {
-      if (row.file) zip.file(`${folder}/${row.filename}`, row.file);
-    });
+    if (type !== 'article') {
+      galleryRows.forEach((row) => {
+        if (row.file) zip.file(`${folder}/${row.filename}`, row.file);
+      });
+    }
 
     const blob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(blob);

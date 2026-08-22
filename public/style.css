@@ -921,8 +921,8 @@
     /* Submit page: form + live preview */
     .submit-type-toggle{
       display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      max-width:390px;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      max-width:100%;
       margin:14px 0 12px;
       padding:3px;
       border:1px solid var(--control-border);
