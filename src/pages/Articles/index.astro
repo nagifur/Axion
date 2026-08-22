@@ -3,25 +3,19 @@ import Header from '../../components/header.astro';
 import Footer from '../../components/footer.astro';
 import { getCollection } from 'astro:content';
 
-const articles = (await getCollection('articles', ({ data }) => !data.draft))
-  .sort((left, right) => right.data.publishedAt.getTime() - left.data.publishedAt.getTime());
+const articles = await getCollection('articles', ({ data }) => !data.draft);
 
 const articleBase = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/Articles`;
-const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric',
-});
 ---
 
 <Header
-  title="Article Archive"
+  title="Report Archive"
   description="Research notes, field reports, incident records, and facility notices."
 />
 
 <main id="main" tabindex="-1">
   <section class="card article-archive" aria-labelledby="archive-title">
-    <h1 id="archive-title">Article Archive <span class="cursor" aria-hidden="true"></span></h1>
+    <h1 id="archive-title">Report Archive <span class="cursor" aria-hidden="true"></span></h1>
     <p class="lead">Research notes, field reports, incident records, and facility notices.</p>
 
     {articles.length > 0 ? (
@@ -31,7 +25,6 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
             <article class="article-preview">
               <p class="article-meta">
                 <span>{article.data.category}</span>
-                <time datetime={article.data.publishedAt.toISOString()}>{formatDate(article.data.publishedAt)}</time>
               </p>
               <h2><a href={`${articleBase}/${article.slug}`}>{article.data.title}</a></h2>
               <p>{article.data.description}</p>
@@ -41,7 +34,7 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
         ))}
       </ol>
     ) : (
-      <p class="article-empty">No published articles are currently available.</p>
+      <p class="article-empty">No published reports are currently available.</p>
     )}
   </section>
 

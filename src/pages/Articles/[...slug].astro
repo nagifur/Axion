@@ -33,7 +33,6 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
     <header class="card article-header">
       <p class="article-meta">
         <span>{article.data.category}</span>
-        <time datetime={article.data.publishedAt.toISOString()}>{formatDate(article.data.publishedAt)}</time>
       </p>
       <h1>{article.data.title} <span class="cursor" aria-hidden="true"></span></h1>
       <p class="article-description">{article.data.description}</p>
@@ -45,8 +44,8 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
       <Content />
     </section>
 
-    <nav class="article-return" aria-label="Article navigation">
-      <a href={`${articleBase}/`}>Return to article archive</a>
+    <nav class="article-return" aria-label="Report navigation">
+      <a href={`${articleBase}/`}>Return to report archive</a>
       
     </nav>
   </article>

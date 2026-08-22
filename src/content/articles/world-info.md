@@ -1,7 +1,6 @@
 ---
 title: World info
 description: Description about the world where Axion resides
-publishedAt: 2026-08-14
 category: Worldbuilding
 author: Axion Records Division
 ---
