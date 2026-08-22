@@ -6,12 +6,20 @@ type MarkdownNode = {
 
 type MarkdownFile = {
   path?: string;
+  history?: string[];
+  data?: {
+    astro?: {
+      frontmatter?: {
+        title?: unknown;
+      };
+    };
+  };
 };
 
 type ImageAlignment = 'full' | 'center' | 'left' | 'right';
 
 const DIRECTIVE_PATTERN = /^::image\{(.+)\}$/;
-const ATTRIBUTE_PATTERN = /\b(file|alt|caption|align)="((?:\\.|[^"\\])*)"/g;
+const ATTRIBUTE_PATTERN = /\b(file|folder|alt|caption|align)=["“]((?:\\.|[^"“”\\])*)["”]/g;
 const alignments = new Set<ImageAlignment>(['full', 'center', 'left', 'right']);
 
 const escapeHtml = (value: string): string => value
@@ -22,16 +30,22 @@ const escapeHtml = (value: string): string => value
   .replace(/'/g, '&#39;');
 
 const decodeAttribute = (value: string): string => value.replace(/\\(["\\])/g, '$1');
+const slugify = (value: string): string => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 const articleSlug = (file: MarkdownFile): string | undefined => {
-  const normalizedPath = file.path?.replaceAll('\\', '/');
-  return normalizedPath?.match(/\/content\/articles\/([^/]+)\.md$/)?.[1];
+  const sourcePath = file.path || file.history?.at(-1);
+  const normalizedPath = sourcePath?.replaceAll('\\', '/').split('?')[0];
+  const filename = normalizedPath?.split('/').at(-1);
+  const pathSlug = filename?.replace(/\.(?:md|mdx)$/, '');
+  if (pathSlug) return pathSlug;
+
+  const title = file.data?.astro?.frontmatter?.title;
+  return typeof title === 'string' ? slugify(title) || undefined : undefined;
 };
 
 export default function remarkArticleImage() {
   return (tree: MarkdownNode, file: MarkdownFile) => {
-    const slug = articleSlug(file);
-    if (!slug) return;
+    const inferredSlug = articleSlug(file);
 
     const transformChildren = (node: MarkdownNode) => {
       if (!node.children) return;
@@ -55,6 +69,8 @@ export default function remarkArticleImage() {
 
         const imageFile = attributes.get('file') ?? '';
         if (!/^[a-zA-Z0-9._-]+$/.test(imageFile)) return child;
+        const slug = attributes.get('folder') || inferredSlug || '';
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return child;
 
         const requestedAlignment = attributes.get('align') as ImageAlignment | undefined;
         const alignment = requestedAlignment && alignments.has(requestedAlignment) ? requestedAlignment : 'full';

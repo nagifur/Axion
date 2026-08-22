@@ -300,7 +300,8 @@ const articleCategories = Array.from(new Set(
   const articleImageDirective = (row: ArticleImageRow) => {
     const caption = row.caption.trim();
     const alt = caption || row.filename;
-    return `::image{file="${row.filename}" alt="${escapeDirectiveAttribute(alt)}" caption="${escapeDirectiveAttribute(caption)}" align="${row.alignment}"}`;
+    const folder = slugify(titleInput.value) || 'slug';
+    return `::image{file="${row.filename}" folder="${folder}" alt="${escapeDirectiveAttribute(alt)}" caption="${escapeDirectiveAttribute(caption)}" align="${row.alignment}"}`;
   };
 
   const parseArticleImageDirective = (line: string) => {
@@ -308,7 +309,7 @@ const articleCategories = Array.from(new Set(
     if (!match) return null;
 
     const attributes = new Map<string, string>();
-    for (const attribute of match[1].matchAll(/\b(file|alt|caption|align)="((?:\\.|[^"\\])*)"/g)) {
+    for (const attribute of match[1].matchAll(/\b(file|folder|alt|caption|align)="((?:\\.|[^"\\])*)"/g)) {
       attributes.set(attribute[1], attribute[2].replace(/\\(["\\])/g, '$1'));
     }
 
@@ -565,6 +566,9 @@ const articleCategories = Array.from(new Set(
 
   document.getElementById('gallery-add')!.addEventListener('click', addGalleryRow);
   document.getElementById('article-image-add')!.addEventListener('click', addArticleImageRow);
+  titleInput.addEventListener('input', () => {
+    if (currentType() === 'article') articleImages.forEach((row) => syncArticleImageDirective(row));
+  });
   categoryBrowse.addEventListener('click', () => {
     const shouldOpen = categoryOptions.hidden;
     categoryOptionButtons.forEach((option) => { option.hidden = false; });
