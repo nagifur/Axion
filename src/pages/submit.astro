@@ -54,10 +54,6 @@ import Footer from '../components/footer.astro';
           <input id="f-description" name="description" type="text" placeholder="A short summary shown in the report archive" />
         </div>
         <div class="form-field field-article">
-          <label for="f-publishedAt">Publication Date</label>
-          <input id="f-publishedAt" name="publishedAt" type="date" />
-        </div>
-        <div class="form-field field-article">
           <label for="f-category">Category</label>
           <input id="f-category" name="category" type="text" placeholder="e.g. Worldbuilding" />
         </div>
@@ -393,16 +389,11 @@ import Footer from '../components/footer.astro';
     const author = plainText(field('author')).trim();
 
     if (type === 'article') {
-      const rawDate = field('publishedAt');
-      const publishedAt = rawDate
-        ? new Date(`${rawDate}T00:00:00`).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-        : 'Publication date';
       previewEl.innerHTML = `
         <article class="article-page">
           <header class="card article-header">
             <p class="article-meta">
               <span>${escapeHtml(plainText(field('category')) || 'Category')}</span>
-              <time>${publishedAt}</time>
             </p>
             <h1>${escapeHtml(title)} <span class="cursor" aria-hidden="true"></span></h1>
             <p class="article-description">${escapeHtml(plainText(field('description')) || 'Add a short report description.')}</p>
@@ -528,7 +519,6 @@ import Footer from '../components/footer.astro';
       frontmatter = [
         `title: ${JSON.stringify(title)}`,
         `description: ${JSON.stringify(field('description').trim() || 'Report description')}`,
-        `publishedAt: ${field('publishedAt') || new Date().toISOString().slice(0, 10)}`,
         `category: ${JSON.stringify(field('category').trim() || 'Uncategorized')}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
         `draft: false`,
