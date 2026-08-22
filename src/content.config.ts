@@ -16,8 +16,10 @@ const articles = defineCollection({
     description: z.string(),
     category: z.string(),
     author: z.string().optional(),
+    colorTint,
     updatedAt: z.coerce.date().optional(),
     draft: z.boolean().default(false),
+    patreonSubmission: z.boolean().default(false),
   }),
 });
 

@@ -124,6 +124,7 @@ const activeUrls = new Set([
 const patreonUrls = new Set([
   ...personnel.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Personnel/${contentSlug(entry.id)}`),
   ...entities.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Entities/${contentSlug(entry.id)}`),
+  ...publishedArticles.filter((article) => article.data.patreonSubmission).map((article) => `/Articles/${article.slug}`),
 ]);
 // Determine whether a given link target is currently active.
 const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
@@ -267,7 +268,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                           <ul class="db-list db-sublist">
                             {group.reports.map((article) => (
                               <li>
-                                <a href={`/Articles/${article.slug}`} class={linkState(`/Articles/${article.slug}`)}>
+                                <a href={`/Articles/${article.slug}`} class={linkClass(`/Articles/${article.slug}`)}>
                                   {article.data.title}
                                 </a>
                               </li>

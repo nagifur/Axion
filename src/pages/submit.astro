@@ -755,6 +755,7 @@ const articleCategories = Array.from(new Set(
         `category: ${JSON.stringify(field('category').trim() || 'Uncategorized')}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
         `draft: false`,
+        `patreonSubmission: true`,
       ].join('\n');
     } else if (type === 'personnel') {
       frontmatter = [

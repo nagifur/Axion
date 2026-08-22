@@ -15,6 +15,12 @@ const entities = await getCollection('entities', ({ data }) => (
 <Header title={page.data.title} />
 
 <main id="main" tabindex="-1">
+  <nav class="article-return-top" aria-label="Database navigation">
+    <a href="/database">
+      <span class="article-return-arrow" aria-hidden="true">←</span>
+      <span>Back</span>
+    </a>
+  </nav>
   <article class="article-page">
     <header class="card article-header">
       <h1>{page.data.title} <span class="cursor" aria-hidden="true"></span></h1>
