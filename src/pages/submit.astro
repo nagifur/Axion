@@ -168,6 +168,15 @@ const articleCategories = Array.from(new Set(
           <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -"></textarea>
         </div>
 
+        <div class="form-field field-article span-2">
+          <div class="gallery-editor-head">
+            <label>Inline Report Images</label>
+            <button type="button" id="article-image-add" class="btn secondary">+ Add image</button>
+          </div>
+          <p class="field-hint article-image-hint">Add an image, choose its layout, then insert it at the current cursor position in the report body.</p>
+          <div id="article-image-rows"></div>
+        </div>
+
         <div class="form-field field-profile">
           <label class="submit-checkbox"><input id="f-patreon" type="checkbox" name="patreonSubmission" checked /> This is a Patreon submission</label>
         </div>
@@ -223,11 +232,20 @@ const articleCategories = Array.from(new Set(
   import JSZip from 'jszip';
 
   type GalleryRow = { file: File | null; url: string | null; caption: string; filename: string };
+  type ArticleImageAlignment = 'full' | 'center' | 'left' | 'right';
+  type ArticleImageRow = {
+    file: File | null;
+    url: string | null;
+    caption: string;
+    alignment: ArticleImageAlignment;
+    filename: string;
+  };
 
   const form = document.getElementById('submit-form') as HTMLFormElement;
   const typeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="submit-type"]'));
   const previewEl = document.getElementById('submit-preview')!;
   const galleryRowsEl = document.getElementById('gallery-rows')!;
+  const articleImageRowsEl = document.getElementById('article-image-rows')!;
   const exportOutput = document.getElementById('export-output')!;
   const exportImageList = document.getElementById('export-image-list')!;
   const profileImageInput = document.getElementById('f-profile-image') as HTMLInputElement;
@@ -244,6 +262,8 @@ const articleCategories = Array.from(new Set(
   let profileImageFile: File | null = null;
   let profileImageExt = 'png';
   const galleryRows: GalleryRow[] = [];
+  const articleImages: ArticleImageRow[] = [];
+  let nextArticleImageNumber = 1;
 
   const currentType = () => typeRadios.find((radio) => radio.checked)?.value ?? 'personnel';
 
@@ -274,6 +294,38 @@ const articleCategories = Array.from(new Set(
   const csvList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
 
   const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escapeAttribute = (value: string) => escapeHtml(value).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const escapeDirectiveAttribute = (value: string) => value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+  const articleImageDirective = (row: ArticleImageRow) => {
+    const caption = row.caption.trim();
+    const alt = caption || row.filename;
+    return `::image{file="${row.filename}" alt="${escapeDirectiveAttribute(alt)}" caption="${escapeDirectiveAttribute(caption)}" align="${row.alignment}"}`;
+  };
+
+  const parseArticleImageDirective = (line: string) => {
+    const match = line.match(/^::image\{(.+)\}$/);
+    if (!match) return null;
+
+    const attributes = new Map<string, string>();
+    for (const attribute of match[1].matchAll(/\b(file|alt|caption|align)="((?:\\.|[^"\\])*)"/g)) {
+      attributes.set(attribute[1], attribute[2].replace(/\\(["\\])/g, '$1'));
+    }
+
+    const filename = attributes.get('file') ?? '';
+    const row = articleImages.find((image) => image.filename === filename);
+    const requestedAlignment = attributes.get('align');
+    const alignment: ArticleImageAlignment = requestedAlignment === 'center' || requestedAlignment === 'left' || requestedAlignment === 'right'
+      ? requestedAlignment
+      : 'full';
+    return {
+      filename,
+      url: row?.url ?? '',
+      alt: attributes.get('alt') || attributes.get('caption') || filename,
+      caption: attributes.get('caption') ?? '',
+      alignment,
+    };
+  };
 
   // Inline markdown: **bold**, *italic*, `code`, [text](url).
   const renderInline = (value: string) => value
@@ -300,11 +352,20 @@ const articleCategories = Array.from(new Set(
     const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
 
     for (const line of lines) {
+      const articleImage = parseArticleImageDirective(line.trim());
       const heading = line.match(/^(#{1,6})\s+(.*)$/);
       const quote = line.match(/^>\s?(.*)$/);
       const listItem = line.match(/^[-*]\s+(.*)$/);
 
       if (!line.trim()) { flushParagraph(); closeList(); continue; }
+      if (articleImage) {
+        flushParagraph(); closeList();
+        const image = articleImage.url
+          ? `<img src="${escapeAttribute(articleImage.url)}" alt="${escapeAttribute(articleImage.alt)}" />`
+          : `<div class="article-image-missing">Image file: ${escapeHtml(articleImage.filename)}</div>`;
+        html += `<figure class="article-image article-image--${articleImage.alignment}">${image}${articleImage.caption ? `<figcaption>${escapeHtml(articleImage.caption)}</figcaption>` : ''}</figure>`;
+        continue;
+      }
       if (heading) {
         flushParagraph(); closeList();
         const level = heading[1].length;
@@ -386,6 +447,98 @@ const articleCategories = Array.from(new Set(
     galleryRowsEl.appendChild(wrap);
   };
 
+  const syncArticleImageDirective = (row: ArticleImageRow, previousFilename = row.filename, remove = false) => {
+    let changed = false;
+    bodyInput.value = bodyInput.value.split(/\r?\n/).map((line) => {
+      if (line.trim().startsWith('::image{') && line.includes(`file="${previousFilename}"`)) {
+        changed = true;
+        return remove ? '' : articleImageDirective(row);
+      }
+      return line;
+    }).join('\n').replace(/\n{3,}/g, '\n\n');
+    if (changed) bodyInput.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  const addArticleImageRow = () => {
+    const row: ArticleImageRow = {
+      file: null,
+      url: null,
+      caption: '',
+      alignment: 'full',
+      filename: `${nextArticleImageNumber++}.png`,
+    };
+    articleImages.push(row);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'article-image-row';
+    wrap.innerHTML = `
+      <button type="button" class="btn secondary article-image-remove" aria-label="Remove report image" title="Remove report image">X</button>
+      <div class="article-image-fields">
+        <div class="article-image-file-line">
+          <input type="file" accept="image/*" data-role="file" />
+          <span class="field-hint" data-role="filename">${row.filename}</span>
+        </div>
+        <div class="article-image-meta">
+          <input type="text" data-role="caption" placeholder="Caption" />
+          <select data-role="alignment" aria-label="Image layout">
+            <option value="full">Full width</option>
+            <option value="center">Centered</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </select>
+          <button type="button" class="btn secondary" data-role="insert" disabled>Insert at cursor</button>
+        </div>
+      </div>
+    `;
+
+    const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
+    const captionInput = wrap.querySelector('[data-role="caption"]') as HTMLInputElement;
+    const alignmentSelect = wrap.querySelector('[data-role="alignment"]') as HTMLSelectElement;
+    const filenameLabel = wrap.querySelector('[data-role="filename"]')!;
+    const insertButton = wrap.querySelector('[data-role="insert"]') as HTMLButtonElement;
+    const removeButton = wrap.querySelector('.article-image-remove') as HTMLButtonElement;
+
+    fileInput.addEventListener('change', () => {
+      const chosen = fileInput.files?.[0] ?? null;
+      const previousFilename = row.filename;
+      if (row.url) URL.revokeObjectURL(row.url);
+      row.file = chosen;
+      row.url = chosen ? URL.createObjectURL(chosen) : null;
+      const extension = chosen?.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      row.filename = `${row.filename.split('.')[0]}.${extension}`;
+      filenameLabel.textContent = row.filename;
+      insertButton.disabled = !chosen;
+      syncArticleImageDirective(row, previousFilename);
+      updatePreview();
+    });
+
+    captionInput.addEventListener('input', () => {
+      row.caption = captionInput.value;
+      syncArticleImageDirective(row);
+      updatePreview();
+    });
+    alignmentSelect.addEventListener('change', () => {
+      row.alignment = alignmentSelect.value as ArticleImageAlignment;
+      syncArticleImageDirective(row);
+      updatePreview();
+    });
+    insertButton.addEventListener('click', () => {
+      const insertion = `\n\n${articleImageDirective(row)}\n\n`;
+      bodyInput.setRangeText(insertion, bodyInput.selectionStart, bodyInput.selectionEnd, 'end');
+      bodyInput.dispatchEvent(new Event('input', { bubbles: true }));
+      bodyInput.focus();
+    });
+    removeButton.addEventListener('click', () => {
+      if (row.url) URL.revokeObjectURL(row.url);
+      syncArticleImageDirective(row, row.filename, true);
+      articleImages.splice(articleImages.indexOf(row), 1);
+      wrap.remove();
+      updatePreview();
+    });
+
+    articleImageRowsEl.appendChild(wrap);
+  };
+
   profileImageInput.addEventListener('change', () => {
     const chosen = profileImageInput.files?.[0] ?? null;
     if (profileImageUrl) URL.revokeObjectURL(profileImageUrl);
@@ -411,6 +564,7 @@ const articleCategories = Array.from(new Set(
   };
 
   document.getElementById('gallery-add')!.addEventListener('click', addGalleryRow);
+  document.getElementById('article-image-add')!.addEventListener('click', addArticleImageRow);
   categoryBrowse.addEventListener('click', () => {
     const shouldOpen = categoryOptions.hidden;
     categoryOptionButtons.forEach((option) => { option.hidden = false; });
@@ -643,7 +797,7 @@ const articleCategories = Array.from(new Set(
 
     const fileText = `---\n${frontmatter}\n---\n\n${bio || (type === 'article' ? 'Write the report here.' : 'Write the bio here.')}\n`;
     const imageChecklist = type === 'article'
-      ? []
+      ? articleImages.filter((row) => row.file).map((row) => `${row.filename} (${row.caption || 'report image'})`)
       : [`profile.${profileImageExt} (profile image)`, ...galleryRows.map((row) => `${row.filename} (${row.caption || 'no caption'})`)];
 
     return { slug, fileText, imageChecklist };
@@ -653,8 +807,8 @@ const articleCategories = Array.from(new Set(
     const { fileText, imageChecklist } = buildFileText();
     exportOutput.textContent = fileText;
     exportImageList.innerHTML = imageChecklist.length
-      ? `<strong>Rename your images to:</strong> ${imageChecklist.join(', ')}`
-      : '<strong>No images are required for a report submission.</strong>';
+      ? `<strong>Included image files:</strong> ${imageChecklist.join(', ')}`
+      : '<strong>No images included.</strong>';
   }
 
   function updatePreview() {
@@ -683,11 +837,14 @@ const articleCategories = Array.from(new Set(
     const type = currentType();
     const folder = slug || 'submission';
     const zip = new JSZip();
-    zip.file(`${folder}.md`, fileText);
-    if (type !== 'article' && profileImageFile) {
-      zip.file(`${folder}/profile.${profileImageExt}`, profileImageFile);
-    }
-    if (type !== 'article') {
+    if (type === 'article') {
+      zip.file(`src/content/articles/${folder}.md`, fileText);
+      articleImages.forEach((row) => {
+        if (row.file) zip.file(`public/images/articles/${folder}/${row.filename}`, row.file);
+      });
+    } else {
+      zip.file(`${folder}.md`, fileText);
+      if (profileImageFile) zip.file(`${folder}/profile.${profileImageExt}`, profileImageFile);
       galleryRows.forEach((row) => {
         if (row.file) zip.file(`${folder}/${row.filename}`, row.file);
       });
