@@ -12,6 +12,19 @@ const activePersonnelUrls = personnel.map((entry) => `/Personnel/${contentSlug(e
 const activeEntityUrls = entities.map((entry) => `/Entities/${contentSlug(entry.id)}`);
 const publishedArticles = await getCollection('articles', ({ data }) => !data.draft);
 const activeArticleUrls = publishedArticles.map((article) => `/Articles/${article.slug}`);
+const reportsByCategory = Array.from(
+  publishedArticles.reduce((groups, article) => {
+    const category = article.data.category.trim() || 'Uncategorized';
+    const categoryReports = groups.get(category) ?? [];
+    categoryReports.push(article);
+    groups.set(category, categoryReports);
+    return groups;
+  }, new Map<string, typeof publishedArticles>()),
+  ([category, reports]) => ({
+    category,
+    reports: reports.sort((first, second) => first.data.title.localeCompare(second.data.title)),
+  }),
+).sort((first, second) => first.category.localeCompare(second.category));
 const activeClassUrls = ['a', 's', 'c', 'm', 'x'].map((cls) => `/Classes/${cls}`);
 const activeLevelUrls = [0, 1, 2, 3, 4, 5].map((level) => `/Levels/${level}`);
 type EntityGroup = {
@@ -246,15 +259,24 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
               <h2 id="sec-articles" class="db-title-blue db-title-node"><DatabaseFolderIcon />Reports </h2>
               <div class="db-section-branch">
                 {publishedArticles.length > 0 ? (
-                  <ul class="db-list db-tree-list">
-                    {publishedArticles.map((article) => (
-                      <li>
-                        <a href={`/Articles/${article.slug}`} class={linkState(`/Articles/${article.slug}`)}>
-                          {article.data.title}
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
+                  <div class="db-content-grid db-tree">
+                    <div class="db-content-column">
+                      {reportsByCategory.map((group) => (
+                        <section class="db-group" aria-label={`${group.category} reports`}>
+                          <h3 class="db-section-title"><DatabaseFolderIcon />{group.category}</h3>
+                          <ul class="db-list db-sublist">
+                            {group.reports.map((article) => (
+                              <li>
+                                <a href={`/Articles/${article.slug}`} class={linkState(`/Articles/${article.slug}`)}>
+                                  {article.data.title}
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <p class="db-group-note">No published reports yet.</p>
                 )}
