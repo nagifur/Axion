@@ -1428,12 +1428,12 @@
     .article-image img{ margin:0; width:100% }
     .article-image figcaption{ color:var(--muted); font-size:0.86rem; line-height:1.45; margin-top:6px; text-align:center }
     .article-image--full{ width:100% }
-    .article-image--center{ margin-left:auto; margin-right:auto; max-width:620px }
-    .article-image--left, .article-image--right{ width:min(42%, 320px) }
+    .article-image--center{ margin-left:auto; margin-right:auto }
+    .article-image--center, .article-image--left, .article-image--right{ width:min(42%, 320px) }
     .article-image--left{ float:left; margin:0.4rem 1.25rem 1rem 0 }
     .article-image--right{ float:right; margin:0.4rem 0 1rem 1.25rem }
     @media (max-width:640px){
-      .article-image--left, .article-image--right{ float:none; margin:1.5rem auto; width:100% }
+      .article-image--center, .article-image--left, .article-image--right{ float:none; margin:1.5rem auto; width:100% }
     }
     .article-body pre{ max-width:100%; overflow-x:auto }
     .article-return{ padding:0 18px }
