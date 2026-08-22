@@ -62,7 +62,7 @@ const articleCategories = Array.from(new Set(
         <div class="form-field field-article category-field">
           <label for="f-category">Category</label>
           <div class="category-input-group">
-            <input id="f-category" name="category" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="category-options" placeholder="Select or enter a new category" />
+            <input id="f-category" name="category" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="category-options" placeholder="Select or add category" />
             <button type="button" id="category-browse" class="category-browse" aria-label="Browse existing categories" title="Browse existing categories"></button>
             <div id="category-options" class="category-options" role="listbox" hidden>
               {articleCategories.map((category) => (
