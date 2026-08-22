@@ -1,6 +1,12 @@
 ---
 import Header from '../components/header.astro';
 import Footer from '../components/footer.astro';
+import { getCollection } from 'astro:content';
+
+const articles = await getCollection('articles');
+const articleCategories = Array.from(new Set(
+  articles.map((article) => article.data.category.trim()).filter(Boolean),
+)).sort((first, second) => first.localeCompare(second));
 ---
 
 <Header
@@ -23,7 +29,7 @@ import Footer from '../components/footer.astro';
       </p>
     </section>
 
-    <section class="card" aria-labelledby="submit-form-title">
+    <section class="card submit-form-card" aria-labelledby="submit-form-title">
       <h2 id="submit-form-title" class="db-title-cyan">1. Build your file</h2>
 
       <div class="submit-type-toggle" role="radiogroup" aria-label="Submission type">
@@ -53,9 +59,17 @@ import Footer from '../components/footer.astro';
           <label for="f-description">Description</label>
           <input id="f-description" name="description" type="text" placeholder="A short summary shown in the report archive" />
         </div>
-        <div class="form-field field-article">
+        <div class="form-field field-article category-field">
           <label for="f-category">Category</label>
-          <input id="f-category" name="category" type="text" placeholder="e.g. Worldbuilding" />
+          <div class="category-input-group">
+            <input id="f-category" name="category" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="category-options" placeholder="Select or enter a new category" />
+            <button type="button" id="category-browse" class="category-browse" aria-label="Browse existing categories" title="Browse existing categories"></button>
+            <div id="category-options" class="category-options" role="listbox" hidden>
+              {articleCategories.map((category) => (
+                <button type="button" class="category-option" role="option" data-category={category}>{category}</button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div class="form-field field-personnel">
@@ -221,6 +235,10 @@ import Footer from '../components/footer.astro';
   const titleInput = document.getElementById('f-title') as HTMLInputElement;
   const bodyLabel = document.getElementById('f-body-label')!;
   const bodyInput = document.getElementById('f-bio') as HTMLTextAreaElement;
+  const categoryInput = document.getElementById('f-category') as HTMLInputElement;
+  const categoryBrowse = document.getElementById('category-browse') as HTMLButtonElement;
+  const categoryOptions = document.getElementById('category-options')!;
+  const categoryOptionButtons = Array.from(categoryOptions.querySelectorAll<HTMLButtonElement>('.category-option'));
 
   let profileImageUrl: string | null = null;
   let profileImageFile: File | null = null;
@@ -377,7 +395,64 @@ import Footer from '../components/footer.astro';
     updatePreview();
   });
 
+  const setCategoryOpen = (open: boolean) => {
+    categoryOptions.hidden = !open;
+    categoryInput.setAttribute('aria-expanded', String(open));
+  };
+
+  const visibleCategoryOptions = () => categoryOptionButtons.filter((option) => !option.hidden);
+
+  const filterCategoryOptions = () => {
+    const query = categoryInput.value.trim().toLowerCase();
+    categoryOptionButtons.forEach((option) => {
+      option.hidden = Boolean(query) && !option.dataset.category!.toLowerCase().includes(query);
+    });
+    setCategoryOpen(visibleCategoryOptions().length > 0);
+  };
+
   document.getElementById('gallery-add')!.addEventListener('click', addGalleryRow);
+  categoryBrowse.addEventListener('click', () => {
+    const shouldOpen = categoryOptions.hidden;
+    categoryOptionButtons.forEach((option) => { option.hidden = false; });
+    setCategoryOpen(shouldOpen && categoryOptionButtons.length > 0);
+    categoryInput.focus();
+  });
+  categoryInput.addEventListener('input', filterCategoryOptions);
+  categoryInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      setCategoryOpen(false);
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (categoryOptions.hidden) filterCategoryOptions();
+      visibleCategoryOptions()[0]?.focus();
+    }
+  });
+  categoryOptionButtons.forEach((option) => {
+    option.addEventListener('click', () => {
+      categoryInput.value = option.dataset.category ?? '';
+      categoryOptionButtons.forEach((item) => item.setAttribute('aria-selected', String(item === option)));
+      categoryInput.dispatchEvent(new Event('input', { bubbles: true }));
+      setCategoryOpen(false);
+      categoryInput.focus();
+    });
+    option.addEventListener('keydown', (event) => {
+      const options = visibleCategoryOptions();
+      const index = options.indexOf(option);
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        options[(index + 1) % options.length]?.focus();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        options[(index - 1 + options.length) % options.length]?.focus();
+      } else if (event.key === 'Escape') {
+        setCategoryOpen(false);
+        categoryInput.focus();
+      }
+    });
+  });
+  document.addEventListener('click', (event) => {
+    if (!categoryOptions.parentElement!.contains(event.target as Node)) setCategoryOpen(false);
+  });
   typeRadios.forEach((radio) => radio.addEventListener('change', () => { syncFieldVisibility(); updatePreview(); }));
   form.addEventListener('input', updatePreview);
 
