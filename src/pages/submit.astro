@@ -5,7 +5,7 @@ import Footer from '../components/footer.astro';
 
 <Header
   title="Submit a File"
-  description="Build your own Axion Labs personnel, entity, or article file, preview it live, and export it ready to send in."
+  description="Build your own Axion Labs personnel, entity, or report file, preview it live, and export it ready to send in."
 />
 
 <main id="main" tabindex="-1">
@@ -13,7 +13,7 @@ import Footer from '../components/footer.astro';
     <section class="card" role="article">
       <h1 id="submit-title">Submit a File <span class="cursor" aria-hidden="true"></span></h1>
       <p class="lead">
-        Fill in the form below to build a Personnel, Entity, or Article file. The preview updates live so you can
+        Fill in the form below to build a Personnel, Entity, or Report file. The preview updates live so you can
         see exactly how your submission will look on the site. When you're happy with it, export the
         finished file and send it to me on Discord along with any images.
       </p>
@@ -34,7 +34,7 @@ import Footer from '../components/footer.astro';
           <input type="radio" name="submit-type" value="entity" /> Entity
         </label>
         <label class="submit-radio">
-          <input type="radio" name="submit-type" value="article" /> Article
+          <input type="radio" name="submit-type" value="article" /> Report
         </label>
       </div>
 
@@ -51,7 +51,7 @@ import Footer from '../components/footer.astro';
 
         <div class="form-field field-article span-2">
           <label for="f-description">Description</label>
-          <input id="f-description" name="description" type="text" placeholder="A short summary shown in the article archive" />
+          <input id="f-description" name="description" type="text" placeholder="A short summary shown in the report archive" />
         </div>
         <div class="form-field field-article">
           <label for="f-publishedAt">Publication Date</label>
@@ -243,11 +243,11 @@ import Footer from '../components/footer.astro';
     document.querySelectorAll<HTMLElement>('.field-article').forEach((el) => { el.hidden = type !== 'article'; });
     document.querySelectorAll<HTMLElement>('.field-profile').forEach((el) => { el.hidden = type === 'article'; });
     const isArticle = type === 'article';
-    titleLabel.textContent = isArticle ? 'Article Title' : 'Name / Entity number';
+    titleLabel.textContent = isArticle ? 'Report Title' : 'Name / Entity number';
     titleInput.placeholder = isArticle ? 'e.g. World info' : 'e.g. Nagi or M-031';
-    bodyLabel.textContent = isArticle ? 'Article Body' : 'Bio';
+    bodyLabel.textContent = isArticle ? 'Report Body' : 'Bio';
     bodyInput.placeholder = isArticle
-      ? 'Write the article here using Markdown. Separate paragraphs with a blank line.'
+      ? 'Write the report here using Markdown. Separate paragraphs with a blank line.'
       : 'Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -';
   };
 
@@ -405,11 +405,11 @@ import Footer from '../components/footer.astro';
               <time>${publishedAt}</time>
             </p>
             <h1>${escapeHtml(title)} <span class="cursor" aria-hidden="true"></span></h1>
-            <p class="article-description">${escapeHtml(plainText(field('description')) || 'Add a short article description.')}</p>
+            <p class="article-description">${escapeHtml(plainText(field('description')) || 'Add a short report description.')}</p>
             ${author ? `<p class="article-byline">Filed by ${escapeHtml(author)}</p>` : ''}
           </header>
           <section class="card article-body">
-            ${bioHtml || '<p class="field-hint">Write the article body to see it here.</p>'}
+            ${bioHtml || '<p class="field-hint">Write the report body to see it here.</p>'}
           </section>
         </article>
       `;
@@ -527,7 +527,7 @@ import Footer from '../components/footer.astro';
     if (type === 'article') {
       frontmatter = [
         `title: ${JSON.stringify(title)}`,
-        `description: ${JSON.stringify(field('description').trim() || 'Article description')}`,
+        `description: ${JSON.stringify(field('description').trim() || 'Report description')}`,
         `publishedAt: ${field('publishedAt') || new Date().toISOString().slice(0, 10)}`,
         `category: ${JSON.stringify(field('category').trim() || 'Uncategorized')}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
@@ -576,7 +576,7 @@ import Footer from '../components/footer.astro';
       ].join('\n');
     }
 
-    const fileText = `---\n${frontmatter}\n---\n\n${bio || (type === 'article' ? 'Write the article here.' : 'Write the bio here.')}\n`;
+    const fileText = `---\n${frontmatter}\n---\n\n${bio || (type === 'article' ? 'Write the report here.' : 'Write the bio here.')}\n`;
     const imageChecklist = type === 'article'
       ? []
       : [`profile.${profileImageExt} (profile image)`, ...galleryRows.map((row) => `${row.filename} (${row.caption || 'no caption'})`)];
@@ -589,7 +589,7 @@ import Footer from '../components/footer.astro';
     exportOutput.textContent = fileText;
     exportImageList.innerHTML = imageChecklist.length
       ? `<strong>Rename your images to:</strong> ${imageChecklist.join(', ')}`
-      : '<strong>No images are required for an article submission.</strong>';
+      : '<strong>No images are required for a report submission.</strong>';
   }
 
   function updatePreview() {

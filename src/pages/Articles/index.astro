@@ -15,13 +15,13 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
 ---
 
 <Header
-  title="Article Archive"
+  title="Report Archive"
   description="Research notes, field reports, incident records, and facility notices."
 />
 
 <main id="main" tabindex="-1">
   <section class="card article-archive" aria-labelledby="archive-title">
-    <h1 id="archive-title">Article Archive <span class="cursor" aria-hidden="true"></span></h1>
+    <h1 id="archive-title">Report Archive <span class="cursor" aria-hidden="true"></span></h1>
     <p class="lead">Research notes, field reports, incident records, and facility notices.</p>
 
     {articles.length > 0 ? (
@@ -41,7 +41,7 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
         ))}
       </ol>
     ) : (
-      <p class="article-empty">No published articles are currently available.</p>
+      <p class="article-empty">No published reports are currently available.</p>
     )}
   </section>
 
