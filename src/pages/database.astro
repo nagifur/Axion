@@ -40,6 +40,27 @@ const maximumContainmentEntries = entities
     label: entry.data.title,
   }));
 
+const safeEntries = Array.from(
+  new Map(
+    [
+      { href: '/Entities/s-002', label: 'S-002 - (Wisp Animation)' },
+      { href: '/Entities/s-003', label: 'S-003 - (A1 Tail Vore Animation)' },
+      { href: '/Entities/s-013', label: 'S-013 - (Soul Mirror)' },
+      { href: '/Entities/s-382', label: 'S-382 - (Mentioned in Not Enough Sleep)' },
+      { href: '/Entities/s-420', label: 'S-420 - (Star Mushrooms)' },
+      { href: '/Entities/s-552', label: 'S-552 - (Sprouty)' },
+      { href: '/Entities/s-688', label: 'S-688 - (Genesis Chroma)' },
+      ...entities
+        .filter((entry) => entry.data.containmentClass === 'Safe')
+        .map((entry) => ({
+          href: `/Entities/${contentSlug(entry.id)}`,
+          label: entry.data.title,
+        })),
+    ].map((entry) => [entry.href, entry] as const),
+  ),
+).map(([, entry]) => entry)
+  .sort((first, second) => first.label.localeCompare(second.label));
+
 const unassignedEntries = Array.from(
   new Map(
     [
@@ -67,16 +88,7 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
     },
     {
       title: 'Class S',
-      entries: [
-        { href: '/Entities/s-002', label: 'S-002 - (Wisp Animation)' },
-        { href: '/Entities/s-003', label: 'S-003 - (A1 Tail Vore Animation)' },
-        { href: '/Entities/s-013', label: 'S-013 - (Soul Mirror)' },
-        { href: '/Entities/s-402', label: 'S-402 - (Alien Alcoholic)' },
-        { href: '/Entities/s-382', label: 'S-382 - (Mentioned in Not Enough Sleep)' },
-        { href: '/Entities/s-420', label: 'S-420 - (Star Mushrooms)' },
-        { href: '/Entities/s-552', label: 'S-552 - (Sprouty)' },
-        { href: '/Entities/s-688', label: 'S-688 - (Genesis Chroma)' },
-      ],
+      entries: safeEntries,
     },
   ],
   right: [
