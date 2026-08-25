@@ -53,6 +53,17 @@ function repositionActiveTooltip() {
 window.addEventListener('scroll', repositionActiveTooltip, { passive: true, capture: true });
 window.addEventListener('resize', repositionActiveTooltip);
 
+// Return to the page that opened database content; the href remains a fallback for direct visits.
+document.addEventListener('click', function (event) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+  var link = event.target.closest('.article-return a, .article-return-top a');
+  if (!link || window.history.length <= 1) return;
+
+  event.preventDefault();
+  window.history.back();
+}, true);
+
 // Astro view transitions swap the document without reloading script.js, so all
 // DOM bindings must be re-run after every navigation via astro:page-load.
 document.addEventListener('astro:page-load', function () {
