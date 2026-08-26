@@ -28,8 +28,12 @@ Light containment is where most of S class entities are kept with some C class o
 Most cells are locked with metal doors and reinforced with security systems to prevent unauthorized access. No other special containment measures are typically required for entities housed in this level.
 
 
-<hr />
 
+
+<br />
+<br />
+<br />
+<hr />
 <div class="level-preview">
 	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
 	<p class="level-preview-caption">Sector surveillance loop</p>
