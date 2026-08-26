@@ -9,7 +9,7 @@ export default defineConfig({
   site: 'https://www.axionlabs.art',
   base: '/',
   markdown: {
-    remarkPlugins: [remarkArticleImage, [remarkAutoLinkReferences, { base: '' }], remarkHoverTooltip],
+    remarkPlugins: [remarkArticleImage, remarkHoverTooltip, [remarkAutoLinkReferences, { base: '' }]],
   },
   redirects: {
     "/caard": "http://nagifur.art",
