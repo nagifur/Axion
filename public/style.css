@@ -1364,15 +1364,36 @@
       background:rgba(6, 14, 20, 0.35);
   }
 
+  .level-preview-tag-error{
+    display:flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      color:var(--neon-cyan);
+      font-size:0.72rem;
+      letter-spacing:0.14em;
+      text-transform:uppercase;
+      border-bottom:1px solid rgba(57,255,234,0.25);
+      background:rgba(6, 14, 20, 0.35);
+  }
+
     .level-preview-tag::before{
       content:"";
       width:7px;
       height:7px;
       border-radius:50%;
-      background:var(--neon-red);
-      box-shadow:0 0 7px color-mix(in srgb, var(--neon-red) 75%, transparent);
+      background:var(--neon-green);
+      box-shadow:0 0 7px color-mix(in srgb, var(--neon-green) 75%, transparent);
       animation:level-preview-blink 1.6s steps(1) infinite;
     }
+    .level-preview-tag-error::before{
+      content:"";
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:var(--neon-red);
+      box-shadow:0 0 7px color-mix(in srgb, var(--neon-yellow) 75%, transparent);
+  }
 
     .level-preview-tag-unavailable::before{
       content:"";

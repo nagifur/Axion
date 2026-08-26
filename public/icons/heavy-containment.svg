@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="200" height="200" shape-rendering="crispEdges">
+	<defs>
+		<filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+			<feGaussianBlur stdDeviation="1.1"/>
+		</filter>
+		<filter id="borderGlow" x="-60%" y="-60%" width="220%" height="220%">
+			<feGaussianBlur stdDeviation="0.5"/>
+		</filter>
+		<g id="chamber">
+			<path d="M5 4h14v1h1v3H4V5h1zm-1 5h16v6H4zm0 7h16v3h-1v1H5v-1H4z"/>
+			<path d="M6 10h12v4H6z" fill="#3FD8FF"/>
+			<path d="m9 10-3 3v1h2l4-4zm6 0-4 4h2l4-4z" fill="#EAFCFF"/>
+			<path d="M5 6h3L6 8H4v-1zm7 0h3l-2 2h-3zm6 0h2v1l-1 1h-3zM4 17h3l-2 2H4zm7 0h3l-2 2H9zm6 0h3v1l-1 1h-4z" fill="#EAFCFF"/>
+		</g>
+	</defs>
+	<rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#00F0FF" opacity="0.6" filter="url(#borderGlow)"/>
+	<rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#7CFBFF"/>
+	<g fill="#00F0FF" opacity="0.85" filter="url(#glow)">
+		<use href="#chamber"/>
+	</g>
+	<g fill="#7CFBFF">
+		<use href="#chamber"/>
+	</g>
+</svg>

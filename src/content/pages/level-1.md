@@ -41,7 +41,7 @@ Every visit to the data servers must have a valid reason (eg. expanding storage,
 <div class="level-preview">
 	<span class="level-preview-tag">Live Feed</span>
 	<img src="/level-1.gif" alt="Level 1 sector walkthrough preview" loading="lazy" />
-	<p class="level-preview-caption">Sector surveillance loop — Level 1</p>
+	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">

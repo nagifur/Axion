@@ -43,7 +43,7 @@ Monitoring sector has a direct line of communication with security sector on Lev
 <div class="level-preview">
 	<span class="level-preview-tag-unavailable" >Snapshot - Live Off</span>
 	<img src="/level-2.png" alt="Level 2 sector walkthrough preview" loading="lazy" />
-	<p class="level-preview-caption">Sector surveillance loop — Level 2</p>
+	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
