@@ -10,7 +10,10 @@ This level of clearance is granted to all employees and interns who have complet
 
 
 <hr />
-
+<div class="level-preview">
+	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
 	<h3 style="margin:0;">Offices</h3>
 	<img src="/icons/offices.svg" alt="Offices icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
@@ -26,6 +29,10 @@ All communications are live monitored and logged by A1, and any repeated attempt
 
 
 <hr />
+<div class="level-preview">
+	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
 	<h3 style="margin:0;">Data Servers</h3>

@@ -8,7 +8,10 @@ Level 3 clearance grants access to heavy containment areas and it is the home of
 ## Sectors On this Level
 
 <hr />
-
+<div class="level-preview">
+	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
 	<h3 style="margin:0;">Heavy Containment</h3>
 	<img src="/icons/heavy-containment.svg" alt="Heavy Containment icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />

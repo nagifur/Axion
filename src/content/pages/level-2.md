@@ -12,6 +12,11 @@ Level 2 clearance grants access to light containment areas, monitoring stations 
 
 <hr />
 
+<div class="level-preview">
+	<span class="level-preview-tag">Live Feed</span>
+	<img src="/light-containment.gif" alt="Level 2 sector walkthrough preview" loading="lazy" />
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
 	<h3 style="margin:0;">Light Containment</h3>
 	<img src="/icons/light-containment.svg" alt="Light Containment icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
@@ -24,6 +29,11 @@ Most cells are locked with metal doors and reinforced with security systems to p
 
 
 <hr />
+
+<div class="level-preview">
+	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
 	<h3 style="margin:0;">Monitoring</h3>

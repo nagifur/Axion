@@ -10,6 +10,11 @@ This includes visitors, reception, and other non-authorized personnel.
 ## Sectors On this Level
 <hr />
 
+<div class="level-preview">
+	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
+
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
   <h3 style="margin:0;">Visitors</h3>
   <img src="/icons/visitor.svg" alt="Visitor icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
@@ -26,6 +31,11 @@ Visitors are encouraged to ask questions and learn about the facility's operatio
 >During work hours, Axion employees DO NOT talk to vsitors, unless you are providing a tour or escorting them to a specific area. 
 
 <hr />
+
+<div class="level-preview">
+	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
   <h3 style="margin:0;">Reception</h3>
