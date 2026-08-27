@@ -602,15 +602,29 @@
       pointer-events:none;
     }
     .card.is-window-floating{
-      position:fixed;
+      --profile-tint:var(--window-fullscreen-tint);
+      --profile-tint-soft:color-mix(in srgb, var(--window-fullscreen-tint) 18%, transparent);
+      --profile-tint-faint:color-mix(in srgb, var(--window-fullscreen-tint) 7%, transparent);
+      position:absolute;
       left:var(--window-x, 18px);
       top:var(--window-y, 18px);
       z-index:9996;
-      width:min(var(--window-width, 520px), calc(100vw - 24px));
-      max-width:calc(100vw - 24px);
-      max-height:calc(100vh - 24px);
-      overflow:auto;
+      width:var(--window-width, 520px);
+      max-width:none;
+      max-height:none;
       touch-action:none;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.15), transparent 46px),
+        linear-gradient(90deg, color-mix(in srgb, var(--window-fullscreen-tint) 14%, transparent), transparent 30%, color-mix(in srgb, var(--window-fullscreen-tint) 7%, transparent)),
+        linear-gradient(180deg, color-mix(in srgb, var(--card-top) 86%, var(--window-fullscreen-tint) 14%), color-mix(in srgb, var(--card-bottom) 92%, var(--window-fullscreen-tint) 8%));
+      border-color:color-mix(in srgb, var(--window-fullscreen-tint) 38%, var(--window-border));
+      box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-lg), 0 0 22px color-mix(in srgb, var(--window-fullscreen-tint) 10%, transparent);
+    }
+    html[data-theme="light"] .card.is-window-floating{
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.68), transparent 46px),
+        linear-gradient(90deg, color-mix(in srgb, var(--window-fullscreen-tint) 10%, transparent), transparent 32%, color-mix(in srgb, var(--window-fullscreen-tint) 5%, transparent)),
+        linear-gradient(180deg, color-mix(in srgb, var(--card-top) 90%, var(--window-fullscreen-tint) 10%), color-mix(in srgb, var(--card-bottom) 94%, var(--window-fullscreen-tint) 6%));
     }
     .card.is-window-dragging{
       z-index:9997;
@@ -706,23 +720,30 @@
       height:48px;
       z-index:2;
     }
-    .card.is-window-fullscreen .profile-name,
-    .card.is-window-fullscreen .db-title-cyan,
-    .card.is-window-fullscreen > h1,
-    .card.is-window-fullscreen > h2{
+    .card.is-window-floating::after,
+    .card.is-window-fullscreen::after{
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02)),
+        linear-gradient(90deg, transparent 74px, color-mix(in srgb, var(--window-fullscreen-tint) 22%, transparent), transparent 42%);
+      border-bottom-color:color-mix(in srgb, var(--window-fullscreen-tint) 28%, transparent);
+    }
+    .card:is(.is-window-floating, .is-window-fullscreen) .profile-name,
+    .card:is(.is-window-floating, .is-window-fullscreen) .db-title-cyan,
+    .card:is(.is-window-floating, .is-window-fullscreen) > h1,
+    .card:is(.is-window-floating, .is-window-fullscreen) > h2{
       color:var(--window-fullscreen-tint);
       text-shadow:0 0 12px var(--profile-tint-soft);
     }
-    .card.is-window-fullscreen .profile-nickname{ color:color-mix(in srgb, var(--window-fullscreen-tint) 72%, var(--neon-green)) }
-    .card.is-window-fullscreen .profile{ border-top-color:color-mix(in srgb, var(--window-fullscreen-tint) 35%, var(--line-soft)) }
-    .card.is-window-fullscreen .stat-cell{
+    .card:is(.is-window-floating, .is-window-fullscreen) .profile-nickname{ color:color-mix(in srgb, var(--window-fullscreen-tint) 72%, var(--neon-green)) }
+    .card:is(.is-window-floating, .is-window-fullscreen) .profile{ border-top-color:color-mix(in srgb, var(--window-fullscreen-tint) 35%, var(--line-soft)) }
+    .card:is(.is-window-floating, .is-window-fullscreen) .stat-cell{
       background:linear-gradient(90deg, var(--profile-tint-faint), color-mix(in srgb, var(--window-fullscreen-tint) 22%, var(--stat-cell)));
       border-left-color:var(--window-fullscreen-tint);
     }
-    .card.is-window-fullscreen .stat-value a{ color:var(--window-fullscreen-tint) }
-    .card.is-window-fullscreen .info-icon{ color:var(--window-fullscreen-tint) }
-    .card.is-window-fullscreen p a,
-    .card.is-window-fullscreen li a:not(.btn){ color:var(--window-fullscreen-tint) }
+    .card:is(.is-window-floating, .is-window-fullscreen) .stat-value a{ color:var(--window-fullscreen-tint) }
+    .card:is(.is-window-floating, .is-window-fullscreen) .info-icon{ color:var(--window-fullscreen-tint) }
+    .card:is(.is-window-floating, .is-window-fullscreen) p a,
+    .card:is(.is-window-floating, .is-window-fullscreen) li a:not(.btn){ color:var(--window-fullscreen-tint) }
     @keyframes window-minimize{
       0%{ opacity:1; transform:translateY(0) scaleY(1); transform-origin:top }
       100%{ opacity:.82; transform:translateY(-2px) scaleY(.98); transform-origin:top }

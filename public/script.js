@@ -95,12 +95,8 @@ document.addEventListener('astro:page-load', function () {
   }
 
   function setFloatingPosition(card, left, top) {
-    var rect = card.getBoundingClientRect();
-    var margin = 12;
-    var maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
-    var maxTop = Math.max(margin, window.innerHeight - Math.min(rect.height, window.innerHeight - margin * 2) - margin);
-    card.style.setProperty('--window-x', Math.round(Math.min(Math.max(left, margin), maxLeft)) + 'px');
-    card.style.setProperty('--window-y', Math.round(Math.min(Math.max(top, margin), maxTop)) + 'px');
+    card.style.setProperty('--window-x', Math.round(left) + 'px');
+    card.style.setProperty('--window-y', Math.round(top) + 'px');
   }
 
   function enterFloatingWindow(card, left, top) {
@@ -190,35 +186,49 @@ document.addEventListener('astro:page-load', function () {
       card.prepend(dragHandle);
       card.prepend(controls);
 
-      dragHandle.addEventListener('pointerdown', function(event){
-        if (event.button !== 0) return;
+      function beginWindowDrag(event) {
+        if (card._windowDragActive || event.button !== 0) return;
         if (card.classList.contains('is-window-fullscreen') || card.classList.contains('is-window-closing') || card.classList.contains('is-window-closed')) return;
 
         event.preventDefault();
+        card._windowDragActive = true;
         var rect = card.getBoundingClientRect();
         var offsetX = event.clientX - rect.left;
         var offsetY = event.clientY - rect.top;
+        var startLeft = rect.left + window.scrollX;
+        var startTop = rect.top + window.scrollY;
 
-        enterFloatingWindow(card, rect.left, rect.top);
+        enterFloatingWindow(card, startLeft, startTop);
         card.classList.add('is-window-dragging');
 
         function moveWindow(moveEvent) {
-          setFloatingPosition(card, moveEvent.clientX - offsetX, moveEvent.clientY - offsetY);
+          setFloatingPosition(card, moveEvent.clientX + window.scrollX - offsetX, moveEvent.clientY + window.scrollY - offsetY);
         }
 
         function stopDragging() {
+          card._windowDragActive = false;
           card.classList.remove('is-window-dragging');
-          dragHandle.removeEventListener('pointermove', moveWindow);
-          dragHandle.removeEventListener('pointerup', stopDragging);
-          dragHandle.removeEventListener('pointercancel', stopDragging);
+          document.removeEventListener('pointermove', moveWindow);
+          document.removeEventListener('pointerup', stopDragging);
+          document.removeEventListener('pointercancel', stopDragging);
+          document.removeEventListener('mousemove', moveWindow);
+          document.removeEventListener('mouseup', stopDragging);
           try { dragHandle.releasePointerCapture(event.pointerId); } catch (_) {}
         }
 
-        try { dragHandle.setPointerCapture(event.pointerId); } catch (_) {}
-        dragHandle.addEventListener('pointermove', moveWindow);
-        dragHandle.addEventListener('pointerup', stopDragging, { once: true });
-        dragHandle.addEventListener('pointercancel', stopDragging, { once: true });
-      });
+        if (event.type === 'pointerdown') {
+          try { dragHandle.setPointerCapture(event.pointerId); } catch (_) {}
+          document.addEventListener('pointermove', moveWindow);
+          document.addEventListener('pointerup', stopDragging, { once: true });
+          document.addEventListener('pointercancel', stopDragging, { once: true });
+        } else {
+          document.addEventListener('mousemove', moveWindow);
+          document.addEventListener('mouseup', stopDragging, { once: true });
+        }
+      }
+
+      dragHandle.addEventListener('pointerdown', beginWindowDrag);
+      dragHandle.addEventListener('mousedown', beginWindowDrag);
 
       closeButton.addEventListener('click', function(event){
         event.preventDefault();
