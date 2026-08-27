@@ -145,7 +145,23 @@ document.addEventListener('astro:page-load', function () {
         event.preventDefault();
         event.stopPropagation();
         restoreWindowPlacement(card);
-        card.classList.add('is-window-closed');
+        var animationsOff = document.body.classList.contains('animations-off') || document.documentElement.getAttribute('data-animations') === 'off';
+        var closeTimer = null;
+        function closeWindow() {
+          if (card.classList.contains('is-window-closed')) return;
+          if (closeTimer) window.clearTimeout(closeTimer);
+          card.classList.add('is-window-closed');
+          card.classList.remove('is-window-closing');
+        }
+        if (animationsOff) {
+          closeWindow();
+        } else {
+          card.classList.add('is-window-closing');
+          card.addEventListener('animationend', function(event){
+            if (event.target === card) closeWindow();
+          }, { once: true });
+          closeTimer = window.setTimeout(closeWindow, 320);
+        }
         card.classList.remove('is-window-minimized', 'is-window-fullscreen');
         if (!document.querySelector('.card.is-window-fullscreen')) {
           document.body.classList.remove('has-fullscreen-window');

@@ -563,30 +563,65 @@
       gap:6px;
     }
     .window-control{
+      --window-control-scale:1;
       width:16px;
       height:14px;
       padding:0;
       border:1px solid color-mix(in srgb, currentColor 56%, transparent);
       border-radius:4px;
       color:var(--window-node-1);
-      background:linear-gradient(180deg, color-mix(in srgb, currentColor 42%, transparent), color-mix(in srgb, currentColor 18%, transparent));
-      box-shadow:0 0 10px color-mix(in srgb, currentColor 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.18);
+      background:currentColor;
+      box-shadow:0 0 10px color-mix(in srgb, currentColor 30%, transparent);
       cursor:pointer;
-      transform:skewX(-16deg);
+      transform:skewX(-16deg) scaleX(var(--window-control-scale));
       transition:transform .14s ease, filter .14s ease, box-shadow .14s ease;
+      overflow:hidden;
+    }
+    .window-control::after{
+      content:"";
+      position:absolute;
+      inset:-1px;
+      background:linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+      opacity:0;
+      transform:translateX(-140%);
+      pointer-events:none;
     }
     .window-control:hover{
       filter:brightness(1.28);
-      transform:skewX(-16deg) translateY(-1px);
-      box-shadow:0 0 14px color-mix(in srgb, currentColor 46%, transparent), inset 0 1px 0 rgba(255,255,255,0.24);
+      transform:skewX(-16deg) translateY(-1px) scaleX(1.08);
+      box-shadow:0 0 14px color-mix(in srgb, currentColor 46%, transparent);
     }
-    .window-control:active{ transform:skewX(-16deg) translateY(1px) }
+    body:not(.animations-off) .window-control{
+      animation:window-control-idle 3.8s ease-in-out 1.2s infinite;
+    }
+    body:not(.animations-off) .window-control:hover::after{ animation:window-control-scan .58s ease-out both }
+    .window-control:active{ transform:skewX(-16deg) translateY(1px) scaleX(0.9) }
     .window-control-minimize{ color:var(--window-node-2) }
     .window-control-fullscreen{ color:var(--window-node-3) }
+    .window-control[aria-pressed="true"]{
+      --window-control-scale:1.18;
+      box-shadow:0 0 18px color-mix(in srgb, currentColor 58%, transparent), 0 0 0 2px color-mix(in srgb, currentColor 20%, transparent);
+    }
+    @keyframes window-control-idle{
+      0%, 78%, 100%{ box-shadow:0 0 10px color-mix(in srgb, currentColor 30%, transparent), inset 0 1px 0 rgba(255,255,255,0.18) }
+      86%{ box-shadow:0 0 16px color-mix(in srgb, currentColor 48%, transparent), inset 0 1px 0 rgba(255,255,255,0.26) }
+    }
+    @keyframes window-control-scan{
+      0%{ opacity:0; transform:translateX(-140%) }
+      18%{ opacity:.78 }
+      100%{ opacity:0; transform:translateX(140%) }
+    }
     .card.is-window-minimized{
       min-height:42px;
       max-height:42px;
       padding-bottom:0;
+    }
+    body:not(.animations-off) .card.is-window-minimized{
+      animation:window-minimize .24s ease-out both;
+    }
+    body:not(.animations-off) .card.is-window-closing{
+      animation:window-close .22s ease-in both;
+      pointer-events:none;
     }
     .card.is-window-fullscreen{
       --profile-tint:var(--window-fullscreen-tint);
@@ -607,6 +642,9 @@
       border-color:color-mix(in srgb, var(--window-fullscreen-tint) 42%, var(--window-border));
       box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-lg), 0 0 28px color-mix(in srgb, var(--window-fullscreen-tint) 12%, transparent);
       backdrop-filter:none;
+    }
+    body:not(.animations-off) .card.is-window-fullscreen{
+      animation:window-fullscreen-open .26s cubic-bezier(0.2, 0.72, 0.2, 1) both;
     }
     html[data-theme="light"] .card.is-window-fullscreen{
       background:
@@ -641,6 +679,19 @@
     .card.is-window-fullscreen .info-icon{ color:var(--window-fullscreen-tint) }
     .card.is-window-fullscreen p a,
     .card.is-window-fullscreen li a:not(.btn){ color:var(--window-fullscreen-tint) }
+    @keyframes window-minimize{
+      0%{ opacity:1; transform:translateY(0) scaleY(1); transform-origin:top }
+      100%{ opacity:.82; transform:translateY(-2px) scaleY(.98); transform-origin:top }
+    }
+    @keyframes window-close{
+      0%{ opacity:1; transform:translateY(0) scale(.99); filter:brightness(1.1) }
+      38%{ opacity:1; transform:translateY(-3px) scale(1.01); filter:brightness(1.25) }
+      100%{ opacity:0; transform:translateY(8px) scale(.96); filter:brightness(.7) }
+    }
+    @keyframes window-fullscreen-open{
+      0%{ opacity:.72; transform:translateY(10px) scale(.985); filter:brightness(1.16) }
+      100%{ opacity:1; transform:translateY(0) scale(1); filter:brightness(1) }
+    }
     .card::after{
       content:"";
       position:absolute; inset:0 0 auto 0; height:38px;
@@ -1751,6 +1802,8 @@
     body.animations-off .card > h1,
     body.animations-off .article-header h1,
     body.animations-off p.lead,
+    body.animations-off .window-control,
+    body.animations-off .window-control::after,
     body.animations-off .cursor{
       animation:none !important;
       clip-path:inset(0 0 0 0);
@@ -1758,8 +1811,12 @@
       transform:none;
     }
     body.animations-off .db-tab,
-    body.animations-off .db-panel{
+    body.animations-off .db-panel,
+    body.animations-off .window-control{
       transition:none !important;
+    }
+    body.animations-off .window-control{
+      transform:skewX(-16deg) scaleX(var(--window-control-scale));
     }
     body.animations-off::after{
       animation:none !important;
