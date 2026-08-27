@@ -67,6 +67,125 @@ document.addEventListener('click', function (event) {
 // Astro view transitions swap the document without reloading script.js, so all
 // DOM bindings must be re-run after every navigation via astro:page-load.
 document.addEventListener('astro:page-load', function () {
+  function getOwnFullscreenButton(card) {
+    return card.querySelector(':scope > .window-controls .window-control-fullscreen');
+  }
+
+  function restoreWindowPlacement(card) {
+    var placeholder = card._windowPlaceholder;
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(card, placeholder);
+      placeholder.remove();
+    }
+    card._windowPlaceholder = null;
+  }
+
+  function enterFullscreenWindow(card) {
+    if (!card._windowPlaceholder && card.parentNode) {
+      var placeholder = document.createComment('window placeholder');
+      card.parentNode.insertBefore(placeholder, card);
+      card._windowPlaceholder = placeholder;
+    }
+    document.body.appendChild(card);
+    card.classList.add('is-window-fullscreen');
+  }
+
+  function clearFullscreenWindow(activeCard) {
+    document.querySelectorAll('.card.is-window-fullscreen').forEach(function(card){
+      if (!activeCard || card !== activeCard) {
+        card.classList.remove('is-window-fullscreen');
+        restoreWindowPlacement(card);
+        var fullscreenButton = getOwnFullscreenButton(card);
+        if (fullscreenButton) fullscreenButton.setAttribute('aria-pressed', 'false');
+      }
+    });
+
+    if (!activeCard) {
+      document.body.classList.remove('has-fullscreen-window');
+    }
+  }
+
+  function initializeWindowControls() {
+    document.querySelectorAll('.card').forEach(function(card){
+      if (card.dataset.windowControlsBound === 'true') return;
+      card.dataset.windowControlsBound = 'true';
+
+      var controls = document.createElement('div');
+      controls.className = 'window-controls';
+      controls.setAttribute('aria-label', 'Window controls');
+
+      var closeButton = document.createElement('button');
+      closeButton.className = 'window-control window-control-close';
+      closeButton.type = 'button';
+      closeButton.setAttribute('aria-label', 'Close window');
+      closeButton.title = 'Close window';
+
+      var minimizeButton = document.createElement('button');
+      minimizeButton.className = 'window-control window-control-minimize';
+      minimizeButton.type = 'button';
+      minimizeButton.setAttribute('aria-label', 'Minimize window');
+      minimizeButton.setAttribute('aria-pressed', 'false');
+      minimizeButton.title = 'Minimize window';
+
+      var fullscreenButton = document.createElement('button');
+      fullscreenButton.className = 'window-control window-control-fullscreen';
+      fullscreenButton.type = 'button';
+      fullscreenButton.setAttribute('aria-label', 'Toggle fullscreen window');
+      fullscreenButton.setAttribute('aria-pressed', 'false');
+      fullscreenButton.title = 'Toggle fullscreen window';
+
+      controls.append(closeButton, minimizeButton, fullscreenButton);
+      card.prepend(controls);
+
+      closeButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        restoreWindowPlacement(card);
+        card.classList.add('is-window-closed');
+        card.classList.remove('is-window-minimized', 'is-window-fullscreen');
+        if (!document.querySelector('.card.is-window-fullscreen')) {
+          document.body.classList.remove('has-fullscreen-window');
+        }
+      });
+
+      minimizeButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        var isMinimized = card.classList.toggle('is-window-minimized');
+        if (isMinimized) {
+          card.classList.remove('is-window-fullscreen');
+          restoreWindowPlacement(card);
+          fullscreenButton.setAttribute('aria-pressed', 'false');
+          if (!document.querySelector('.card.is-window-fullscreen')) {
+            document.body.classList.remove('has-fullscreen-window');
+          }
+        }
+        minimizeButton.setAttribute('aria-pressed', isMinimized ? 'true' : 'false');
+        minimizeButton.title = isMinimized ? 'Restore window' : 'Minimize window';
+      });
+
+      fullscreenButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        var willFullscreen = !card.classList.contains('is-window-fullscreen');
+        clearFullscreenWindow(card);
+        if (willFullscreen) {
+          enterFullscreenWindow(card);
+        } else {
+          card.classList.remove('is-window-fullscreen');
+          restoreWindowPlacement(card);
+        }
+        card.classList.remove('is-window-minimized');
+        minimizeButton.setAttribute('aria-pressed', 'false');
+        minimizeButton.title = 'Minimize window';
+        fullscreenButton.setAttribute('aria-pressed', willFullscreen ? 'true' : 'false');
+        document.body.classList.toggle('has-fullscreen-window', willFullscreen);
+      });
+    });
+  }
+
+  initializeWindowControls();
+
   function setImageState(img) {
     if (!img || !img.getAttribute('src') || img.dataset.imageStateBound === 'true') return;
     img.dataset.imageStateBound = 'true';
