@@ -67,8 +67,52 @@ document.addEventListener('click', function (event) {
 // Astro view transitions swap the document without reloading script.js, so all
 // DOM bindings must be re-run after every navigation via astro:page-load.
 document.addEventListener('astro:page-load', function () {
+  var topWindowZ = 9996;
+
   function getOwnFullscreenButton(card) {
     return card.querySelector(':scope > .window-controls .window-control-fullscreen');
+  }
+
+  function rememberWindowTint(card) {
+    var profileTint = getComputedStyle(card).getPropertyValue('--profile-tint').trim();
+    if (profileTint) {
+      card.style.setProperty('--window-fullscreen-tint', profileTint);
+    }
+  }
+
+  function createWindowPlaceholder(card) {
+    if (card._windowPlaceholder && card._windowPlaceholder.parentNode) return card._windowPlaceholder;
+    if (!card.parentNode) return null;
+
+    var rect = card.getBoundingClientRect();
+    var placeholder = document.createElement('div');
+    placeholder.className = 'window-placeholder';
+    placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.style.setProperty('--window-placeholder-height', Math.round(rect.height) + 'px');
+    card.parentNode.insertBefore(placeholder, card);
+    card._windowPlaceholder = placeholder;
+    return placeholder;
+  }
+
+  function setFloatingPosition(card, left, top) {
+    var rect = card.getBoundingClientRect();
+    var margin = 12;
+    var maxLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+    var maxTop = Math.max(margin, window.innerHeight - Math.min(rect.height, window.innerHeight - margin * 2) - margin);
+    card.style.setProperty('--window-x', Math.round(Math.min(Math.max(left, margin), maxLeft)) + 'px');
+    card.style.setProperty('--window-y', Math.round(Math.min(Math.max(top, margin), maxTop)) + 'px');
+  }
+
+  function enterFloatingWindow(card, left, top) {
+    createWindowPlaceholder(card);
+    rememberWindowTint(card);
+
+    var rect = card.getBoundingClientRect();
+    card.style.setProperty('--window-width', Math.round(rect.width) + 'px');
+    document.body.appendChild(card);
+    card.classList.add('is-window-floating');
+    card.style.zIndex = String(++topWindowZ);
+    setFloatingPosition(card, left, top);
   }
 
   function restoreWindowPlacement(card) {
@@ -78,20 +122,20 @@ document.addEventListener('astro:page-load', function () {
       placeholder.remove();
     }
     card._windowPlaceholder = null;
+    card.classList.remove('is-window-floating', 'is-window-dragging');
+    card.style.removeProperty('--window-x');
+    card.style.removeProperty('--window-y');
+    card.style.removeProperty('--window-width');
+    card.style.zIndex = '';
   }
 
   function enterFullscreenWindow(card) {
-    if (!card._windowPlaceholder && card.parentNode) {
-      var placeholder = document.createComment('window placeholder');
-      card.parentNode.insertBefore(placeholder, card);
-      card._windowPlaceholder = placeholder;
-    }
-    var profileTint = getComputedStyle(card).getPropertyValue('--profile-tint').trim();
-    if (profileTint) {
-      card.style.setProperty('--window-fullscreen-tint', profileTint);
-    }
+    createWindowPlaceholder(card);
+    rememberWindowTint(card);
     document.body.appendChild(card);
+    card.classList.remove('is-window-floating', 'is-window-dragging');
     card.classList.add('is-window-fullscreen');
+    card.style.zIndex = '';
   }
 
   function clearFullscreenWindow(activeCard) {
@@ -118,6 +162,10 @@ document.addEventListener('astro:page-load', function () {
       controls.className = 'window-controls';
       controls.setAttribute('aria-label', 'Window controls');
 
+      var dragHandle = document.createElement('div');
+      dragHandle.className = 'window-drag-handle';
+      dragHandle.setAttribute('aria-hidden', 'true');
+
       var closeButton = document.createElement('button');
       closeButton.className = 'window-control window-control-close';
       closeButton.type = 'button';
@@ -139,7 +187,38 @@ document.addEventListener('astro:page-load', function () {
       fullscreenButton.title = 'Toggle fullscreen window';
 
       controls.append(closeButton, minimizeButton, fullscreenButton);
+      card.prepend(dragHandle);
       card.prepend(controls);
+
+      dragHandle.addEventListener('pointerdown', function(event){
+        if (event.button !== 0) return;
+        if (card.classList.contains('is-window-fullscreen') || card.classList.contains('is-window-closing') || card.classList.contains('is-window-closed')) return;
+
+        event.preventDefault();
+        var rect = card.getBoundingClientRect();
+        var offsetX = event.clientX - rect.left;
+        var offsetY = event.clientY - rect.top;
+
+        enterFloatingWindow(card, rect.left, rect.top);
+        card.classList.add('is-window-dragging');
+
+        function moveWindow(moveEvent) {
+          setFloatingPosition(card, moveEvent.clientX - offsetX, moveEvent.clientY - offsetY);
+        }
+
+        function stopDragging() {
+          card.classList.remove('is-window-dragging');
+          dragHandle.removeEventListener('pointermove', moveWindow);
+          dragHandle.removeEventListener('pointerup', stopDragging);
+          dragHandle.removeEventListener('pointercancel', stopDragging);
+          try { dragHandle.releasePointerCapture(event.pointerId); } catch (_) {}
+        }
+
+        try { dragHandle.setPointerCapture(event.pointerId); } catch (_) {}
+        dragHandle.addEventListener('pointermove', moveWindow);
+        dragHandle.addEventListener('pointerup', stopDragging, { once: true });
+        dragHandle.addEventListener('pointercancel', stopDragging, { once: true });
+      });
 
       closeButton.addEventListener('click', function(event){
         event.preventDefault();
@@ -171,10 +250,11 @@ document.addEventListener('astro:page-load', function () {
       minimizeButton.addEventListener('click', function(event){
         event.preventDefault();
         event.stopPropagation();
+        var wasFullscreen = card.classList.contains('is-window-fullscreen');
         var isMinimized = card.classList.toggle('is-window-minimized');
         if (isMinimized) {
           card.classList.remove('is-window-fullscreen');
-          restoreWindowPlacement(card);
+          if (wasFullscreen) restoreWindowPlacement(card);
           fullscreenButton.setAttribute('aria-pressed', 'false');
           if (!document.querySelector('.card.is-window-fullscreen')) {
             document.body.classList.remove('has-fullscreen-window');

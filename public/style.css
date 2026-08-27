@@ -561,7 +561,23 @@
       display:flex;
       align-items:center;
       gap:6px;
+      cursor:grab;
+      touch-action:none;
+      user-select:none;
     }
+    .window-controls:active{ cursor:grabbing }
+    .window-drag-handle{
+      position:absolute;
+      left:0;
+      right:0;
+      top:0;
+      height:38px;
+      z-index:2;
+      cursor:grab;
+      touch-action:none;
+      user-select:none;
+    }
+    .window-drag-handle:active{ cursor:grabbing }
     .window-control{
       --window-control-scale:1;
       width:16px;
@@ -576,6 +592,33 @@
       transform:skewX(-16deg) scaleX(var(--window-control-scale));
       transition:transform .14s ease, filter .14s ease, box-shadow .14s ease;
       overflow:hidden;
+    }
+    .window-placeholder{
+      min-height:var(--window-placeholder-height, 42px);
+      border:1px dashed color-mix(in srgb, var(--line) 24%, transparent);
+      border-radius:var(--radius-lg);
+      background:color-mix(in srgb, var(--panel-alt) 24%, transparent);
+      opacity:.34;
+      pointer-events:none;
+    }
+    .card.is-window-floating{
+      position:fixed;
+      left:var(--window-x, 18px);
+      top:var(--window-y, 18px);
+      z-index:9996;
+      width:min(var(--window-width, 520px), calc(100vw - 24px));
+      max-width:calc(100vw - 24px);
+      max-height:calc(100vh - 24px);
+      overflow:auto;
+      touch-action:none;
+    }
+    .card.is-window-dragging{
+      z-index:9997;
+      cursor:grabbing;
+      box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-lg), 0 0 30px color-mix(in srgb, var(--window-fullscreen-tint) 16%, transparent);
+    }
+    body:not(.animations-off) .card.is-window-floating:not(.is-window-dragging){
+      transition:left .12s ease-out, top .12s ease-out, box-shadow .16s ease;
     }
     .window-control::after{
       content:"";
@@ -656,6 +699,7 @@
       position:absolute;
       top:16px;
     }
+    .card.is-window-fullscreen > .window-drag-handle{ height:48px }
     body.has-fullscreen-window{ overflow:hidden }
     .card.is-window-closed{ display:none !important }
     .card.is-window-fullscreen::after{
@@ -1812,6 +1856,7 @@
     }
     body.animations-off .db-tab,
     body.animations-off .db-panel,
+    body.animations-off .card.is-window-floating,
     body.animations-off .window-control{
       transition:none !important;
     }
