@@ -229,7 +229,7 @@
     .site-header{
       display:flex; align-items:center; justify-content:space-between; gap:18px;
       max-width:1200px; width:100%; margin:0 auto;
-      padding:18px 18px 14px 72px;
+      padding:18px 18px 14px;
       background:
         linear-gradient(180deg, rgba(255,255,255,0.12), transparent 42%),
         linear-gradient(180deg, var(--surface-top), var(--surface-bottom));
@@ -241,18 +241,6 @@
         0 0 0 1px rgba(122, 169, 255, 0.06);
       position:relative;
       backdrop-filter: var(--window-blur);
-    }
-    .site-header::before{
-      content:"";
-      position:absolute;
-      left:18px;
-      top:20px;
-      width:14px;
-      height:8px;
-      border-radius:3px;
-      background:var(--window-node-1);
-      box-shadow:20px 0 0 var(--window-node-2), 40px 0 0 var(--window-node-3), 0 0 13px var(--window-node-glow), 20px 0 13px color-mix(in srgb, var(--window-node-2) 34%, transparent), 40px 0 13px color-mix(in srgb, var(--window-node-3) 32%, transparent);
-      transform:skewX(-16deg);
     }
     html[data-theme="light"] .site-header{
       border-color:rgba(13, 61, 86, 0.24);
@@ -765,7 +753,7 @@
         grid-template-rows:auto auto auto;
         align-items:center;
         gap:8px 12px;
-        padding:42px 14px 14px;
+        padding:16px 14px 14px;
       }
       .brand{ grid-column:1; grid-row:1; }
       .header-tools{ display:contents; }
@@ -1982,7 +1970,7 @@ img.image-error {
 
 @media (max-width:880px){
   body{ padding:12px 12px 18px; }
-  .site-header{ align-items:flex-start; padding:42px 14px 12px; }
+  .site-header{ align-items:flex-start; padding:16px 14px 12px; }
   .site-header::after{ display:block; }
   .brand{ min-width:0; }
   .brand-copy{ min-width:0; }
@@ -2007,7 +1995,7 @@ img.image-error {
 
 @media (max-width:520px){
   body{ font-size:20px; }
-  .site-header{ padding:42px 12px 10px; }
+  .site-header{ padding:14px 12px 10px; }
   .logo{ width:58px; height:44px; }
   .brand-title{ font-size:1.1rem; }
   .brand-meta{ font-size:0.58rem; letter-spacing:0.1em; }
