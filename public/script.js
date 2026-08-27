@@ -86,6 +86,10 @@ document.addEventListener('astro:page-load', function () {
       card.parentNode.insertBefore(placeholder, card);
       card._windowPlaceholder = placeholder;
     }
+    var profileTint = getComputedStyle(card).getPropertyValue('--profile-tint').trim();
+    if (profileTint) {
+      card.style.setProperty('--window-fullscreen-tint', profileTint);
+    }
     document.body.appendChild(card);
     card.classList.add('is-window-fullscreen');
   }

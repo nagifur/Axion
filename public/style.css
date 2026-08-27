@@ -94,6 +94,7 @@
       --window-node-2: var(--neon-blue);
       --window-node-3: var(--neon-cyan);
       --window-node-glow:rgba(126,245,255,0.28);
+      --window-fullscreen-tint:var(--neon-cyan);
       font-family: ui-monospace, SFMono-Regular, "Segoe UI Mono", "Roboto Mono", "Courier New", monospace;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -132,6 +133,7 @@
       --window-node-2:#416fae;
       --window-node-3:#a35f98;
       --window-node-glow:rgba(15,93,122,0.18);
+      --window-fullscreen-tint:var(--neon-cyan);
     }
 
     *{box-sizing:border-box}
@@ -587,6 +589,9 @@
       padding-bottom:0;
     }
     .card.is-window-fullscreen{
+      --profile-tint:var(--window-fullscreen-tint);
+      --profile-tint-soft:color-mix(in srgb, var(--window-fullscreen-tint) 18%, transparent);
+      --profile-tint-faint:color-mix(in srgb, var(--window-fullscreen-tint) 7%, transparent);
       position:fixed;
       inset:18px;
       z-index:9998;
@@ -597,15 +602,17 @@
       overflow:auto;
       background:
         linear-gradient(180deg, rgba(255,255,255,0.09), transparent 54px),
-        linear-gradient(90deg, rgba(126,245,255,0.07), transparent 30%, rgba(255,77,210,0.04)),
-        linear-gradient(180deg, #263643 0%, #101924 44%, #070b11 100%);
+        linear-gradient(90deg, color-mix(in srgb, var(--window-fullscreen-tint) 18%, transparent), transparent 32%, color-mix(in srgb, var(--window-fullscreen-tint) 10%, transparent)),
+        linear-gradient(180deg, color-mix(in srgb, #263643 82%, var(--window-fullscreen-tint) 18%) 0%, color-mix(in srgb, #101924 90%, var(--window-fullscreen-tint) 10%) 44%, #070b11 100%);
+      border-color:color-mix(in srgb, var(--window-fullscreen-tint) 42%, var(--window-border));
+      box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-lg), 0 0 28px color-mix(in srgb, var(--window-fullscreen-tint) 12%, transparent);
       backdrop-filter:none;
     }
     html[data-theme="light"] .card.is-window-fullscreen{
       background:
         linear-gradient(180deg, rgba(255,255,255,0.78), transparent 54px),
-        linear-gradient(90deg, rgba(15,93,122,0.08), transparent 34%, rgba(163,95,152,0.05)),
-        linear-gradient(180deg, #f8fcff 0%, #e4eef6 52%, #d4e1eb 100%);
+        linear-gradient(90deg, color-mix(in srgb, var(--window-fullscreen-tint) 12%, transparent), transparent 34%, color-mix(in srgb, var(--window-fullscreen-tint) 8%, transparent)),
+        linear-gradient(180deg, color-mix(in srgb, #f8fcff 90%, var(--window-fullscreen-tint) 10%) 0%, color-mix(in srgb, #e4eef6 92%, var(--window-fullscreen-tint) 8%) 52%, #d4e1eb 100%);
     }
     .card.is-window-fullscreen > .window-controls{
       position:absolute;
@@ -617,6 +624,23 @@
       height:48px;
       z-index:2;
     }
+    .card.is-window-fullscreen .profile-name,
+    .card.is-window-fullscreen .db-title-cyan,
+    .card.is-window-fullscreen > h1,
+    .card.is-window-fullscreen > h2{
+      color:var(--window-fullscreen-tint);
+      text-shadow:0 0 12px var(--profile-tint-soft);
+    }
+    .card.is-window-fullscreen .profile-nickname{ color:color-mix(in srgb, var(--window-fullscreen-tint) 72%, var(--neon-green)) }
+    .card.is-window-fullscreen .profile{ border-top-color:color-mix(in srgb, var(--window-fullscreen-tint) 35%, var(--line-soft)) }
+    .card.is-window-fullscreen .stat-cell{
+      background:linear-gradient(90deg, var(--profile-tint-faint), color-mix(in srgb, var(--window-fullscreen-tint) 22%, var(--stat-cell)));
+      border-left-color:var(--window-fullscreen-tint);
+    }
+    .card.is-window-fullscreen .stat-value a{ color:var(--window-fullscreen-tint) }
+    .card.is-window-fullscreen .info-icon{ color:var(--window-fullscreen-tint) }
+    .card.is-window-fullscreen p a,
+    .card.is-window-fullscreen li a:not(.btn){ color:var(--window-fullscreen-tint) }
     .card::after{
       content:"";
       position:absolute; inset:0 0 auto 0; height:38px;
