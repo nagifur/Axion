@@ -4,9 +4,6 @@
 document.addEventListener('astro:before-swap', function (event) {
   var current = document.documentElement.getAttribute('data-theme');
   if (current) event.newDocument.documentElement.setAttribute('data-theme', current);
-  if (document.documentElement.classList.contains('pixel-mode')) {
-    event.newDocument.documentElement.classList.add('pixel-mode');
-  }
   // The incoming document's <html> is fresh (no 'js' class yet), so the inline
   // .tooltip-bubble fallback would flash alongside the JS portal without this.
   event.newDocument.documentElement.classList.add('js');
@@ -454,32 +451,6 @@ document.addEventListener('astro:page-load', function () {
         updateToggle(next);
         stored = next;
         try { localStorage.setItem('theme', next); } catch (_) {}
-      });
-    }
-  })();
-
-  // Pixel mode toggle: preview flat/dithered, no-gradient, nearest-neighbour styling
-  (function(){
-    function updatePixelToggle(on){
-      var btn = document.getElementById('pixel-mode-toggle');
-      if (!btn) return;
-      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-      btn.textContent = on ? 'Pixel Mode On' : 'Pixel Mode';
-      btn.title = btn.textContent;
-    }
-
-    var stored = null;
-    try { stored = localStorage.getItem('pixel-mode') === '1'; } catch (_) {}
-    document.documentElement.classList.toggle('pixel-mode', !!stored);
-    updatePixelToggle(!!stored);
-
-    var toggle = document.getElementById('pixel-mode-toggle');
-    if (toggle){
-      toggle.addEventListener('click', function(){
-        var next = !document.documentElement.classList.contains('pixel-mode');
-        document.documentElement.classList.toggle('pixel-mode', next);
-        updatePixelToggle(next);
-        try { localStorage.setItem('pixel-mode', next ? '1' : '0'); } catch (_) {}
       });
     }
   })();

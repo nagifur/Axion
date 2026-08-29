@@ -40,9 +40,6 @@ const ogImageURL = new URL(image, Astro.site);
         var theme = stored || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.classList.add('js');
-        if (localStorage.getItem('pixel-mode') === '1') {
-          document.documentElement.classList.add('pixel-mode');
-        }
       } catch (_) {}
     })();
   </script>
@@ -51,7 +48,6 @@ const ogImageURL = new URL(image, Astro.site);
   <link rel="preload" href={rootUrl('Logo.svg')} as="image" type="image/svg+xml" />
   <link rel="preload" href={rootUrl('Logo-light.svg')} as="image" type="image/svg+xml" />
   <link rel="stylesheet" href={rootUrl('style.css')}/>
-  <link rel="stylesheet" href={rootUrl('pixel-style.css')}/>
   <link rel="icon" type="image/svg+xml" href={rootUrl('favicon.svg')} />
   <script src={rootUrl('script.js')} defer></script>
   <title>{pageTitle}</title>
@@ -106,7 +102,6 @@ const ogImageURL = new URL(image, Astro.site);
         <span class="system-kicker">System</span>
         <button id="animations-toggle" class="utility-toggle animation-toggle" aria-pressed="true" title="Toggle animations" aria-label="Toggle animations">Animations On</button>
         <button id="theme-toggle" class="utility-toggle theme-toggle" aria-pressed="false" title="Toggle theme">Light Mode</button>
-        <button id="pixel-mode-toggle" class="utility-toggle" aria-pressed="false" title="Toggle pixel mode" aria-label="Toggle pixel mode">Pixel Mode</button>
       </div>
     </div>
     
