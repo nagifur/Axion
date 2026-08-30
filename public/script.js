@@ -323,6 +323,54 @@ document.addEventListener('astro:page-load', function () {
     setActiveTab(initial, false);
   })();
 
+  // Database link legend: filter listed entries by link color
+  (function(){
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('.db-legend-filter'));
+    if (!buttons.length) return;
+
+    var hint = document.querySelector('[data-db-filter-hint]');
+    var items = Array.prototype.slice.call(document.querySelectorAll('.db-panels .db-list > li'));
+    var groups = Array.prototype.slice.call(document.querySelectorAll('.db-panels .db-group'));
+    var activeFilter = null;
+
+    function categoryOf(link){
+      if (!link) return null;
+      if (link.classList.contains('patreon')) return 'patreon';
+      if (link.classList.contains('inactive')) return 'unavailable';
+      if (link.classList.contains('active')) return 'canon';
+      return null;
+    }
+
+    function apply(){
+      items.forEach(function(item){
+        var matches = !activeFilter || categoryOf(item.querySelector('a')) === activeFilter;
+        item.classList.toggle('db-filter-hidden', !matches);
+      });
+
+      groups.forEach(function(group){
+        var groupItems = Array.prototype.slice.call(group.querySelectorAll('.db-list > li'));
+        var hasVisible = groupItems.some(function(item){ return !item.classList.contains('db-filter-hidden'); });
+        group.classList.toggle('db-filter-hidden', groupItems.length > 0 && !hasVisible);
+      });
+
+      buttons.forEach(function(button){
+        button.setAttribute('aria-pressed', button.dataset.dbFilter === activeFilter ? 'true' : 'false');
+      });
+
+      if (hint) hint.hidden = !activeFilter;
+    }
+
+    buttons.forEach(function(button){
+      button.addEventListener('click', function(){
+        var value = button.dataset.dbFilter;
+        activeFilter = activeFilter === value ? null : value;
+        apply();
+      });
+    });
+
+    apply();
+  })();
+
   // Animation toggle: apply and persist atmospheric motion preference
   (function(){
     var storageKey = 'animations';

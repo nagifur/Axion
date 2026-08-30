@@ -169,10 +169,11 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         
         <h2 id="sec-link-legend" class="db-title-cyan">Link Legend</h2>
         <ul class="db-legend-list">
-          <li class="db-legend-item"><span class="db-legend-swatch db-legend-cyan">Cyan</span> - Canon </li>
-          <li class="db-legend-item"><span class="db-legend-swatch db-legend-red">Red</span> - Unavailable</li>
-          <li class="db-legend-item"><span class="db-legend-swatch db-legend-orange"><HoverText value={'{{Orange | May not be canon}}'} /></span> - Patreon submission</li>
+          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-cyan db-legend-filter" data-db-filter="canon" aria-pressed="false">Cyan</button> - Canon </li>
+          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-red db-legend-filter" data-db-filter="unavailable" aria-pressed="false">Red</button> - Unavailable</li>
+          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-orange db-legend-filter" data-db-filter="patreon" aria-pressed="false"><HoverText value={'{{Orange | May not be canon}}'} /></button> - Patreon submission</li>
         </ul>
+        <p class="db-legend-hint" data-db-filter-hint hidden>Filtering active. Click the highlighted color again to show everything.</p>
       </div>
 
       <div class="db-panels">
