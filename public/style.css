@@ -1483,7 +1483,8 @@
     .db-title-red{ margin:0 0 8px 0; color:var(--neon-red) }
     
     /* Personnel / entity profile header */
-    .profile-header{ position:relative; display:flex; flex-direction:column; margin-bottom:12px; padding-right:170px }
+    .profile-header{ position:relative; display:flex; flex-direction:column; margin-bottom:12px; }
+    .profile-header:has(.patreon-indicator){ padding-right:170px; }
     .patreon-indicator{
       position:absolute; top:2px; right:0;
       display:inline-flex; align-items:center; gap:7px;
@@ -1504,11 +1505,14 @@
     .profile-name{
       margin:var(--space-2) 0 0; font-family:Ethnocentric, "Arial Black", sans-serif;
       font-size:clamp(1.6rem,4vw,2.8rem); color:var(--neon-cyan); text-transform:uppercase;
-      /* h1 is a clipped flex container; long names would overflow and get cut off */
-      display:block; clip-path:none; overflow-wrap:anywhere;
+      display:block; clip-path:none; overflow-wrap:break-word; word-break:normal;
     }
     .profile-nickname{ margin:2px 0 0; font-size:1.1rem; font-weight:700; color:var(--neon-green) }
     .profile-author{ margin:4px 0 0; color:var(--muted); font-size:0.88rem; }
+    @media (max-width:520px){
+      .profile-header:has(.patreon-indicator){ padding-right:0; }
+      .patreon-indicator{ position:static; order:-1; margin-bottom:var(--space-1); }
+    }
 
     /* Personnel profile */
     .profile{
