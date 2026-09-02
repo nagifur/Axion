@@ -205,7 +205,19 @@ document.addEventListener('astro:page-load', function () {
           setFloatingPosition(card, moveEvent.clientX + window.scrollX - offsetX, moveEvent.clientY + window.scrollY - offsetY);
         }
 
-        function stopDragging() {
+        function shouldSnapToPlaceholder(dropEvent) {
+          var placeholder = card._windowPlaceholder;
+          if (!placeholder || !placeholder.parentNode) return false;
+
+          var rect = placeholder.getBoundingClientRect();
+          var snapMargin = 28;
+          return dropEvent.clientX >= rect.left - snapMargin
+            && dropEvent.clientX <= rect.right + snapMargin
+            && dropEvent.clientY >= rect.top - snapMargin
+            && dropEvent.clientY <= rect.bottom + snapMargin;
+        }
+
+        function stopDragging(dropEvent) {
           card._windowDragActive = false;
           card.classList.remove('is-window-dragging');
           document.removeEventListener('pointermove', moveWindow);
@@ -214,6 +226,10 @@ document.addEventListener('astro:page-load', function () {
           document.removeEventListener('mousemove', moveWindow);
           document.removeEventListener('mouseup', stopDragging);
           try { dragHandle.releasePointerCapture(event.pointerId); } catch (_) {}
+
+          if (dropEvent && shouldSnapToPlaceholder(dropEvent)) {
+            restoreWindowPlacement(card);
+          }
         }
 
         if (event.type === 'pointerdown') {
