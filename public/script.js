@@ -67,6 +67,343 @@ document.addEventListener('click', function (event) {
 // Astro view transitions swap the document without reloading script.js, so all
 // DOM bindings must be re-run after every navigation via astro:page-load.
 document.addEventListener('astro:page-load', function () {
+  var topWindowZ = 9996;
+
+  function getOwnFullscreenButton(card) {
+    return card.querySelector(':scope > .window-controls .window-control-fullscreen');
+  }
+
+  function rememberWindowTint(card) {
+    var profileTint = getComputedStyle(card).getPropertyValue('--profile-tint').trim();
+    if (profileTint) {
+      card.style.setProperty('--window-fullscreen-tint', profileTint);
+    }
+  }
+
+  function rememberWindowSurface(card) {
+    var cardStyle = getComputedStyle(card);
+    var titleBarStyle = getComputedStyle(card, '::after');
+    card.style.setProperty('--window-floating-background', cardStyle.backgroundColor);
+    card.style.setProperty('--window-floating-border', cardStyle.borderColor);
+    card.style.setProperty('--window-floating-header', titleBarStyle.backgroundColor);
+    card.style.setProperty('--window-floating-header-border', titleBarStyle.borderBottomColor);
+  }
+
+  function preserveContinuousAnimationProgress(card) {
+    if (typeof card.getAnimations !== 'function') return function() {};
+
+    var snapshots = card.getAnimations({ subtree: true }).map(function(animation) {
+      var timing = animation.effect && animation.effect.getComputedTiming();
+      var target = animation.effect && animation.effect.target;
+      if (!timing || timing.iterations !== Infinity || !target || animation.currentTime === null) return null;
+
+      return {
+        element: target,
+        name: animation.animationName,
+        currentTime: animation.currentTime,
+        playState: animation.playState,
+      };
+    }).filter(Boolean);
+
+    return function() {
+      window.requestAnimationFrame(function() {
+        snapshots.forEach(function(snapshot) {
+          var animation = snapshot.element.getAnimations().find(function(candidate) {
+            return candidate.animationName === snapshot.name;
+          });
+          if (!animation) return;
+
+          animation.currentTime = snapshot.currentTime;
+          if (snapshot.playState === 'paused') animation.pause();
+        });
+      });
+    };
+  }
+
+  function createWindowPlaceholder(card, cardRect) {
+    if (card._windowPlaceholder && card._windowPlaceholder.parentNode) return card._windowPlaceholder;
+    if (!card.parentNode) return null;
+
+    var rect = cardRect || card.getBoundingClientRect();
+    var placeholder = document.createElement('div');
+    placeholder.className = 'window-placeholder';
+    placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.style.setProperty('--window-placeholder-width', Math.round(rect.width) + 'px');
+    placeholder.style.setProperty('--window-placeholder-height', Math.round(rect.height) + 'px');
+    card.parentNode.insertBefore(placeholder, card);
+    card._windowPlaceholder = placeholder;
+    return placeholder;
+  }
+
+  function setFloatingPosition(card, left, top) {
+    card.style.setProperty('--window-x', Math.round(left) + 'px');
+    card.style.setProperty('--window-y', Math.round(top) + 'px');
+  }
+
+  function enterFloatingWindow(card, left, top) {
+    var rect = card.getBoundingClientRect();
+    var restoreAnimationProgress = preserveContinuousAnimationProgress(card);
+    rememberWindowSurface(card);
+    createWindowPlaceholder(card, rect);
+    rememberWindowTint(card);
+
+    card.dataset.windowIntroduced = 'true';
+    card.style.setProperty('--window-width', Math.round(rect.width) + 'px');
+    document.body.appendChild(card);
+    card.classList.add('is-window-floating');
+    card.style.zIndex = String(++topWindowZ);
+    setFloatingPosition(card, left, top);
+    restoreAnimationProgress();
+  }
+
+  function restoreWindowPlacement(card) {
+    var restoreAnimationProgress = preserveContinuousAnimationProgress(card);
+    var placeholder = card._windowPlaceholder;
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(card, placeholder);
+      placeholder.remove();
+    }
+    card._windowPlaceholder = null;
+    card.classList.remove('is-window-floating', 'is-window-dragging');
+    card.style.removeProperty('--window-x');
+    card.style.removeProperty('--window-y');
+    card.style.removeProperty('--window-width');
+    card.style.removeProperty('--window-floating-background');
+    card.style.removeProperty('--window-floating-border');
+    card.style.removeProperty('--window-floating-header');
+    card.style.removeProperty('--window-floating-header-border');
+    card.style.zIndex = '';
+    restoreAnimationProgress();
+  }
+
+  function discardWindowPlacement(card) {
+    var placeholder = card._windowPlaceholder;
+    if (placeholder) placeholder.remove();
+    card._windowPlaceholder = null;
+    card.style.removeProperty('--window-x');
+    card.style.removeProperty('--window-y');
+    card.style.removeProperty('--window-width');
+    card.style.removeProperty('--window-floating-background');
+    card.style.removeProperty('--window-floating-border');
+    card.style.removeProperty('--window-floating-header');
+    card.style.removeProperty('--window-floating-header-border');
+    card.style.zIndex = '';
+  }
+
+  function enterFullscreenWindow(card) {
+    var rect = card.getBoundingClientRect();
+    var restoreAnimationProgress = preserveContinuousAnimationProgress(card);
+    rememberWindowSurface(card);
+    createWindowPlaceholder(card, rect);
+    rememberWindowTint(card);
+    card.dataset.windowIntroduced = 'true';
+    document.body.appendChild(card);
+    card.classList.remove('is-window-floating', 'is-window-dragging');
+    card.classList.add('is-window-fullscreen');
+    card.style.zIndex = '';
+    restoreAnimationProgress();
+  }
+
+  function exitFullscreenWindow(card) {
+    var animationsOff = document.body.classList.contains('animations-off') || document.documentElement.getAttribute('data-animations') === 'off';
+    var exitTimer = null;
+    function restoreWindow() {
+      if (!card.classList.contains('is-window-fullscreen')) return;
+      if (exitTimer) window.clearTimeout(exitTimer);
+      card.classList.remove('is-window-restoring', 'is-window-fullscreen');
+      restoreWindowPlacement(card);
+    }
+
+    document.body.classList.remove('has-fullscreen-window');
+    if (animationsOff) {
+      restoreWindow();
+      return;
+    }
+
+    card.classList.add('is-window-restoring');
+    card.addEventListener('animationend', function(event) {
+      if (event.target === card && event.animationName === 'window-fullscreen-close') restoreWindow();
+    }, { once: true });
+    exitTimer = window.setTimeout(restoreWindow, 360);
+  }
+
+  function clearFullscreenWindow(activeCard) {
+    document.querySelectorAll('.card.is-window-fullscreen').forEach(function(card){
+      if (!activeCard || card !== activeCard) {
+        card.classList.remove('is-window-fullscreen');
+        restoreWindowPlacement(card);
+        var fullscreenButton = getOwnFullscreenButton(card);
+        if (fullscreenButton) fullscreenButton.setAttribute('aria-pressed', 'false');
+      }
+    });
+
+    if (!activeCard) {
+      document.body.classList.remove('has-fullscreen-window');
+    }
+  }
+
+  function initializeWindowControls() {
+    document.querySelectorAll('.card').forEach(function(card){
+      if (card.dataset.windowControlsBound === 'true') return;
+      card.dataset.windowControlsBound = 'true';
+
+      var controls = document.createElement('div');
+      controls.className = 'window-controls';
+      controls.setAttribute('aria-label', 'Window controls');
+
+      var dragHandle = document.createElement('div');
+      dragHandle.className = 'window-drag-handle';
+      dragHandle.setAttribute('aria-hidden', 'true');
+
+      var closeButton = document.createElement('button');
+      closeButton.className = 'window-control window-control-close';
+      closeButton.type = 'button';
+      closeButton.setAttribute('aria-label', 'Close window');
+      closeButton.title = 'Close window';
+
+      var minimizeButton = document.createElement('button');
+      minimizeButton.className = 'window-control window-control-minimize';
+      minimizeButton.type = 'button';
+      minimizeButton.setAttribute('aria-label', 'Minimize window');
+      minimizeButton.setAttribute('aria-pressed', 'false');
+      minimizeButton.title = 'Minimize window';
+
+      var fullscreenButton = document.createElement('button');
+      fullscreenButton.className = 'window-control window-control-fullscreen';
+      fullscreenButton.type = 'button';
+      fullscreenButton.setAttribute('aria-label', 'Toggle fullscreen window');
+      fullscreenButton.setAttribute('aria-pressed', 'false');
+      fullscreenButton.title = 'Toggle fullscreen window';
+
+      controls.append(closeButton, minimizeButton, fullscreenButton);
+      card.prepend(dragHandle);
+      card.prepend(controls);
+
+      function beginWindowDrag(event) {
+        if (event.pointerType === 'touch') return;
+        if (card._windowDragActive || event.button !== 0) return;
+        if (card.classList.contains('is-window-fullscreen') || card.classList.contains('is-window-closing') || card.classList.contains('is-window-closed')) return;
+
+        event.preventDefault();
+        card._windowDragActive = true;
+        var rect = card.getBoundingClientRect();
+        var offsetX = event.clientX - rect.left;
+        var offsetY = event.clientY - rect.top;
+        var startLeft = rect.left + window.scrollX;
+        var startTop = rect.top + window.scrollY;
+
+        enterFloatingWindow(card, startLeft, startTop);
+        card.classList.add('is-window-dragging');
+
+        function moveWindow(moveEvent) {
+          setFloatingPosition(card, moveEvent.clientX + window.scrollX - offsetX, moveEvent.clientY + window.scrollY - offsetY);
+        }
+
+        function shouldSnapToPlaceholder(dropEvent) {
+          var placeholder = card._windowPlaceholder;
+          if (!placeholder || !placeholder.parentNode) return false;
+
+          var rect = placeholder.getBoundingClientRect();
+          var snapMargin = 28;
+          return dropEvent.clientX >= rect.left - snapMargin
+            && dropEvent.clientX <= rect.right + snapMargin
+            && dropEvent.clientY >= rect.top - snapMargin
+            && dropEvent.clientY <= rect.bottom + snapMargin;
+        }
+
+        function stopDragging(dropEvent) {
+          card._windowDragActive = false;
+          card.classList.remove('is-window-dragging');
+          document.removeEventListener('pointermove', moveWindow);
+          document.removeEventListener('pointerup', stopDragging);
+          document.removeEventListener('pointercancel', stopDragging);
+          document.removeEventListener('mousemove', moveWindow);
+          document.removeEventListener('mouseup', stopDragging);
+          try { dragHandle.releasePointerCapture(event.pointerId); } catch (_) {}
+
+          if (dropEvent && shouldSnapToPlaceholder(dropEvent)) {
+            restoreWindowPlacement(card);
+          }
+        }
+
+        if (event.type === 'pointerdown') {
+          try { dragHandle.setPointerCapture(event.pointerId); } catch (_) {}
+          document.addEventListener('pointermove', moveWindow);
+          document.addEventListener('pointerup', stopDragging, { once: true });
+          document.addEventListener('pointercancel', stopDragging, { once: true });
+        } else {
+          document.addEventListener('mousemove', moveWindow);
+          document.addEventListener('mouseup', stopDragging, { once: true });
+        }
+      }
+
+      dragHandle.addEventListener('pointerdown', beginWindowDrag);
+      dragHandle.addEventListener('mousedown', beginWindowDrag);
+
+      closeButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        var animationsOff = document.body.classList.contains('animations-off') || document.documentElement.getAttribute('data-animations') === 'off';
+        var closeTimer = null;
+        function closeWindow() {
+          if (card.classList.contains('is-window-closed')) return;
+          if (closeTimer) window.clearTimeout(closeTimer);
+          discardWindowPlacement(card);
+          card.classList.add('is-window-closed');
+          card.classList.remove('is-window-closing', 'is-window-minimized', 'is-window-floating', 'is-window-fullscreen');
+        }
+        if (animationsOff) {
+          closeWindow();
+        } else {
+          card.classList.add('is-window-closing');
+          card.addEventListener('animationend', function(event){
+            if (event.target === card) closeWindow();
+          }, { once: true });
+          closeTimer = window.setTimeout(closeWindow, 320);
+        }
+        if (card.classList.contains('is-window-fullscreen')) {
+          document.body.classList.remove('has-fullscreen-window');
+        }
+      });
+
+      minimizeButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        var wasFullscreen = card.classList.contains('is-window-fullscreen');
+        var isMinimized = card.classList.toggle('is-window-minimized');
+        if (isMinimized) {
+          card.classList.remove('is-window-fullscreen');
+          if (wasFullscreen) restoreWindowPlacement(card);
+          fullscreenButton.setAttribute('aria-pressed', 'false');
+          if (!document.querySelector('.card.is-window-fullscreen')) {
+            document.body.classList.remove('has-fullscreen-window');
+          }
+        }
+        minimizeButton.setAttribute('aria-pressed', isMinimized ? 'true' : 'false');
+        minimizeButton.title = isMinimized ? 'Restore window' : 'Minimize window';
+      });
+
+      fullscreenButton.addEventListener('click', function(event){
+        event.preventDefault();
+        event.stopPropagation();
+        var willFullscreen = !card.classList.contains('is-window-fullscreen');
+        clearFullscreenWindow(card);
+        if (willFullscreen) {
+          enterFullscreenWindow(card);
+        } else {
+          exitFullscreenWindow(card);
+        }
+        card.classList.remove('is-window-minimized');
+        minimizeButton.setAttribute('aria-pressed', 'false');
+        minimizeButton.title = 'Minimize window';
+        fullscreenButton.setAttribute('aria-pressed', willFullscreen ? 'true' : 'false');
+        document.body.classList.toggle('has-fullscreen-window', willFullscreen);
+      });
+    });
+  }
+
+  initializeWindowControls();
+
   function setImageState(img) {
     if (!img || !img.getAttribute('src') || img.dataset.imageStateBound === 'true') return;
     img.dataset.imageStateBound = 'true';
