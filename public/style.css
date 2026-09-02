@@ -672,6 +672,10 @@
       top:16px;
     }
     .card.is-window-fullscreen > .window-drag-handle{ height:48px }
+    .db-shell.is-window-fullscreen{
+      align-content:start;
+      grid-auto-rows:max-content;
+    }
     body.has-fullscreen-window{ overflow:hidden }
     .card.is-window-closed{ display:none !important }
     .card.is-window-fullscreen::after{
