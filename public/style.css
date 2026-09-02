@@ -572,6 +572,9 @@
       overflow:hidden;
     }
     .window-placeholder{
+      width:var(--window-placeholder-width, auto);
+      max-width:100%;
+      flex:0 0 auto;
       min-height:var(--window-placeholder-height, 42px);
       border:1px dashed color-mix(in srgb, var(--line) 24%, transparent);
       border-radius:var(--radius-lg);
@@ -591,12 +594,9 @@
       max-width:none;
       max-height:none;
       touch-action:none;
-      background:color-mix(in srgb, var(--card-top) 82%, var(--window-fullscreen-tint) 18%);
-      border-color:color-mix(in srgb, var(--window-fullscreen-tint) 38%, var(--window-border));
+      background:var(--window-floating-background, var(--card-surface-top));
+      border-color:var(--window-floating-border, var(--window-border));
       box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-lg);
-    }
-    html[data-theme="light"] .card.is-window-floating{
-      background:color-mix(in srgb, var(--card-top) 88%, var(--window-fullscreen-tint) 12%);
     }
     .card.is-window-dragging{
       z-index:9997;
@@ -678,7 +678,10 @@
       height:48px;
       z-index:2;
     }
-    .card.is-window-floating::after,
+    .card.is-window-floating::after{
+      background:var(--window-floating-header, rgba(126,245,255,0.05));
+      border-bottom-color:var(--window-floating-header-border, rgba(218,238,255,0.11));
+    }
     .card.is-window-fullscreen::after{
       background:color-mix(in srgb, var(--window-fullscreen-tint) 12%, transparent);
       border-bottom-color:color-mix(in srgb, var(--window-fullscreen-tint) 28%, transparent);

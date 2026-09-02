@@ -80,14 +80,24 @@ document.addEventListener('astro:page-load', function () {
     }
   }
 
-  function createWindowPlaceholder(card) {
+  function rememberWindowSurface(card) {
+    var cardStyle = getComputedStyle(card);
+    var titleBarStyle = getComputedStyle(card, '::after');
+    card.style.setProperty('--window-floating-background', cardStyle.backgroundColor);
+    card.style.setProperty('--window-floating-border', cardStyle.borderColor);
+    card.style.setProperty('--window-floating-header', titleBarStyle.backgroundColor);
+    card.style.setProperty('--window-floating-header-border', titleBarStyle.borderBottomColor);
+  }
+
+  function createWindowPlaceholder(card, cardRect) {
     if (card._windowPlaceholder && card._windowPlaceholder.parentNode) return card._windowPlaceholder;
     if (!card.parentNode) return null;
 
-    var rect = card.getBoundingClientRect();
+    var rect = cardRect || card.getBoundingClientRect();
     var placeholder = document.createElement('div');
     placeholder.className = 'window-placeholder';
     placeholder.setAttribute('aria-hidden', 'true');
+    placeholder.style.setProperty('--window-placeholder-width', Math.round(rect.width) + 'px');
     placeholder.style.setProperty('--window-placeholder-height', Math.round(rect.height) + 'px');
     card.parentNode.insertBefore(placeholder, card);
     card._windowPlaceholder = placeholder;
@@ -100,10 +110,11 @@ document.addEventListener('astro:page-load', function () {
   }
 
   function enterFloatingWindow(card, left, top) {
-    createWindowPlaceholder(card);
+    var rect = card.getBoundingClientRect();
+    rememberWindowSurface(card);
+    createWindowPlaceholder(card, rect);
     rememberWindowTint(card);
 
-    var rect = card.getBoundingClientRect();
     card.style.setProperty('--window-width', Math.round(rect.width) + 'px');
     document.body.appendChild(card);
     card.classList.add('is-window-floating');
@@ -122,11 +133,16 @@ document.addEventListener('astro:page-load', function () {
     card.style.removeProperty('--window-x');
     card.style.removeProperty('--window-y');
     card.style.removeProperty('--window-width');
+    card.style.removeProperty('--window-floating-background');
+    card.style.removeProperty('--window-floating-border');
+    card.style.removeProperty('--window-floating-header');
+    card.style.removeProperty('--window-floating-header-border');
     card.style.zIndex = '';
   }
 
   function enterFullscreenWindow(card) {
-    createWindowPlaceholder(card);
+    var rect = card.getBoundingClientRect();
+    createWindowPlaceholder(card, rect);
     rememberWindowTint(card);
     document.body.appendChild(card);
     card.classList.remove('is-window-floating', 'is-window-dragging');
