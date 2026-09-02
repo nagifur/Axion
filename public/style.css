@@ -2235,7 +2235,15 @@ img.image-error {
   .stat-cell.span-2{ grid-column:auto; }
   .contact-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .contact-grid-primary{ grid-template-columns:1fr; }
-  footer{ flex-direction:column; align-items:flex-start; gap:8px; padding-inline:4px; }
+  footer{
+    flex-direction:row;
+    align-items:center;
+    justify-content:space-between;
+    gap:var(--space-2);
+    padding:8px 12px;
+    font-size:0.68rem;
+    letter-spacing:0.08em;
+  }
 }
 
 @media (prefers-reduced-motion: reduce){
