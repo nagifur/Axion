@@ -1115,6 +1115,11 @@
     html[data-theme="light"] .db-legend-cyan{ color:#0a6b86; background:rgba(10,107,134,0.14) }
     html[data-theme="light"] .db-legend-red{ color:#a3242c; background:rgba(163,36,44,0.14) }
     html[data-theme="light"] .db-legend-orange{ color:#a85c00; background:rgba(168,92,0,0.14) }
+    .db-legend-filter{ font:inherit; font-weight:700; border:1px solid transparent; background:transparent; cursor:pointer }
+    .db-legend-filter:hover{ border-color:currentColor }
+    .db-legend-filter[aria-pressed="true"]{ border-color:currentColor; box-shadow:0 0 8px currentColor }
+    .db-legend-hint{ margin:8px 0 0; color:var(--muted); font-size:0.85em }
+    .db-filter-hidden{ display:none !important }
     .db-list{ margin:6px 0 0 18px; padding:0; color:var(--muted) }
     .db-tree-list{ position:relative; margin-left:14px; list-style:none; border-left:0; }
     .db-tree-list::before{

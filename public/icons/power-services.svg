@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="200" height="200" shape-rendering="crispEdges">
+	<defs>
+		<filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+			<feGaussianBlur stdDeviation="1.1"/>
+		</filter>
+		<filter id="borderGlow" x="-60%" y="-60%" width="220%" height="220%">
+			<feGaussianBlur stdDeviation="0.5"/>
+		</filter>
+		<g id="atom-symbol">
+			<ellipse cx="12" cy="12" rx="8.5" ry="3.4" fill="none" stroke-width="1.1"/>
+			<ellipse cx="12" cy="12" rx="8.5" ry="3.4" fill="none" stroke-width="1.1" transform="rotate(60 12 12)"/>
+			<ellipse cx="12" cy="12" rx="8.5" ry="3.4" fill="none" stroke-width="1.1" transform="rotate(120 12 12)"/>
+			<circle cx="12" cy="12" r="2.1"/>
+			<circle cx="20.2" cy="12" r="1.1"/>
+			<circle cx="4.4" cy="9.7" r="1.1"/>
+			<circle cx="9.8" cy="19.6" r="1.1"/>
+		</g>
+	</defs>
+	<rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#00F0FF" opacity="0.6" filter="url(#borderGlow)"/>
+	<rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#7CFBFF"/>
+	<g fill="#00F0FF" stroke="#00F0FF" opacity="0.85" filter="url(#glow)">
+		<use href="#atom-symbol"/>
+	</g>
+	<g fill="#7CFBFF" stroke="#7CFBFF">
+		<use href="#atom-symbol"/>
+	</g>
+</svg>
