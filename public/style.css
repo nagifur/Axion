@@ -681,6 +681,9 @@
     body:not(.animations-off) .card.is-window-fullscreen{
       animation:window-fullscreen-open .26s cubic-bezier(0.2, 0.72, 0.2, 1) both;
     }
+    body:not(.animations-off) .card.is-window-fullscreen.is-window-closing{
+      animation:window-close .22s ease-in both;
+    }
     .card.is-window-fullscreen > .window-controls{
       position:absolute;
       top:16px;
