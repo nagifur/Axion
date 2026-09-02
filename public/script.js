@@ -89,6 +89,37 @@ document.addEventListener('astro:page-load', function () {
     card.style.setProperty('--window-floating-header-border', titleBarStyle.borderBottomColor);
   }
 
+  function preserveContinuousAnimationProgress(card) {
+    if (typeof card.getAnimations !== 'function') return function() {};
+
+    var snapshots = card.getAnimations({ subtree: true }).map(function(animation) {
+      var timing = animation.effect && animation.effect.getComputedTiming();
+      var target = animation.effect && animation.effect.target;
+      if (!timing || timing.iterations !== Infinity || !target || animation.currentTime === null) return null;
+
+      return {
+        element: target,
+        name: animation.animationName,
+        currentTime: animation.currentTime,
+        playState: animation.playState,
+      };
+    }).filter(Boolean);
+
+    return function() {
+      window.requestAnimationFrame(function() {
+        snapshots.forEach(function(snapshot) {
+          var animation = snapshot.element.getAnimations().find(function(candidate) {
+            return candidate.animationName === snapshot.name;
+          });
+          if (!animation) return;
+
+          animation.currentTime = snapshot.currentTime;
+          if (snapshot.playState === 'paused') animation.pause();
+        });
+      });
+    };
+  }
+
   function createWindowPlaceholder(card, cardRect) {
     if (card._windowPlaceholder && card._windowPlaceholder.parentNode) return card._windowPlaceholder;
     if (!card.parentNode) return null;
@@ -111,18 +142,22 @@ document.addEventListener('astro:page-load', function () {
 
   function enterFloatingWindow(card, left, top) {
     var rect = card.getBoundingClientRect();
+    var restoreAnimationProgress = preserveContinuousAnimationProgress(card);
     rememberWindowSurface(card);
     createWindowPlaceholder(card, rect);
     rememberWindowTint(card);
 
+    card.dataset.windowIntroduced = 'true';
     card.style.setProperty('--window-width', Math.round(rect.width) + 'px');
     document.body.appendChild(card);
     card.classList.add('is-window-floating');
     card.style.zIndex = String(++topWindowZ);
     setFloatingPosition(card, left, top);
+    restoreAnimationProgress();
   }
 
   function restoreWindowPlacement(card) {
+    var restoreAnimationProgress = preserveContinuousAnimationProgress(card);
     var placeholder = card._windowPlaceholder;
     if (placeholder && placeholder.parentNode) {
       placeholder.parentNode.insertBefore(card, placeholder);
@@ -138,17 +173,21 @@ document.addEventListener('astro:page-load', function () {
     card.style.removeProperty('--window-floating-header');
     card.style.removeProperty('--window-floating-header-border');
     card.style.zIndex = '';
+    restoreAnimationProgress();
   }
 
   function enterFullscreenWindow(card) {
     var rect = card.getBoundingClientRect();
+    var restoreAnimationProgress = preserveContinuousAnimationProgress(card);
     rememberWindowSurface(card);
     createWindowPlaceholder(card, rect);
     rememberWindowTint(card);
+    card.dataset.windowIntroduced = 'true';
     document.body.appendChild(card);
     card.classList.remove('is-window-floating', 'is-window-dragging');
     card.classList.add('is-window-fullscreen');
     card.style.zIndex = '';
+    restoreAnimationProgress();
   }
 
   function clearFullscreenWindow(activeCard) {

@@ -487,10 +487,24 @@
         boot-flicker var(--motion-slow) ease-out 1 both,
         typewriter-reveal calc(var(--motion-slow) * 0.92) steps(18, end) calc(var(--motion-slow) * 0.35) 1 both;
     }
+    body:not(.animations-off) .page-stack > .card[data-window-introduced],
+    body:not(.animations-off) .article-page > .card[data-window-introduced],
+    body:not(.animations-off) .db-grid > .card[data-window-introduced],
+    body:not(.animations-off) .traits-grid > .card[data-window-introduced],
+    body:not(.animations-off) .profile .card[data-window-introduced]{
+      animation:none;
+    }
+    body:not(.animations-off) .card[data-window-introduced] > h1,
+    body:not(.animations-off) .article-header[data-window-introduced] h1{
+      animation:none;
+    }
     body:not(.animations-off) p.lead{
       animation:
         cinematic-fade calc(var(--motion-base) * 0.92) ease-out both,
         typewriter-reveal calc(var(--motion-slow) * 0.72) steps(24, end) calc(var(--motion-slow) * 0.64) 1 both;
+    }
+    body:not(.animations-off) .card[data-window-introduced] p.lead{
+      animation:none;
     }
     #contact-text{
       text-align:center;
