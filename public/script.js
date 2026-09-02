@@ -176,6 +176,20 @@ document.addEventListener('astro:page-load', function () {
     restoreAnimationProgress();
   }
 
+  function discardWindowPlacement(card) {
+    var placeholder = card._windowPlaceholder;
+    if (placeholder) placeholder.remove();
+    card._windowPlaceholder = null;
+    card.style.removeProperty('--window-x');
+    card.style.removeProperty('--window-y');
+    card.style.removeProperty('--window-width');
+    card.style.removeProperty('--window-floating-background');
+    card.style.removeProperty('--window-floating-border');
+    card.style.removeProperty('--window-floating-header');
+    card.style.removeProperty('--window-floating-header-border');
+    card.style.zIndex = '';
+  }
+
   function enterFullscreenWindow(card) {
     var rect = card.getBoundingClientRect();
     var restoreAnimationProgress = preserveContinuousAnimationProgress(card);
@@ -306,14 +320,14 @@ document.addEventListener('astro:page-load', function () {
       closeButton.addEventListener('click', function(event){
         event.preventDefault();
         event.stopPropagation();
-        restoreWindowPlacement(card);
         var animationsOff = document.body.classList.contains('animations-off') || document.documentElement.getAttribute('data-animations') === 'off';
         var closeTimer = null;
         function closeWindow() {
           if (card.classList.contains('is-window-closed')) return;
           if (closeTimer) window.clearTimeout(closeTimer);
+          discardWindowPlacement(card);
           card.classList.add('is-window-closed');
-          card.classList.remove('is-window-closing');
+          card.classList.remove('is-window-closing', 'is-window-minimized', 'is-window-floating', 'is-window-fullscreen');
         }
         if (animationsOff) {
           closeWindow();
@@ -324,8 +338,7 @@ document.addEventListener('astro:page-load', function () {
           }, { once: true });
           closeTimer = window.setTimeout(closeWindow, 320);
         }
-        card.classList.remove('is-window-minimized', 'is-window-fullscreen');
-        if (!document.querySelector('.card.is-window-fullscreen')) {
+        if (card.classList.contains('is-window-fullscreen')) {
           document.body.classList.remove('has-fullscreen-window');
         }
       });
