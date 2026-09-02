@@ -206,24 +206,24 @@
       opacity:0.5;
     }
 
-    /* HUD scanline sweep - a slow flat band drifting down the page, CRT-style */
+    /* Ambient status signal: a restrained scan band that keeps the desktop from feeling static. */
     body::after{
       content:"";
-      position:fixed; left:0; right:0; top:0; height:220px; pointer-events:none; z-index:1;
-      background:rgba(126,245,255,0.07);
+      position:fixed; left:0; right:0; top:0; height:72px; pointer-events:none; z-index:1;
+      background:linear-gradient(180deg, transparent, rgba(126,245,255,0.018) 42%, rgba(126,245,255,0.035) 50%, rgba(126,245,255,0.018) 58%, transparent);
       mix-blend-mode:screen;
-      transform:translate3d(0, -220px, 0);
+      transform:translate3d(0, -72px, 0);
       will-change:transform;
-      animation: scan-sweep 9s linear infinite;
+      animation: scan-sweep 18s linear infinite;
     }
-    html[data-theme="light"] body::after{ opacity:0.4 }
+    html[data-theme="light"] body::after{ opacity:0.32 }
     html[data-theme="light"] body::after{
-      background:rgba(15,93,122,0.05);
+      background:linear-gradient(180deg, transparent, rgba(15,93,122,0.012) 42%, rgba(15,93,122,0.024) 50%, rgba(15,93,122,0.012) 58%, transparent);
     }
 
     @keyframes scan-sweep{
-      0%{ transform:translate3d(0, -220px, 0); }
-      100%{ transform:translate3d(0, calc(100vh + 220px), 0); }
+      0%{ transform:translate3d(0, -72px, 0); }
+      100%{ transform:translate3d(0, calc(100vh + 72px), 0); }
     }
 
     .site-header{
