@@ -204,6 +204,29 @@ document.addEventListener('astro:page-load', function () {
     restoreAnimationProgress();
   }
 
+  function exitFullscreenWindow(card) {
+    var animationsOff = document.body.classList.contains('animations-off') || document.documentElement.getAttribute('data-animations') === 'off';
+    var exitTimer = null;
+    function restoreWindow() {
+      if (!card.classList.contains('is-window-fullscreen')) return;
+      if (exitTimer) window.clearTimeout(exitTimer);
+      card.classList.remove('is-window-restoring', 'is-window-fullscreen');
+      restoreWindowPlacement(card);
+    }
+
+    document.body.classList.remove('has-fullscreen-window');
+    if (animationsOff) {
+      restoreWindow();
+      return;
+    }
+
+    card.classList.add('is-window-restoring');
+    card.addEventListener('animationend', function(event) {
+      if (event.target === card && event.animationName === 'window-fullscreen-close') restoreWindow();
+    }, { once: true });
+    exitTimer = window.setTimeout(restoreWindow, 360);
+  }
+
   function clearFullscreenWindow(activeCard) {
     document.querySelectorAll('.card.is-window-fullscreen').forEach(function(card){
       if (!activeCard || card !== activeCard) {
@@ -368,8 +391,7 @@ document.addEventListener('astro:page-load', function () {
         if (willFullscreen) {
           enterFullscreenWindow(card);
         } else {
-          card.classList.remove('is-window-fullscreen');
-          restoreWindowPlacement(card);
+          exitFullscreenWindow(card);
         }
         card.classList.remove('is-window-minimized');
         minimizeButton.setAttribute('aria-pressed', 'false');

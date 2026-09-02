@@ -684,6 +684,10 @@
     body:not(.animations-off) .card.is-window-fullscreen.is-window-closing{
       animation:window-close .22s ease-in both;
     }
+    body:not(.animations-off) .card.is-window-fullscreen.is-window-restoring{
+      animation:window-fullscreen-close .24s cubic-bezier(0.4, 0, 0.8, 0.2) both;
+      pointer-events:none;
+    }
     .card.is-window-fullscreen > .window-controls{
       position:absolute;
       top:16px;
@@ -739,6 +743,10 @@
     @keyframes window-fullscreen-open{
       0%{ opacity:.72; transform:translateY(10px) scale(.985); filter:brightness(1.16) }
       100%{ opacity:1; transform:translateY(0) scale(1); filter:brightness(1) }
+    }
+    @keyframes window-fullscreen-close{
+      0%{ opacity:1; transform:translateY(0) scale(1); filter:brightness(1) }
+      100%{ opacity:.68; transform:translateY(12px) scale(.97); filter:brightness(.86) }
     }
     .card::after{
       content:"";
