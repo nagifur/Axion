@@ -142,6 +142,7 @@ document.addEventListener('astro:page-load', function () {
 
   function enterFullscreenWindow(card) {
     var rect = card.getBoundingClientRect();
+    rememberWindowSurface(card);
     createWindowPlaceholder(card, rect);
     rememberWindowTint(card);
     document.body.appendChild(card);
