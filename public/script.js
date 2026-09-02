@@ -243,6 +243,7 @@ document.addEventListener('astro:page-load', function () {
       card.prepend(controls);
 
       function beginWindowDrag(event) {
+        if (event.pointerType === 'touch') return;
         if (card._windowDragActive || event.button !== 0) return;
         if (card.classList.contains('is-window-fullscreen') || card.classList.contains('is-window-closing') || card.classList.contains('is-window-closed')) return;
 
