@@ -77,4 +77,28 @@ const entities = defineCollection({
   }),
 });
 
-export const collections = { articles, personnel, entities, pages };
+const synthetics = defineCollection({
+  schema: z.object({
+    title: z.string(),
+    author: z.string().optional(),
+    colorTint,
+    position: z.string().default('None'),
+    type: z.string().default('None'),
+    gender: z.string().default('None'),
+    height: z.string().default('None'),
+    employeeID: z.union([z.string(), z.number()]).default('None'),
+    age: z.union([z.string(), z.number()]).default('None'),
+    accessLevel: z.union([z.string(), z.number()]).default('None'),
+    createdOn: z.string().default('None'),
+    profileImage: z.string(),
+    galleryAlt: z.string(),
+    positiveTraits: z.array(z.string()).default([]),
+    negativeTraits: z.array(z.string()).default([]),
+    vorePreference: z.array(z.string()).default(['None']),
+    gallery: z.array(galleryItem).default([]),
+    draft: z.boolean().default(false),
+    patreonSubmission: z.boolean().default(false),
+  }),
+});
+
+export const collections = { articles, personnel, entities, pages, synthetics };

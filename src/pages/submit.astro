@@ -36,6 +36,9 @@ const articleCategories = Array.from(new Set(
           <input type="radio" name="submit-type" value="personnel" checked /> Personnel
         </label>
         <label class="submit-radio">
+          <input type="radio" name="submit-type" value="synthetic" /> Synthetic
+        </label>
+        <label class="submit-radio">
           <input type="radio" name="submit-type" value="entity" /> Entity
         </label>
         <label class="submit-radio">
@@ -71,15 +74,15 @@ const articleCategories = Array.from(new Set(
           </div>
         </div>
 
-        <div class="form-field field-personnel">
-          <label for="f-employeeID">Employee ID</label>
+        <div class="form-field field-personnel field-synthetic">
+          <label id="f-employeeID-label" for="f-employeeID">Employee ID</label>
           <input id="f-employeeID" name="employeeID" type="text" placeholder="e.g. 5538" />
         </div>
-        <div class="form-field field-personnel">
+        <div class="form-field field-personnel field-synthetic">
           <label for="f-position">Facility Position</label>
           <input id="f-position" name="position" type="text" placeholder="e.g. Caretaker" />
         </div>
-        <div class="form-field field-personnel">
+        <div class="form-field field-personnel field-synthetic">
           <label for="f-accessLevel">Access Level</label>
           <select id="f-accessLevel" name="accessLevel">
             <option value="0">Level 0</option>
@@ -90,13 +93,25 @@ const articleCategories = Array.from(new Set(
             <option value="5">Level 5</option>
           </select>
         </div>
-        <div class="form-field field-personnel">
+        <div class="form-field field-personnel field-synthetic">
           <label for="f-height">Height</label>
           <input id="f-height" name="height" type="text" placeholder={"e.g. 5'7\" or {{5'7\"|1.70 m}}"} />
         </div>
         <div class="form-field field-personnel">
           <label for="f-birthplace">Birthplace</label>
           <input id="f-birthplace" name="birthplace" type="text" placeholder="e.g. Ventria" />
+        </div>
+        <div class="form-field field-synthetic">
+          <label for="f-createdOn">Created on</label>
+          <input id="f-createdOn" name="createdOn" type="text" placeholder="e.g. Ventria Lab-04" />
+        </div>
+        <div class="form-field field-synthetic">
+          <label for="f-syntheticType">Type</label>
+          <select id="f-syntheticType" name="syntheticType">
+            <option value="Living">Living</option>
+            <option value="Robot">Robot</option>
+            <option value="Biomech">Biomech</option>
+          </select>
         </div>
 
         <div class="form-field field-entity">
@@ -122,7 +137,7 @@ const articleCategories = Array.from(new Set(
           <input id="f-foundOn" name="foundOn" type="text" placeholder="e.g. Planet name" />
         </div>
 
-        <div class="form-field field-profile">
+        <div class="form-field field-species">
           <label for="f-species">Species</label>
           <input id="f-species" name="species" type="text" />
         </div>
@@ -144,11 +159,11 @@ const articleCategories = Array.from(new Set(
           </select>
         </div>
 
-        <div class="form-field field-personnel span-2">
+        <div class="form-field field-personnel field-synthetic span-2">
           <label for="f-positiveTraits">Positive Traits (comma separated)</label>
           <input id="f-positiveTraits" name="positiveTraits" type="text" placeholder="Passionate, Friendly, Hardworking" />
         </div>
-        <div class="form-field field-personnel span-2">
+        <div class="form-field field-personnel field-synthetic span-2">
           <label for="f-negativeTraits">Negative Traits (comma separated)</label>
           <input id="f-negativeTraits" name="negativeTraits" type="text" placeholder="Clumsy, Slow" />
         </div>
@@ -275,15 +290,23 @@ const articleCategories = Array.from(new Set(
   const field = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? '';
 
   // Show/hide fields specific to each submission type.
+  const employeeIdLabel = document.getElementById('f-employeeID-label');
+
   const syncFieldVisibility = () => {
     const type = currentType();
     document.querySelectorAll<HTMLElement>('.field-personnel').forEach((el) => { el.hidden = type !== 'personnel'; });
     document.querySelectorAll<HTMLElement>('.field-entity').forEach((el) => { el.hidden = type !== 'entity'; });
+    document.querySelectorAll<HTMLElement>('.field-synthetic').forEach((el) => { el.hidden = type !== 'synthetic'; });
     document.querySelectorAll<HTMLElement>('.field-article').forEach((el) => { el.hidden = type !== 'article'; });
     document.querySelectorAll<HTMLElement>('.field-profile').forEach((el) => { el.hidden = type === 'article'; });
+    document.querySelectorAll<HTMLElement>('.field-species').forEach((el) => { el.hidden = type !== 'personnel' && type !== 'entity'; });
+
     const isArticle = type === 'article';
     titleLabel.textContent = isArticle ? 'Report Title' : 'Name / Entity number';
-    titleInput.placeholder = isArticle ? 'e.g. World info' : 'e.g. Nagi or M-031';
+    titleInput.placeholder = isArticle ? 'e.g. World info' : type === 'synthetic' ? 'e.g. Synt-01 or Nagi' : 'e.g. Nagi or M-031';
+    if (employeeIdLabel) {
+      employeeIdLabel.textContent = type === 'synthetic' ? 'Synthetic ID' : 'Employee ID';
+    }
     bodyLabel.textContent = isArticle ? 'Report Body' : 'Bio';
     bodyInput.placeholder = isArticle
       ? 'Write the report here using Markdown. Separate paragraphs with a blank line.'
@@ -687,6 +710,29 @@ const articleCategories = Array.from(new Set(
           </div>
         </div>
       `;
+    } else if (type === 'synthetic') {
+      statsHtml = [
+        statCell('Access Level', `Level ${plainText(field('accessLevel')) || '?'}`),
+        statCell('Facility Position', plainText(field('position'))),
+        statCell('Type', plainText(field('syntheticType'))),
+        statCell('Gender', plainText(field('gender'))),
+        statCell('Height', plainText(field('height'))),
+        statCell('Age', plainText(field('age'))),
+        statCell('Created on', plainText(field('createdOn'))),
+        statCell('Trophic Role', plainText(field('vorePreference'))),
+      ].join('');
+      const positive = csvList(field('positiveTraits'));
+      const negative = csvList(field('negativeTraits'));
+      traitsHtml = `
+        <div class="traits-grid">
+          <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
+            <ul class="trait-list positive">${positive.length ? positive.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+          </div>
+          <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
+            <ul class="trait-list negative">${negative.length ? negative.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+          </div>
+        </div>
+      `;
     } else {
       const nickname = plainText(field('nickname'));
       nicknameHtml = nickname ? `<p class="profile-nickname">"${nickname}"</p>` : '';
@@ -774,6 +820,27 @@ const articleCategories = Array.from(new Set(
         `age: ${field('age') || 'None'}`,
         `accessLevel: ${field('accessLevel') || 1}`,
         `birthplace: ${field('birthplace') || 'None'}`,
+        `profileImage: profile.${profileImageExt}`,
+        `galleryAlt: ${title} drawing`,
+        `positiveTraits: ${yamlList(csvList(field('positiveTraits')))}`,
+        `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
+        `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
+        `draft: false`,
+        `patreonSubmission: ${patreon}`,
+        `gallery:${galleryYaml}`,
+      ].join('\n');
+    } else if (type === 'synthetic') {
+      frontmatter = [
+        `title: ${title}`,
+        ...(author ? [`author: ${JSON.stringify(author)}`] : []),
+        `employeeID: ${field('employeeID') || 'None'}`,
+        `position: ${field('position') || 'None'}`,
+        `type: ${field('syntheticType') || 'None'}`,
+        `gender: ${field('gender') || 'None'}`,
+        `height: "${field('height') || 'None'}"`,
+        `age: ${field('age') || 'None'}`,
+        `accessLevel: ${field('accessLevel') || 1}`,
+        `createdOn: ${field('createdOn') || 'None'}`,
         `profileImage: profile.${profileImageExt}`,
         `galleryAlt: ${title} drawing`,
         `positiveTraits: ${yamlList(csvList(field('positiveTraits')))}`,

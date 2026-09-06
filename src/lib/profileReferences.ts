@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,8 +9,11 @@ type ProfileReference = {
 
 const contentDirectory = fileURLToPath(new URL('../content/', import.meta.url));
 
-const readReferences = (collection: 'personnel' | 'entities'): ProfileReference[] => {
+const readReferences = (collection: 'personnel' | 'entities' | 'synthetics'): ProfileReference[] => {
   const directory = join(contentDirectory, collection);
+  if (!existsSync(directory)) {
+    return [];
+  }
 
   return readdirSync(directory)
     .filter((filename) => filename.endsWith('.md'))
@@ -28,6 +31,7 @@ const readReferences = (collection: 'personnel' | 'entities'): ProfileReference[
 
 export const personnelReferences = readReferences('personnel');
 export const entityReferences = readReferences('entities');
+export const syntheticReferences = readReferences('synthetics');
 
 const pagesDirectory = join(contentDirectory, 'pages');
 
