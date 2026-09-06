@@ -31,6 +31,9 @@ jobs:
           package-manager: npm
           build-cmd: npm run build
           out-dir: dist
+        env:
+          PUBLIC_DISCORD_CLIENT_ID: ${{ secrets.PUBLIC_DISCORD_CLIENT_ID }}
+          PUBLIC_WORKER_URL: ${{ secrets.PUBLIC_WORKER_URL }}
 
   deploy:
     needs: build
