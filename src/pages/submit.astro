@@ -1027,7 +1027,7 @@ document.getElementById('export-send-discord')?.addEventListener('click', async 
     });
 
     if (res.ok) {
-      alert('Submission sent directly to Discord successfully!');
+      alert('Submission sent successfully!');
     } else {
       const errText = await res.text();
       alert(`Submission failed: ${errText}`);
