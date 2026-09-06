@@ -20,12 +20,11 @@ const articleCategories = Array.from(new Set(
       <h1 id="submit-title">Submit a File <span class="cursor" aria-hidden="true"></span></h1>
       <p class="lead">
         Fill in the form below to build a Personnel, Entity, or Report file. The preview updates live so you can
-        see exactly how your submission will look on the site. When you're happy with it, export the
-        finished file and send it to me on Discord along with any images.
+        see exactly how your submission will look on the site. When you're happy with it, connect your Discord
+        account to submit it directly, or download the files to send manually.
       </p>
       <p class="lead">
-        Nothing here is uploaded automatically, this page only runs in your browser. Exporting just
-        generates the files in correct format for you to send. 
+        Nothing here is uploaded automatically until you click Submit.
       </p>
     </section>
 
@@ -205,12 +204,12 @@ const articleCategories = Array.from(new Set(
     <section class="card" aria-labelledby="export-title">
       <h2 id="export-title" class="db-title-cyan">3. Export &amp; Send</h2>
       <p class="lead">
-        Download your .zip and send it to me on Discord. The .zip contains the generated .md file and any images, already named and placed as the site expects.
+        Connect your Discord account below to send your file for review.
       </p>
       <div class="article-body">
         <blockquote>
           <p class="lead">
-            You can also download just the .md or copy its text to your clipboard. For submissions with images, rename them to match the list below.
+            Alternatively, you can manually download a .zip or .md file.
           </p>
         </blockquote>
         
@@ -221,7 +220,7 @@ const articleCategories = Array.from(new Set(
           <p id="discord-user-info" style="display: none; margin-top: 0.5rem;"></p>
       </div>
       <div class="cta">
-        <button type="button" id="export-send-discord" class="btn" disabled>Send to Discord</button>
+        <button type="button" id="export-send-discord" class="btn" disabled>Submit</button>
         <button type="button" id="export-download-zip" class="btn secondary">Download .zip</button>
         <button type="button" id="export-download" class="btn secondary">Download .md</button>
         <button type="button" id="export-copy" class="btn secondary">Copy file text</button>
