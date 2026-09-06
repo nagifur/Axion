@@ -216,8 +216,13 @@ const articleCategories = Array.from(new Set(
         
       </div>
       <div id="export-image-list" class="field-hint"></div>
+      <div id="discord-auth-box" class="field-hint" style="margin-bottom: 1rem;">
+          <button type="button" id="discord-login-btn" class="btn">Connect Discord to Submit</button>
+          <p id="discord-user-info" style="display: none; margin-top: 0.5rem;"></p>
+      </div>
       <div class="cta">
-        <button type="button" id="export-download-zip" class="btn">Download .zip</button>
+        <button type="button" id="export-send-discord" class="btn" disabled>Send to Discord</button>
+        <button type="button" id="export-download-zip" class="btn secondary">Download .zip</button>
         <button type="button" id="export-download" class="btn secondary">Download .md</button>
         <button type="button" id="export-copy" class="btn secondary">Copy file text</button>
       </div>
@@ -866,4 +871,174 @@ const articleCategories = Array.from(new Set(
 
   syncFieldVisibility();
   updatePreview();
+const DISCORD_CLIENT_ID = import.meta.env.PUBLIC_DISCORD_CLIENT_ID;
+const REDIRECT_URI = encodeURIComponent(window.location.origin + window.location.pathname);
+const WORKER_URL = import.meta.env.PUBLIC_WORKER_URL;
+
+type DiscordUser = { userId: string; username: string; token: string };
+let currentUser: DiscordUser | null = null;
+
+// Ensure Send button is disabled until authenticated
+const sendDiscordBtn = document.getElementById('export-send-discord') as HTMLButtonElement | null;
+if (sendDiscordBtn) sendDiscordBtn.disabled = true;
+
+// 1. Restore session from sessionStorage if already logged in
+const savedUser = sessionStorage.getItem('discord_user');
+if (savedUser) {
+  try {
+    currentUser = JSON.parse(savedUser);
+    enableDiscordSubmissions();
+  } catch (e) {
+    sessionStorage.removeItem('discord_user');
+  }
+}
+
+// 2. Discord Login Button Action with CSRF State Protection
+document.getElementById('discord-login-btn')?.addEventListener('click', () => {
+  const scope = encodeURIComponent('identify guilds.members.read');
+  const state = crypto.randomUUID();
+  sessionStorage.setItem('oauth_state', state);
+  const authUrl = `https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=${scope}&state=${state}`;
+  window.location.href = authUrl;
+});
+
+// 3. Handle OAuth callback code on page load with State Verification
+async function checkOAuthCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const returnedState = params.get('state');
+  const savedState = sessionStorage.getItem('oauth_state');
+  sessionStorage.removeItem('oauth_state');
+
+  if (code) {
+    // Clean up parameters from address bar
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    // Verify OAuth CSRF state parameter
+    if (!returnedState || returnedState !== savedState) {
+      alert('Authentication failed: Security state mismatch (CSRF protection).');
+      return;
+    }
+
+    try {
+      const res = await fetch(`${WORKER_URL}/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+
+      if (res.ok) {
+        currentUser = await res.json();
+        sessionStorage.setItem('discord_user', JSON.stringify(currentUser));
+        enableDiscordSubmissions();
+      } else {
+        const err = await res.text();
+        alert(`Discord Authentication Failed: ${err}`);
+      }
+    } catch (err) {
+      alert('Failed to connect to Discord authentication worker.');
+    }
+  }
+}
+
+function enableDiscordSubmissions() {
+  if (!currentUser) return;
+  const loginBtn = document.getElementById('discord-login-btn');
+  const sendBtn = document.getElementById('export-send-discord') as HTMLButtonElement;
+  const userInfo = document.getElementById('discord-user-info');
+
+  if (loginBtn) loginBtn.style.display = 'none';
+  if (sendBtn) sendBtn.disabled = false;
+  if (userInfo) {
+    userInfo.style.display = 'block';
+    userInfo.innerHTML = `Connected as <strong>@${currentUser.username}</strong> (<a href="#" id="discord-logout">Disconnect</a>)`;
+    document.getElementById('discord-logout')?.addEventListener('click', (e) => {
+      e.preventDefault();
+      currentUser = null;
+      sessionStorage.removeItem('discord_user');
+      sendBtn.disabled = true;
+      if (loginBtn) loginBtn.style.display = 'inline-block';
+      userInfo.style.display = 'none';
+    });
+  }
+}
+
+// 4. Send to Discord Button Action
+document.getElementById('export-send-discord')?.addEventListener('click', async () => {
+  if (!currentUser) {
+    alert('Please connect your Discord account first.');
+    return;
+  }
+
+  const sendBtn = document.getElementById('export-send-discord') as HTMLButtonElement;
+  const { slug, fileText } = buildFileText();
+  const type = currentType();
+  const title = field('title').trim() || 'Untitled';
+
+  if (!title) {
+    alert('Please enter a Title / Entity name before submitting.');
+    return;
+  }
+
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending...';
+
+  const formData = new FormData();
+
+  // Send fields used by Cloudflare Worker to construct server-side embed securely
+  formData.append('submission_type', type);
+  formData.append('submission_title', title);
+  formData.append('submission_slug', slug);
+
+  // Attach generated .md file
+  const mdBlob = new Blob([fileText], { type: 'text/markdown' });
+  formData.append('files[0]', mdBlob, `${slug}.md`);
+
+  let fileIndex = 1;
+  if (profileImageFile) {
+    formData.append(`files[${fileIndex}]`, profileImageFile, `profile.${profileImageExt}`);
+    fileIndex++;
+  }
+
+  galleryRows.forEach((row) => {
+    if (row.file) {
+      formData.append(`files[${fileIndex}]`, row.file, row.filename);
+      fileIndex++;
+    }
+  });
+
+  articleImages.forEach((row) => {
+    if (row.file) {
+      formData.append(`files[${fileIndex}]`, row.file, row.filename);
+      fileIndex++;
+    }
+  });
+
+    try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${currentUser.token}`,
+      },
+      body: formData,
+    });
+
+    if (res.ok) {
+      alert('Submission sent directly to Discord successfully!');
+    } else {
+      const errText = await res.text();
+      alert(`Submission failed: ${errText}`);
+    }
+  } catch (err) {
+    alert('Network error sending submission. Please try downloading .zip instead.');
+  } finally {
+    if (sendBtn) {
+      sendBtn.disabled = !currentUser;
+      sendBtn.textContent = 'Send to Discord';
+    }
+  }
+});
+
+checkOAuthCallback();
+
 </script>
