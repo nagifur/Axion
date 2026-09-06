@@ -871,7 +871,7 @@ const articleCategories = Array.from(new Set(
   syncFieldVisibility();
   updatePreview();
 const DISCORD_CLIENT_ID = import.meta.env.PUBLIC_DISCORD_CLIENT_ID;
-const REDIRECT_URI = encodeURIComponent(window.location.origin + window.location.pathname);
+const REDIRECT_URI = encodeURIComponent(window.location.origin + window.location.pathname.replace(/\/$/, ''));
 const WORKER_URL = import.meta.env.PUBLIC_WORKER_URL;
 
 type DiscordUser = { userId: string; username: string; token: string };
@@ -894,6 +894,10 @@ if (savedUser) {
 
 // 2. Discord Login Button Action with CSRF State Protection
 document.getElementById('discord-login-btn')?.addEventListener('click', () => {
+  if (!DISCORD_CLIENT_ID) {
+    alert('Configuration error: PUBLIC_DISCORD_CLIENT_ID is not set in build environment variables.');
+    return;
+  }
   const scope = encodeURIComponent('identify guilds.members.read');
   const state = crypto.randomUUID();
   sessionStorage.setItem('oauth_state', state);
