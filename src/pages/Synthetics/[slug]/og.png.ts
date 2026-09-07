@@ -16,7 +16,7 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
   const { data: character } = entry;
   const svg = createDatabaseOgImage({
     title: character.title,
-    id: String(character.employeeID),
+    id: `SID ${character.syntheticID}`,
     tint: character.colorTint,
     image: await getDatabaseImageDataUri(slug, character.profileImage),
     fields: [

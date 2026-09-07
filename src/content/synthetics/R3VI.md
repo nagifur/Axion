@@ -1,0 +1,21 @@
+---
+title: R3VI
+syntheticID: 0009
+position: Rescue Android
+type: Robot
+nickname: Revie
+gender: Neutral
+height: "{{2inch up to 7ft |5cm up to 2.1m}}"
+age: 1
+accessLevel: "4"
+createdOn: Ventria Robotics Lab
+profileImage: profile.png
+galleryAlt: R3VI schematic
+positiveTraits: [None]
+negativeTraits: [None]
+vorePreference: [Prey]
+draft: false
+patreonSubmission: false
+gallery: []
+---
+R3VI is a prototype rescue android designed to assist in emergency situations and provide aid to those in need.

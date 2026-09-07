@@ -1,6 +1,7 @@
 ---
 title: Full Name
-employeeID: 0000
+nickname: Optional nickname
+syntheticID: SYN-000
 position: Job Title (e.g. Researcher, Caretaker, Guard)
 type: Living / Robot / Biomech
 gender: Male / Female / Other

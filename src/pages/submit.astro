@@ -74,9 +74,13 @@ const articleCategories = Array.from(new Set(
           </div>
         </div>
 
-        <div class="form-field field-personnel field-synthetic">
-          <label id="f-employeeID-label" for="f-employeeID">Employee ID</label>
+        <div class="form-field field-personnel">
+          <label for="f-employeeID">Employee ID</label>
           <input id="f-employeeID" name="employeeID" type="text" placeholder="e.g. 5538" />
+        </div>
+        <div class="form-field field-synthetic">
+          <label for="f-syntheticID">SID</label>
+          <input id="f-syntheticID" name="syntheticID" type="text" placeholder="e.g. SYN-001" />
         </div>
         <div class="form-field field-personnel field-synthetic">
           <label for="f-position">Facility Position</label>
@@ -114,7 +118,7 @@ const articleCategories = Array.from(new Set(
           </select>
         </div>
 
-        <div class="form-field field-entity">
+        <div class="form-field field-entity field-synthetic">
           <label for="f-nickname">Nickname</label>
           <input id="f-nickname" name="nickname" type="text" placeholder="Optional" />
         </div>
@@ -290,8 +294,6 @@ const articleCategories = Array.from(new Set(
   const field = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? '';
 
   // Show/hide fields specific to each submission type.
-  const employeeIdLabel = document.getElementById('f-employeeID-label');
-
   const syncFieldVisibility = () => {
     const type = currentType();
     document.querySelectorAll<HTMLElement>('.field-personnel').forEach((el) => { el.hidden = type !== 'personnel'; });
@@ -304,9 +306,6 @@ const articleCategories = Array.from(new Set(
     const isArticle = type === 'article';
     titleLabel.textContent = isArticle ? 'Report Title' : 'Name / Entity number';
     titleInput.placeholder = isArticle ? 'e.g. World info' : type === 'synthetic' ? 'e.g. Synt-01 or Nagi' : 'e.g. Nagi or M-031';
-    if (employeeIdLabel) {
-      employeeIdLabel.textContent = type === 'synthetic' ? 'Synthetic ID' : 'Employee ID';
-    }
     bodyLabel.textContent = isArticle ? 'Report Body' : 'Bio';
     bodyInput.placeholder = isArticle
       ? 'Write the report here using Markdown. Separate paragraphs with a blank line.'
@@ -711,6 +710,8 @@ const articleCategories = Array.from(new Set(
         </div>
       `;
     } else if (type === 'synthetic') {
+      const nickname = plainText(field('nickname'));
+      nicknameHtml = nickname ? `<p class="profile-nickname">"${nickname}"</p>` : '';
       statsHtml = [
         statCell('Access Level', `Level ${plainText(field('accessLevel')) || '?'}`),
         statCell('Facility Position', plainText(field('position'))),
@@ -833,7 +834,8 @@ const articleCategories = Array.from(new Set(
       frontmatter = [
         `title: ${title}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
-        `employeeID: ${field('employeeID') || 'None'}`,
+        `nickname: ${field('nickname') || 'None'}`,
+        `syntheticID: ${field('syntheticID') || 'None'}`,
         `position: ${field('position') || 'None'}`,
         `type: ${field('syntheticType') || 'None'}`,
         `gender: ${field('gender') || 'None'}`,

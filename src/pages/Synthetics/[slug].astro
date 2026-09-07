@@ -91,6 +91,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           </span>
         )}
         <h1 class="profile-name">{character.title}<span class="cursor" aria-hidden="true"></span></h1>
+        {character.nickname && <p class="profile-nickname">"{character.nickname}"</p>}
         {character.author && <p class="profile-author">Submission by {character.author}</p>}
       </div>
 
@@ -101,7 +102,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
           ) : (
             <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${character.title}`} loading="eager" fetchpriority="high" decoding="async" />
           )}
-          <span class="profile-id">ID {character.employeeID}</span>
+          <span class="profile-id">SID {character.syntheticID}</span>
         </div>
 
         <div class="stat-grid">
