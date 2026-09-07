@@ -1200,7 +1200,7 @@
     /* Submit page: form + live preview */
     .submit-type-toggle{
       display:grid;
-      grid-template-columns:repeat(3, minmax(0, 1fr));
+      grid-template-columns:repeat(4, minmax(0, 1fr));
       max-width:100%;
       margin:14px 0 12px;
       padding:3px;
@@ -1246,6 +1246,9 @@
       background:var(--neon-cyan);
     }
     .submit-radio:focus-within{ outline:2px solid var(--line); outline-offset:-2px }
+    @media (max-width:640px){
+      .submit-type-toggle{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
     .submit-checkbox{ display:flex; align-items:center; gap:6px; color:var(--muted); cursor:pointer }
     .form-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 16px; margin-top:12px }
     .form-field{ display:flex; flex-direction:column; gap:4px }
