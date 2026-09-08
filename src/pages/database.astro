@@ -8,6 +8,9 @@ import { getCollection } from 'astro:content';
 const personnel = await getCollection('personnel', ({ data }) => !data.draft);
 const entities = await getCollection('entities', ({ data }) => !data.draft);
 const contentSlug = (id: string) => id.replace(/\.md$/, '');
+const databaseEntryLabel = (data: { title: string; nickname?: string }) => data.nickname
+  ? `${data.title} - ${data.nickname}`
+  : data.title;
 const activePersonnelUrls = personnel.map((entry) => `/Personnel/${contentSlug(entry.id)}`);
 const activeEntityUrls = entities.map((entry) => `/Entities/${contentSlug(entry.id)}`);
 const publishedArticles = await getCollection('articles', ({ data }) => !data.draft);
@@ -33,28 +36,74 @@ type EntityGroup = {
   note?: string;
 };
 
-const maximumContainmentEntries = entities
-  .filter((entry) => entry.data.containmentClass === 'Maximum Containment')
-  .map((entry) => ({
-    href: `/Entities/${contentSlug(entry.id)}`,
-    label: entry.data.title,
-  }));
+const allyEntries = Array.from(
+  new Map(
+    [
+      { href: '/Personnel/a1', label: 'A-001 - A1' },
+      { href: '/Entities/a-071', label: 'A-071 - Levi' },
+      { href: '/Personnel/somni', label: 'A-100 - Somni' },
+      ...entities
+        .filter((entry) => entry.data.containmentClass === 'Ally')
+        .map((entry) => ({
+          href: `/Entities/${contentSlug(entry.id)}`,
+          label: databaseEntryLabel(entry.data),
+        })),
+    ].map((entry) => [entry.href, entry] as const),
+  ),
+).map(([, entry]) => entry)
+  .sort((first, second) => first.label.localeCompare(second.label));
+
+const maximumContainmentEntries = Array.from(
+  new Map(
+    [
+      { href: '/Entities/m-227', label: 'M-227 - Spore Lizard' },
+      ...entities
+        .filter((entry) => entry.data.containmentClass === 'Maximum Containment')
+        .map((entry) => ({
+          href: `/Entities/${contentSlug(entry.id)}`,
+          label: databaseEntryLabel(entry.data),
+        })),
+    ].map((entry) => [entry.href, entry] as const),
+  ),
+).map(([, entry]) => entry)
+  .sort((first, second) => first.label.localeCompare(second.label));
+
+const containmentEntries = Array.from(
+  new Map(
+    [
+      { href: '/Entities/c-086', label: 'C-086 - Bloom Lizard' },
+      { href: '/Entities/c-2221', label: 'C-221 - Wisp Animation' },
+      { href: '/Entities/c-282', label: 'C-282 - Eyless lizard' },
+      { href: '/Entities/c-324', label: 'C-324 - Tentacle Plant' },
+      { href: '/Entities/c-400', label: 'C-400 - Portal Cats' },
+      { href: '/Entities/c-668', label: 'C-668 - Wisp Animation' },
+      { href: '/Entities/c-872', label: 'C-872 - R3VI Animation' },
+      ...entities
+        .filter((entry) => entry.data.containmentClass === 'Containment')
+        .map((entry) => ({
+          href: `/Entities/${contentSlug(entry.id)}`,
+          label: databaseEntryLabel(entry.data),
+        })),
+    ].map((entry) => [entry.href, entry] as const),
+  ),
+).map(([, entry]) => entry)
+  .sort((first, second) => first.label.localeCompare(second.label));
 
 const safeEntries = Array.from(
   new Map(
     [
-      { href: '/Entities/s-002', label: 'S-002 - (Wisp Animation)' },
-      { href: '/Entities/s-003', label: 'S-003 - (A1 Tail Vore Animation)' },
-      { href: '/Entities/s-013', label: 'S-013 - (Soul Mirror)' },
-      { href: '/Entities/s-382', label: 'S-382 - (Mentioned in Not Enough Sleep)' },
-      { href: '/Entities/s-420', label: 'S-420 - (Star Mushrooms)' },
-      { href: '/Entities/s-552', label: 'S-552 - (Sprouty)' },
-      { href: '/Entities/s-688', label: 'S-688 - (Genesis Chroma)' },
+      { href: '/Entities/s-002', label: 'S-002 - Wisp Animation' },
+      { href: '/Entities/s-003', label: 'S-003 - A1 Tail Vore Animation' },
+      { href: '/Entities/s-013', label: 'S-013 - Soul Mirror' },
+      { href: '/Entities/s-382', label: 'S-382 - Mentioned in Not Enough Sleep' },
+      { href: '/Entities/s-420', label: 'S-420 - Star Mushrooms' },
+      { href: '/Entities/s-552', label: 'S-552 - Sprouty' },
+      { href: '/Entities/s-688', label: 'S-688 - Genesis Chroma' },
       ...entities
         .filter((entry) => entry.data.containmentClass === 'Safe')
         .map((entry) => ({
           href: `/Entities/${contentSlug(entry.id)}`,
-          label: entry.data.title,
+          label: databaseEntryLabel(entry.data),
         })),
     ].map((entry) => [entry.href, entry] as const),
   ),
@@ -70,7 +119,7 @@ const unassignedEntries = Array.from(
         .filter((entry) => entry.data.containmentClass === 'Unassigned')
         .map((entry) => ({
           href: `/Entities/${contentSlug(entry.id)}`,
-          label: entry.data.title,
+          label: databaseEntryLabel(entry.data),
         })),
     ].map((entry) => [entry.href, entry] as const)),
   ).map(([, entry]) => entry)
@@ -80,11 +129,7 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
   left: [
     {
       title: 'Class A',
-      entries: [
-        { href: '/Personnel/a1', label: 'A-001' },
-        { href: '/Entities/a-071', label: 'A-071 (Levi)' },
-        { href: '/Personnel/somni', label: 'A-100' },
-      ],
+      entries: allyEntries,
     },
     {
       title: 'Class S',
@@ -94,22 +139,11 @@ const entityGroups: { left: EntityGroup[]; right: EntityGroup[] } = {
   right: [
     {
       title: 'Class C',
-      entries: [
-        { href: '/Entities/c-086', label: 'C-086 - (Bloom Lizard)' },
-        { href: '/Entities/c-2221', label: 'C-221 - (Wisp Animation)' },
-        { href: '/Entities/c-282', label: 'C-282 - (Eyless lizard)' },
-        { href: '/Entities/c-324', label: 'C-324 - (Tentacle Plant)' },
-        { href: '/Entities/c-400', label: 'C-400 - (Portal Cats)' },
-        { href: '/Entities/c-668', label: 'C-668 - (Wisp Animation)' },
-        { href: '/Entities/c-872', label: 'C-872 - (R3VI Animation)' },
-      ],
+      entries: containmentEntries,
     },
     {
       title: 'Class M',
-      entries: [
-        ...maximumContainmentEntries,
-        { href: '/Entities/m-227', label: 'M-227 - (Spore Lizard)' },
-      ],
+      entries: maximumContainmentEntries,
     },
     {
       title: 'Unassigned',
