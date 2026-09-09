@@ -33,4 +33,8 @@ Their main directives are Rescue, Recovery and Return. They are programmed to pr
 
 R3VI's bodies are disposable and modular, allowing them to be easily repaired or replaced in the field. Their AI brain is saved in Level 1 data servers, ensuring that their consciousness and memories are preserved even if their physical body is destroyed.
 
+While using a local AI model, disconnected from the main server is possible, its way less efficient and limits the robot's capabilities significantly. As well as reducing their battery life.
+
+>Warning: If their body gets destroyed while in local AI mode, the data is lost permanently.
+
 Their body is soft yet durable, designed to withstand harsh environments, including stomach acids. This allows R3VI to survive being swallowed by creatures while continuing their rescue operations.
