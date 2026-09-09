@@ -2,7 +2,7 @@
 title: Dr. Mages
 position: Head of R&D Department
 species: ████
-gender: Intersex
+gender: Female
 employeeID: 0002
 height: "{{5'8\"|1.73 m}}"
 age: 34
