@@ -295,7 +295,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                         <h3 class="db-section-title"><DatabaseFolderIcon />{group.type}</h3>
                         <ul class="db-list db-sublist">
                           {group.members.length ? group.members.map((synthetic) => (
-                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{synthetic.data.title}</a></li>
+                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{databaseEntryLabel(synthetic.data)}</a></li>
                           )) : <li class="db-group-note">No entries.</li>}
                         </ul>
                       </section>
@@ -305,7 +305,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                         <h3 class="db-section-title"><DatabaseFolderIcon />Other</h3>
                         <ul class="db-list db-sublist">
                           {otherSynthetics.map((synthetic) => (
-                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{synthetic.data.title}</a></li>
+                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{databaseEntryLabel(synthetic.data)}</a></li>
                           ))}
                         </ul>
                       </section>
