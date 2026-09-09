@@ -33,10 +33,11 @@ const pageHref = (id: string) => {
   return `/${pageId}`;
 };
 
-const [articles, personnel, entities, pages] = await Promise.all([
+const [articles, personnel, entities, synthetics, pages] = await Promise.all([
   getCollection('articles', ({ data }) => !data.draft),
   getCollection('personnel', ({ data }) => !data.draft),
   getCollection('entities', ({ data }) => !data.draft),
+  getCollection('synthetics', ({ data }) => !data.draft),
   getCollection('pages'),
 ]);
 
@@ -58,6 +59,12 @@ const updates = [
     href: `/Entities/${entry.id.replace(/\.md$/, '')}`,
     verb: 'Entity file updated',
     date: lastUpdated(path.join(contentDir, 'entities', entry.id)),
+  })),
+  ...synthetics.map((entry) => ({
+    title: entry.data.title,
+    href: `/Synthetics/${entry.id.replace(/\.md$/, '')}`,
+    verb: 'Synthetic record updated',
+    date: lastUpdated(path.join(contentDir, 'synthetics', entry.id)),
   })),
   ...pages.map((entry) => ({
     title: entry.data.title,

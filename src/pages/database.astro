@@ -7,12 +7,14 @@ import { getCollection } from 'astro:content';
 
 const personnel = await getCollection('personnel', ({ data }) => !data.draft);
 const entities = await getCollection('entities', ({ data }) => !data.draft);
+const synthetics = await getCollection('synthetics', ({ data }) => !data.draft);
 const contentSlug = (id: string) => id.replace(/\.md$/, '');
 const databaseEntryLabel = (data: { title: string; nickname?: string }) => data.nickname
   ? `${data.title} - ${data.nickname}`
   : data.title;
 const activePersonnelUrls = personnel.map((entry) => `/Personnel/${contentSlug(entry.id)}`);
 const activeEntityUrls = entities.map((entry) => `/Entities/${contentSlug(entry.id)}`);
+const activeSyntheticUrls = synthetics.map((entry) => `/Synthetics/${contentSlug(entry.id)}`);
 const publishedArticles = await getCollection('articles', ({ data }) => !data.draft);
 const activeArticleUrls = publishedArticles.map((article) => `/Articles/${article.slug}`);
 const reportsByCategory = Array.from(
@@ -159,10 +161,22 @@ const personnelByAccessLevel = [0, 1, 2, 3, 4, 5].map((level) => ({
     .sort((first, second) => first.data.title.localeCompare(second.data.title)),
 }));
 
+const syntheticTypes = ['Living', 'Robot', 'Biomech'];
+const syntheticsByType = syntheticTypes.map((type) => ({
+  type,
+  members: synthetics
+    .filter((entry) => (entry.data.type || '').toLowerCase() === type.toLowerCase())
+    .sort((first, second) => first.data.title.localeCompare(second.data.title)),
+}));
+const otherSynthetics = synthetics
+  .filter((entry) => !syntheticTypes.some((t) => t.toLowerCase() === (entry.data.type || '').toLowerCase()))
+  .sort((first, second) => first.data.title.localeCompare(second.data.title));
+
 // Keep a lookup set for active link styling.
 const activeUrls = new Set([
   ...activePersonnelUrls,
   ...activeEntityUrls,
+  ...activeSyntheticUrls,
   ...activeArticleUrls,
   ...activeClassUrls,
   ...activeLevelUrls,
@@ -171,6 +185,7 @@ const activeUrls = new Set([
 const patreonUrls = new Set([
   ...personnel.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Personnel/${contentSlug(entry.id)}`),
   ...entities.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Entities/${contentSlug(entry.id)}`),
+  ...synthetics.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Synthetics/${contentSlug(entry.id)}`),
   ...publishedArticles.filter((article) => article.data.patreonSubmission).map((article) => `/Articles/${article.slug}`),
 ]);
 // Determine whether a given link target is currently active.
@@ -192,6 +207,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
       <nav class="db-pane-nav" role="tablist" aria-label="Database folders">
         <button id="db-tab-personnel" class="db-tab" role="tab" type="button" aria-selected="true" aria-controls="db-panel-personnel" tabindex="0"><DatabaseFolderIcon />Personnel</button>
         <button id="db-tab-entities" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-entities" tabindex="-1"><DatabaseFolderIcon />Entities</button>
+        <button id="db-tab-synthetics" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-synthetics" tabindex="-1"><DatabaseFolderIcon />Synthetics</button>
         <button id="db-tab-containment" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-containment" tabindex="-1"><DatabaseFolderIcon />Containment Classes</button>
         <button id="db-tab-levels" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-levels" tabindex="-1"><DatabaseFolderIcon />Levels</button>
         <button id="db-tab-articles" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-articles" tabindex="-1"><DatabaseFolderIcon />Reports</button>
@@ -260,6 +276,40 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                         </ul>
                       </section>
                     ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="db-panel-synthetics" class="db-panel" role="tabpanel" aria-labelledby="db-tab-synthetics" hidden>
+          <div class="card compact" aria-labelledby="sec-synthetics">
+            <div class="db-section-tree">
+              <h2 id="sec-synthetics" class="db-title-cyan db-title-node"><DatabaseFolderIcon />Synthetics</h2>
+              <div class="db-section-branch">
+                <div class="db-content-grid db-tree">
+                  <div class="db-content-column">
+                    {syntheticsByType.map((group) => (
+                      <section class="db-group" aria-label={`${group.type} synthetics`}>
+                        <h3 class="db-section-title"><DatabaseFolderIcon />{group.type}</h3>
+                        <ul class="db-list db-sublist">
+                          {group.members.length ? group.members.map((synthetic) => (
+                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{synthetic.data.title}</a></li>
+                          )) : <li class="db-group-note">No entries.</li>}
+                        </ul>
+                      </section>
+                    ))}
+                    {otherSynthetics.length > 0 && (
+                      <section class="db-group" aria-label="Other synthetics">
+                        <h3 class="db-section-title"><DatabaseFolderIcon />Other</h3>
+                        <ul class="db-list db-sublist">
+                          {otherSynthetics.map((synthetic) => (
+                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{synthetic.data.title}</a></li>
+                          ))}
+                        </ul>
+                      </section>
+                    )}
                   </div>
                 </div>
               </div>

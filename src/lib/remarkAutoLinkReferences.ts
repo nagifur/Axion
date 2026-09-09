@@ -1,4 +1,4 @@
-import { classReferences, entityReferences, levelReferences, personnelReferences } from './profileReferences';
+import { classReferences, entityReferences, levelReferences, personnelReferences, syntheticReferences } from './profileReferences';
 
 type Reference = {
   name: string;
@@ -28,10 +28,10 @@ const protectedNodeTypes = new Set(['code', 'html', 'inlineCode', 'link', 'linkR
 const getCurrentProfileUrl = (file: MarkdownFile, base: string): string | undefined => {
   const filePath = file.path?.replaceAll('\\', '/');
 
-  const profileMatch = filePath?.match(/\/content\/(personnel|entities)\/([^/]+)\.md$/);
+  const profileMatch = filePath?.match(/\/content\/(personnel|entities|synthetics)\/([^/]+)\.md$/);
   if (profileMatch) {
     const [, collection, slug] = profileMatch;
-    const route = collection === 'personnel' ? 'Personnel' : 'Entities';
+    const route = collection === 'personnel' ? 'Personnel' : collection === 'entities' ? 'Entities' : 'Synthetics';
     return `${base}/${route}/${slug}`;
   }
 
@@ -58,6 +58,10 @@ export default function remarkAutoLinkReferences({ base }: PluginOptions) {
     ...entityReferences.map(({ name, slug }) => ({
       name,
       url: `${normalizedBase}/Entities/${slug}`,
+    })),
+    ...syntheticReferences.map(({ name, slug }) => ({
+      name,
+      url: `${normalizedBase}/Synthetics/${slug}`,
     })),
     ...levelReferences.map(({ name, slug }) => ({
       name,
