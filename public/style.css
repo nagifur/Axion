@@ -1800,7 +1800,6 @@
       color:var(--neon-red);
       font-size:0.7rem;
       font-weight:700;
-      margin:auto;
       letter-spacing:0.12em;
       text-transform:uppercase;
     }
@@ -1829,7 +1828,7 @@
       transform:translateX(-50%);
     }
     .access-gate-lock span{ width:10px; height:18px; border-radius:5px 5px 2px 2px; background:var(--neon-red) }
-    .access-gate-kicker{ width:100%; margin:0; color:var(--muted); font-size:0.75rem; letter-spacing:0.12em; text-align:center; text-transform:uppercase }
+    .access-gate-kicker{ width:100%; margin:auto; color:var(--muted); font-size:0.75rem; letter-spacing:0.12em; text-align:center; text-transform:uppercase }
     .access-gate h2{ margin:var(--space-2) 0 var(--space-5); color:var(--neon-red); font-size:clamp(1.8rem, 7vw, 3rem); text-shadow:0 0 18px color-mix(in srgb, var(--neon-red) 55%, transparent) }
     .access-gate.card:is(.is-window-floating, .is-window-fullscreen) > h2{ color:var(--neon-red) }
     .access-gate-details{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--space-2); margin:0 auto; max-width:620px }
