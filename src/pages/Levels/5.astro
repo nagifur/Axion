@@ -23,9 +23,24 @@ const { Content } = await render(page);
       <h1>{page.data.title} <span class="cursor" aria-hidden="true"></span></h1>
     </header>
 
-    <section class="card article-body">
-      <Content />
-    </section>
+    {page.data.accessDenied ? (
+      <section class="card access-gate" aria-labelledby="access-gate-title">
+        <div class="access-gate-status"><span aria-hidden="true"></span>Security protocol active</div>
+        <div class="access-gate-lock" aria-hidden="true"><span></span></div>
+        <p class="access-gate-kicker">Axion internal network</p>
+        <h2 id="access-gate-title">Access denied</h2>
+        <dl class="access-gate-details">
+          <div><dt>Requested node</dt><dd>{page.data.title}</dd></div>
+          <div><dt>Required clearance</dt><dd>Level {page.data.requiredClearance}</dd></div>
+          <div><dt>Current clearance</dt><dd>Level {page.data.viewerClearance}</dd></div>
+        </dl>
+        <p class="access-gate-notice">{page.data.denialNotice}</p>
+      </section>
+    ) : (
+      <section class="card article-body">
+        <Content />
+      </section>
+    )}
 
     <nav class="article-return" aria-label="Database navigation">
       <a href="/database">← Back to Database</a>

@@ -27,6 +27,10 @@ const articles = defineCollection({
 const pages = defineCollection({
   schema: z.object({
     title: z.string(),
+    accessDenied: z.boolean().default(false),
+    requiredClearance: z.union([z.string(), z.number()]).optional(),
+    viewerClearance: z.union([z.string(), z.number()]).optional(),
+    denialNotice: z.string().optional(),
   }),
 });
 
