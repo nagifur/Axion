@@ -1800,6 +1800,7 @@
       color:var(--neon-red);
       font-size:0.7rem;
       font-weight:700;
+      margin:auto;
       letter-spacing:0.12em;
       text-transform:uppercase;
     }
