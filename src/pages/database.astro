@@ -213,20 +213,19 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
         <button id="db-tab-articles" class="db-tab" role="tab" type="button" aria-selected="false" aria-controls="db-panel-articles" tabindex="-1"><DatabaseFolderIcon />Reports</button>
       </nav>
       <span class="db-scroll-cue" aria-hidden="true">›</span>
-    </div>
-
-    <div class="db-pane-right">
       <div class="card compact db-legend" aria-labelledby="sec-link-legend">
-        
         <h2 id="sec-link-legend" class="db-title-cyan">Filters</h2>
         <ul class="db-legend-list">
-          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-cyan db-legend-filter" data-db-filter="canon" aria-pressed="false">Cyan</button> - Canon </li>
-          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-red db-legend-filter" data-db-filter="unavailable" aria-pressed="false">Red</button> - Unavailable</li>
-          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-orange db-legend-filter" data-db-filter="patreon" aria-pressed="false"><HoverText value={'{{Orange | May not be canon}}'} /></button> - Patreon submission</li>
+          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-cyan db-legend-filter" data-db-filter="canon" aria-pressed="false">Canon</button></li>
+          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-muted-blue db-legend-filter" data-db-filter="unavailable" aria-pressed="false">Unavailable</button></li>
+          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-red db-legend-filter" data-db-filter="restricted" aria-pressed="false">Restricted</button></li>
+          <li class="db-legend-item"><button type="button" class="db-legend-swatch db-legend-orange db-legend-filter" data-db-filter="patreon" aria-pressed="false"><HoverText value={'{{Patreon Submission | May not be canon}}'} /></button></li>
         </ul>
         <p class="db-legend-hint" data-db-filter-hint hidden>Filtering active. Click the highlighted color again to show everything.</p>
       </div>
+    </div>
 
+    <div class="db-pane-right">
       <div class="db-panels">
         <section id="db-panel-personnel" class="db-panel db-panel-active" role="tabpanel" aria-labelledby="db-tab-personnel">
           <div class="card compact" aria-labelledby="sec-personnel">
@@ -345,7 +344,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                   <li><a href="/Levels/2" class={linkState('/Levels/2')}>Level 2</a></li>
                   <li><a href="/Levels/3" class={linkState('/Levels/3')}>Level 3</a></li>
                   <li><a href="/Levels/4" class={linkState('/Levels/4')}>Level 4</a></li>
-                  <li><a href="/Levels/5" class="inactive" aria-label="Level 5, restricted">Level 5 <span class="db-restricted-label">Restricted</span></a></li>
+                  <li><a href="/Levels/5" class="restricted" aria-label="Level 5, restricted">Level 5 <svg class="db-restricted-lock" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5a3.5 3.5 0 0 1 7 0v2M3 7h10v7H3zM8 10v2" /></svg></a></li>
                 </ul>
               </div>
             </div>

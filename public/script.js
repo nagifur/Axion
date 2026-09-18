@@ -673,6 +673,7 @@ document.addEventListener('astro:page-load', function () {
     function categoryOf(link){
       if (!link) return null;
       if (link.classList.contains('patreon')) return 'patreon';
+      if (link.classList.contains('restricted')) return 'restricted';
       if (link.classList.contains('inactive')) return 'unavailable';
       if (link.classList.contains('active')) return 'canon';
       return null;
