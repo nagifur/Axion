@@ -1,6 +1,6 @@
 ---
 title: Skye
-position: Robotics Expert / Mech Pilot
+position: Elite Robotics Designer
 species: Canine
 gender: Intersex
 employeeID: 6382
