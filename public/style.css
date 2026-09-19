@@ -1166,7 +1166,7 @@
       border-left:2px solid var(--neon-yellow);
       margin-left:-1px;
     }
-    .db-tree-list > li{ position:relative; padding-left:18px; }
+    .db-tree-list > li{ position:relative; padding-left:32px; }
     .db-tree-list > li::before{
       content:"";
       position:absolute;
