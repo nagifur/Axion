@@ -202,16 +202,6 @@ const articleCategories = Array.from(new Set(
         <div class="form-field field-profile span-2">
           <label for="f-profile-image">Profile Image</label>
           <input id="f-profile-image" type="file" accept="image/*" />
-          <div id="profile-crop-editor" class="profile-crop-editor" hidden>
-            <div class="profile-crop-stage">
-              <canvas id="profile-crop-canvas" width="640" height="640" aria-label="Profile image crop preview"></canvas>
-            </div>
-            <div class="profile-crop-controls">
-              <label for="profile-crop-zoom">Zoom</label>
-              <input id="profile-crop-zoom" type="range" min="1" max="3" step="0.01" value="1" />
-              <span id="profile-crop-status" class="field-hint">Drag the image to reposition it.</span>
-            </div>
-          </div>
           <p class="field-hint">Will be exported as <code>profile.&lt;ext&gt;</code>.</p>
         </div>
 
@@ -283,10 +273,22 @@ const articleCategories = Array.from(new Set(
   const exportOutput = document.getElementById('export-output')!;
   const exportImageList = document.getElementById('export-image-list')!;
   const profileImageInput = document.getElementById('f-profile-image') as HTMLInputElement;
-  const profileCropEditor = document.getElementById('profile-crop-editor') as HTMLDivElement;
-  const profileCropCanvas = document.getElementById('profile-crop-canvas') as HTMLCanvasElement;
-  const profileCropZoom = document.getElementById('profile-crop-zoom') as HTMLInputElement;
-  const profileCropStatus = document.getElementById('profile-crop-status')!;
+  const profileCropCanvas = document.createElement('canvas');
+  profileCropCanvas.id = 'profile-crop-canvas';
+  profileCropCanvas.width = 640;
+  profileCropCanvas.height = 853;
+  profileCropCanvas.setAttribute('aria-label', 'Profile image crop preview');
+  const profileCropZoom = document.createElement('input');
+  profileCropZoom.id = 'profile-crop-zoom';
+  profileCropZoom.type = 'range';
+  profileCropZoom.min = '1';
+  profileCropZoom.max = '3';
+  profileCropZoom.step = '0.01';
+  profileCropZoom.value = '1';
+  const profileCropZoomLabel = document.createElement('label');
+  profileCropZoomLabel.id = 'profile-crop-zoom-label';
+  profileCropZoomLabel.htmlFor = 'profile-crop-zoom';
+  profileCropZoomLabel.textContent = 'Zoom';
   const titleLabel = document.getElementById('f-title-label')!;
   const titleInput = document.getElementById('f-title') as HTMLInputElement;
   const bodyLabel = document.getElementById('f-body-label')!;
@@ -303,6 +305,7 @@ const articleCategories = Array.from(new Set(
   let profileCropX = 0;
   let profileCropY = 0;
   let profileCropScale = 1;
+  let profileCropSmooth = false;
   let profileCropPointer: { x: number; y: number } | null = null;
   const galleryRows: GalleryRow[] = [];
   const articleImages: ArticleImageRow[] = [];
@@ -586,26 +589,26 @@ const articleCategories = Array.from(new Set(
     articleImageRowsEl.appendChild(wrap);
   };
 
-  const drawProfileCrop = () => {
+  const drawProfileCrop = (refreshPreview = true) => {
     if (!profileSourceImage) return;
     const context = profileCropCanvas.getContext('2d');
     if (!context) return;
 
-    const size = profileCropCanvas.width;
-    const sourceSize = Math.min(profileSourceImage.naturalWidth, profileSourceImage.naturalHeight);
-    const scale = (size / sourceSize) * profileCropScale;
+    const width = profileCropCanvas.width;
+    const height = profileCropCanvas.height;
+    const scale = Math.max(width / profileSourceImage.naturalWidth, height / profileSourceImage.naturalHeight) * profileCropScale;
     const drawWidth = profileSourceImage.naturalWidth * scale;
     const drawHeight = profileSourceImage.naturalHeight * scale;
-    const maxOffsetX = Math.max(0, (drawWidth - size) / 2);
-    const maxOffsetY = Math.max(0, (drawHeight - size) / 2);
+    const maxOffsetX = Math.max(0, (drawWidth - width) / 2);
+    const maxOffsetY = Math.max(0, (drawHeight - height) / 2);
 
     profileCropX = Math.max(-maxOffsetX, Math.min(maxOffsetX, profileCropX));
     profileCropY = Math.max(-maxOffsetY, Math.min(maxOffsetY, profileCropY));
-    context.clearRect(0, 0, size, size);
-    context.drawImage(profileSourceImage, (size - drawWidth) / 2 + profileCropX, (size - drawHeight) / 2 + profileCropY, drawWidth, drawHeight);
-    profileImageUrl = profileCropCanvas.toDataURL('image/png');
-    profileCropStatus.textContent = 'Drag the image to reposition it.';
-    updatePreview();
+    context.clearRect(0, 0, width, height);
+    context.imageSmoothingEnabled = profileCropSmooth;
+    context.drawImage(profileSourceImage, (width - drawWidth) / 2 + profileCropX, (height - drawHeight) / 2 + profileCropY, drawWidth, drawHeight);
+    if (refreshPreview) profileImageUrl = profileCropCanvas.toDataURL('image/png');
+    if (refreshPreview) updatePreview();
   };
 
   const saveProfileCrop = () => {
@@ -623,7 +626,6 @@ const articleCategories = Array.from(new Set(
     profileImageFile = chosen;
     profileImageUrl = chosen ? URL.createObjectURL(chosen) : null;
     profileImageExt = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
-    profileCropEditor.hidden = !chosen;
     if (!chosen) {
       profileSourceImage = null;
       updatePreview();
@@ -638,6 +640,7 @@ const articleCategories = Array.from(new Set(
       profileCropX = 0;
       profileCropY = 0;
       profileCropScale = 1;
+      profileCropSmooth = false;
       profileCropZoom.value = '1';
       drawProfileCrop();
       saveProfileCrop();
@@ -647,6 +650,13 @@ const articleCategories = Array.from(new Set(
 
   profileCropZoom.addEventListener('input', () => {
     profileCropScale = Number(profileCropZoom.value);
+    profileCropSmooth = true;
+    profileCropCanvas.classList.add('is-zooming');
+    drawProfileCrop(false);
+  });
+  profileCropZoom.addEventListener('change', () => {
+    profileCropSmooth = false;
+    profileCropCanvas.classList.remove('is-zooming');
     drawProfileCrop();
     saveProfileCrop();
   });
@@ -662,11 +672,12 @@ const articleCategories = Array.from(new Set(
     profileCropX += event.clientX - profileCropPointer.x;
     profileCropY += event.clientY - profileCropPointer.y;
     profileCropPointer = { x: event.clientX, y: event.clientY };
-    drawProfileCrop();
+    drawProfileCrop(false);
   });
   profileCropCanvas.addEventListener('pointerup', () => {
     profileCropPointer = null;
     profileCropCanvas.classList.remove('is-dragging');
+    drawProfileCrop();
     saveProfileCrop();
   });
   profileCropCanvas.addEventListener('pointercancel', () => {
@@ -737,7 +748,10 @@ const articleCategories = Array.from(new Set(
     if (!categoryOptions.parentElement!.contains(event.target as Node)) setCategoryOpen(false);
   });
   typeRadios.forEach((radio) => radio.addEventListener('change', () => { syncFieldVisibility(); updatePreview(); }));
-  form.addEventListener('input', updatePreview);
+  form.addEventListener('input', (event) => {
+    if (event.target === profileCropZoom) return;
+    updatePreview();
+  });
 
   // Build the preview markup, mirroring the real Personnel/Entities profile page layout.
   function renderPreview() {
@@ -867,7 +881,7 @@ const articleCategories = Array.from(new Set(
         </div>
         <div class="profile">
           <div class="profile-media">
-            <img class="pixelart-profile" src="${profileImageUrl ?? ''}"  />
+            <div class="profile-crop-target"></div>
           </div>
           <div class="stat-grid">${statsHtml}</div>
         </div>
@@ -882,6 +896,14 @@ const articleCategories = Array.from(new Set(
         <div class="gallery-grid">${galleryHtml}</div>
       </div>
     `;
+
+    if (profileSourceImage) {
+      const target = previewEl.querySelector('.profile-crop-target');
+      if (target) {
+        target.append(profileCropCanvas, profileCropZoomLabel, profileCropZoom);
+        profileCropCanvas.classList.remove('is-zooming');
+      }
+    }
   }
 
   // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
