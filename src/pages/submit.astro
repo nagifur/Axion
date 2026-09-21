@@ -449,6 +449,15 @@ const articleCategories = Array.from(new Set(
     return `<input class="preview-inline-input" data-preview-field="${name}" value="${value}" placeholder="${escapeAttribute(placeholder)}" />`;
   };
 
+  const inlineSelect = (name: string) => {
+    const source = form.elements.namedItem(name) as HTMLSelectElement | null;
+    if (!source) return inlineInput(name);
+    const options = Array.from(source.options).map((option) => `
+      <option value="${escapeAttribute(option.value)}"${option.value === source.value ? ' selected' : ''}>${escapeHtml(option.textContent ?? option.value)}</option>
+    `).join('');
+    return `<select class="preview-inline-select" data-preview-field="${name}">${options}</select>`;
+  };
+
   const inlineTextarea = (name: string, placeholder = '') => {
     return `<textarea class="preview-inline-textarea" data-preview-field="${name}" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(field(name))}</textarea>`;
   };
@@ -798,10 +807,10 @@ const articleCategories = Array.from(new Set(
       </figure>
     `).join('') || '<p class="field-hint">No gallery images added yet.</p>';
 
-    const statCell = (label: string, value: string, fieldName?: string, placeholder = '') => `
+    const statCell = (label: string, value: string, fieldName?: string, placeholder = '', control: 'input' | 'select' = 'input') => `
       <div class="stat-cell">
         ${label}
-        <span class="stat-value">${fieldName ? inlineInput(fieldName, placeholder) : value || '—'}</span>
+        <span class="stat-value">${fieldName ? control === 'select' ? inlineSelect(fieldName) : inlineInput(fieldName, placeholder) : value || '—'}</span>
       </div>
     `;
 
@@ -810,14 +819,14 @@ const articleCategories = Array.from(new Set(
 
     if (type === 'personnel') {
       statsHtml = [
-        statCell('Access Level', '', 'accessLevel'),
+        statCell('Access Level', '', 'accessLevel', '', 'select'),
         statCell('Facility Position', '', 'position'),
         statCell('Species', '', 'species'),
         statCell('Gender', '', 'gender'),
         statCell('Height', '', 'height'),
         statCell('Age', '', 'age'),
         statCell('Birthplace', '', 'birthplace'),
-        statCell('Trophic Role', '', 'vorePreference'),
+        statCell('Trophic Role', '', 'vorePreference', '', 'select'),
       ].join('');
       traitsHtml = `
         <div class="traits-grid">
@@ -831,14 +840,14 @@ const articleCategories = Array.from(new Set(
       `;
     } else if (type === 'synthetic') {
       statsHtml = [
-        statCell('Access Level', '', 'accessLevel'),
+        statCell('Access Level', '', 'accessLevel', '', 'select'),
         statCell('Facility Position', '', 'position'),
-        statCell('Type', '', 'syntheticType'),
+        statCell('Type', '', 'syntheticType', '', 'select'),
         statCell('Gender', '', 'gender'),
         statCell('Height', '', 'height'),
         statCell('Age', '', 'age'),
         statCell('Created on', '', 'createdOn'),
-        statCell('Trophic Role', '', 'vorePreference'),
+        statCell('Trophic Role', '', 'vorePreference', '', 'select'),
       ].join('');
       traitsHtml = `
         <div class="traits-grid">
@@ -852,13 +861,13 @@ const articleCategories = Array.from(new Set(
       `;
     } else {
       statsHtml = [
-        statCell('Containment Class', '', 'containmentClass'),
+        statCell('Containment Class', '', 'containmentClass', '', 'select'),
         statCell('Type', '', 'type'),
         statCell('Species', '', 'species'),
         statCell('Gender', '', 'gender'),
         statCell('Age', '', 'age'),
         statCell('Found On', '', 'foundOn'),
-        statCell('Trophic Role', '', 'vorePreference'),
+        statCell('Trophic Role', '', 'vorePreference', '', 'select'),
       ].join('');
       traitsHtml = `
         <div class="traits-grid">

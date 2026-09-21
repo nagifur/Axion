@@ -125,7 +125,19 @@
     .profile-name .preview-inline-input{ text-transform:uppercase }
     .profile-author .preview-inline-input{ color:var(--muted); font-size:0.88rem }
     .profile-nickname .preview-inline-input{ color:var(--neon-green) }
-    .stat-value .preview-inline-input{ color:var(--text); font-size:inherit }
+    .stat-value .preview-inline-input, .stat-value .preview-inline-select{ color:var(--text); font-size:inherit }
+    .preview-inline-select{
+      appearance:none;
+      -webkit-appearance:none;
+      padding:2px 22px 2px 5px;
+      border-color:var(--line-soft);
+      background-color:rgba(0,0,0,0.12);
+      background-image:linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position:calc(100% - 8px) 55%, calc(100% - 4px) 55%;
+      background-size:4px 4px, 4px 4px;
+      background-repeat:no-repeat;
+    }
+    .preview-inline-select option{ background:var(--panel); color:var(--text) }
     .preview-inline-textarea{ display:block; min-height:3.5em; resize:vertical; color:var(--text); line-height:1.45 }
     .trait-list + .preview-inline-textarea{ margin-top:8px }
 
