@@ -139,6 +139,7 @@
     }
     .preview-inline-select option{ background:var(--panel); color:var(--text) }
     .preview-inline-textarea{ display:block; min-height:3.5em; resize:vertical; color:var(--text); line-height:1.45 }
+    .preview-inline-textarea[data-preview-field="bio"]{ min-height:14em }
     .trait-list + .preview-inline-textarea{ margin-top:8px }
 
     /* Light theme overrides */
