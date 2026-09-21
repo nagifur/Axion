@@ -1256,8 +1256,8 @@
       .submit-type-toggle{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
     }
     .submit-checkbox{ display:flex; align-items:center; gap:6px; color:var(--muted); cursor:pointer }
-    .form-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 16px; margin-top:12px }
-    .form-field{ display:flex; flex-direction:column; gap:4px }
+    .form-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 16px; margin-top:12px; width:100%; min-width:0 }
+    .form-field{ display:flex; flex-direction:column; gap:4px; min-width:0 }
     .form-field[hidden]{ display:none }
     .submit-form-card:has(.category-options:not([hidden])){ z-index:20; overflow:visible }
     .category-field:has(.category-options:not([hidden])){ position:relative; z-index:30 }
@@ -1280,12 +1280,28 @@
       color:var(--text);
       padding:8px 10px;
       font:inherit;
+      width:100%;
+      max-width:100%;
     }
     /* Chrome paints the native dropdown popup with system colors, so options need explicit ones */
     .form-field select option{ background-color:var(--panel); color:var(--text) }
     .form-field textarea{ resize:vertical }
     .form-field input:focus, .form-field select:focus, .form-field textarea:focus{ outline:2px solid var(--line); outline-offset:1px }
     .field-hint{ color:var(--muted); font-size:0.8rem; margin:10px 0 0 }
+    .profile-crop-editor{ display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-top:10px; padding:12px; border:1px solid var(--line-soft); border-radius:var(--radius); background:var(--panel-alt) }
+    .profile-crop-editor[hidden]{ display:none }
+    .profile-crop-stage{ width:min(220px, 100%); aspect-ratio:1; overflow:hidden; border:1px solid var(--control-border); background:var(--bg-deep) }
+    #profile-crop-canvas{ display:block; width:100%; height:100%; cursor:grab; touch-action:none; image-rendering:auto }
+    #profile-crop-canvas.is-dragging{ cursor:grabbing }
+    .profile-crop-controls{ display:flex; flex:1 1 220px; flex-direction:column; gap:6px; min-width:180px }
+    .profile-crop-controls label{ font-size:0.72rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted) }
+    .profile-crop-controls input[type="range"]{ width:100%; accent-color:var(--neon-cyan) }
+    .profile-crop-controls .field-hint{ margin:0 }
+    @media (max-width:700px){
+      .profile-crop-editor{ max-width:100%; overflow:hidden }
+      .profile-crop-controls{ flex:1 1 100%; width:100%; min-width:0 }
+      .profile-crop-controls input[type="range"]{ min-width:0; max-width:100% }
+    }
     .category-input-group{ position:relative; display:flex; align-items:stretch }
     .category-input-group input{ flex:1; min-width:0; border-radius:var(--radius) 0 0 var(--radius) !important }
     .category-browse{
