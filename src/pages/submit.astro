@@ -47,12 +47,12 @@ const articleCategories = Array.from(new Set(
       </div>
 
       <form id="submit-form" class="form-grid" autocomplete="off">
-        <div class="form-field span-2">
+        <div class="form-field profile-inline-source span-2">
           <label id="f-title-label" for="f-title">Name / Entity number</label>
           <input id="f-title" name="title" type="text" placeholder="e.g. Nagi or M-031" required />
         </div>
 
-        <div class="form-field span-2">
+        <div class="form-field profile-inline-source span-2">
           <label for="f-author">Author / Owner credit</label>
           <input id="f-author" name="author" type="text" placeholder="Optional — e.g. Your name or handle" />
         </div>
@@ -74,19 +74,19 @@ const articleCategories = Array.from(new Set(
           </div>
         </div>
 
-        <div class="form-field field-personnel">
+        <div class="form-field profile-inline-source field-personnel">
           <label for="f-employeeID">Employee ID</label>
           <input id="f-employeeID" name="employeeID" type="text" placeholder="e.g. 5538" />
         </div>
-        <div class="form-field field-synthetic">
+        <div class="form-field profile-inline-source field-synthetic">
           <label for="f-syntheticID">SID</label>
           <input id="f-syntheticID" name="syntheticID" type="text" placeholder="e.g. SYN-001" />
         </div>
-        <div class="form-field field-personnel field-synthetic">
+        <div class="form-field profile-inline-source field-personnel field-synthetic">
           <label for="f-position">Facility Position</label>
           <input id="f-position" name="position" type="text" placeholder="e.g. Caretaker" />
         </div>
-        <div class="form-field field-personnel field-synthetic">
+        <div class="form-field profile-inline-source field-personnel field-synthetic">
           <label for="f-accessLevel">Access Level</label>
           <select id="f-accessLevel" name="accessLevel">
             <option value="0">Level 0</option>
@@ -97,19 +97,19 @@ const articleCategories = Array.from(new Set(
             <option value="5">Level 5</option>
           </select>
         </div>
-        <div class="form-field field-personnel field-synthetic">
+        <div class="form-field profile-inline-source field-personnel field-synthetic">
           <label for="f-height">Height</label>
           <input id="f-height" name="height" type="text" placeholder={"e.g. 5'7\" or {{5'7\"|1.70 m}}"} />
         </div>
-        <div class="form-field field-personnel">
+        <div class="form-field profile-inline-source field-personnel">
           <label for="f-birthplace">Birthplace</label>
           <input id="f-birthplace" name="birthplace" type="text" placeholder="e.g. Ventria" />
         </div>
-        <div class="form-field field-synthetic">
+        <div class="form-field profile-inline-source field-synthetic">
           <label for="f-createdOn">Created on</label>
           <input id="f-createdOn" name="createdOn" type="text" placeholder="e.g. Ventria Lab-04" />
         </div>
-        <div class="form-field field-synthetic">
+        <div class="form-field profile-inline-source field-synthetic">
           <label for="f-syntheticType">Type</label>
           <select id="f-syntheticType" name="syntheticType">
             <option value="Living">Living</option>
@@ -118,11 +118,11 @@ const articleCategories = Array.from(new Set(
           </select>
         </div>
 
-        <div class="form-field field-entity field-synthetic">
+        <div class="form-field profile-inline-source field-entity field-synthetic">
           <label for="f-nickname">Nickname</label>
           <input id="f-nickname" name="nickname" type="text" placeholder="Optional" />
         </div>
-        <div class="form-field field-entity">
+        <div class="form-field profile-inline-source field-entity">
           <label for="f-containmentClass">Containment Class</label>
           <select id="f-containmentClass" name="containmentClass">
             <option value="Ally">Ally (A)</option>
@@ -132,28 +132,28 @@ const articleCategories = Array.from(new Set(
             <option value="Unassigned">Unassigned (X)</option>
           </select>
         </div>
-        <div class="form-field field-entity">
+        <div class="form-field profile-inline-source field-entity">
           <label for="f-type">Type</label>
           <input id="f-type" name="type" type="text" placeholder="e.g. Creature, Object, Phenomenon" />
         </div>
-        <div class="form-field field-entity">
+        <div class="form-field profile-inline-source field-entity">
           <label for="f-foundOn">Found On</label>
           <input id="f-foundOn" name="foundOn" type="text" placeholder="e.g. Planet name" />
         </div>
 
-        <div class="form-field field-species">
+        <div class="form-field profile-inline-source field-species">
           <label for="f-species">Species</label>
           <input id="f-species" name="species" type="text" />
         </div>
-        <div class="form-field field-profile">
+        <div class="form-field profile-inline-source field-profile">
           <label for="f-gender">Gender</label>
           <input id="f-gender" name="gender" type="text" />
         </div>
-        <div class="form-field field-profile">
+        <div class="form-field profile-inline-source field-profile">
           <label for="f-age">Age</label>
           <input id="f-age" name="age" type="text" placeholder="e.g. 25 or -Unknown-" />
         </div>
-        <div class="form-field field-profile">
+        <div class="form-field profile-inline-source field-profile">
           <label for="f-vorePreference">Trophic Role</label>
           <select id="f-vorePreference" name="vorePreference">
             <option value="Prey">Prey</option>
@@ -163,11 +163,11 @@ const articleCategories = Array.from(new Set(
           </select>
         </div>
 
-        <div class="form-field field-personnel field-synthetic span-2">
+        <div class="form-field profile-inline-source field-personnel field-synthetic span-2">
           <label for="f-positiveTraits">Positive Traits (comma separated)</label>
           <input id="f-positiveTraits" name="positiveTraits" type="text" placeholder="Passionate, Friendly, Hardworking" />
         </div>
-        <div class="form-field field-personnel field-synthetic span-2">
+        <div class="form-field profile-inline-source field-personnel field-synthetic span-2">
           <label for="f-negativeTraits">Negative Traits (comma separated)</label>
           <input id="f-negativeTraits" name="negativeTraits" type="text" placeholder="Clumsy, Slow" />
         </div>
@@ -181,7 +181,7 @@ const articleCategories = Array.from(new Set(
           <input id="f-noteableEvents" name="noteableEvents" type="text" placeholder="Escaped containment" />
         </div>
 
-        <div class="form-field span-2">
+        <div class="form-field profile-inline-source span-2">
           <label id="f-body-label" for="f-bio">Bio</label>
           <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -"></textarea>
         </div>
@@ -324,6 +324,9 @@ const articleCategories = Array.from(new Set(
     document.querySelectorAll<HTMLElement>('.field-article').forEach((el) => { el.hidden = type !== 'article'; });
     document.querySelectorAll<HTMLElement>('.field-profile').forEach((el) => { el.hidden = type === 'article'; });
     document.querySelectorAll<HTMLElement>('.field-species').forEach((el) => { el.hidden = type !== 'personnel' && type !== 'entity'; });
+    document.querySelectorAll<HTMLElement>('.profile-inline-source').forEach((el) => {
+      el.hidden = type !== 'article';
+    });
 
     const isArticle = type === 'article';
     titleLabel.textContent = isArticle ? 'Report Title' : 'Name / Entity number';
@@ -439,6 +442,15 @@ const articleCategories = Array.from(new Set(
     flushParagraph();
     closeList();
     return html;
+  };
+
+  const inlineInput = (name: string, placeholder = '') => {
+    const value = escapeAttribute(field(name));
+    return `<input class="preview-inline-input" data-preview-field="${name}" value="${value}" placeholder="${escapeAttribute(placeholder)}" />`;
+  };
+
+  const inlineTextarea = (name: string, placeholder = '') => {
+    return `<textarea class="preview-inline-textarea" data-preview-field="${name}" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(field(name))}</textarea>`;
   };
 
   const addGalleryRow = () => {
@@ -786,87 +798,75 @@ const articleCategories = Array.from(new Set(
       </figure>
     `).join('') || '<p class="field-hint">No gallery images added yet.</p>';
 
-    const statCell = (label: string, value: string) => `
+    const statCell = (label: string, value: string, fieldName?: string, placeholder = '') => `
       <div class="stat-cell">
         ${label}
-        <span class="stat-value">${value || '—'}</span>
+        <span class="stat-value">${fieldName ? inlineInput(fieldName, placeholder) : value || '—'}</span>
       </div>
     `;
 
     let statsHtml = '';
-    let nicknameHtml = '';
     let traitsHtml = '';
-    const authorHtml = author ? `<p class="profile-author">Submission by ${escapeHtml(author)}</p>` : '';
 
     if (type === 'personnel') {
       statsHtml = [
-        statCell('Access Level', `Level ${plainText(field('accessLevel')) || '?'}`),
-        statCell('Facility Position', plainText(field('position'))),
-        statCell('Species', plainText(field('species'))),
-        statCell('Gender', plainText(field('gender'))),
-        statCell('Height', plainText(field('height'))),
-        statCell('Age', plainText(field('age'))),
-        statCell('Birthplace', plainText(field('birthplace'))),
-        statCell('Trophic Role', plainText(field('vorePreference'))),
+        statCell('Access Level', '', 'accessLevel'),
+        statCell('Facility Position', '', 'position'),
+        statCell('Species', '', 'species'),
+        statCell('Gender', '', 'gender'),
+        statCell('Height', '', 'height'),
+        statCell('Age', '', 'age'),
+        statCell('Birthplace', '', 'birthplace'),
+        statCell('Trophic Role', '', 'vorePreference'),
       ].join('');
-      const positive = csvList(field('positiveTraits'));
-      const negative = csvList(field('negativeTraits'));
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
-            <ul class="trait-list positive">${positive.length ? positive.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTextarea('positiveTraits', 'Passionate, Friendly, Hardworking')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
-            <ul class="trait-list negative">${negative.length ? negative.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTextarea('negativeTraits', 'Clumsy, Slow')}
           </div>
         </div>
       `;
     } else if (type === 'synthetic') {
-      const nickname = plainText(field('nickname'));
-      nicknameHtml = nickname ? `<p class="profile-nickname">"${nickname}"</p>` : '';
       statsHtml = [
-        statCell('Access Level', `Level ${plainText(field('accessLevel')) || '?'}`),
-        statCell('Facility Position', plainText(field('position'))),
-        statCell('Type', plainText(field('syntheticType'))),
-        statCell('Gender', plainText(field('gender'))),
-        statCell('Height', plainText(field('height'))),
-        statCell('Age', plainText(field('age'))),
-        statCell('Created on', plainText(field('createdOn'))),
-        statCell('Trophic Role', plainText(field('vorePreference'))),
+        statCell('Access Level', '', 'accessLevel'),
+        statCell('Facility Position', '', 'position'),
+        statCell('Type', '', 'syntheticType'),
+        statCell('Gender', '', 'gender'),
+        statCell('Height', '', 'height'),
+        statCell('Age', '', 'age'),
+        statCell('Created on', '', 'createdOn'),
+        statCell('Trophic Role', '', 'vorePreference'),
       ].join('');
-      const positive = csvList(field('positiveTraits'));
-      const negative = csvList(field('negativeTraits'));
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
-            <ul class="trait-list positive">${positive.length ? positive.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTextarea('positiveTraits', 'Passionate, Friendly, Hardworking')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
-            <ul class="trait-list negative">${negative.length ? negative.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTextarea('negativeTraits', 'Clumsy, Slow')}
           </div>
         </div>
       `;
     } else {
-      const nickname = plainText(field('nickname'));
-      nicknameHtml = nickname ? `<p class="profile-nickname">"${nickname}"</p>` : '';
       statsHtml = [
-        statCell('Containment Class', plainText(field('containmentClass'))),
-        statCell('Type', plainText(field('type'))),
-        statCell('Species', plainText(field('species'))),
-        statCell('Gender', plainText(field('gender'))),
-        statCell('Age', plainText(field('age'))),
-        statCell('Found On', plainText(field('foundOn'))),
-        statCell('Trophic Role', plainText(field('vorePreference'))),
+        statCell('Containment Class', '', 'containmentClass'),
+        statCell('Type', '', 'type'),
+        statCell('Species', '', 'species'),
+        statCell('Gender', '', 'gender'),
+        statCell('Age', '', 'age'),
+        statCell('Found On', '', 'foundOn'),
+        statCell('Trophic Role', '', 'vorePreference'),
       ].join('');
-      const abilities = csvList(field('usefulAbilities'));
-      const events = csvList(field('noteableEvents'));
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Useful Abilities</h2>
-            <ul class="trait-list positive">${abilities.length ? abilities.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTextarea('usefulAbilities', 'Shapeshifting, Flight')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Noteable Events</h2>
-            <ul class="trait-list negative">${events.length ? events.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTextarea('noteableEvents', 'Escaped containment')}
           </div>
         </div>
       `;
@@ -875,9 +875,9 @@ const articleCategories = Array.from(new Set(
     previewEl.innerHTML = `
       <div class="card" role="article">
         <div class="profile-header">
-          <h1 class="profile-name">${title}</h1>
-          ${nicknameHtml}
-          ${authorHtml}
+          <h1 class="profile-name">${inlineInput('title', 'Name / entity number')}</h1>
+          ${type === 'synthetic' || type === 'entity' ? `<p class="profile-nickname">${inlineInput('nickname', 'Nickname')}</p>` : ''}
+          <p class="profile-author">${inlineInput('author', 'Author / owner credit')}</p>
         </div>
         <div class="profile">
           <div class="profile-media">
@@ -888,7 +888,7 @@ const articleCategories = Array.from(new Set(
       </div>
       <div class="card" role="region">
         <h2 class="db-title-cyan">Bio</h2>
-        <div class="article-body">${bioHtml || '<p class="field-hint">Write a bio to see it here.</p>'}</div>
+        <div class="article-body">${inlineTextarea('bio', 'Write the bio text here.')}</div>
       </div>
       ${traitsHtml}
       <div class="card" role="region">
@@ -905,6 +905,16 @@ const articleCategories = Array.from(new Set(
       }
     }
   }
+
+  previewEl.addEventListener('input', (event) => {
+    const control = (event.target as HTMLElement).closest<HTMLElement>('[data-preview-field]');
+    const fieldName = control?.dataset.previewField;
+    if (!fieldName) return;
+    const source = form.elements.namedItem(fieldName) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+    if (!source) return;
+    source.value = (control as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+    updateExport();
+  });
 
   // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
   function buildFileText() {
