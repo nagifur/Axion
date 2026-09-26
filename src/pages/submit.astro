@@ -205,13 +205,13 @@ const articleCategories = Array.from(new Set(
           <div id="submit-preview-content"></div>
           <section id="submit-gallery-preview" class="card" role="region" hidden>
             <h2>Gallery</h2>
-            <div id="submit-gallery-grid" class="gallery-grid"></div>
             <div id="gallery-editor" class="form-field field-profile span-2">
               <div class="gallery-editor-head">
                 <label>Gallery Images</label>
                 <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
               </div>
-              <div id="gallery-rows"></div>
+                <p id="gallery-empty-state" class="field-hint">No gallery images added yet.</p>
+                <div id="gallery-rows" class="gallery-edit-grid"></div>
             </div>
           </section>
         </div>
@@ -268,7 +268,7 @@ const articleCategories = Array.from(new Set(
   const previewEl = document.getElementById('submit-preview')!;
   const previewContentEl = document.getElementById('submit-preview-content')!;
   const galleryPreviewEl = document.getElementById('submit-gallery-preview')!;
-  const galleryPreviewGridEl = document.getElementById('submit-gallery-grid')!;
+  const galleryEmptyStateEl = document.getElementById('gallery-empty-state')!;
   const galleryRowsEl = document.getElementById('gallery-rows')!;
   const articleImageRowsEl = document.getElementById('article-image-rows')!;
   const exportOutput = document.getElementById('export-output')!;
@@ -484,6 +484,7 @@ const articleCategories = Array.from(new Set(
   const addGalleryRow = () => {
     const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
     galleryRows.push(row);
+    galleryEmptyStateEl.hidden = true;
     appendGalleryRow(row);
     updatePreview();
   };
@@ -492,15 +493,29 @@ const articleCategories = Array.from(new Set(
     const wrap = document.createElement('div');
     wrap.className = 'gallery-row';
     wrap.innerHTML = `
-      <button type="button" class="btn secondary gallery-remove" data-role="remove" aria-label="Remove gallery image" title="Remove gallery image">X</button>
-      <input type="file" accept="image/*" data-role="file" />
-      <input type="text" data-role="caption" placeholder="Caption" value="${row.caption.replace(/"/g, '&quot;')}" />
-      <span class="field-hint" data-role="filename">${row.filename}</span>
+      <div class="gallery-item-preview">
+        <img data-role="preview" alt="Gallery image ${galleryRows.indexOf(row) + 1}"${row.url ? ` src="${escapeAttribute(row.url)}"` : ' hidden'} />
+        <div class="gallery-image-placeholder" data-role="placeholder"${row.url ? ' hidden' : ''}>Image preview</div>
+        <button type="button" class="btn gallery-remove" data-role="remove" aria-label="Remove this gallery image" title="Remove this gallery image">X</button>
+      </div>
+      <div class="gallery-item-controls">
+        <label class="gallery-file-control">
+          <span class="sr-only">Gallery image file</span>
+          <input type="file" accept="image/*" data-role="file" />
+          <span class="field-hint" data-role="filename">${row.filename}</span>
+        </label>
+        <label class="gallery-caption-label">
+          <span>Caption</span>
+          <input type="text" data-role="caption" placeholder="Describe this image" value="${row.caption.replace(/"/g, '&quot;')}" />
+        </label>
+      </div>
     `;
 
     const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
     const captionInput = wrap.querySelector('[data-role="caption"]') as HTMLInputElement;
     const filenameLabel = wrap.querySelector('[data-role="filename"]') as HTMLElement;
+    const previewImage = wrap.querySelector('[data-role="preview"]') as HTMLImageElement;
+    const placeholder = wrap.querySelector('[data-role="placeholder"]') as HTMLElement;
     const removeButton = wrap.querySelector('[data-role="remove"]') as HTMLButtonElement;
 
     fileInput.addEventListener('change', () => {
@@ -511,6 +526,9 @@ const articleCategories = Array.from(new Set(
       const ext = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
       row.filename = `${galleryRows.indexOf(row) + 1}.${ext}`;
       filenameLabel.textContent = row.filename;
+      previewImage.hidden = !row.url;
+      previewImage.src = row.url ?? '';
+      placeholder.hidden = Boolean(row.url);
       updatePreview();
     });
 
@@ -525,11 +543,13 @@ const articleCategories = Array.from(new Set(
       if (row.url) URL.revokeObjectURL(row.url);
       galleryRows.splice(rowIndex, 1);
       wrap.remove();
+      galleryEmptyStateEl.hidden = galleryRows.length > 0;
       galleryRows.forEach((remainingRow, i) => {
         const ext = remainingRow.filename.split('.').pop() || 'png';
         remainingRow.filename = `${i + 1}.${ext}`;
         const remainingWrap = galleryRowsEl.children[i];
         remainingWrap.querySelector('[data-role="filename"]')!.textContent = remainingRow.filename;
+        remainingWrap.querySelector('[data-role="preview"]')!.setAttribute('alt', `Gallery image ${i + 1}`);
       });
       updatePreview();
     });
@@ -827,13 +847,6 @@ const articleCategories = Array.from(new Set(
       return;
     }
 
-    const galleryHtml = galleryRows.map((row) => `
-      <figure>
-        <img src="${row.url ?? ''}" alt="${title} — ${row.caption}" />
-        <figcaption>${row.caption || '—'}</figcaption>
-      </figure>
-    `).join('') || '<p class="field-hint">No gallery images added yet.</p>';
-
     const statCell = (label: string, value: string, fieldName?: string, placeholder = '', control: 'input' | 'select' = 'input') => `
       <div class="stat-cell">
         ${label}
@@ -934,7 +947,6 @@ const articleCategories = Array.from(new Set(
       ${traitsHtml}
     `;
 
-    galleryPreviewGridEl.innerHTML = galleryHtml;
     galleryPreviewEl.hidden = false;
 
     if (profileSourceImage) {
