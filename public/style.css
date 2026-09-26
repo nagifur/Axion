@@ -127,8 +127,11 @@
     .profile-nickname .preview-inline-input{ color:var(--neon-green) }
     .stat-value .preview-inline-input, .stat-value .preview-inline-select{ color:var(--text); font-size:inherit }
     .preview-inline-select{
+      display:block;
+      width:100%; min-width:0; max-width:100%; box-sizing:border-box;
       appearance:none;
       -webkit-appearance:none;
+      font:inherit;
       padding:2px 22px 2px 5px;
       border-color:var(--line-soft);
       background-color:rgba(0,0,0,0.12);
@@ -1330,7 +1333,6 @@
     .profile-crop-target{ position:relative; width:100%; aspect-ratio:3/4; margin-bottom:52px; border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); background:var(--bg-deep) }
     .profile-crop-target.is-animated{ margin-bottom:0 }
     #profile-gif-preview{ display:block; width:100%; height:100%; border-radius:inherit; object-fit:cover; image-rendering:pixelated }
-    .profile-image-upload{ width:100% }
     #profile-crop-canvas{ display:block; width:100%; height:100%; overflow:hidden; border-radius:inherit; cursor:grab; touch-action:none; image-rendering:pixelated }
     #profile-crop-canvas.is-zooming{ image-rendering:auto }
     #profile-crop-canvas.is-dragging{ cursor:grabbing }
@@ -1593,6 +1595,7 @@
     
     /* Personnel / entity profile header */
     .profile-header{ position:relative; display:flex; flex-direction:column; margin-bottom:12px; }
+    .profile-header > .profile-name, .profile-header > .profile-nickname, .profile-header > .profile-author{ width:100%; min-width:0; max-width:100%; box-sizing:border-box }
     .profile-header:has(.patreon-indicator){ padding-right:170px; }
     .patreon-indicator{
       position:absolute; top:2px; right:0;
@@ -1614,8 +1617,9 @@
     .profile-name{
       margin:var(--space-2) 0 0; font-family:Ethnocentric, "Arial Black", sans-serif;
       font-size:clamp(1.6rem,4vw,2.8rem); color:var(--neon-cyan); text-transform:uppercase;
-      display:block; clip-path:none; overflow-wrap:break-word; word-break:normal;
+      display:block; min-width:0; max-width:100%; clip-path:none; overflow-wrap:break-word; word-break:normal;
     }
+    .profile-name .preview-inline-input{ display:block; width:100%; min-width:0; max-width:100%; box-sizing:border-box; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
     .profile-nickname{ margin:2px 0 0; font-size:1.1rem; font-weight:700; color:var(--neon-green) }
     .profile-author{ margin:4px 0 0; color:var(--muted); font-size:0.88rem; }
     @media (max-width:520px){
@@ -1633,6 +1637,9 @@
       width:160px; max-width:160px; flex:0 0 auto;
       display:flex; flex-direction:column; align-items:center; gap:8px;
     }
+    .profile-image-actions{ display:flex; flex-direction:column; align-self:stretch; gap:4px; min-width:0; width:100% }
+    .profile-image-label{ color:var(--muted); font-size:0.68rem; letter-spacing:0.06em; text-align:left; text-transform:uppercase }
+    .profile-image-upload{ width:100%; min-width:0 }
     .avatar{ width:100%; aspect-ratio:3/4; object-fit:cover; border-radius:var(--radius); border:1px solid rgba(255,255,255,0.06) }
     .profile-id{
       color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em;
@@ -1644,6 +1651,7 @@
     }
     @media (max-width:480px){ .stat-grid{ grid-template-columns:1fr } }
     .stat-cell{
+      min-width:0;
       background:var(--stat-cell); border-left:2px solid var(--neon-cyan); border-radius:var(--radius);
       padding:8px 12px;
     }
@@ -1653,7 +1661,7 @@
       text-transform:uppercase; letter-spacing:0.06em;
     }
     .stat-label .info-icon{ margin-right:6px }
-    .stat-value{ display:block; margin-top:2px; color:var(--text); font-size:0.92rem }
+    .stat-value{ display:block; min-width:0; margin-top:2px; color:var(--text); font-size:0.92rem }
     .stat-value a{ color:var(--neon-cyan); text-decoration:underline }
 
     /* Traits */

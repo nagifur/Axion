@@ -48,8 +48,8 @@ const articleCategories = Array.from(new Set(
 
       <form id="submit-form" class="form-grid" autocomplete="off">
         <div class="form-field profile-inline-source span-2">
-          <label id="f-title-label" for="f-title">Name / Entity number</label>
-          <input id="f-title" name="title" type="text" placeholder="e.g. Nagi or M-031" required />
+          <label id="f-title-label" for="f-title">Name</label>
+          <input id="f-title" name="title" type="text" placeholder="e.g. Nagi" required />
         </div>
 
         <div class="form-field profile-inline-source span-2">
@@ -337,8 +337,8 @@ const articleCategories = Array.from(new Set(
     });
 
     const isArticle = type === 'article';
-    titleLabel.textContent = isArticle ? 'Report Title' : 'Name / Entity number';
-    titleInput.placeholder = isArticle ? 'e.g. World info' : type === 'synthetic' ? 'e.g. Synt-01 or Nagi' : 'e.g. Nagi or M-031';
+    titleLabel.textContent = isArticle ? 'Report Title' : type === 'entity' ? 'Entity Number' : 'Name';
+    titleInput.placeholder = isArticle ? 'e.g. World info' : type === 'entity' ? 'e.g. M-031' : type === 'synthetic' ? 'e.g. Synt-01 or Nagi' : 'e.g. Nagi';
     bodyLabel.textContent = isArticle ? 'Report Body' : 'Bio';
     bodyInput.placeholder = isArticle
       ? 'Write the report here using Markdown. Separate paragraphs with a blank line.'
@@ -955,14 +955,17 @@ const articleCategories = Array.from(new Set(
     previewContentEl.innerHTML = `
       <div class="card" role="article">
         <div class="profile-header">
-          <h1 class="profile-name">${inlineInput('title', 'Name / entity number')}</h1>
+          <h1 class="profile-name">${inlineInput('title', type === 'entity' ? 'Entity Number' : 'Name')}</h1>
           ${type === 'synthetic' || type === 'entity' ? `<p class="profile-nickname">${inlineInput('nickname', 'Nickname')}</p>` : ''}
           <p class="profile-author">${inlineInput('author', 'Author / owner credit')}</p>
         </div>
         <div class="profile">
           <div class="profile-media">
             <div class="profile-crop-target"></div>
-            <button type="button" id="profile-image-upload" class="btn secondary profile-image-upload">Upload Image</button>
+            <div class="profile-image-actions">
+              <span class="profile-image-label">Profile Image</span>
+              <button type="button" id="profile-image-upload" class="btn secondary profile-image-upload">Upload Image</button>
+            </div>
            
           </div>
           <div class="stat-grid">${statsHtml}</div>
