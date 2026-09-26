@@ -1345,6 +1345,14 @@
     .preview-inline-input:focus, .preview-inline-textarea:focus{
       padding:2px 5px; border-color:var(--line-soft); background:rgba(0,0,0,0.12);
     }
+    .preview-inline-input.is-editing, .preview-inline-select.is-editing{
+      padding:3px 6px; border-color:var(--control-border); background:var(--control-bottom);
+      border-radius:var(--radius-sm); box-shadow:inset 0 0 0 1px rgba(126,245,255,0.035);
+    }
+    .preview-inline-input.is-editing::placeholder{ color:var(--muted); opacity:0.8 }
+    .preview-inline-select.is-editing{ padding-right:22px }
+    .preview-inline-input:not(.is-editing):not(:hover):not(:focus),
+    .preview-inline-select:not(.is-editing):not(:hover):not(:focus){ cursor:text }
     .profile-name .preview-inline-input{ text-transform:uppercase }
     .profile-author .preview-inline-input{ color:var(--muted); font-size:0.88rem }
     .profile-nickname .preview-inline-input{ color:var(--neon-green) }

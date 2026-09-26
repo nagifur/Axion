@@ -314,6 +314,7 @@ const articleCategories = Array.from(new Set(
   let bioIsEditing = true;
   type TraitField = 'positiveTraits' | 'negativeTraits';
   const traitIsEditing: Record<TraitField, boolean> = { positiveTraits: true, negativeTraits: true };
+  const collapsedPreviewFields = new Set<string>();
   const galleryRows: GalleryRow[] = [];
   const articleImages: ArticleImageRow[] = [];
   let nextArticleImageNumber = 1;
@@ -453,7 +454,8 @@ const articleCategories = Array.from(new Set(
 
   const inlineInput = (name: string, placeholder = '') => {
     const value = escapeAttribute(field(name));
-    return `<input class="preview-inline-input" data-preview-field="${name}" value="${value}" placeholder="${escapeAttribute(placeholder)}" />`;
+    const editingClass = value.trim() && collapsedPreviewFields.has(name) ? '' : ' is-editing';
+    return `<input class="preview-inline-input${editingClass}" data-preview-field="${name}" value="${value}" placeholder="${escapeAttribute(placeholder)}" />`;
   };
 
   const inlineSelect = (name: string) => {
@@ -462,7 +464,8 @@ const articleCategories = Array.from(new Set(
     const options = Array.from(source.options).map((option) => `
       <option value="${escapeAttribute(option.value)}"${option.value === source.value ? ' selected' : ''}>${escapeHtml(option.textContent ?? option.value)}</option>
     `).join('');
-    return `<select class="preview-inline-select" data-preview-field="${name}">${options}</select>`;
+    const editingClass = source.value.trim() && collapsedPreviewFields.has(name) ? '' : ' is-editing';
+    return `<select class="preview-inline-select${editingClass}" data-preview-field="${name}">${options}</select>`;
   };
 
   const inlineTextarea = (name: string, placeholder = '') => {
@@ -1001,7 +1004,25 @@ const articleCategories = Array.from(new Set(
     updateExport();
   });
 
+  previewEl.addEventListener('focusin', (event) => {
+    const control = (event.target as HTMLElement).closest<HTMLElement>('.preview-inline-input, .preview-inline-select');
+    control?.classList.add('is-editing');
+  });
+
   previewEl.addEventListener('focusout', (event) => {
+    const control = (event.target as HTMLElement).closest<HTMLInputElement | HTMLSelectElement>('.preview-inline-input, .preview-inline-select');
+    const controlField = control?.dataset.previewField;
+    if (control && controlField) {
+      if (control.value.trim()) {
+        collapsedPreviewFields.add(controlField);
+        control.classList.remove('is-editing');
+      } else {
+        collapsedPreviewFields.delete(controlField);
+        control.classList.add('is-editing');
+      }
+      return;
+    }
+
     const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>('[data-preview-field="bio"], [data-preview-field="positiveTraits"], [data-preview-field="negativeTraits"]');
     if (!textarea) return;
     const fieldName = textarea.dataset.previewField;
@@ -1009,7 +1030,7 @@ const articleCategories = Array.from(new Set(
       const rendered = previewEl.querySelector<HTMLElement>('.preview-bio-rendered');
       if (!rendered) return;
       bioIsEditing = false;
-      rendered.innerHTML = renderMarkdown(textarea.value) || '<p class="field-hint">Write the bio here.</p>';
+      rendered.innerHTML = renderMarkdown(textarea.value) || '<p class="field-hint">Write the bio here. Supports Markdown</p>';
       rendered.hidden = false;
     } else if (fieldName === 'positiveTraits' || fieldName === 'negativeTraits') {
       const rendered = previewEl.querySelector<HTMLElement>(`[data-trait-preview="${fieldName}"]`);
