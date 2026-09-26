@@ -1328,6 +1328,8 @@
     .form-field input:focus, .form-field select:focus, .form-field textarea:focus{ outline:2px solid var(--line); outline-offset:1px }
     .field-hint{ color:var(--muted); font-size:0.8rem; margin:10px 0 0 }
     .profile-crop-target{ position:relative; width:100%; aspect-ratio:3/4; margin-bottom:52px; border:1px solid rgba(255,255,255,0.06); border-radius:var(--radius); background:var(--bg-deep) }
+    .profile-crop-target.is-animated{ margin-bottom:0 }
+    #profile-gif-preview{ display:block; width:100%; height:100%; border-radius:inherit; object-fit:cover; image-rendering:pixelated }
     .profile-image-upload{ width:100% }
     #profile-crop-canvas{ display:block; width:100%; height:100%; overflow:hidden; border-radius:inherit; cursor:grab; touch-action:none; image-rendering:pixelated }
     #profile-crop-canvas.is-zooming{ image-rendering:auto }

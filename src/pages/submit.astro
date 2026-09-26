@@ -197,18 +197,24 @@ const articleCategories = Array.from(new Set(
 
         <input id="f-profile-image" type="file" accept="image/*" hidden />
 
-        <div class="form-field field-profile span-2">
-          <div class="gallery-editor-head">
-            <label>Gallery Images</label>
-            <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
-          </div>
-          <div id="gallery-rows"></div>
-        </div>
       </form>
 
       <section class="submit-preview-section" aria-labelledby="preview-title">
         <h2 id="preview-title" class="db-title-cyan">2. Live Preview</h2>
-        <div id="submit-preview"></div>
+        <div id="submit-preview">
+          <div id="submit-preview-content"></div>
+          <section id="submit-gallery-preview" class="card" role="region" hidden>
+            <h2>Gallery</h2>
+            <div id="submit-gallery-grid" class="gallery-grid"></div>
+            <div id="gallery-editor" class="form-field field-profile span-2">
+              <div class="gallery-editor-head">
+                <label>Gallery Images</label>
+                <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
+              </div>
+              <div id="gallery-rows"></div>
+            </div>
+          </section>
+        </div>
       </section>
     </section>
 
@@ -260,6 +266,9 @@ const articleCategories = Array.from(new Set(
   const form = document.getElementById('submit-form') as HTMLFormElement;
   const typeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="submit-type"]'));
   const previewEl = document.getElementById('submit-preview')!;
+  const previewContentEl = document.getElementById('submit-preview-content')!;
+  const galleryPreviewEl = document.getElementById('submit-gallery-preview')!;
+  const galleryPreviewGridEl = document.getElementById('submit-gallery-grid')!;
   const galleryRowsEl = document.getElementById('gallery-rows')!;
   const articleImageRowsEl = document.getElementById('article-image-rows')!;
   const exportOutput = document.getElementById('export-output')!;
@@ -294,6 +303,7 @@ const articleCategories = Array.from(new Set(
   let profileImageFile: File | null = null;
   let profileImageExt = 'png';
   let profileSourceImage: HTMLImageElement | null = null;
+  let profileImageIsGif = false;
   let profileCropX = 0;
   let profileCropY = 0;
   let profileCropScale = 1;
@@ -625,6 +635,7 @@ const articleCategories = Array.from(new Set(
   };
 
   const saveProfileCrop = () => {
+    if (profileImageIsGif) return;
     profileCropCanvas.toBlob((blob) => {
       if (!blob || !profileSourceImage) return;
       profileImageFile = new File([blob], 'profile.png', { type: 'image/png' });
@@ -639,6 +650,7 @@ const articleCategories = Array.from(new Set(
     profileImageFile = chosen;
     profileImageUrl = chosen ? URL.createObjectURL(chosen) : null;
     profileImageExt = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
+    profileImageIsGif = chosen?.type === 'image/gif' || profileImageExt === 'gif';
     if (!chosen) {
       profileSourceImage = null;
       updatePreview();
@@ -655,6 +667,11 @@ const articleCategories = Array.from(new Set(
       profileCropScale = 1;
       profileCropSmooth = false;
       profileCropZoom.value = '1';
+      if (profileImageIsGif) {
+        image.id = 'profile-gif-preview';
+        updatePreview();
+        return;
+      }
       drawProfileCrop();
       saveProfileCrop();
     };
@@ -774,7 +791,7 @@ const articleCategories = Array.from(new Set(
     const author = plainText(field('author')).trim();
 
     if (type === 'article') {
-      previewEl.innerHTML = `
+      previewContentEl.innerHTML = `
         <article class="article-page">
           <header class="card article-header">
             <p class="article-meta">
@@ -789,6 +806,7 @@ const articleCategories = Array.from(new Set(
           </section>
         </article>
       `;
+      galleryPreviewEl.hidden = true;
       return;
     }
 
@@ -873,7 +891,7 @@ const articleCategories = Array.from(new Set(
       `;
     }
 
-    previewEl.innerHTML = `
+    previewContentEl.innerHTML = `
       <div class="card" role="article">
         <div class="profile-header">
           <h1 class="profile-name">${inlineInput('title', 'Name / entity number')}</h1>
@@ -894,17 +912,21 @@ const articleCategories = Array.from(new Set(
         <div class="article-body">${inlineTextarea('bio', 'Write the bio text here.')}</div>
       </div>
       ${traitsHtml}
-      <div class="card" role="region">
-        <h2>Gallery</h2>
-        <div class="gallery-grid">${galleryHtml}</div>
-      </div>
     `;
+
+    galleryPreviewGridEl.innerHTML = galleryHtml;
+    galleryPreviewEl.hidden = false;
 
     if (profileSourceImage) {
       const target = previewEl.querySelector('.profile-crop-target');
       if (target) {
-        target.append(profileCropCanvas, profileCropZoomLabel, profileCropZoom);
-        profileCropCanvas.classList.remove('is-zooming');
+        target.classList.toggle('is-animated', profileImageIsGif);
+        if (profileImageIsGif) {
+          target.append(profileSourceImage);
+        } else {
+          target.append(profileCropCanvas, profileCropZoomLabel, profileCropZoom);
+          profileCropCanvas.classList.remove('is-zooming');
+        }
       }
     }
   }
