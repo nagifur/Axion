@@ -195,15 +195,7 @@ const articleCategories = Array.from(new Set(
           <div id="article-image-rows"></div>
         </div>
 
-        <div class="form-field field-profile">
-          <label class="submit-checkbox"><input id="f-patreon" type="checkbox" name="patreonSubmission" checked /> This is a Patreon submission</label>
-        </div>
-
-        <div class="form-field field-profile span-2">
-          <label for="f-profile-image">Profile Image</label>
-          <input id="f-profile-image" type="file" accept="image/*" />
-          <p class="field-hint">Will be exported as <code>profile.&lt;ext&gt;</code>.</p>
-        </div>
+        <input id="f-profile-image" type="file" accept="image/*" hidden />
 
         <div class="form-field field-profile span-2">
           <div class="gallery-editor-head">
@@ -213,11 +205,11 @@ const articleCategories = Array.from(new Set(
           <div id="gallery-rows"></div>
         </div>
       </form>
-    </section>
 
-    <section class="card" aria-labelledby="preview-title">
-      <h2 id="preview-title" class="db-title-cyan">2. Live Preview</h2>
-      <div id="submit-preview"></div>
+      <section class="submit-preview-section" aria-labelledby="preview-title">
+        <h2 id="preview-title" class="db-title-cyan">2. Live Preview</h2>
+        <div id="submit-preview"></div>
+      </section>
     </section>
 
     <section class="card" aria-labelledby="export-title">
@@ -891,6 +883,8 @@ const articleCategories = Array.from(new Set(
         <div class="profile">
           <div class="profile-media">
             <div class="profile-crop-target"></div>
+            <button type="button" id="profile-image-upload" class="btn secondary profile-image-upload">Upload Image</button>
+           
           </div>
           <div class="stat-grid">${statsHtml}</div>
         </div>
@@ -925,6 +919,10 @@ const articleCategories = Array.from(new Set(
     updateExport();
   });
 
+  previewEl.addEventListener('click', (event) => {
+    if ((event.target as HTMLElement).closest('#profile-image-upload')) profileImageInput.click();
+  });
+
   // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
   function buildFileText() {
     const type = currentType();
@@ -932,7 +930,6 @@ const articleCategories = Array.from(new Set(
     const slug = slugify(title) || 'slug';
     const bio = field('bio').trim();
     const author = field('author').trim();
-    const patreon = (document.getElementById('f-patreon') as HTMLInputElement).checked;
     const yamlList = (items: string[]) => `[${items.join(', ')}]`;
     const galleryYaml = galleryRows.length
       ? `\n${galleryRows.map((row) => `  - file: ${row.filename}\n    caption: ${row.caption || 'Caption'}`).join('\n')}`
@@ -966,7 +963,7 @@ const articleCategories = Array.from(new Set(
         `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
-        `patreonSubmission: ${patreon}`,
+        `patreonSubmission: true`,
         `gallery:${galleryYaml}`,
       ].join('\n');
     } else if (type === 'synthetic') {
@@ -988,7 +985,7 @@ const articleCategories = Array.from(new Set(
         `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
-        `patreonSubmission: ${patreon}`,
+        `patreonSubmission: true`,
         `gallery:${galleryYaml}`,
       ].join('\n');
     } else {
@@ -1008,7 +1005,7 @@ const articleCategories = Array.from(new Set(
         `noteableEvents: ${yamlList(csvList(field('noteableEvents')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
-        `patreonSubmission: ${patreon}`,
+        `patreonSubmission: true`,
         `gallery:${galleryYaml}`,
       ].join('\n');
     }
