@@ -310,6 +310,8 @@ const articleCategories = Array.from(new Set(
   let profileCropSmooth = false;
   let profileCropPointer: { x: number; y: number } | null = null;
   let bioIsEditing = true;
+  type TraitField = 'positiveTraits' | 'negativeTraits';
+  const traitIsEditing: Record<TraitField, boolean> = { positiveTraits: true, negativeTraits: true };
   const galleryRows: GalleryRow[] = [];
   const articleImages: ArticleImageRow[] = [];
   let nextArticleImageNumber = 1;
@@ -464,6 +466,20 @@ const articleCategories = Array.from(new Set(
   const inlineTextarea = (name: string, placeholder = '') => {
     return `<textarea class="preview-inline-textarea" data-preview-field="${name}" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(field(name))}</textarea>`;
   };
+
+  const traitListMarkup = (value: string) => {
+    const items = csvList(value);
+    return items.length
+      ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+      : '<p class="field-hint">Add comma-separated items.</p>';
+  };
+
+  const inlineTraitList = (name: TraitField, placeholder: string) => `
+    <div class="trait-list-preview">
+      <textarea class="preview-inline-textarea" data-preview-field="${name}" placeholder="${escapeAttribute(placeholder)}"${traitIsEditing[name] ? '' : ' hidden'}>${escapeHtml(field(name))}</textarea>
+      <div class="article-body preview-traits-rendered" data-trait-preview="${name}" tabindex="0" aria-label="Rendered ${name === 'positiveTraits' ? 'positive' : 'negative'} traits. Press Enter or Space to edit."${traitIsEditing[name] ? ' hidden' : ''}>${traitListMarkup(field(name))}</div>
+    </div>
+  `;
 
   const addGalleryRow = () => {
     const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
@@ -842,10 +858,10 @@ const articleCategories = Array.from(new Set(
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
-            ${inlineTextarea('positiveTraits', 'Passionate, Friendly, Hardworking')}
+            ${inlineTraitList('positiveTraits', 'Passionate, Friendly, Hardworking')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
-            ${inlineTextarea('negativeTraits', 'Clumsy, Slow')}
+            ${inlineTraitList('negativeTraits', 'Clumsy, Slow')}
           </div>
         </div>
       `;
@@ -863,10 +879,10 @@ const articleCategories = Array.from(new Set(
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
-            ${inlineTextarea('positiveTraits', 'Passionate, Friendly, Hardworking')}
+            ${inlineTraitList('positiveTraits', 'Passionate, Friendly, Hardworking')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
-            ${inlineTextarea('negativeTraits', 'Clumsy, Slow')}
+            ${inlineTraitList('negativeTraits', 'Clumsy, Slow')}
           </div>
         </div>
       `;
@@ -946,22 +962,36 @@ const articleCategories = Array.from(new Set(
   });
 
   previewEl.addEventListener('focusout', (event) => {
-    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>('[data-preview-field="bio"]');
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>('[data-preview-field="bio"], [data-preview-field="positiveTraits"], [data-preview-field="negativeTraits"]');
     if (!textarea) return;
-    const rendered = previewEl.querySelector<HTMLElement>('.preview-bio-rendered');
-    if (!rendered) return;
-    bioIsEditing = false;
-    rendered.innerHTML = renderMarkdown(textarea.value) || '<p class="field-hint">Write the bio text here.</p>';
+    const fieldName = textarea.dataset.previewField;
+    if (fieldName === 'bio') {
+      const rendered = previewEl.querySelector<HTMLElement>('.preview-bio-rendered');
+      if (!rendered) return;
+      bioIsEditing = false;
+      rendered.innerHTML = renderMarkdown(textarea.value) || '<p class="field-hint">Write the bio here.</p>';
+      rendered.hidden = false;
+    } else if (fieldName === 'positiveTraits' || fieldName === 'negativeTraits') {
+      const rendered = previewEl.querySelector<HTMLElement>(`[data-trait-preview="${fieldName}"]`);
+      if (!rendered) return;
+      traitIsEditing[fieldName] = false;
+      rendered.innerHTML = traitListMarkup(textarea.value);
+      rendered.hidden = false;
+    } else {
+      return;
+    }
     textarea.hidden = true;
-    rendered.hidden = false;
     updateExport();
   });
 
-  const startBioEditing = () => {
-    const textarea = previewEl.querySelector<HTMLTextAreaElement>('[data-preview-field="bio"]');
-    const rendered = previewEl.querySelector<HTMLElement>('.preview-bio-rendered');
+  const startEditingPreviewField = (fieldName: 'bio' | TraitField) => {
+    const textarea = previewEl.querySelector<HTMLTextAreaElement>(`[data-preview-field="${fieldName}"]`);
+    const rendered = fieldName === 'bio'
+      ? previewEl.querySelector<HTMLElement>('.preview-bio-rendered')
+      : previewEl.querySelector<HTMLElement>(`[data-trait-preview="${fieldName}"]`);
     if (!textarea || !rendered) return;
-    bioIsEditing = true;
+    if (fieldName === 'bio') bioIsEditing = true;
+    else traitIsEditing[fieldName] = true;
     rendered.hidden = true;
     textarea.hidden = false;
     textarea.focus();
@@ -969,16 +999,23 @@ const articleCategories = Array.from(new Set(
 
   previewEl.addEventListener('keydown', (event) => {
     const target = event.target as HTMLElement;
-    if (target.matches('.preview-bio-rendered') && (event.key === 'Enter' || event.key === ' ')) {
+    if ((target.matches('.preview-bio-rendered, .preview-traits-rendered')) && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
-      startBioEditing();
+      const fieldName = target.dataset.traitPreview;
+      startEditingPreviewField(fieldName === 'positiveTraits' || fieldName === 'negativeTraits' ? fieldName : 'bio');
     }
   });
 
   previewEl.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     if (target.closest('#profile-image-upload')) profileImageInput.click();
-    else if (target.closest('.preview-bio-rendered') && !target.closest('.preview-bio-rendered a')) startBioEditing();
+    else if (target.closest('.preview-bio-rendered') && !target.closest('.preview-bio-rendered a')) startEditingPreviewField('bio');
+    else {
+      const renderedTraits = target.closest<HTMLElement>('.preview-traits-rendered');
+      if (renderedTraits?.dataset.traitPreview === 'positiveTraits' || renderedTraits?.dataset.traitPreview === 'negativeTraits') {
+        startEditingPreviewField(renderedTraits.dataset.traitPreview);
+      }
+    }
   });
 
   // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
