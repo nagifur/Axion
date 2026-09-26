@@ -1350,6 +1350,8 @@
     .profile-nickname .preview-inline-input{ color:var(--neon-green) }
     .stat-value .preview-inline-input{ color:var(--text); font-size:inherit }
     .preview-inline-textarea{ display:block; min-height:3.5em; resize:vertical; color:var(--text); line-height:1.45 }
+    .preview-bio-rendered{ min-height:14em; cursor:text }
+    .preview-inline-textarea[hidden], .preview-bio-rendered[hidden]{ display:none !important }
     .category-input-group{ position:relative; display:flex; align-items:stretch }
     .category-input-group input{ flex:1; min-width:0; border-radius:var(--radius) 0 0 var(--radius) !important }
     .category-browse{

@@ -309,6 +309,7 @@ const articleCategories = Array.from(new Set(
   let profileCropScale = 1;
   let profileCropSmooth = false;
   let profileCropPointer: { x: number; y: number } | null = null;
+  let bioIsEditing = true;
   const galleryRows: GalleryRow[] = [];
   const articleImages: ArticleImageRow[] = [];
   let nextArticleImageNumber = 1;
@@ -909,7 +910,10 @@ const articleCategories = Array.from(new Set(
       </div>
       <div class="card" role="region">
         <h2 class="db-title-cyan">Bio</h2>
-        <div class="article-body">${inlineTextarea('bio', 'Write the bio text here.')}</div>
+        <div class="bio-preview">
+          <textarea class="preview-inline-textarea" data-preview-field="bio" placeholder="Write the bio text here."${bioIsEditing ? '' : ' hidden'}>${escapeHtml(field('bio'))}</textarea>
+          <div class="article-body preview-bio-rendered" tabindex="0" aria-label="Rendered bio. Press Enter or Space to edit."${bioIsEditing ? ' hidden' : ''}>${bioHtml || '<p class="field-hint">Write the bio text here.</p>'}</div>
+        </div>
       </div>
       ${traitsHtml}
     `;
@@ -941,8 +945,40 @@ const articleCategories = Array.from(new Set(
     updateExport();
   });
 
+  previewEl.addEventListener('focusout', (event) => {
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>('[data-preview-field="bio"]');
+    if (!textarea) return;
+    const rendered = previewEl.querySelector<HTMLElement>('.preview-bio-rendered');
+    if (!rendered) return;
+    bioIsEditing = false;
+    rendered.innerHTML = renderMarkdown(textarea.value) || '<p class="field-hint">Write the bio text here.</p>';
+    textarea.hidden = true;
+    rendered.hidden = false;
+    updateExport();
+  });
+
+  const startBioEditing = () => {
+    const textarea = previewEl.querySelector<HTMLTextAreaElement>('[data-preview-field="bio"]');
+    const rendered = previewEl.querySelector<HTMLElement>('.preview-bio-rendered');
+    if (!textarea || !rendered) return;
+    bioIsEditing = true;
+    rendered.hidden = true;
+    textarea.hidden = false;
+    textarea.focus();
+  };
+
+  previewEl.addEventListener('keydown', (event) => {
+    const target = event.target as HTMLElement;
+    if (target.matches('.preview-bio-rendered') && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      startBioEditing();
+    }
+  });
+
   previewEl.addEventListener('click', (event) => {
-    if ((event.target as HTMLElement).closest('#profile-image-upload')) profileImageInput.click();
+    const target = event.target as HTMLElement;
+    if (target.closest('#profile-image-upload')) profileImageInput.click();
+    else if (target.closest('.preview-bio-rendered') && !target.closest('.preview-bio-rendered a')) startBioEditing();
   });
 
   // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
