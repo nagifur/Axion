@@ -210,8 +210,9 @@ const articleCategories = Array.from(new Set(
                 <label>Gallery Images</label>
                 <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
               </div>
-                <p id="gallery-empty-state" class="field-hint">No gallery images added yet.</p>
-                <div id="gallery-rows" class="gallery-edit-grid"></div>
+              <input id="gallery-file-picker" type="file" accept="image/*" class="sr-only" tabindex="-1" aria-hidden="true" />
+              <p id="gallery-empty-state" class="field-hint">No gallery images added yet.</p>
+              <div id="gallery-rows" class="gallery-edit-grid"></div>
             </div>
           </section>
         </div>
@@ -270,6 +271,7 @@ const articleCategories = Array.from(new Set(
   const galleryPreviewEl = document.getElementById('submit-gallery-preview')!;
   const galleryEmptyStateEl = document.getElementById('gallery-empty-state')!;
   const galleryRowsEl = document.getElementById('gallery-rows')!;
+  const galleryFilePickerEl = document.getElementById('gallery-file-picker') as HTMLInputElement;
   const articleImageRowsEl = document.getElementById('article-image-rows')!;
   const exportOutput = document.getElementById('export-output')!;
   const exportImageList = document.getElementById('export-image-list')!;
@@ -482,28 +484,66 @@ const articleCategories = Array.from(new Set(
   `;
 
   const addGalleryRow = () => {
-    const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
-    galleryRows.push(row);
-    galleryEmptyStateEl.hidden = true;
-    appendGalleryRow(row);
-    updatePreview();
+    galleryPickerTarget = null;
+    galleryFilePickerEl.value = '';
+    galleryFilePickerEl.click();
   };
+
+  let galleryPickerTarget: GalleryRow | null = null;
+
+  const updateGalleryImage = (row: GalleryRow, file: File) => {
+    if (row.url) URL.revokeObjectURL(row.url);
+    row.file = file;
+    row.url = URL.createObjectURL(file);
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const rowIndex = galleryRows.indexOf(row);
+    row.filename = `${rowIndex + 1}.${ext}`;
+    const wrap = galleryRowsEl.children[rowIndex];
+    wrap.querySelector<HTMLImageElement>('[data-role="preview"]')!.src = row.url;
+    wrap.querySelector<HTMLElement>('[data-role="filename"]')!.textContent = file.name;
+    wrap.querySelector<HTMLElement>('[data-role="filename"]')!.title = file.name;
+  };
+
+  galleryFilePickerEl.addEventListener('change', () => {
+    const file = galleryFilePickerEl.files?.[0];
+    if (!file) {
+      galleryPickerTarget = null;
+      return;
+    }
+
+    if (galleryPickerTarget) {
+      updateGalleryImage(galleryPickerTarget, file);
+    } else {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const row: GalleryRow = {
+        file,
+        url: URL.createObjectURL(file),
+        caption: '',
+        filename: `${galleryRows.length + 1}.${ext}`,
+      };
+      galleryRows.push(row);
+      galleryEmptyStateEl.hidden = true;
+      appendGalleryRow(row);
+    }
+
+    galleryPickerTarget = null;
+    galleryFilePickerEl.value = '';
+    updatePreview();
+  });
 
   const appendGalleryRow = (row: GalleryRow) => {
     const wrap = document.createElement('div');
     wrap.className = 'gallery-row';
     wrap.innerHTML = `
       <div class="gallery-item-preview">
-        <img data-role="preview" alt="Gallery image ${galleryRows.indexOf(row) + 1}"${row.url ? ` src="${escapeAttribute(row.url)}"` : ' hidden'} />
-        <div class="gallery-image-placeholder" data-role="placeholder"${row.url ? ' hidden' : ''}>Image preview</div>
+        <img data-role="preview" src="${escapeAttribute(row.url ?? '')}" alt="Gallery image ${galleryRows.indexOf(row) + 1}" />
         <button type="button" class="btn gallery-remove" data-role="remove" aria-label="Remove this gallery image" title="Remove this gallery image">X</button>
       </div>
       <div class="gallery-item-controls">
-        <label class="gallery-file-control">
-          <span class="sr-only">Gallery image file</span>
-          <input type="file" accept="image/*" data-role="file" />
-          <span class="field-hint" data-role="filename">${row.filename}</span>
-        </label>
+        <div class="gallery-file-control">
+          <button type="button" class="btn secondary gallery-change" data-role="change">Change image</button>
+          <span class="field-hint" data-role="filename" title="${escapeAttribute(row.file?.name ?? '')}">${escapeHtml(row.file?.name ?? '')}</span>
+        </div>
         <label class="gallery-caption-label">
           <span>Caption</span>
           <input type="text" data-role="caption" placeholder="Describe this image" value="${row.caption.replace(/"/g, '&quot;')}" />
@@ -511,25 +551,14 @@ const articleCategories = Array.from(new Set(
       </div>
     `;
 
-    const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
     const captionInput = wrap.querySelector('[data-role="caption"]') as HTMLInputElement;
-    const filenameLabel = wrap.querySelector('[data-role="filename"]') as HTMLElement;
-    const previewImage = wrap.querySelector('[data-role="preview"]') as HTMLImageElement;
-    const placeholder = wrap.querySelector('[data-role="placeholder"]') as HTMLElement;
+    const changeButton = wrap.querySelector('[data-role="change"]') as HTMLButtonElement;
     const removeButton = wrap.querySelector('[data-role="remove"]') as HTMLButtonElement;
 
-    fileInput.addEventListener('change', () => {
-      const chosen = fileInput.files?.[0] ?? null;
-      row.file = chosen;
-      if (row.url) URL.revokeObjectURL(row.url);
-      row.url = chosen ? URL.createObjectURL(chosen) : null;
-      const ext = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
-      row.filename = `${galleryRows.indexOf(row) + 1}.${ext}`;
-      filenameLabel.textContent = row.filename;
-      previewImage.hidden = !row.url;
-      previewImage.src = row.url ?? '';
-      placeholder.hidden = Boolean(row.url);
-      updatePreview();
+    changeButton.addEventListener('click', () => {
+      galleryPickerTarget = row;
+      galleryFilePickerEl.value = '';
+      galleryFilePickerEl.click();
     });
 
     captionInput.addEventListener('input', () => {
@@ -547,8 +576,7 @@ const articleCategories = Array.from(new Set(
       galleryRows.forEach((remainingRow, i) => {
         const ext = remainingRow.filename.split('.').pop() || 'png';
         remainingRow.filename = `${i + 1}.${ext}`;
-        const remainingWrap = galleryRowsEl.children[i];
-        remainingWrap.querySelector('[data-role="filename"]')!.textContent = remainingRow.filename;
+        const remainingWrap = galleryRowsEl.children[i] as HTMLElement;
         remainingWrap.querySelector('[data-role="preview"]')!.setAttribute('alt', `Gallery image ${i + 1}`);
       });
       updatePreview();

@@ -1426,6 +1426,7 @@
     #submit-gallery-preview > h2{ margin:0 0 14px; padding-bottom:8px; border-bottom:1px solid var(--line-soft) }
     #gallery-editor{ border-top:1px solid var(--line-soft); padding-top:14px }
     #gallery-editor .gallery-editor-head label{ font-family:BOMBARD, sans-serif; color:var(--muted); font-size:0.72rem; text-transform:uppercase }
+    #gallery-file-picker.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0 }
     #gallery-rows{ display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 230px), 1fr)); gap:16px; margin-top:12px }
     .article-image-hint{ margin-top:2px }
     .article-image-row{ display:grid; grid-template-columns:32px minmax(0, 1fr); gap:8px; align-items:start; margin-top:10px; padding-top:10px; border-top:1px solid var(--line-soft) }
