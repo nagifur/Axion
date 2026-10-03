@@ -1848,6 +1848,11 @@
     #submit-preview-content .article-meta #report-category-mount,
     #submit-preview-content .article-meta .category-field,
     #submit-preview-content .article-meta .category-input-group{ width:100%; min-width:0 }
+    #submit-preview-content .article-header .category-input-group input,
+    #submit-preview-content .article-header .category-input-group .category-browse{
+      background:var(--stat-cell);
+      border-color:var(--line-soft);
+    }
     .article-body{ color:var(--text); line-height:1.7 }
     .article-body > :first-child{ margin-top:0 }
     .article-body > :last-child{ margin-bottom:0 }
