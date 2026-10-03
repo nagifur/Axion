@@ -29,7 +29,6 @@ const articleCategories = Array.from(new Set(
     </section>
 
     <section class="card submit-form-card" aria-labelledby="submit-form-title">
-      <h2 id="submit-form-title" class="db-title-cyan">1. Build your file</h2>
 
       <div class="submit-type-toggle" role="radiogroup" aria-label="Submission type">
         <label class="submit-radio">
@@ -46,25 +45,26 @@ const articleCategories = Array.from(new Set(
         </label>
       </div>
 
-      <form id="submit-form" class="form-grid" autocomplete="off">
-        <div class="form-field profile-inline-source span-2">
+      <form id="submit-form" class="form-grid" autocomplete="off" hidden>
+        <div class="form-field profile-inline-source report-preview-source span-2">
           <label id="f-title-label" for="f-title">Name</label>
           <input id="f-title" name="title" type="text" placeholder="e.g. Nagi" required />
         </div>
 
-        <div class="form-field profile-inline-source span-2">
+        <div class="form-field profile-inline-source report-preview-source span-2">
           <label for="f-author">Author / Owner credit</label>
           <input id="f-author" name="author" type="text" placeholder="Optional — e.g. Your name or handle" />
         </div>
 
-        <div class="form-field field-article span-2">
+        <div class="form-field field-article report-preview-source span-2">
           <label for="f-description">Description</label>
           <input id="f-description" name="description" type="text" placeholder="A short summary shown in the report archive" />
         </div>
-        <div class="form-field field-article category-field">
+        <div id="report-category-anchor"></div>
+        <div class="form-field profile-inline-source category-field">
           <label for="f-category">Category</label>
           <div class="category-input-group">
-            <input id="f-category" name="category" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="category-options" placeholder="Select or add category" />
+            <input id="f-category" form="submit-form" name="category" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="category-options" placeholder="Select or add category" />
             <button type="button" id="category-browse" class="category-browse" aria-label="Browse existing categories" title="Browse existing categories"></button>
             <div id="category-options" class="category-options" role="listbox" hidden>
               {articleCategories.map((category) => (
@@ -172,27 +172,18 @@ const articleCategories = Array.from(new Set(
           <input id="f-negativeTraits" name="negativeTraits" type="text" placeholder="Clumsy, Slow" />
         </div>
 
-        <div class="form-field field-entity span-2">
+        <div class="form-field profile-inline-source field-entity span-2">
           <label for="f-usefulAbilities">Useful Abilities (comma separated)</label>
           <input id="f-usefulAbilities" name="usefulAbilities" type="text" placeholder="Shapeshifting, Flight" />
         </div>
-        <div class="form-field field-entity span-2">
+        <div class="form-field profile-inline-source field-entity span-2">
           <label for="f-noteableEvents">Noteable Events (comma separated)</label>
           <input id="f-noteableEvents" name="noteableEvents" type="text" placeholder="Escaped containment" />
         </div>
 
-        <div class="form-field profile-inline-source span-2">
+        <div class="form-field profile-inline-source report-preview-source span-2">
           <label id="f-body-label" for="f-bio">Bio</label>
           <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -"></textarea>
-        </div>
-
-        <div class="form-field field-article span-2">
-          <div class="gallery-editor-head">
-            <label>Inline Report Images</label>
-            <button type="button" id="article-image-add" class="btn secondary">+ Add image</button>
-          </div>
-          <p class="field-hint article-image-hint">Add an image, choose its layout, then insert it at the current cursor position in the report body.</p>
-          <div id="article-image-rows"></div>
         </div>
 
         <input id="f-profile-image" type="file" accept="image/*" hidden />
@@ -200,9 +191,17 @@ const articleCategories = Array.from(new Set(
       </form>
 
       <section class="submit-preview-section" aria-labelledby="preview-title">
-        <h2 id="preview-title" class="db-title-cyan">2. Live Preview</h2>
+        <h2 id="preview-title" class="db-title-cyan">Build Your File</h2>
         <div id="submit-preview">
           <div id="submit-preview-content"></div>
+          <section id="article-image-editor" class="card field-article" aria-labelledby="article-image-title" hidden>
+            <div class="gallery-editor-head">
+              <h2 id="article-image-title" class="db-title-cyan">Inline Report Images</h2>
+              <button type="button" id="article-image-add" class="btn secondary">+ Add image</button>
+            </div>
+            <p class="field-hint article-image-hint">Add an image, choose its layout, then insert it into the report body.</p>
+            <div id="article-image-rows"></div>
+          </section>
           <section id="submit-gallery-preview" class="card" role="region" hidden>
             <h2>Gallery</h2>
             <div id="gallery-editor" class="form-field field-profile span-2">
@@ -220,7 +219,7 @@ const articleCategories = Array.from(new Set(
     </section>
 
     <section class="card" aria-labelledby="export-title">
-      <h2 id="export-title" class="db-title-cyan">3. Export &amp; Send</h2>
+      <h2 id="export-title" class="db-title-cyan"> Export &amp; Send</h2>
       <p class="lead">
         Connect your Discord account below to send your file for review.
       </p>
@@ -297,6 +296,8 @@ const articleCategories = Array.from(new Set(
   const bodyLabel = document.getElementById('f-body-label')!;
   const bodyInput = document.getElementById('f-bio') as HTMLTextAreaElement;
   const categoryInput = document.getElementById('f-category') as HTMLInputElement;
+  const categoryField = categoryInput.closest<HTMLElement>('.category-field')!;
+  const categoryAnchor = document.getElementById('report-category-anchor')!;
   const categoryBrowse = document.getElementById('category-browse') as HTMLButtonElement;
   const categoryOptions = document.getElementById('category-options')!;
   const categoryOptionButtons = Array.from(categoryOptions.querySelectorAll<HTMLButtonElement>('.category-option'));
@@ -312,8 +313,15 @@ const articleCategories = Array.from(new Set(
   let profileCropSmooth = false;
   let profileCropPointer: { x: number; y: number } | null = null;
   let bioIsEditing = true;
-  type TraitField = 'positiveTraits' | 'negativeTraits';
-  const traitIsEditing: Record<TraitField, boolean> = { positiveTraits: true, negativeTraits: true };
+  const traitFieldLabels = {
+    positiveTraits: 'positive traits',
+    negativeTraits: 'negative traits',
+    usefulAbilities: 'useful abilities',
+    noteableEvents: 'noteable events',
+  };
+  type TraitField = keyof typeof traitFieldLabels;
+  const isTraitField = (value: string | undefined): value is TraitField => Boolean(value && value in traitFieldLabels);
+  const traitIsEditing: Record<TraitField, boolean> = { positiveTraits: true, negativeTraits: true, usefulAbilities: true, noteableEvents: true };
   const collapsedPreviewFields = new Set<string>();
   const galleryRows: GalleryRow[] = [];
   const articleImages: ArticleImageRow[] = [];
@@ -335,6 +343,7 @@ const articleCategories = Array.from(new Set(
     document.querySelectorAll<HTMLElement>('.profile-inline-source').forEach((el) => {
       el.hidden = type !== 'article';
     });
+    document.querySelectorAll<HTMLElement>('.report-preview-source').forEach((el) => { el.hidden = type === 'article'; });
 
     const isArticle = type === 'article';
     titleLabel.textContent = isArticle ? 'Report Title' : type === 'entity' ? 'Entity Number' : 'Name';
@@ -482,7 +491,7 @@ const articleCategories = Array.from(new Set(
   const inlineTraitList = (name: TraitField, placeholder: string) => `
     <div class="trait-list-preview">
       <textarea class="preview-inline-textarea" data-preview-field="${name}" placeholder="${escapeAttribute(placeholder)}"${traitIsEditing[name] ? '' : ' hidden'}>${escapeHtml(field(name))}</textarea>
-      <div class="article-body preview-traits-rendered" data-trait-preview="${name}" tabindex="0" aria-label="Rendered ${name === 'positiveTraits' ? 'positive' : 'negative'} traits. Press Enter or Space to edit."${traitIsEditing[name] ? ' hidden' : ''}>${traitListMarkup(field(name))}</div>
+      <div class="article-body preview-traits-rendered" data-trait-preview="${name}" tabindex="0" aria-label="Rendered ${traitFieldLabels[name]}. Press Enter or Space to edit."${traitIsEditing[name] ? ' hidden' : ''}>${traitListMarkup(field(name))}</div>
     </div>
   `;
 
@@ -665,9 +674,16 @@ const articleCategories = Array.from(new Set(
     });
     insertButton.addEventListener('click', () => {
       const insertion = `\n\n${articleImageDirective(row)}\n\n`;
-      bodyInput.setRangeText(insertion, bodyInput.selectionStart, bodyInput.selectionEnd, 'end');
-      bodyInput.dispatchEvent(new Event('input', { bubbles: true }));
-      bodyInput.focus();
+      const previewBody = previewEl.querySelector<HTMLTextAreaElement>('textarea[data-preview-field="bio"]');
+      if (!previewBody) return;
+      if (previewBody.hidden) {
+        bioIsEditing = true;
+        previewBody.hidden = false;
+        previewEl.querySelector<HTMLElement>('.preview-bio-rendered')!.hidden = true;
+      }
+      previewBody.setRangeText(insertion, previewBody.selectionStart, previewBody.selectionEnd, 'end');
+      previewBody.dispatchEvent(new Event('input', { bubbles: true }));
+      previewBody.focus();
     });
     removeButton.addEventListener('click', () => {
       if (row.url) URL.revokeObjectURL(row.url);
@@ -862,22 +878,26 @@ const articleCategories = Array.from(new Set(
       previewContentEl.innerHTML = `
         <article class="article-page">
           <header class="card article-header">
-            <p class="article-meta">
-              <span>${escapeHtml(plainText(field('category')) || 'Category')}</span>
-            </p>
-            <h1>${escapeHtml(title)} <span class="cursor" aria-hidden="true"></span></h1>
-            <p class="article-description">${escapeHtml(plainText(field('description')) || 'Add a short report description.')}</p>
-            ${author ? `<p class="article-byline">Filed by ${escapeHtml(author)}</p>` : ''}
+            <div class="article-meta"><div id="report-category-mount"></div></div>
+            <h1>${inlineInput('title', 'Report Title')}</h1>
+            <p class="article-description">${inlineInput('description', 'A short summary shown in the report archive')}</p>
+            <p class="article-byline">Filed by ${inlineInput('author', 'Author / owner credit')}</p>
           </header>
           <section class="card article-body">
-            ${bioHtml || '<p class="field-hint">Write the report body to see it here.</p>'}
+            <div class="bio-preview">
+              <textarea class="preview-inline-textarea" data-preview-field="bio" placeholder="Write the report here using Markdown. Separate paragraphs with a blank line."${bioIsEditing ? '' : ' hidden'}>${escapeHtml(field('bio'))}</textarea>
+              <div class="article-body preview-bio-rendered" tabindex="0" aria-label="Rendered report body. Press Enter or Space to edit."${bioIsEditing ? ' hidden' : ''}>${bioHtml || '<p class="field-hint">Write the report body here. Supports Markdown</p>'}</div>
+            </div>
           </section>
         </article>
       `;
+      categoryField.hidden = false;
+      previewContentEl.querySelector('#report-category-mount')?.append(categoryField);
       galleryPreviewEl.hidden = true;
       return;
     }
 
+    categoryAnchor.after(categoryField);
     const statCell = (label: string, value: string, fieldName?: string, placeholder = '', control: 'input' | 'select' = 'input') => `
       <div class="stat-cell">
         ${label}
@@ -943,10 +963,10 @@ const articleCategories = Array.from(new Set(
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Useful Abilities</h2>
-            ${inlineTextarea('usefulAbilities', 'Shapeshifting, Flight')}
+            ${inlineTraitList('usefulAbilities', 'Shapeshifting, Flight')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Noteable Events</h2>
-            ${inlineTextarea('noteableEvents', 'Escaped containment')}
+            ${inlineTraitList('noteableEvents', 'Escaped containment')}
           </div>
         </div>
       `;
@@ -1026,7 +1046,7 @@ const articleCategories = Array.from(new Set(
       return;
     }
 
-    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>('[data-preview-field="bio"], [data-preview-field="positiveTraits"], [data-preview-field="negativeTraits"]');
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>('textarea[data-preview-field]');
     if (!textarea) return;
     const fieldName = textarea.dataset.previewField;
     if (fieldName === 'bio') {
@@ -1035,7 +1055,7 @@ const articleCategories = Array.from(new Set(
       bioIsEditing = false;
       rendered.innerHTML = renderMarkdown(textarea.value) || '<p class="field-hint">Write the bio here. Supports Markdown</p>';
       rendered.hidden = false;
-    } else if (fieldName === 'positiveTraits' || fieldName === 'negativeTraits') {
+    } else if (isTraitField(fieldName)) {
       const rendered = previewEl.querySelector<HTMLElement>(`[data-trait-preview="${fieldName}"]`);
       if (!rendered) return;
       traitIsEditing[fieldName] = false;
@@ -1066,7 +1086,7 @@ const articleCategories = Array.from(new Set(
     if ((target.matches('.preview-bio-rendered, .preview-traits-rendered')) && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
       const fieldName = target.dataset.traitPreview;
-      startEditingPreviewField(fieldName === 'positiveTraits' || fieldName === 'negativeTraits' ? fieldName : 'bio');
+      startEditingPreviewField(isTraitField(fieldName) ? fieldName : 'bio');
     }
   });
 
@@ -1076,9 +1096,8 @@ const articleCategories = Array.from(new Set(
     else if (target.closest('.preview-bio-rendered') && !target.closest('.preview-bio-rendered a')) startEditingPreviewField('bio');
     else {
       const renderedTraits = target.closest<HTMLElement>('.preview-traits-rendered');
-      if (renderedTraits?.dataset.traitPreview === 'positiveTraits' || renderedTraits?.dataset.traitPreview === 'negativeTraits') {
-        startEditingPreviewField(renderedTraits.dataset.traitPreview);
-      }
+      const fieldName = renderedTraits?.dataset.traitPreview;
+      if (isTraitField(fieldName)) startEditingPreviewField(fieldName);
     }
   });
 

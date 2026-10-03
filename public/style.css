@@ -1297,6 +1297,7 @@
     @media (max-width:640px){
       .submit-type-toggle{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
     }
+    #submit-form[hidden]{ display:none !important }
     .form-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 16px; margin-top:12px; width:100%; min-width:0 }
     .form-field{ display:flex; flex-direction:column; gap:4px; min-width:0 }
     .form-field[hidden]{ display:none }
@@ -1843,6 +1844,12 @@
     .article-page{ display:flex; flex-direction:column; gap:16px }
     .article-header h1{ margin-top:8px }
     .article-description{ color:var(--text); font-size:1.06rem; max-width:68ch }
+    #submit-preview-content .article-header > *{ width:100%; max-width:100%; box-sizing:border-box }
+    #submit-preview-content .article-header .article-description,
+    #submit-preview-content .article-header .article-byline{ max-width:none }
+    #submit-preview-content .article-meta #report-category-mount,
+    #submit-preview-content .article-meta .category-field,
+    #submit-preview-content .article-meta .category-input-group{ width:100%; min-width:0 }
     .article-body{ color:var(--text); line-height:1.7 }
     .article-body > :first-child{ margin-top:0 }
     .article-body > :last-child{ margin-bottom:0 }
