@@ -29,7 +29,6 @@ const articleCategories = Array.from(new Set(
     </section>
 
     <section class="card submit-form-card" aria-labelledby="submit-form-title">
-      <h2 id="submit-form-title" class="db-title-cyan">1. Build your file</h2>
 
       <div class="submit-type-toggle" role="radiogroup" aria-label="Submission type">
         <label class="submit-radio">
@@ -46,25 +45,26 @@ const articleCategories = Array.from(new Set(
         </label>
       </div>
 
-      <form id="submit-form" class="form-grid" autocomplete="off">
-        <div class="form-field span-2">
-          <label id="f-title-label" for="f-title">Name / Entity number</label>
-          <input id="f-title" name="title" type="text" placeholder="e.g. Nagi or M-031" required />
+      <form id="submit-form" class="form-grid" autocomplete="off" hidden>
+        <div class="form-field profile-inline-source report-preview-source span-2">
+          <label id="f-title-label" for="f-title">Name</label>
+          <input id="f-title" name="title" type="text" placeholder="e.g. Nagi" required />
         </div>
 
-        <div class="form-field span-2">
+        <div class="form-field profile-inline-source report-preview-source span-2">
           <label for="f-author">Author / Owner credit</label>
           <input id="f-author" name="author" type="text" placeholder="Optional — e.g. Your name or handle" />
         </div>
 
-        <div class="form-field field-article span-2">
+        <div class="form-field field-article report-preview-source span-2">
           <label for="f-description">Description</label>
           <input id="f-description" name="description" type="text" placeholder="A short summary shown in the report archive" />
         </div>
-        <div class="form-field field-article category-field">
+        <div id="report-category-anchor"></div>
+        <div class="form-field profile-inline-source category-field">
           <label for="f-category">Category</label>
           <div class="category-input-group">
-            <input id="f-category" name="category" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="category-options" placeholder="Select or add category" />
+            <input id="f-category" form="submit-form" name="category" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="category-options" placeholder="Select or add category" />
             <button type="button" id="category-browse" class="category-browse" aria-label="Browse existing categories" title="Browse existing categories"></button>
             <div id="category-options" class="category-options" role="listbox" hidden>
               {articleCategories.map((category) => (
@@ -74,19 +74,19 @@ const articleCategories = Array.from(new Set(
           </div>
         </div>
 
-        <div class="form-field field-personnel">
+        <div class="form-field profile-inline-source field-personnel">
           <label for="f-employeeID">Employee ID</label>
           <input id="f-employeeID" name="employeeID" type="text" placeholder="e.g. 5538" />
         </div>
-        <div class="form-field field-synthetic">
+        <div class="form-field profile-inline-source field-synthetic">
           <label for="f-syntheticID">SID</label>
           <input id="f-syntheticID" name="syntheticID" type="text" placeholder="e.g. SYN-001" />
         </div>
-        <div class="form-field field-personnel field-synthetic">
+        <div class="form-field profile-inline-source field-personnel field-synthetic">
           <label for="f-position">Facility Position</label>
           <input id="f-position" name="position" type="text" placeholder="e.g. Caretaker" />
         </div>
-        <div class="form-field field-personnel field-synthetic">
+        <div class="form-field profile-inline-source field-personnel field-synthetic">
           <label for="f-accessLevel">Access Level</label>
           <select id="f-accessLevel" name="accessLevel">
             <option value="0">Level 0</option>
@@ -97,19 +97,19 @@ const articleCategories = Array.from(new Set(
             <option value="5">Level 5</option>
           </select>
         </div>
-        <div class="form-field field-personnel field-synthetic">
+        <div class="form-field profile-inline-source field-personnel field-synthetic">
           <label for="f-height">Height</label>
           <input id="f-height" name="height" type="text" placeholder={"e.g. 5'7\" or {{5'7\"|1.70 m}}"} />
         </div>
-        <div class="form-field field-personnel">
+        <div class="form-field profile-inline-source field-personnel">
           <label for="f-birthplace">Birthplace</label>
           <input id="f-birthplace" name="birthplace" type="text" placeholder="e.g. Ventria" />
         </div>
-        <div class="form-field field-synthetic">
+        <div class="form-field profile-inline-source field-synthetic">
           <label for="f-createdOn">Created on</label>
           <input id="f-createdOn" name="createdOn" type="text" placeholder="e.g. Ventria Lab-04" />
         </div>
-        <div class="form-field field-synthetic">
+        <div class="form-field profile-inline-source field-synthetic">
           <label for="f-syntheticType">Type</label>
           <select id="f-syntheticType" name="syntheticType">
             <option value="Living">Living</option>
@@ -118,11 +118,11 @@ const articleCategories = Array.from(new Set(
           </select>
         </div>
 
-        <div class="form-field field-entity field-synthetic">
+        <div class="form-field profile-inline-source field-entity field-synthetic">
           <label for="f-nickname">Nickname</label>
           <input id="f-nickname" name="nickname" type="text" placeholder="Optional" />
         </div>
-        <div class="form-field field-entity">
+        <div class="form-field profile-inline-source field-entity">
           <label for="f-containmentClass">Containment Class</label>
           <select id="f-containmentClass" name="containmentClass">
             <option value="Ally">Ally (A)</option>
@@ -132,28 +132,28 @@ const articleCategories = Array.from(new Set(
             <option value="Unassigned">Unassigned (X)</option>
           </select>
         </div>
-        <div class="form-field field-entity">
+        <div class="form-field profile-inline-source field-entity">
           <label for="f-type">Type</label>
           <input id="f-type" name="type" type="text" placeholder="e.g. Creature, Object, Phenomenon" />
         </div>
-        <div class="form-field field-entity">
+        <div class="form-field profile-inline-source field-entity">
           <label for="f-foundOn">Found On</label>
           <input id="f-foundOn" name="foundOn" type="text" placeholder="e.g. Planet name" />
         </div>
 
-        <div class="form-field field-species">
+        <div class="form-field profile-inline-source field-species">
           <label for="f-species">Species</label>
           <input id="f-species" name="species" type="text" />
         </div>
-        <div class="form-field field-profile">
+        <div class="form-field profile-inline-source field-profile">
           <label for="f-gender">Gender</label>
           <input id="f-gender" name="gender" type="text" />
         </div>
-        <div class="form-field field-profile">
+        <div class="form-field profile-inline-source field-profile">
           <label for="f-age">Age</label>
           <input id="f-age" name="age" type="text" placeholder="e.g. 25 or -Unknown-" />
         </div>
-        <div class="form-field field-profile">
+        <div class="form-field profile-inline-source field-profile">
           <label for="f-vorePreference">Trophic Role</label>
           <select id="f-vorePreference" name="vorePreference">
             <option value="Prey">Prey</option>
@@ -163,65 +163,63 @@ const articleCategories = Array.from(new Set(
           </select>
         </div>
 
-        <div class="form-field field-personnel field-synthetic span-2">
+        <div class="form-field profile-inline-source field-personnel field-synthetic span-2">
           <label for="f-positiveTraits">Positive Traits (comma separated)</label>
           <input id="f-positiveTraits" name="positiveTraits" type="text" placeholder="Passionate, Friendly, Hardworking" />
         </div>
-        <div class="form-field field-personnel field-synthetic span-2">
+        <div class="form-field profile-inline-source field-personnel field-synthetic span-2">
           <label for="f-negativeTraits">Negative Traits (comma separated)</label>
           <input id="f-negativeTraits" name="negativeTraits" type="text" placeholder="Clumsy, Slow" />
         </div>
 
-        <div class="form-field field-entity span-2">
+        <div class="form-field profile-inline-source field-entity span-2">
           <label for="f-usefulAbilities">Useful Abilities (comma separated)</label>
           <input id="f-usefulAbilities" name="usefulAbilities" type="text" placeholder="Shapeshifting, Flight" />
         </div>
-        <div class="form-field field-entity span-2">
+        <div class="form-field profile-inline-source field-entity span-2">
           <label for="f-noteableEvents">Noteable Events (comma separated)</label>
           <input id="f-noteableEvents" name="noteableEvents" type="text" placeholder="Escaped containment" />
         </div>
 
-        <div class="form-field span-2">
+        <div class="form-field profile-inline-source report-preview-source span-2">
           <label id="f-body-label" for="f-bio">Bio</label>
           <textarea id="f-bio" name="bio" rows="6" placeholder="Write the bio text here. Separate paragraphs with a blank line. You can use Markdown to format such as #, *, >, -"></textarea>
         </div>
 
-        <div class="form-field field-article span-2">
-          <div class="gallery-editor-head">
-            <label>Inline Report Images</label>
-            <button type="button" id="article-image-add" class="btn secondary">+ Add image</button>
-          </div>
-          <p class="field-hint article-image-hint">Add an image, choose its layout, then insert it at the current cursor position in the report body.</p>
-          <div id="article-image-rows"></div>
-        </div>
+        <input id="f-profile-image" type="file" accept="image/*" hidden />
 
-        <div class="form-field field-profile">
-          <label class="submit-checkbox"><input id="f-patreon" type="checkbox" name="patreonSubmission" checked /> This is a Patreon submission</label>
-        </div>
-
-        <div class="form-field field-profile span-2">
-          <label for="f-profile-image">Profile Image</label>
-          <input id="f-profile-image" type="file" accept="image/*" />
-          <p class="field-hint">Will be exported as <code>profile.&lt;ext&gt;</code>.</p>
-        </div>
-
-        <div class="form-field field-profile span-2">
-          <div class="gallery-editor-head">
-            <label>Gallery Images</label>
-            <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
-          </div>
-          <div id="gallery-rows"></div>
-        </div>
       </form>
-    </section>
 
-    <section class="card" aria-labelledby="preview-title">
-      <h2 id="preview-title" class="db-title-cyan">2. Live Preview</h2>
-      <div id="submit-preview"></div>
+      <section class="submit-preview-section" aria-labelledby="preview-title">
+        <h2 id="preview-title" class="db-title-cyan">Build Your File</h2>
+        <div id="submit-preview">
+          <div id="submit-preview-content"></div>
+          <section id="article-image-editor" class="card field-article" aria-labelledby="article-image-title" hidden>
+            <div class="gallery-editor-head">
+              <h2 id="article-image-title" class="db-title-cyan">Inline Report Images</h2>
+              <button type="button" id="article-image-add" class="btn secondary">+ Add image</button>
+            </div>
+            <p class="field-hint article-image-hint">Add an image, choose its layout, then insert it into the report body.</p>
+            <div id="article-image-rows"></div>
+          </section>
+          <section id="submit-gallery-preview" class="card" role="region" hidden>
+            <h2>Gallery</h2>
+            <div id="gallery-editor" class="form-field field-profile span-2">
+              <div class="gallery-editor-head">
+                <label>Gallery Images</label>
+                <button type="button" id="gallery-add" class="btn secondary">+ Add image</button>
+              </div>
+              <input id="gallery-file-picker" type="file" accept="image/*" class="sr-only" tabindex="-1" aria-hidden="true" />
+              <p id="gallery-empty-state" class="field-hint">No gallery images added yet.</p>
+              <div id="gallery-rows" class="gallery-edit-grid"></div>
+            </div>
+          </section>
+        </div>
+      </section>
     </section>
 
     <section class="card" aria-labelledby="export-title">
-      <h2 id="export-title" class="db-title-cyan">3. Export &amp; Send</h2>
+      <h2 id="export-title" class="db-title-cyan"> Export &amp; Send</h2>
       <p class="lead">
         Connect your Discord account below to send your file for review.
       </p>
@@ -268,7 +266,11 @@ const articleCategories = Array.from(new Set(
   const form = document.getElementById('submit-form') as HTMLFormElement;
   const typeRadios = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="submit-type"]'));
   const previewEl = document.getElementById('submit-preview')!;
+  const previewContentEl = document.getElementById('submit-preview-content')!;
+  const galleryPreviewEl = document.getElementById('submit-gallery-preview')!;
+  const galleryEmptyStateEl = document.getElementById('gallery-empty-state')!;
   const galleryRowsEl = document.getElementById('gallery-rows')!;
+  const galleryFilePickerEl = document.getElementById('gallery-file-picker') as HTMLInputElement;
   const articleImageRowsEl = document.getElementById('article-image-rows')!;
   const exportOutput = document.getElementById('export-output')!;
   const exportImageList = document.getElementById('export-image-list')!;
@@ -294,6 +296,8 @@ const articleCategories = Array.from(new Set(
   const bodyLabel = document.getElementById('f-body-label')!;
   const bodyInput = document.getElementById('f-bio') as HTMLTextAreaElement;
   const categoryInput = document.getElementById('f-category') as HTMLInputElement;
+  const categoryField = categoryInput.closest<HTMLElement>('.category-field')!;
+  const categoryAnchor = document.getElementById('report-category-anchor')!;
   const categoryBrowse = document.getElementById('category-browse') as HTMLButtonElement;
   const categoryOptions = document.getElementById('category-options')!;
   const categoryOptionButtons = Array.from(categoryOptions.querySelectorAll<HTMLButtonElement>('.category-option'));
@@ -302,11 +306,23 @@ const articleCategories = Array.from(new Set(
   let profileImageFile: File | null = null;
   let profileImageExt = 'png';
   let profileSourceImage: HTMLImageElement | null = null;
+  let profileImageIsGif = false;
   let profileCropX = 0;
   let profileCropY = 0;
   let profileCropScale = 1;
   let profileCropSmooth = false;
   let profileCropPointer: { x: number; y: number } | null = null;
+  let bioIsEditing = true;
+  const traitFieldLabels = {
+    positiveTraits: 'positive traits',
+    negativeTraits: 'negative traits',
+    usefulAbilities: 'useful abilities',
+    noteableEvents: 'noteable events',
+  };
+  type TraitField = keyof typeof traitFieldLabels;
+  const isTraitField = (value: string | undefined): value is TraitField => Boolean(value && value in traitFieldLabels);
+  const traitIsEditing: Record<TraitField, boolean> = { positiveTraits: true, negativeTraits: true, usefulAbilities: true, noteableEvents: true };
+  const collapsedPreviewFields = new Set<string>();
   const galleryRows: GalleryRow[] = [];
   const articleImages: ArticleImageRow[] = [];
   let nextArticleImageNumber = 1;
@@ -324,10 +340,14 @@ const articleCategories = Array.from(new Set(
     document.querySelectorAll<HTMLElement>('.field-article').forEach((el) => { el.hidden = type !== 'article'; });
     document.querySelectorAll<HTMLElement>('.field-profile').forEach((el) => { el.hidden = type === 'article'; });
     document.querySelectorAll<HTMLElement>('.field-species').forEach((el) => { el.hidden = type !== 'personnel' && type !== 'entity'; });
+    document.querySelectorAll<HTMLElement>('.profile-inline-source').forEach((el) => {
+      el.hidden = type !== 'article';
+    });
+    document.querySelectorAll<HTMLElement>('.report-preview-source').forEach((el) => { el.hidden = type === 'article'; });
 
     const isArticle = type === 'article';
-    titleLabel.textContent = isArticle ? 'Report Title' : 'Name / Entity number';
-    titleInput.placeholder = isArticle ? 'e.g. World info' : type === 'synthetic' ? 'e.g. Synt-01 or Nagi' : 'e.g. Nagi or M-031';
+    titleLabel.textContent = isArticle ? 'Report Title' : type === 'entity' ? 'Entity Number' : 'Name';
+    titleInput.placeholder = isArticle ? 'e.g. World info' : type === 'entity' ? 'e.g. M-031' : type === 'synthetic' ? 'e.g. Synt-01 or Nagi' : 'e.g. Nagi';
     bodyLabel.textContent = isArticle ? 'Report Body' : 'Bio';
     bodyInput.placeholder = isArticle
       ? 'Write the report here using Markdown. Separate paragraphs with a blank line.'
@@ -441,37 +461,116 @@ const articleCategories = Array.from(new Set(
     return html;
   };
 
-  const addGalleryRow = () => {
-    const row: GalleryRow = { file: null, url: null, caption: '', filename: `${galleryRows.length + 1}.png` };
-    galleryRows.push(row);
-    appendGalleryRow(row);
-    updatePreview();
+  const inlineInput = (name: string, placeholder = '') => {
+    const value = escapeAttribute(field(name));
+    const editingClass = value.trim() && collapsedPreviewFields.has(name) ? '' : ' is-editing';
+    return `<input class="preview-inline-input${editingClass}" data-preview-field="${name}" value="${value}" placeholder="${escapeAttribute(placeholder)}" />`;
   };
+
+  const inlineSelect = (name: string) => {
+    const source = form.elements.namedItem(name) as HTMLSelectElement | null;
+    if (!source) return inlineInput(name);
+    const options = Array.from(source.options).map((option) => `
+      <option value="${escapeAttribute(option.value)}"${option.value === source.value ? ' selected' : ''}>${escapeHtml(option.textContent ?? option.value)}</option>
+    `).join('');
+    const editingClass = source.value.trim() && collapsedPreviewFields.has(name) ? '' : ' is-editing';
+    return `<select class="preview-inline-select${editingClass}" data-preview-field="${name}">${options}</select>`;
+  };
+
+  const inlineTextarea = (name: string, placeholder = '') => {
+    return `<textarea class="preview-inline-textarea" data-preview-field="${name}" placeholder="${escapeAttribute(placeholder)}">${escapeHtml(field(name))}</textarea>`;
+  };
+
+  const traitListMarkup = (value: string) => {
+    const items = csvList(value);
+    return items.length
+      ? `<ul>${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+      : '<p class="field-hint">Add comma-separated items.</p>';
+  };
+
+  const inlineTraitList = (name: TraitField, placeholder: string) => `
+    <div class="trait-list-preview">
+      <textarea class="preview-inline-textarea" data-preview-field="${name}" placeholder="${escapeAttribute(placeholder)}"${traitIsEditing[name] ? '' : ' hidden'}>${escapeHtml(field(name))}</textarea>
+      <div class="article-body preview-traits-rendered" data-trait-preview="${name}" tabindex="0" aria-label="Rendered ${traitFieldLabels[name]}. Press Enter or Space to edit."${traitIsEditing[name] ? ' hidden' : ''}>${traitListMarkup(field(name))}</div>
+    </div>
+  `;
+
+  const addGalleryRow = () => {
+    galleryPickerTarget = null;
+    galleryFilePickerEl.value = '';
+    galleryFilePickerEl.click();
+  };
+
+  let galleryPickerTarget: GalleryRow | null = null;
+
+  const updateGalleryImage = (row: GalleryRow, file: File) => {
+    if (row.url) URL.revokeObjectURL(row.url);
+    row.file = file;
+    row.url = URL.createObjectURL(file);
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const rowIndex = galleryRows.indexOf(row);
+    row.filename = `${rowIndex + 1}.${ext}`;
+    const wrap = galleryRowsEl.children[rowIndex];
+    wrap.querySelector<HTMLImageElement>('[data-role="preview"]')!.src = row.url;
+    wrap.querySelector<HTMLElement>('[data-role="filename"]')!.textContent = file.name;
+    wrap.querySelector<HTMLElement>('[data-role="filename"]')!.title = file.name;
+  };
+
+  galleryFilePickerEl.addEventListener('change', () => {
+    const file = galleryFilePickerEl.files?.[0];
+    if (!file) {
+      galleryPickerTarget = null;
+      return;
+    }
+
+    if (galleryPickerTarget) {
+      updateGalleryImage(galleryPickerTarget, file);
+    } else {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const row: GalleryRow = {
+        file,
+        url: URL.createObjectURL(file),
+        caption: '',
+        filename: `${galleryRows.length + 1}.${ext}`,
+      };
+      galleryRows.push(row);
+      galleryEmptyStateEl.hidden = true;
+      appendGalleryRow(row);
+    }
+
+    galleryPickerTarget = null;
+    galleryFilePickerEl.value = '';
+    updatePreview();
+  });
 
   const appendGalleryRow = (row: GalleryRow) => {
     const wrap = document.createElement('div');
     wrap.className = 'gallery-row';
     wrap.innerHTML = `
-      <button type="button" class="btn secondary gallery-remove" data-role="remove" aria-label="Remove gallery image" title="Remove gallery image">X</button>
-      <input type="file" accept="image/*" data-role="file" />
-      <input type="text" data-role="caption" placeholder="Caption" value="${row.caption.replace(/"/g, '&quot;')}" />
-      <span class="field-hint" data-role="filename">${row.filename}</span>
+      <div class="gallery-item-preview">
+        <img data-role="preview" src="${escapeAttribute(row.url ?? '')}" alt="Gallery image ${galleryRows.indexOf(row) + 1}" />
+        <button type="button" class="btn gallery-remove" data-role="remove" aria-label="Remove this gallery image" title="Remove this gallery image">X</button>
+      </div>
+      <div class="gallery-item-controls">
+        <div class="gallery-file-control">
+          <button type="button" class="btn secondary gallery-change" data-role="change">Change image</button>
+          <span class="field-hint" data-role="filename" title="${escapeAttribute(row.file?.name ?? '')}">${escapeHtml(row.file?.name ?? '')}</span>
+        </div>
+        <label class="gallery-caption-label">
+          <span>Caption</span>
+          <input type="text" data-role="caption" placeholder="Describe this image" value="${row.caption.replace(/"/g, '&quot;')}" />
+        </label>
+      </div>
     `;
 
-    const fileInput = wrap.querySelector('[data-role="file"]') as HTMLInputElement;
     const captionInput = wrap.querySelector('[data-role="caption"]') as HTMLInputElement;
-    const filenameLabel = wrap.querySelector('[data-role="filename"]') as HTMLElement;
+    const changeButton = wrap.querySelector('[data-role="change"]') as HTMLButtonElement;
     const removeButton = wrap.querySelector('[data-role="remove"]') as HTMLButtonElement;
 
-    fileInput.addEventListener('change', () => {
-      const chosen = fileInput.files?.[0] ?? null;
-      row.file = chosen;
-      if (row.url) URL.revokeObjectURL(row.url);
-      row.url = chosen ? URL.createObjectURL(chosen) : null;
-      const ext = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
-      row.filename = `${galleryRows.indexOf(row) + 1}.${ext}`;
-      filenameLabel.textContent = row.filename;
-      updatePreview();
+    changeButton.addEventListener('click', () => {
+      galleryPickerTarget = row;
+      galleryFilePickerEl.value = '';
+      galleryFilePickerEl.click();
     });
 
     captionInput.addEventListener('input', () => {
@@ -485,11 +584,12 @@ const articleCategories = Array.from(new Set(
       if (row.url) URL.revokeObjectURL(row.url);
       galleryRows.splice(rowIndex, 1);
       wrap.remove();
+      galleryEmptyStateEl.hidden = galleryRows.length > 0;
       galleryRows.forEach((remainingRow, i) => {
         const ext = remainingRow.filename.split('.').pop() || 'png';
         remainingRow.filename = `${i + 1}.${ext}`;
-        const remainingWrap = galleryRowsEl.children[i];
-        remainingWrap.querySelector('[data-role="filename"]')!.textContent = remainingRow.filename;
+        const remainingWrap = galleryRowsEl.children[i] as HTMLElement;
+        remainingWrap.querySelector('[data-role="preview"]')!.setAttribute('alt', `Gallery image ${i + 1}`);
       });
       updatePreview();
     });
@@ -574,9 +674,16 @@ const articleCategories = Array.from(new Set(
     });
     insertButton.addEventListener('click', () => {
       const insertion = `\n\n${articleImageDirective(row)}\n\n`;
-      bodyInput.setRangeText(insertion, bodyInput.selectionStart, bodyInput.selectionEnd, 'end');
-      bodyInput.dispatchEvent(new Event('input', { bubbles: true }));
-      bodyInput.focus();
+      const previewBody = previewEl.querySelector<HTMLTextAreaElement>('textarea[data-preview-field="bio"]');
+      if (!previewBody) return;
+      if (previewBody.hidden) {
+        bioIsEditing = true;
+        previewBody.hidden = false;
+        previewEl.querySelector<HTMLElement>('.preview-bio-rendered')!.hidden = true;
+      }
+      previewBody.setRangeText(insertion, previewBody.selectionStart, previewBody.selectionEnd, 'end');
+      previewBody.dispatchEvent(new Event('input', { bubbles: true }));
+      previewBody.focus();
     });
     removeButton.addEventListener('click', () => {
       if (row.url) URL.revokeObjectURL(row.url);
@@ -612,6 +719,7 @@ const articleCategories = Array.from(new Set(
   };
 
   const saveProfileCrop = () => {
+    if (profileImageIsGif) return;
     profileCropCanvas.toBlob((blob) => {
       if (!blob || !profileSourceImage) return;
       profileImageFile = new File([blob], 'profile.png', { type: 'image/png' });
@@ -626,6 +734,7 @@ const articleCategories = Array.from(new Set(
     profileImageFile = chosen;
     profileImageUrl = chosen ? URL.createObjectURL(chosen) : null;
     profileImageExt = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
+    profileImageIsGif = chosen?.type === 'image/gif' || profileImageExt === 'gif';
     if (!chosen) {
       profileSourceImage = null;
       updatePreview();
@@ -642,6 +751,11 @@ const articleCategories = Array.from(new Set(
       profileCropScale = 1;
       profileCropSmooth = false;
       profileCropZoom.value = '1';
+      if (profileImageIsGif) {
+        image.id = 'profile-gif-preview';
+        updatePreview();
+        return;
+      }
       drawProfileCrop();
       saveProfileCrop();
     };
@@ -761,150 +875,231 @@ const articleCategories = Array.from(new Set(
     const author = plainText(field('author')).trim();
 
     if (type === 'article') {
-      previewEl.innerHTML = `
+      previewContentEl.innerHTML = `
         <article class="article-page">
           <header class="card article-header">
-            <p class="article-meta">
-              <span>${escapeHtml(plainText(field('category')) || 'Category')}</span>
-            </p>
-            <h1>${escapeHtml(title)} <span class="cursor" aria-hidden="true"></span></h1>
-            <p class="article-description">${escapeHtml(plainText(field('description')) || 'Add a short report description.')}</p>
-            ${author ? `<p class="article-byline">Filed by ${escapeHtml(author)}</p>` : ''}
+            <div class="article-meta"><div id="report-category-mount"></div></div>
+            <h1>${inlineInput('title', 'Report Title')}</h1>
+            <p class="article-description">${inlineInput('description', 'A short summary shown in the report archive')}</p>
+            <p class="article-byline">Filed by ${inlineInput('author', 'Author / owner credit')}</p>
           </header>
           <section class="card article-body">
-            ${bioHtml || '<p class="field-hint">Write the report body to see it here.</p>'}
+            <div class="bio-preview">
+              <textarea class="preview-inline-textarea" data-preview-field="bio" placeholder="Write the report here using Markdown. Separate paragraphs with a blank line."${bioIsEditing ? '' : ' hidden'}>${escapeHtml(field('bio'))}</textarea>
+              <div class="article-body preview-bio-rendered" tabindex="0" aria-label="Rendered report body. Press Enter or Space to edit."${bioIsEditing ? ' hidden' : ''}>${bioHtml || '<p class="field-hint">Write the report body here. Supports Markdown</p>'}</div>
+            </div>
           </section>
         </article>
       `;
+      categoryField.hidden = false;
+      previewContentEl.querySelector('#report-category-mount')?.append(categoryField);
+      galleryPreviewEl.hidden = true;
       return;
     }
 
-    const galleryHtml = galleryRows.map((row) => `
-      <figure>
-        <img src="${row.url ?? ''}" alt="${title} — ${row.caption}" />
-        <figcaption>${row.caption || '—'}</figcaption>
-      </figure>
-    `).join('') || '<p class="field-hint">No gallery images added yet.</p>';
-
-    const statCell = (label: string, value: string) => `
+    categoryAnchor.after(categoryField);
+    const statCell = (label: string, value: string, fieldName?: string, placeholder = '', control: 'input' | 'select' = 'input') => `
       <div class="stat-cell">
         ${label}
-        <span class="stat-value">${value || '—'}</span>
+        <span class="stat-value">${fieldName ? control === 'select' ? inlineSelect(fieldName) : inlineInput(fieldName, placeholder) : value || '—'}</span>
       </div>
     `;
 
     let statsHtml = '';
-    let nicknameHtml = '';
     let traitsHtml = '';
-    const authorHtml = author ? `<p class="profile-author">Submission by ${escapeHtml(author)}</p>` : '';
 
     if (type === 'personnel') {
       statsHtml = [
-        statCell('Access Level', `Level ${plainText(field('accessLevel')) || '?'}`),
-        statCell('Facility Position', plainText(field('position'))),
-        statCell('Species', plainText(field('species'))),
-        statCell('Gender', plainText(field('gender'))),
-        statCell('Height', plainText(field('height'))),
-        statCell('Age', plainText(field('age'))),
-        statCell('Birthplace', plainText(field('birthplace'))),
-        statCell('Trophic Role', plainText(field('vorePreference'))),
+        statCell('Access Level', '', 'accessLevel', '', 'select'),
+        statCell('Facility Position', '', 'position'),
+        statCell('Species', '', 'species'),
+        statCell('Gender', '', 'gender'),
+        statCell('Height', '', 'height'),
+        statCell('Age', '', 'age'),
+        statCell('Birthplace', '', 'birthplace'),
+        statCell('Trophic Role', '', 'vorePreference', '', 'select'),
       ].join('');
-      const positive = csvList(field('positiveTraits'));
-      const negative = csvList(field('negativeTraits'));
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
-            <ul class="trait-list positive">${positive.length ? positive.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTraitList('positiveTraits', 'Passionate, Friendly, Hardworking')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
-            <ul class="trait-list negative">${negative.length ? negative.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTraitList('negativeTraits', 'Clumsy, Slow')}
           </div>
         </div>
       `;
     } else if (type === 'synthetic') {
-      const nickname = plainText(field('nickname'));
-      nicknameHtml = nickname ? `<p class="profile-nickname">"${nickname}"</p>` : '';
       statsHtml = [
-        statCell('Access Level', `Level ${plainText(field('accessLevel')) || '?'}`),
-        statCell('Facility Position', plainText(field('position'))),
-        statCell('Type', plainText(field('syntheticType'))),
-        statCell('Gender', plainText(field('gender'))),
-        statCell('Height', plainText(field('height'))),
-        statCell('Age', plainText(field('age'))),
-        statCell('Created on', plainText(field('createdOn'))),
-        statCell('Trophic Role', plainText(field('vorePreference'))),
+        statCell('Access Level', '', 'accessLevel', '', 'select'),
+        statCell('Facility Position', '', 'position'),
+        statCell('Type', '', 'syntheticType', '', 'select'),
+        statCell('Gender', '', 'gender'),
+        statCell('Height', '', 'height'),
+        statCell('Age', '', 'age'),
+        statCell('Created on', '', 'createdOn'),
+        statCell('Trophic Role', '', 'vorePreference', '', 'select'),
       ].join('');
-      const positive = csvList(field('positiveTraits'));
-      const negative = csvList(field('negativeTraits'));
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Positive Traits</h2>
-            <ul class="trait-list positive">${positive.length ? positive.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTraitList('positiveTraits', 'Passionate, Friendly, Hardworking')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Negative Traits</h2>
-            <ul class="trait-list negative">${negative.length ? negative.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTraitList('negativeTraits', 'Clumsy, Slow')}
           </div>
         </div>
       `;
     } else {
-      const nickname = plainText(field('nickname'));
-      nicknameHtml = nickname ? `<p class="profile-nickname">"${nickname}"</p>` : '';
       statsHtml = [
-        statCell('Containment Class', plainText(field('containmentClass'))),
-        statCell('Type', plainText(field('type'))),
-        statCell('Species', plainText(field('species'))),
-        statCell('Gender', plainText(field('gender'))),
-        statCell('Age', plainText(field('age'))),
-        statCell('Found On', plainText(field('foundOn'))),
-        statCell('Trophic Role', plainText(field('vorePreference'))),
+        statCell('Containment Class', '', 'containmentClass', '', 'select'),
+        statCell('Type', '', 'type'),
+        statCell('Species', '', 'species'),
+        statCell('Gender', '', 'gender'),
+        statCell('Age', '', 'age'),
+        statCell('Found On', '', 'foundOn'),
+        statCell('Trophic Role', '', 'vorePreference', '', 'select'),
       ].join('');
-      const abilities = csvList(field('usefulAbilities'));
-      const events = csvList(field('noteableEvents'));
       traitsHtml = `
         <div class="traits-grid">
           <div class="card" role="region"><h2 class="db-title-green">Useful Abilities</h2>
-            <ul class="trait-list positive">${abilities.length ? abilities.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTraitList('usefulAbilities', 'Shapeshifting, Flight')}
           </div>
           <div class="card" role="region"><h2 class="db-title-red">Noteable Events</h2>
-            <ul class="trait-list negative">${events.length ? events.map((t) => `<li>${t}</li>`).join('') : '<li>None</li>'}</ul>
+            ${inlineTraitList('noteableEvents', 'Escaped containment')}
           </div>
         </div>
       `;
     }
 
-    previewEl.innerHTML = `
+    previewContentEl.innerHTML = `
       <div class="card" role="article">
         <div class="profile-header">
-          <h1 class="profile-name">${title}</h1>
-          ${nicknameHtml}
-          ${authorHtml}
+          <h1 class="profile-name">${inlineInput('title', type === 'entity' ? 'Entity Number' : 'Name')}</h1>
+          ${type === 'synthetic' || type === 'entity' ? `<p class="profile-nickname">${inlineInput('nickname', 'Nickname')}</p>` : ''}
+          <p class="profile-author">${inlineInput('author', 'Author / owner credit')}</p>
         </div>
         <div class="profile">
           <div class="profile-media">
             <div class="profile-crop-target"></div>
+            <div class="profile-image-actions">
+              <span class="profile-image-label">Profile Image</span>
+              <button type="button" id="profile-image-upload" class="btn secondary profile-image-upload">Upload Image</button>
+            </div>
+           
           </div>
           <div class="stat-grid">${statsHtml}</div>
         </div>
       </div>
       <div class="card" role="region">
         <h2 class="db-title-cyan">Bio</h2>
-        <div class="article-body">${bioHtml || '<p class="field-hint">Write a bio to see it here.</p>'}</div>
+        <div class="bio-preview">
+          <textarea class="preview-inline-textarea" data-preview-field="bio" placeholder="Write the bio text here."${bioIsEditing ? '' : ' hidden'}>${escapeHtml(field('bio'))}</textarea>
+          <div class="article-body preview-bio-rendered" tabindex="0" aria-label="Rendered bio. Press Enter or Space to edit."${bioIsEditing ? ' hidden' : ''}>${bioHtml || '<p class="field-hint">Write the bio text here.</p>'}</div>
+        </div>
       </div>
       ${traitsHtml}
-      <div class="card" role="region">
-        <h2>Gallery</h2>
-        <div class="gallery-grid">${galleryHtml}</div>
-      </div>
     `;
+
+    galleryPreviewEl.hidden = false;
 
     if (profileSourceImage) {
       const target = previewEl.querySelector('.profile-crop-target');
       if (target) {
-        target.append(profileCropCanvas, profileCropZoomLabel, profileCropZoom);
-        profileCropCanvas.classList.remove('is-zooming');
+        target.classList.toggle('is-animated', profileImageIsGif);
+        if (profileImageIsGif) {
+          target.append(profileSourceImage);
+        } else {
+          target.append(profileCropCanvas, profileCropZoomLabel, profileCropZoom);
+          profileCropCanvas.classList.remove('is-zooming');
+        }
       }
     }
   }
+
+  previewEl.addEventListener('input', (event) => {
+    const control = (event.target as HTMLElement).closest<HTMLElement>('[data-preview-field]');
+    const fieldName = control?.dataset.previewField;
+    if (!fieldName) return;
+    const source = form.elements.namedItem(fieldName) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
+    if (!source) return;
+    source.value = (control as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+    updateExport();
+  });
+
+  previewEl.addEventListener('focusin', (event) => {
+    const control = (event.target as HTMLElement).closest<HTMLElement>('.preview-inline-input, .preview-inline-select');
+    control?.classList.add('is-editing');
+  });
+
+  previewEl.addEventListener('focusout', (event) => {
+    const control = (event.target as HTMLElement).closest<HTMLInputElement | HTMLSelectElement>('.preview-inline-input, .preview-inline-select');
+    const controlField = control?.dataset.previewField;
+    if (control && controlField) {
+      if (control.value.trim()) {
+        collapsedPreviewFields.add(controlField);
+        control.classList.remove('is-editing');
+      } else {
+        collapsedPreviewFields.delete(controlField);
+        control.classList.add('is-editing');
+      }
+      return;
+    }
+
+    const textarea = (event.target as HTMLElement).closest<HTMLTextAreaElement>('textarea[data-preview-field]');
+    if (!textarea) return;
+    const fieldName = textarea.dataset.previewField;
+    if (fieldName === 'bio') {
+      const rendered = previewEl.querySelector<HTMLElement>('.preview-bio-rendered');
+      if (!rendered) return;
+      bioIsEditing = false;
+      rendered.innerHTML = renderMarkdown(textarea.value) || '<p class="field-hint">Write the bio here. Supports Markdown</p>';
+      rendered.hidden = false;
+    } else if (isTraitField(fieldName)) {
+      const rendered = previewEl.querySelector<HTMLElement>(`[data-trait-preview="${fieldName}"]`);
+      if (!rendered) return;
+      traitIsEditing[fieldName] = false;
+      rendered.innerHTML = traitListMarkup(textarea.value);
+      rendered.hidden = false;
+    } else {
+      return;
+    }
+    textarea.hidden = true;
+    updateExport();
+  });
+
+  const startEditingPreviewField = (fieldName: 'bio' | TraitField) => {
+    const textarea = previewEl.querySelector<HTMLTextAreaElement>(`[data-preview-field="${fieldName}"]`);
+    const rendered = fieldName === 'bio'
+      ? previewEl.querySelector<HTMLElement>('.preview-bio-rendered')
+      : previewEl.querySelector<HTMLElement>(`[data-trait-preview="${fieldName}"]`);
+    if (!textarea || !rendered) return;
+    if (fieldName === 'bio') bioIsEditing = true;
+    else traitIsEditing[fieldName] = true;
+    rendered.hidden = true;
+    textarea.hidden = false;
+    textarea.focus();
+  };
+
+  previewEl.addEventListener('keydown', (event) => {
+    const target = event.target as HTMLElement;
+    if ((target.matches('.preview-bio-rendered, .preview-traits-rendered')) && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault();
+      const fieldName = target.dataset.traitPreview;
+      startEditingPreviewField(isTraitField(fieldName) ? fieldName : 'bio');
+    }
+  });
+
+  previewEl.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('#profile-image-upload')) profileImageInput.click();
+    else if (target.closest('.preview-bio-rendered') && !target.closest('.preview-bio-rendered a')) startEditingPreviewField('bio');
+    else {
+      const renderedTraits = target.closest<HTMLElement>('.preview-traits-rendered');
+      const fieldName = renderedTraits?.dataset.traitPreview;
+      if (isTraitField(fieldName)) startEditingPreviewField(fieldName);
+    }
+  });
 
   // Build the frontmatter + bio text ready to hand off, and the checklist of image filenames to prepare.
   function buildFileText() {
@@ -913,7 +1108,6 @@ const articleCategories = Array.from(new Set(
     const slug = slugify(title) || 'slug';
     const bio = field('bio').trim();
     const author = field('author').trim();
-    const patreon = (document.getElementById('f-patreon') as HTMLInputElement).checked;
     const yamlList = (items: string[]) => `[${items.join(', ')}]`;
     const galleryYaml = galleryRows.length
       ? `\n${galleryRows.map((row) => `  - file: ${row.filename}\n    caption: ${row.caption || 'Caption'}`).join('\n')}`
@@ -947,7 +1141,7 @@ const articleCategories = Array.from(new Set(
         `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
-        `patreonSubmission: ${patreon}`,
+        `patreonSubmission: true`,
         `gallery:${galleryYaml}`,
       ].join('\n');
     } else if (type === 'synthetic') {
@@ -969,7 +1163,7 @@ const articleCategories = Array.from(new Set(
         `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
-        `patreonSubmission: ${patreon}`,
+        `patreonSubmission: true`,
         `gallery:${galleryYaml}`,
       ].join('\n');
     } else {
@@ -989,7 +1183,7 @@ const articleCategories = Array.from(new Set(
         `noteableEvents: ${yamlList(csvList(field('noteableEvents')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
         `draft: false`,
-        `patreonSubmission: ${patreon}`,
+        `patreonSubmission: true`,
         `gallery:${galleryYaml}`,
       ].join('\n');
     }
