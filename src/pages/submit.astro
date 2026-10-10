@@ -1258,7 +1258,7 @@ const articleCategories = Array.from(new Set(
     if (type === 'article') {
       zip.file(`src/content/articles/${folder}.md`, fileText);
       articleImages.forEach((row) => {
-        if (row.file) zip.file(`public/images/articles/${folder}/${row.filename}`, row.file);
+        if (row.file) zip.file(`src/assets/images/${folder}/${row.filename}`, row.file);
       });
     } else {
       zip.file(`${folder}.md`, fileText);

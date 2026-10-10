@@ -11,7 +11,7 @@ Magic exists everywhere in the universe. It is a force that has existed since th
 
 Magical particles (p) flow through the universe, in something known as the Magical Field (Mf). Those particles attach to living beings, objects, and even the environment, enabling the manipulation and utilization of magic.
 
-::image{file="nagi-explaining-magic.gif" folder="slug" alt="Nagi explaining magic" caption="Nagi explaining magic" align="center"}
+::image{file="nagi-explaining-magic.gif" alt="Nagi explaining magic" caption="Nagi explaining magic" align="center"}
 
 
 ## Magical Field - Mf

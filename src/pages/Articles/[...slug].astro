@@ -1,6 +1,7 @@
 ---
 import Header from '../../components/header.astro';
 import Footer from '../../components/footer.astro';
+import ArticleContent from '../../components/ArticleContent.astro';
 import { getCollection, render } from 'astro:content';
 
 export async function getStaticPaths() {
@@ -60,7 +61,9 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
     </header>
 
     <section class="card article-body">
-      <Content />
+      <ArticleContent>
+        <Content />
+      </ArticleContent>
     </section>
 
     

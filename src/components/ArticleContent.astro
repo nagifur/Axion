@@ -1,0 +1,14 @@
+---
+import { resolveArticleImages } from '../lib/articleImages';
+
+const assets = Object.fromEntries(
+  Object.entries(import.meta.glob<string>('../assets/images/*/*', {
+    eager: true,
+    query: '?url',
+    import: 'default',
+  })).map(([assetPath, url]) => [assetPath.split('/').slice(-2).join('/'), url]),
+);
+const html = resolveArticleImages(await Astro.slots.render('default'), assets);
+---
+
+<Fragment set:html={html} />

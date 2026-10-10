@@ -97,6 +97,28 @@ Each collection has a schema in `src/content.config.ts`. When adding or editing 
 
 Images are stored in `src/assets/images/`, while files that need to be served directly are stored in `public/`.
 
+### Article images
+
+Place article images in `src/assets/images/<article-slug>/`, where the slug is
+the Markdown filename without `.md`. For example, `magic-system.md` uses
+`src/assets/images/magic-system/`.
+
+Insert an image on its own line, separated from surrounding text by blank lines:
+
+```markdown
+::image{file="nagi-explaining-magic.gif" alt="Nagi explaining magic" caption="Nagi explaining magic" align="center"}
+```
+
+The folder is inferred from the article filename. To use another image folder,
+add `folder="actual-folder-name"`; `folder="slug"` is a literal folder name, not
+a placeholder. Alignment supports `full` (the default), `center`, `left`, and
+`right`. Captions are optional.
+
+Images are bundled with build-generated URLs without re-encoding, preserving
+animated GIFs. Existing files in `public/images/articles/<article-slug>/` remain
+supported, but assets take priority. Missing images cause an explicit rendering
+error. Report submission ZIPs include images under `src/assets/images/`.
+
 ### Math notation
 
 Markdown bodies support LaTeX-style math, rendered locally with KaTeX (no external
