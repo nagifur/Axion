@@ -440,6 +440,31 @@ document.addEventListener('astro:page-load', function () {
     tooltip.addEventListener('blur', setInactive);
   });
 
+  const lightboxSelector = [
+    '.gallery-grid img',
+    '.level-preview img',
+    '.pixelart-profile',
+    '.article-body img',
+  ].join(', ');
+  const lightboxTargets = Array.from(document.querySelectorAll(lightboxSelector)).filter((img) => {
+    if (img.closest('#lightbox, [data-no-lightbox]')) return false;
+    const src = img.getAttribute('src') || '';
+    return !/(^|\/)icons\//.test(src) && !/\.svg(\?|#|$)/i.test(src);
+  });
+
+  // Pages without lightbox markup get one injected when they have zoomable images.
+  if (lightboxTargets.length && !document.getElementById('lightbox')) {
+    const lb = document.createElement('div');
+    lb.id = 'lightbox';
+    lb.className = 'lightbox-overlay';
+    lb.setAttribute('role', 'dialog');
+    lb.setAttribute('aria-modal', 'true');
+    lb.hidden = true;
+    lb.tabIndex = -1;
+    lb.innerHTML = '<div class="lightbox-content"><button id="lightbox-close" class="lightbox-close" aria-label="Close image">×</button><img class="lightbox-img" alt="" /></div>';
+    document.body.appendChild(lb);
+  }
+
   const overlay = document.getElementById('lightbox');
   const overlayImg = overlay ? overlay.querySelector('img') : null;
   const closeBtn = document.getElementById('lightbox-close');
@@ -460,8 +485,8 @@ document.addEventListener('astro:page-load', function () {
     overlayImg.alt = '';
   }
 
-  // Make gallery images clickable
-  document.querySelectorAll('.gallery-grid img, .level-preview img').forEach((img) => {
+  // Make profile, gallery, level and embedded report images clickable
+  lightboxTargets.forEach((img) => {
     img.style.cursor = 'zoom-in';
     img.addEventListener('click', () => {
       // Prefer currentSrc when srcset is in use

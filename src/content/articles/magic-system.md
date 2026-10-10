@@ -83,6 +83,6 @@ $$
 \begin{aligned}
 \mathrm{ME} &= M_c \times C \times \varepsilon_M \\[0.6em]
 \mathrm{ME} &= 3 \times 10^8 \times 0.30 \times 1 \times 10^{-7} \\[0.6em]
-\mathrm{ME} &= 9\,\mathrm{Ax}
+\mathrm{ME} &= \underline{\underline{9\,\mathrm{Ax}}}
 \end{aligned}
 $$
