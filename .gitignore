@@ -17,6 +17,9 @@ pnpm-debug.log*
 .env
 .env.production
 
+# local-only Cloudflare Worker code
+/workers/
+
 # macOS-specific files
 .DS_Store
 
