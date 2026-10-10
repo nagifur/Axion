@@ -97,6 +97,27 @@ Each collection has a schema in `src/content.config.ts`. When adding or editing 
 
 Images are stored in `src/assets/images/`, while files that need to be served directly are stored in `public/`.
 
+### Math notation
+
+Markdown bodies support LaTeX-style math, rendered locally with KaTeX (no external
+rendering service). Use `$...$` inline:
+
+```markdown
+The density is $\rho_M \approx 1.2 \times 10^8 \,\mathrm{p}/\mathrm{m}^3$.
+```
+
+For a centered equation, place `$$` on separate lines:
+
+```markdown
+$$
+\rho_M \approx \frac{1.2 \times 10^8 \,\mathrm{p}}{\mathrm{m}^3}
+$$
+```
+
+Use `^` for exponents, `_` for subscripts, and braces for multiple characters
+(`10^{-8}`, `x_{total}`). The submission body preview also supports inline math
+and standalone `$$` blocks. Backtick code spans show math syntax literally.
+
 ## Production Build
 
 Made automatically with GitHub Actions on the `main` branch. The production build is deployed to GitHub Pages at [https://www.axionlabs.art](https://www.axionlabs.art).

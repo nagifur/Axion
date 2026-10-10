@@ -192,6 +192,7 @@ const articleCategories = Array.from(new Set(
 
       <section class="submit-preview-section" aria-labelledby="preview-title">
         <h2 id="preview-title" class="db-title-cyan">Build Your File</h2>
+        <p class="field-hint">Body math: use <code>$10^8$</code> inline, or put <code>$$</code> on separate lines around an equation.</p>
         <div id="submit-preview">
           <div id="submit-preview-content"></div>
           <section id="article-image-editor" class="card field-article" aria-labelledby="article-image-title" hidden>
@@ -252,6 +253,7 @@ const articleCategories = Array.from(new Set(
 
 <script>
   import JSZip from 'jszip';
+  import katex from 'katex';
 
   type GalleryRow = { file: File | null; url: string | null; caption: string; filename: string };
   type ArticleImageAlignment = 'full' | 'center' | 'left' | 'right';
@@ -397,12 +399,25 @@ const articleCategories = Array.from(new Set(
     };
   };
 
-  // Inline markdown: **bold**, *italic*, `code`, [text](url).
-  const renderInline = (value: string) => value
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  const renderMath = (value: string, displayMode = false) => katex.renderToString(value, {
+    displayMode,
+    throwOnError: false,
+    trust: false,
+  });
+
+  // Protect code and math from Markdown replacements and HTML escaping.
+  const renderInline = (value: string) => {
+    const tokens: string[] = [];
+    const protectedText = value.replace(/`([^`]+)`|(?<!\\)\$([^$\n]+)\$/g, (_, code: string | undefined, math: string | undefined) => {
+      tokens.push(code !== undefined ? `<code>${escapeHtml(code)}</code>` : renderMath(math ?? ''));
+      return `\u0000${tokens.length - 1}\u0000`;
+    });
+    return escapeHtml(protectedText)
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+      .replace(/\u0000(\d+)\u0000/g, (_, index: string) => tokens[Number(index)]);
+  };
 
   // A small Markdown -> HTML converter covering the subset used across the site's bios (headings, quotes, lists, paragraphs).
   const renderMarkdown = (value: string) => {
@@ -421,7 +436,17 @@ const articleCategories = Array.from(new Set(
     };
     const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
 
-    for (const line of lines) {
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
+      if (/^\s*\$\$\s*$/.test(line)) {
+        const closingIndex = lines.findIndex((candidate, position) => position > index && /^\s*\$\$\s*$/.test(candidate));
+        if (closingIndex !== -1) {
+          flushParagraph(); closeList();
+          html += renderMath(lines.slice(index + 1, closingIndex).join('\n'), true);
+          index = closingIndex;
+          continue;
+        }
+      }
       const articleImage = parseArticleImageDirective(line.trim());
       const heading = line.match(/^(#{1,6})\s+(.*)$/);
       const quote = line.match(/^>\s?(.*)$/);
@@ -439,22 +464,22 @@ const articleCategories = Array.from(new Set(
       if (heading) {
         flushParagraph(); closeList();
         const level = heading[1].length;
-        html += `<h${level}>${renderInline(escapeHtml(heading[2]))}</h${level}>`;
+        html += `<h${level}>${renderInline(heading[2])}</h${level}>`;
         continue;
       }
       if (quote) {
         flushParagraph(); closeList();
-        html += `<blockquote>${renderInline(escapeHtml(quote[1]))}</blockquote>`;
+        html += `<blockquote>${renderInline(quote[1])}</blockquote>`;
         continue;
       }
       if (listItem) {
         flushParagraph();
         if (!inList) { html += '<ul>'; inList = true; }
-        html += `<li>${renderInline(escapeHtml(listItem[1]))}</li>`;
+        html += `<li>${renderInline(listItem[1])}</li>`;
         continue;
       }
       closeList();
-      paragraphLines.push(escapeHtml(line.trim()));
+      paragraphLines.push(line.trim());
     }
     flushParagraph();
     closeList();
