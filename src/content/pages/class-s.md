@@ -24,6 +24,6 @@ Entities of Class S typically exhibit the following attributes:
 
 ### Containment
 
-Class S entities are mostly contained at level 2 in light containment facilities. Either in individual enclosures or within large communal habitats, they are provided with ample space to move and interact with their environment. Class S containment cells are not necessary to be monitored as strictly as higher-class entities. And its generally accepted that personnel can enter these areas with minimal supervision.
+Class S entities are mostly contained at Level 2 in light containment facilities. Either in individual enclosures or within large communal habitats, they are provided with ample space to move and interact with their environment. Class S containment cells are not necessary to be monitored as strictly as higher-class entities. And its generally accepted that personnel can enter these areas with minimal supervision.
 
 > Even if Class S entities are generally low-risk, personnel should still exercise standard precautions when interacting with them. Under certain conditions, even class S entities may pose a threat and should be handled accordingly.

@@ -9,7 +9,7 @@ if (!page) {
 }
 const { Content } = await render(page);
 const entities = await getCollection('entities', ({ data }) => (
-  !data.draft && data.containmentClass === page.data.title
+  !data.draft && !data.patreonSubmission && data.containmentClass === page.data.title
 ));
 ---
 <Header title={page.data.title} />
@@ -38,7 +38,9 @@ const entities = await getCollection('entities', ({ data }) => (
             .sort((first, second) => first.data.title.localeCompare(second.data.title))
             .map((entity) => (
               <li>
-                <a href={`/Entities/${entity.id.replace(/\.md$/, '')}`}>{entity.data.title}</a>
+                <a href={`/Entities/${entity.id.replace(/\.md$/, '')}`}>
+                  {entity.data.nickname ? `${entity.data.title} - ${entity.data.nickname}` : entity.data.title}
+                </a>
               </li>
             ))}
         </ul>
