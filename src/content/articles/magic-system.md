@@ -10,7 +10,7 @@ author: Axion Magic Division
 Magic exists everywhere in the universe. It is a force that has existed since the beginning of time, influencing the natural order and the development of the universe. Axion was the first organization to systematically study and understand magic.
 
 Magical particles (p) flow through the universe, in something known as the Magical Field (Mf). Those particles attach to living beings, objects, and even the environment, enabling the manipulation and utilization of magic.
-
+### Visual Explanation
 ::image{file="nagi-explaining-magic.gif" alt="Nagi explaining magic" caption="Nagi explaining magic" align="center"}
 
 
@@ -86,3 +86,6 @@ $$
 \mathrm{ME} &= \underline{\underline{9\,\mathrm{Ax}}}
 \end{aligned}
 $$
+
+
+9 Ax would be enough to perform basic magical actions such as accelerating plant growth.
