@@ -2464,12 +2464,13 @@ img.image-error {
 /* Facility overview map (/facility) */
 .facility-return-top{ max-width:980px }
 .facility-page{ width:100%; max-width:980px; display:flex; flex-direction:column; gap:16px }
-.facility-map{ --art-col:clamp(220px, 44%, 420px); --shaft-gap:var(--space-5) }
+.facility-map{ --art-col:clamp(220px, 44%, 420px); --shaft-gap:var(--space-5); --schematic-line:color-mix(in srgb, var(--line) 28%, var(--panel)) }
+html[data-theme="light"] .facility-map{ --schematic-line:color-mix(in srgb, var(--line) 24%, var(--panel)) }
 .facility-levels{ position:relative; list-style:none; margin:0; padding:0 }
 /* Elevator shaft divider between the cross-section and the level directory */
 .facility-levels::before,
 .facility-levels::after{ content:""; position:absolute; pointer-events:none }
-.facility-levels::before{ top:0; bottom:0; left:var(--art-col); width:2px; background:var(--line-soft) }
+.facility-levels::before{ top:0; bottom:0; left:var(--art-col); width:2px; background:var(--schematic-line) }
 .facility-levels::after{
   top:0; left:calc(var(--art-col) - 2px); width:6px; height:36px; border-radius:3px;
   background:linear-gradient(to bottom, transparent, var(--neon-cyan), transparent);
@@ -2546,10 +2547,14 @@ html[data-theme="light"] .facility-level-title a:hover,
 html[data-theme="light"] .facility-level-title a:focus-visible{ text-shadow:1px 1px 0 rgba(255,255,255,0.9), 0 0 10px color-mix(in srgb, var(--level-tint) 40%, transparent) }
 
 /* Leader line from the shaft to the level label, as on the facility schematic */
-.facility-level-rule{ position:relative; display:block; height:10px; margin:2px 0 6px calc(-1 * var(--shaft-gap)) }
+.facility-level-rule{ position:relative; display:block; height:11px; margin:2px 0 6px calc(-1 * var(--shaft-gap)) }
 .facility-level-rule::before,
-.facility-level-rule::after{ content:""; position:absolute; height:2px; background:var(--line-soft); transition:background-color .2s ease, box-shadow .2s ease }
-.facility-level-rule::before{ left:0; bottom:0; width:14px; transform-origin:left center; transform:rotate(-38deg) }
+.facility-level-rule::after{ content:""; position:absolute; height:2px; background:var(--schematic-line); transition:background-color .2s ease, box-shadow .2s ease }
+.facility-level-rule::before{ left: 1px;
+  bottom: 0.8px;
+  width: 12.1px;
+  transform-origin: left center;
+  transform: rotate(-38deg); }
 .facility-level-rule::after{ left:10px; top:1px; right:0; transform-origin:left center; transition:background-color .2s ease, box-shadow .2s ease, transform .35s ease }
 .facility-level:has(a:hover, a:focus-visible) .facility-level-rule::before,
 .facility-level:has(a:hover, a:focus-visible) .facility-level-rule::after{
@@ -2577,7 +2582,7 @@ html[data-theme="light"] .facility-level-title a:focus-visible{ text-shadow:1px 
 .facility-sector:focus-visible{ border-style:dashed; border-color:var(--level-tint) }
 .facility-sector:hover img,
 .facility-sector:focus-visible img{
-  transform:translateY(-6px) scale(1.1);
+  transform:translateY(-3px) scale(1.1);
   filter:drop-shadow(0 4px 0 rgba(0,0,0,0.35)) drop-shadow(0 0 8px color-mix(in srgb, var(--level-tint) 70%, transparent));
 }
 
