@@ -154,6 +154,13 @@ src/
 ├── lib/         # Markdown plugins and shared helpers
 └── pages/       # File-based Astro routes
 public/          # Static files, fonts, icons, and site scripts/styles
+scripts/         # Maintenance scripts (e.g. pixel-png-to-svg.mjs for facility map art)
+```
+
+The facility map art in `public/facility/` is generated from pixel-art PNGs with:
+
+```sh
+node scripts/pixel-png-to-svg.mjs public/level_0.png public/facility/level-0.svg
 ```
 
 ## License

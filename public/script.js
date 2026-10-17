@@ -801,3 +801,18 @@ document.addEventListener('astro:page-load', function () {
     }
   })();
 });
+
+// Briefly highlight the sector heading a visitor jumped to (e.g. from the facility map).
+document.addEventListener('astro:page-load', function () {
+  var id = '';
+  try { id = decodeURIComponent(window.location.hash.slice(1)); } catch (_) { return; }
+  if (!id) return;
+  var heading = document.getElementById(id);
+  if (!heading || !heading.matches('.article-body h3')) return;
+  heading.classList.remove('facility-target');
+  void heading.offsetWidth;
+  heading.classList.add('facility-target');
+  heading.addEventListener('animationend', function () {
+    heading.classList.remove('facility-target');
+  }, { once: true });
+});

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="200" height="200" shape-rendering="crispEdges">
+	<defs>
+		<filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+			<feGaussianBlur stdDeviation="1.1"/>
+		</filter>
+		<filter id="borderGlow" x="-60%" y="-60%" width="220%" height="220%">
+			<feGaussianBlur stdDeviation="0.5"/>
+		</filter>
+		<g id="biocare-cells">
+			<path d="M12 3.6l3.6 2.1v4.2L12 12l-3.6-2.1V5.7z M11 5.6v1.4H9.6v1.6H11V10h2V8.6h1.4V7H13V5.6z" fill-rule="evenodd"/>
+			<path d="M8.2 11.4l3.1 1.8v3.6l-3.1 1.8-3.1-1.8v-3.6z M8.2 12.6l-2.1 1.2v2.4l2.1 1.2 2.1-1.2v-2.4z" fill-rule="evenodd"/>
+			<path d="M15.8 11.4l3.1 1.8v3.6l-3.1 1.8-3.1-1.8v-3.6z M15.8 12.6l-2.1 1.2v2.4l2.1 1.2 2.1-1.2v-2.4z" fill-rule="evenodd"/>
+		</g>
+	</defs>
+	<rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#00F0FF" opacity="0.6" filter="url(#borderGlow)"/>
+	<rect x="1" y="1" width="22" height="22" rx="3" fill="none" stroke="#7CFBFF"/>
+	<g fill="#00F0FF" opacity="0.85" filter="url(#glow)">
+		<use href="#biocare-cells"/>
+	</g>
+	<g fill="#7CFBFF">
+		<use href="#biocare-cells"/>
+	</g>
+</svg>
