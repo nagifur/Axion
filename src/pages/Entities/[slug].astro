@@ -138,6 +138,10 @@ const profileIsPlaceholder = profileImport === placeholderImage;
             <span class="stat-value"><HoverText value={entity.gender} /></span>
           </div>
           <div class="stat-cell">
+            <span class="info-icon" aria-hidden="true"><StatIcon name="height" /> </span>Height
+            <span class="stat-value"><HoverText value={entity.height} /></span>
+          </div>
+          <div class="stat-cell">
             <span class="info-icon" aria-hidden="true"><StatIcon name="age" /> </span>Age
             <span class="stat-value"><HoverText value={String(entity.age)} /></span>
           </div>
@@ -145,7 +149,7 @@ const profileIsPlaceholder = profileImport === placeholderImage;
             <span class="info-icon" aria-hidden="true"><StatIcon name="foundOn" /> </span>Found On
             <span class="stat-value"><HoverText value={entity.foundOn} /></span>
           </div>
-          <div class="stat-cell span-2">
+          <div class="stat-cell">
             <span class="info-icon" aria-hidden="true"><StatIcon name="trophic" /> </span>Trophic Role
             <span class="stat-value"><HoverText value={entity.vorePreference?.length ? entity.vorePreference.join(', ') : 'None'} /></span>
           </div>

@@ -71,6 +71,7 @@ const entities = defineCollection({
     age: z.union([z.string(), z.number()]).default('█████'),
     foundOn: z.string().default('█████'),
     profileImage: z.string(),
+    height: z.string().default('█████'),
     galleryAlt: z.string(),
     usefulAbilities: z.array(z.string()).default([]),
     noteableEvents: z.array(z.string()).default([]),
