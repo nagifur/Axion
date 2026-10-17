@@ -1,7 +1,7 @@
 ---
 title: Snowy
 syntheticID: 0009
-position: Rescue Android
+position: Personnal Assistant
 type: Living
 nickname: Magic Bunny
 gender: Neutral
@@ -11,7 +11,7 @@ accessLevel: "5"
 colorTint: "#9bb2a5"
 createdOn: Ventria
 profileImage: profile.gif
-galleryAlt: R3VI schematic
+galleryAlt: Snowy gallery
 positiveTraits: [Can be Summoned at will by Dr.Mages, High Magical Potential,Loyal]
 negativeTraits: [Scared Easily, Doesn't Support Mage's Kinky Decisions]
 vorePreference: [Prey]
