@@ -43,11 +43,15 @@ While every level has its own security personnel, the main department is located
 <hr />
 
 <div class="level-preview">
-	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
-	<p class="level-preview-caption">Sector surveillance loop</p>
+	<span class="level-preview-tag">Live Feed</span>
+	<img src="/biocare.gif" alt="Level 3 sector biocare center preview" loading="lazy" />
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
 	<h3 id="biocare" style="margin:0;">BioCare</h3>
 	<img src="/icons/biocare.svg" alt="BioCare icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
+
+This is the BioCare center, where injured or sick personnel receive medical attention and care. The whole sector is fully under Mellisa's supervision. Its where all medical goods and supplies are produced. Biocare center is capable of healing both sickness and injuries. Capable of regrowing lost limbs and repairing severe physical damage. Majority of workers in this sector are directly under Mellisa's command as mind controlled drones.
+
+> WARNING: BioCare sector is filled with Mellisa's mind-controlling pheromones. Personnel entering this area may be susceptible to her influence if no protective measures are taken. Every outside personnel must follow strict decontamination protocols before entering and upon leaving the sector. Wearing a mask is mandatory.
