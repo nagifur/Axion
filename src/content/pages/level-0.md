@@ -16,7 +16,7 @@ This includes visitors, reception, and other non-authorized personnel.
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-  <h3 style="margin:0;">Visitors</h3>
+  <h3 id="visitors" style="margin:0;">Visitors</h3>
   <img src="/icons/visitor.svg" alt="Visitor icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
@@ -38,7 +38,7 @@ Visitors are encouraged to ask questions and learn about the facility's operatio
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-  <h3 style="margin:0;">Reception</h3>
+  <h3 id="reception" style="margin:0;">Reception</h3>
   <img src="/icons/reception.svg" alt="Reception icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 

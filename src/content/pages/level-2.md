@@ -18,7 +18,7 @@ Level 2 clearance grants access to light containment areas, monitoring stations 
 	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Light Containment</h3>
+	<h3 id="light-containment" style="margin:0;">Light Containment</h3>
 	<img src="/icons/light-containment.svg" alt="Light Containment icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
@@ -40,7 +40,7 @@ Most cells are locked with metal doors and reinforced with security systems to p
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Monitoring</h3>
+	<h3 id="monitoring" style="margin:0;">Monitoring</h3>
 	<img src="/icons/monitoring.svg" alt="Monitoring icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
@@ -61,7 +61,7 @@ Monitoring sector has a direct line of communication with security sector on Lev
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Maintenance</h3>
+	<h3 id="maintenance" style="margin:0;">Maintenance</h3>
 	<img src="/icons/maintenance.svg" alt="Maintenance icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 

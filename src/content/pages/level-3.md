@@ -13,7 +13,7 @@ Level 3 clearance grants access to heavy containment areas and it is the home of
 	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Heavy Containment</h3>
+	<h3 id="heavy-containment" style="margin:0;">Heavy Containment</h3>
 	<img src="/icons/heavy-containment.svg" alt="Heavy Containment icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
@@ -32,10 +32,22 @@ It is important to keep the entities happy and healthy, as many of them are high
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Security</h3>
+	<h3 id="security" style="margin:0;">Security</h3>
 	<img src="/icons/security.svg" alt="Security icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
 This is where the main security department is located, they are responsible for the safety of the facility and its personnel. They monitor all sectors and respond to any security breaches or incidents.
 
 While every level has its own security personnel, the main department is located on level 3, it functions as the central hub for all security operations, stores most of the security equipment, and is where all security personnel are trained. The security department also has a direct line of communication with the monitoring sector on level 2 and A1, the main overseer of the facility. This allows them to quickly respond to any incidents or emergencies that may arise.
+
+<hr />
+
+<div class="level-preview">
+	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<p class="level-preview-caption">Sector surveillance loop</p>
+</div>
+
+<div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
+	<h3 id="biocare" style="margin:0;">BioCare</h3>
+	<img src="/icons/biocare.svg" alt="BioCare icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
+</div>

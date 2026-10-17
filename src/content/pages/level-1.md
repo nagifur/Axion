@@ -15,7 +15,7 @@ This level of clearance is granted to all employees and interns who have complet
 	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Offices</h3>
+	<h3 id="offices" style="margin:0;">Offices</h3>
 	<img src="/icons/offices.svg" alt="Offices icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
@@ -35,7 +35,7 @@ All communications are live monitored and logged by A1, and any repeated attempt
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Data Servers</h3>
+	<h3 id="data-servers" style="margin:0;">Data Servers</h3>
 	<img src="/icons/data-servers.svg" alt="Data servers icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
@@ -52,7 +52,7 @@ Every visit to the data servers must have a valid reason (eg. expanding storage,
 </div>
 
 <div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 style="margin:0;">Dormitory</h3>
+	<h3 id="dormitory" style="margin:0;">Dormitory</h3>
 	<img src="/icons/dormitory.svg" alt="Dormitory icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
 </div>
 
