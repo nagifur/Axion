@@ -1,0 +1,149 @@
+---
+import Header from '../components/header.astro';
+import Footer from '../components/footer.astro';
+
+interface Sector {
+  name: string;
+  anchor: string;
+  icon: string;
+}
+
+interface FacilityLevel {
+  level: number;
+  tint: string;
+  art: { width: number; height: number };
+  sectors: Sector[];
+  restricted?: boolean;
+}
+
+const levels: FacilityLevel[] = [
+  {
+    level: 0,
+    tint: 'var(--text)',
+    art: { width: 238, height: 155 },
+    sectors: [
+      { name: 'Visitors', anchor: 'visitors', icon: 'visitor' },
+      { name: 'Reception', anchor: 'reception', icon: 'reception' },
+    ],
+  },
+  {
+    level: 1,
+    tint: 'var(--neon-blue)',
+    art: { width: 234, height: 98 },
+    sectors: [
+      { name: 'Offices', anchor: 'offices', icon: 'offices' },
+      { name: 'Data Servers', anchor: 'data-servers', icon: 'data-servers' },
+      { name: 'Dormitory', anchor: 'dormitory', icon: 'dormitory' },
+    ],
+  },
+  {
+    level: 2,
+    tint: 'var(--neon-cyan)',
+    art: { width: 226, height: 88 },
+    sectors: [
+      { name: 'Light Containment', anchor: 'light-containment', icon: 'light-containment' },
+      { name: 'Monitoring', anchor: 'monitoring', icon: 'monitoring' },
+      { name: 'Maintenance', anchor: 'maintenance', icon: 'maintenance' },
+    ],
+  },
+  {
+    level: 3,
+    tint: 'var(--neon-green)',
+    art: { width: 219, height: 92 },
+    sectors: [
+      { name: 'Heavy Containment', anchor: 'heavy-containment', icon: 'heavy-containment' },
+      { name: 'Security', anchor: 'security', icon: 'security' },
+      { name: 'BioCare', anchor: 'biocare', icon: 'biocare' },
+    ],
+  },
+  {
+    level: 4,
+    tint: 'var(--neon-orange)',
+    art: { width: 212, height: 83 },
+    sectors: [
+      { name: 'Portal Rooms', anchor: 'portal-rooms', icon: 'portal-rooms' },
+      { name: 'Power Services', anchor: 'power-services', icon: 'power-services' },
+      { name: 'Research', anchor: 'research', icon: 'research' },
+    ],
+  },
+  {
+    level: 5,
+    tint: 'var(--neon-pink)',
+    art: { width: 204, height: 61 },
+    sectors: [],
+    restricted: true,
+  },
+];
+
+const levelHref = (level: number) => `/Levels/${level}`;
+---
+<Header
+  title="Facility Overview"
+  description="Interactive cross-section map of the Axion Labs facility — browse every level and sector."
+/>
+
+<main id="main" tabindex="-1">
+  <nav class="article-return-top facility-return-top" aria-label="Site navigation">
+    <a href="/">
+      <span class="article-return-arrow" aria-hidden="true">←</span>
+      <span>Back</span>
+    </a>
+  </nav>
+
+  <article class="facility-page">
+    <header class="card article-header">
+      <h1>Facility Overview <span class="cursor" aria-hidden="true"></span></h1>
+      <p>Cross-section of the Axion Labs facility. Select a level or one of its sectors to open the matching database file.</p>
+    </header>
+
+    <section class="card facility-map" aria-labelledby="facility-map-title">
+      <h2 id="facility-map-title" class="sr-only">Facility map</h2>
+      <ol class="facility-levels">
+        {levels.map((entry) => (
+          <li
+            class:list={['facility-level', { 'is-restricted': entry.restricted }]}
+            style={`--level-tint:${entry.tint}; --art-w:${entry.art.width}; --art-src:url('/facility/level-${entry.level}.svg'); --level-index:${entry.level}`}
+          >
+            <a class="facility-level-art" href={levelHref(entry.level)} aria-label={`Level ${entry.level}${entry.restricted ? ', restricted' : ''}`}>
+              <img
+                src={`/facility/level-${entry.level}.svg`}
+                width={entry.art.width}
+                height={entry.art.height}
+                alt=""
+                loading={entry.level > 2 ? 'lazy' : 'eager'}
+                decoding="async"
+              />
+              <span class="facility-level-scan" aria-hidden="true"></span>
+            </a>
+
+            <div class="facility-level-info">
+              <h3 class="facility-level-title">
+                <a href={levelHref(entry.level)}>Level {entry.level}</a>
+              </h3>
+              <span class="facility-level-rule" aria-hidden="true"></span>
+
+              {entry.restricted ? (
+                <a class="facility-restricted" href={levelHref(entry.level)} aria-label="Unknown sectors, restricted">
+                  <span aria-hidden="true">???</span>
+                </a>
+              ) : (
+                <ul class="facility-sectors">
+                  {entry.sectors.map((sector) => (
+                    <li>
+                      <a class="facility-sector" href={`${levelHref(entry.level)}#${sector.anchor}`}>
+                        <img src={`/icons/${sector.icon}.svg`} width="50" height="50" alt="" loading="lazy" decoding="async" />
+                        <span>{sector.name}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  </article>
+</main>
+
+<Footer></Footer>
