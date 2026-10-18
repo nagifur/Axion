@@ -107,7 +107,7 @@ const facilityLevels = [
   { level: 2, name: 'Light Containment', tint: 'var(--neon-cyan)' },
   { level: 3, name: 'Heavy Containment', tint: 'var(--neon-green)' },
   { level: 4, name: 'Research', tint: 'var(--neon-orange)' },
-  { level: 5, name: 'Restricted', tint: 'var(--neon-red)', restricted: true },
+  { level: 5, name: 'Private', tint: 'var(--neon-red)', restricted: true },
 ];
 const levelsOnline = facilityLevels.filter((level) => !level.restricted).length;
 const archiveTotal = archiveIndex.reduce((sum, item) => sum + item.count, 0);
@@ -154,7 +154,7 @@ const bulletins = [
 
           <nav class="level-strip" aria-labelledby="level-strip-title">
             <div class="panel-kicker">
-              <span id="level-strip-title">Facility Levels</span>
+              <span id="level-strip-title">Level Connection Status</span>
               <span class="panel-kicker-meta">{levelsOnline}/{facilityLevels.length} online</span>
             </div>
             <ol class="level-grid">
@@ -166,9 +166,9 @@ const bulletins = [
                     style={`--tile-tint:${item.tint}`}
                     aria-label={item.restricted ? `Level ${item.level}, restricted` : undefined}
                   >
-                    <span class="level-num">L{item.level}</span>
+                    <span class="level-num">Level {item.level}</span>
                     <span class="level-name">{item.name}</span>
-                    <span class="level-state"><span class="status-dot" aria-hidden="true"></span>{item.restricted ? 'Sealed' : 'Online'}</span>
+                    <span class="level-state"><span class="status-dot" aria-hidden="true"></span>{item.restricted ? 'Unauthorized' : 'Online'}</span>
                   </a>
                 </li>
               ))}
@@ -182,7 +182,7 @@ const bulletins = [
             {latestUpdate && (
               <li><span class="console-prompt">&gt;</span> Last write: {latestUpdate.verb.toLowerCase()} [{latestUpdate.title}]</li>
             )}
-            <li><span class="console-prompt">&gt;</span> L5 access request <span class="console-denied">DENIED</span></li>
+            <li><span class="console-prompt">&gt;</span> Server connection <span class="console-ok">OK</span></li>
             <li><span class="console-prompt">&gt;</span> Awaiting input<span class="console-caret" aria-hidden="true"></span></li>
           </ol>
 
@@ -226,7 +226,7 @@ const bulletins = [
 
           <div class="status-row status-footer">
             <span class="status-label">Containment</span>
-            <span class="status-ok"><span class="status-dot" aria-hidden="true"></span>Nominal</span>
+            <span class="status-ok"><span class="status-dot" aria-hidden="true"></span>All Good</span>
           </div>
         </div>
       </aside>
