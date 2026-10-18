@@ -86,13 +86,32 @@ const updates = [
   },
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
-const recentUpdates = updates.slice(0, 5);
+const recentUpdates = updates.slice(0, 6);
 const lastSync = updates.length ? updates[0].date : new Date();
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
   year: 'numeric', month: 'short', day: 'numeric',
 });
 const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+
+const archiveIndex = [
+  { label: 'Entities', unit: 'files', count: entities.length, tint: 'var(--neon-blue)' },
+  { label: 'Personnel', unit: 'records', count: personnel.length, tint: 'var(--neon-yellow)' },
+  { label: 'Synthetics', unit: 'units', count: synthetics.length, tint: 'var(--neon-cyan)' },
+  { label: 'Reports', unit: 'logs', count: articles.length, tint: 'var(--neon-green)' },
+];
+
+const facilityLevels = [
+  { level: 0, name: 'Reception', tint: 'var(--text)' },
+  { level: 1, name: 'Offices', tint: 'var(--neon-blue)' },
+  { level: 2, name: 'Light Containment', tint: 'var(--neon-cyan)' },
+  { level: 3, name: 'Heavy Containment', tint: 'var(--neon-green)' },
+  { level: 4, name: 'Research', tint: 'var(--neon-orange)' },
+  { level: 5, name: 'Restricted', tint: 'var(--neon-red)', restricted: true },
+];
+const levelsOnline = facilityLevels.filter((level) => !level.restricted).length;
+const archiveTotal = archiveIndex.reduce((sum, item) => sum + item.count, 0);
+const latestUpdate = recentUpdates[0];
 
 const bulletins = [
   { title: 'Gear 100% OFF!!', body: 'For all Axion employees, register for a new cybernetic magi-tech implant now!' },
@@ -107,15 +126,65 @@ const bulletins = [
   <main id="main" tabindex="-1">
     <section class="hero" role="region" aria-label="Main">
       <div>
-        <div class="card" role="article" aria-labelledby="welcome-title">
-          <h1 id="welcome-title">Welcome <span class="cursor" aria-hidden="true"></span></h1>
-          <p class="lead">Axion Labs main database.</p>
-          <p class="lead"> A1oS - ver 1.0</p>
+        <div class="card welcome-card" role="article" aria-labelledby="welcome-title">
+          <div class="welcome-top">
+            <div class="welcome-intro">
+              <h1 id="welcome-title">Welcome <span class="cursor" aria-hidden="true"></span></h1>
+              <p class="lead">Axion Labs main database.</p>
+              <p class="lead"> A1oS - ver 1.0</p>
 
-          <div class="cta" aria-hidden="false">
-            <a class="btn" href="/database">Access Database</a>
-            <a class="btn secondary" href="/facility">Facility Overview</a>
+              <div class="cta" aria-hidden="false">
+                <a class="btn" href="/database">Access Database</a>
+                <a class="btn secondary" href="/facility">Facility Overview</a>
+              </div>
+            </div>
+
+            <nav class="archive-index" aria-labelledby="archive-index-title">
+              <div id="archive-index-title" class="panel-kicker">Archive Index</div>
+              <div class="archive-grid">
+                {archiveIndex.map((item) => (
+                  <a class="archive-tile" href="/database" style={`--tile-tint:${item.tint}`}>
+                    <span class="archive-count">{String(item.count).padStart(3, '0')}</span>
+                    <span class="archive-label">{item.label} <span class="archive-unit">{item.unit}</span></span>
+                  </a>
+                ))}
+              </div>
+            </nav>
           </div>
+
+          <nav class="level-strip" aria-labelledby="level-strip-title">
+            <div class="panel-kicker">
+              <span id="level-strip-title">Facility Levels</span>
+              <span class="panel-kicker-meta">{levelsOnline}/{facilityLevels.length} online</span>
+            </div>
+            <ol class="level-grid">
+              {facilityLevels.map((item) => (
+                <li>
+                  <a
+                    class:list={['level-chip', { restricted: item.restricted }]}
+                    href={`/Levels/${item.level}`}
+                    style={`--tile-tint:${item.tint}`}
+                    aria-label={item.restricted ? `Level ${item.level}, restricted` : undefined}
+                  >
+                    <span class="level-num">L{item.level}</span>
+                    <span class="level-name">{item.name}</span>
+                    <span class="level-state"><span class="status-dot" aria-hidden="true"></span>{item.restricted ? 'Sealed' : 'Online'}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+
+          <ol class="console-log" aria-label="Terminal output">
+            <li><span class="console-prompt">&gt;</span> A1oS boot sequence <span class="console-ok">OK</span></li>
+            <li><span class="console-prompt">&gt;</span> Archive mounted: {archiveTotal} records indexed</li>
+            <li><span class="console-prompt">&gt;</span> Containment sweep: {entities.length} entities accounted for</li>
+            {latestUpdate && (
+              <li><span class="console-prompt">&gt;</span> Last write: {latestUpdate.verb.toLowerCase()} [{latestUpdate.title}]</li>
+            )}
+            <li><span class="console-prompt">&gt;</span> L5 access request <span class="console-denied">DENIED</span></li>
+            <li><span class="console-prompt">&gt;</span> Awaiting input<span class="console-caret" aria-hidden="true"></span></li>
+          </ol>
 
           <div class="bulletin" role="complementary" aria-label="Facility bulletin">
             <div class="bulletin-track">
@@ -130,7 +199,7 @@ const bulletins = [
         </div>
       </div>
       <aside>
-        <div class="card" style="text-align:left">
+        <div class="card status-card" style="text-align:left">
           <h2 style="margin-top:0">System Status</h2>
 
           <div class="status-row">
@@ -153,6 +222,11 @@ const bulletins = [
                 </li>
               ))}
             </ul>
+          </div>
+
+          <div class="status-row status-footer">
+            <span class="status-label">Containment</span>
+            <span class="status-ok"><span class="status-dot" aria-hidden="true"></span>Nominal</span>
           </div>
         </div>
       </aside>
