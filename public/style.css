@@ -567,7 +567,8 @@
     }
 
     main{flex:1; display:flex; align-items:flex-start; justify-content:center; padding:var(--space-3); max-width:1200px; margin:0 auto; width:100%}
-    @media (min-width:881px){ main:has(> .hero){ align-items:center } }
+    /* Anchor the home console near the header instead of centering it, which left a large empty gap on wide/short viewports */
+    @media (min-width:881px){ main:has(> .hero){ padding-top:clamp(var(--space-5), 6vh, var(--space-8)) } }
 
     .hero{
       width:100%;
