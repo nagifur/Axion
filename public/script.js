@@ -677,9 +677,24 @@ document.addEventListener('astro:page-load', function () {
       });
     });
 
+    // A ?tab=<name> deep link (e.g. /database?tab=entities) wins over the remembered tab.
+    var requestedTab = null;
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var requestedName = params.get('tab');
+      if (requestedName) {
+        requestedTab = tabs.find(function(tab){ return tab.id === 'db-tab-' + requestedName.toLowerCase(); }) || null;
+        // Drop the param so a refresh falls back to the remembered tab once the user switches.
+        params.delete('tab');
+        var query = params.toString();
+        history.replaceState(history.state, '', window.location.pathname + (query ? '?' + query : '') + window.location.hash);
+      }
+    } catch (_) {}
+
     var storedTabId = null;
     try { storedTabId = localStorage.getItem(tabStorageKey); } catch (_) {}
-    var initial = (storedTabId && tabs.find(function(tab){ return tab.id === storedTabId; }))
+    var initial = requestedTab
+      || (storedTabId && tabs.find(function(tab){ return tab.id === storedTabId; }))
       || tabs.find(function(tab){ return tab.getAttribute('aria-selected') === 'true'; })
       || tabs[0];
     setActiveTab(initial, false);

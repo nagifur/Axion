@@ -95,10 +95,10 @@ const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
 const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
 
 const archiveIndex = [
-  { label: 'Entities', unit: 'files', count: entities.length, tint: 'var(--neon-blue)' },
-  { label: 'Personnel', unit: 'records', count: personnel.length, tint: 'var(--neon-yellow)' },
-  { label: 'Synthetics', unit: 'units', count: synthetics.length, tint: 'var(--neon-cyan)' },
-  { label: 'Reports', unit: 'logs', count: articles.length, tint: 'var(--neon-green)' },
+  { label: 'Entities', unit: 'files', count: entities.length, tint: 'var(--neon-blue)', tab: 'entities' },
+  { label: 'Personnel', unit: 'records', count: personnel.length, tint: 'var(--neon-yellow)', tab: 'personnel' },
+  { label: 'Synthetics', unit: 'units', count: synthetics.length, tint: 'var(--neon-cyan)', tab: 'synthetics' },
+  { label: 'Reports', unit: 'logs', count: articles.length, tint: 'var(--neon-green)', tab: 'articles' },
 ];
 
 const facilityLevels = [
@@ -143,7 +143,7 @@ const bulletins = [
               <div id="archive-index-title" class="panel-kicker">Archive Index</div>
               <div class="archive-grid">
                 {archiveIndex.map((item) => (
-                  <a class="archive-tile" href="/database" style={`--tile-tint:${item.tint}`}>
+                  <a class="archive-tile" href={`/database?tab=${item.tab}`} style={`--tile-tint:${item.tint}`}>
                     <span class="archive-count">{String(item.count).padStart(3, '0')}</span>
                     <span class="archive-label">{item.label} <span class="archive-unit">{item.unit}</span></span>
                   </a>
