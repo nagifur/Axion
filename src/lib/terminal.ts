@@ -30,6 +30,7 @@ const destinations: Record<string, string> = {
   submit: '/submit',
   reports: '/Articles',
   articles: '/Articles',
+  nagi: '/Personnel/nagi'
 };
 
 function resolveDestination(target: string): string | null {
@@ -78,6 +79,7 @@ export const commands: Record<string, TerminalCommand> = {
   echo: {
     description: 'Print text back to the console',
     usage: 'echo <text>',
+    aliases: ['print'],
     run: ({ args, print }) => print(args.join(' ')),
   },
   date: {
@@ -87,7 +89,7 @@ export const commands: Record<string, TerminalCommand> = {
   },
   whoami: {
     description: 'Show current user',
-    run: ({ print }) => print('guest@axion-labs [clearance: visitor]'),
+    run: ({ print }) => print('skye@axion-labs [ID: 6382] [clearance: Level 4]'),
   },
   history: {
     description: 'Show command history',
@@ -96,6 +98,12 @@ export const commands: Record<string, TerminalCommand> = {
       history.forEach((entry, i) => print(`  ${String(i + 1).padStart(3)}  ${entry}`, 'muted'));
     },
   },
+  meow: {
+    description: 'Make the cat sound',
+    hidden: true,
+    run: ({ print }) => print('meow! :3'),
+  },
+  
   clear: {
     description: 'Clear the console',
     aliases: ['cls'],
