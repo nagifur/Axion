@@ -30,12 +30,15 @@ const destinations: Record<string, string> = {
   submit: '/submit',
   reports: '/Articles',
   articles: '/Articles',
-  nagi: '/Personnel/nagi'
 };
+
+// Filled at runtime from the page's data-destinations attribute (database entries by slug).
+const databaseDestinations: Record<string, string> = {};
 
 function resolveDestination(target: string): string | null {
   const key = target.toLowerCase();
-  if (destinations[key]) return destinations[key];
+  if (Object.hasOwn(destinations, key)) return destinations[key];
+  if (Object.hasOwn(databaseDestinations, key)) return databaseDestinations[key];
   const level = key.match(/^(?:level-?|l)?([0-5])$/);
   if (level) return `/Levels/${level[1]}`;
   const cls = key.match(/^class-?([acmsx])$/);
@@ -65,6 +68,7 @@ export const commands: Record<string, TerminalCommand> = {
       if (!target) {
         print(`Usage: open <page>`);
         print(`Pages: ${Object.keys(destinations).join(', ')}, level <0-5>`, 'muted');
+        print('...or any database ID, e.g. m-031, nagi, r3vi', 'muted');
         return;
       }
       const href = resolveDestination(target);
@@ -123,6 +127,10 @@ const history: string[] = [];
 export function initTerminal(root: HTMLElement) {
   if (root.dataset.terminalReady) return;
   root.dataset.terminalReady = 'true';
+
+  try {
+    Object.assign(databaseDestinations, JSON.parse(root.dataset.destinations ?? '{}'));
+  } catch {}
 
   const output = root.querySelector<HTMLOListElement>('[data-terminal-output]');
   const input = root.querySelector<HTMLInputElement>('[data-terminal-input]');

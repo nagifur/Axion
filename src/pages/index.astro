@@ -113,6 +113,16 @@ const levelsOnline = facilityLevels.filter((level) => !level.restricted).length;
 const archiveTotal = archiveIndex.reduce((sum, item) => sum + item.count, 0);
 const latestUpdate = recentUpdates[0];
 
+const slugOf = (id: string) => id.replace(/\.md$/, '');
+const terminalDestinations = Object.fromEntries(
+  [
+    ...entities.map((entry) => [slugOf(entry.id), `/Entities/${slugOf(entry.id)}`]),
+    ...personnel.map((entry) => [slugOf(entry.id), `/Personnel/${slugOf(entry.id)}`]),
+    ...synthetics.map((entry) => [slugOf(entry.id), `/Synthetics/${slugOf(entry.id)}`]),
+    ...articles.map((entry) => [entry.slug, `/Articles/${entry.slug}`]),
+  ].map(([key, href]) => [key.toLowerCase(), href]),
+);
+
 const bulletins = [
   { title: 'Gear 100% OFF!!', body: 'For all Axion employees, register for a new cybernetic magi-tech implant now!' },
   { title: 'Bio-Care Appointment', body: 'Got hurt on the job? Make an appointment at our Bio-Care center!' },
@@ -188,7 +198,7 @@ const bulletins = [
             </ol>
           </nav>
 
-          <div class="console-log" data-terminal>
+          <div class="console-log" data-terminal data-destinations={JSON.stringify(terminalDestinations)}>
             <ol class="console-lines" aria-label="Terminal output" aria-live="polite" data-terminal-output>
               <li><span class="console-prompt">&gt;</span> A1oS boot sequence <span class="console-ok">OK</span></li>
               <li><span class="console-prompt">&gt;</span> Archive mounted: {archiveTotal} records indexed</li>
