@@ -1022,27 +1022,33 @@
       display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:var(--space-2);
       margin-top:auto; padding-top:var(--space-4);
     }
+    /* Command tiles are "raised" (offset shadow = pressable) to contrast with the recessed archive readout */
     .command-tile{
       --tile-tint:var(--neon-cyan);
       display:grid; grid-template-columns:minmax(0, 1fr) auto; grid-template-rows:auto auto; column-gap:var(--space-3); row-gap:2px;
       align-items:center;
       min-width:0;
-      padding:var(--space-3);
-      border:1px solid color-mix(in srgb, var(--tile-tint) 26%, transparent);
+      padding:14px var(--space-4);
+      border:1px solid color-mix(in srgb, var(--tile-tint) 52%, transparent);
       border-left:3px solid var(--tile-tint);
       border-radius:var(--radius);
-      background:color-mix(in srgb, var(--tile-tint) 7%, transparent);
+      background:color-mix(in srgb, var(--tile-tint) 12%, var(--card-surface-top));
+      box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-md);
       text-decoration:none;
-      transition:background-color .14s ease, border-color .14s ease, transform .14s ease;
+      transition:background-color .14s ease, border-color .14s ease, transform .12s ease, box-shadow .12s ease;
     }
     .command-tile.primary{
-      background:color-mix(in srgb, var(--tile-tint) 16%, transparent);
-      border-color:color-mix(in srgb, var(--tile-tint) 44%, transparent);
+      background:color-mix(in srgb, var(--tile-tint) 24%, var(--card-surface-top));
+      border-color:color-mix(in srgb, var(--tile-tint) 72%, transparent);
     }
     .command-tile:hover{
-      background:color-mix(in srgb, var(--tile-tint) 22%, transparent);
-      border-color:color-mix(in srgb, var(--tile-tint) 56%, transparent);
+      background:color-mix(in srgb, var(--tile-tint) 30%, var(--card-surface-top));
+      border-color:var(--tile-tint);
       transform:translateY(-1px);
+    }
+    .command-tile:active{
+      transform:translateY(2px);
+      box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-sm);
     }
     .command-key{
       grid-column:1; grid-row:1;
@@ -1061,9 +1067,33 @@
       transition:transform .14s ease;
     }
     .command-tile:hover .command-arrow{ transform:translateX(3px) }
-    .archive-index{ min-width:0; padding-top:var(--space-2) }
-    .archive-grid{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:var(--space-2) }
-    .archive-tile, .level-chip{
+    .archive-index{ position:relative; min-width:0; padding-top:var(--space-2); display:flex; flex-direction:column }
+    .archive-index::before{
+      content:""; position:absolute; top:var(--space-2); bottom:0; left:calc(var(--space-5) / -2);
+      border-left:1px solid var(--line-soft);
+    }
+    /* Recessed readout well (same surface as the terminal log); cells are split by hairlines instead of being separate buttons */
+    .archive-grid{
+      flex:1 1 auto;
+      display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:0;
+      overflow:hidden;
+      border:1px solid var(--line-soft); border-radius:var(--radius);
+      background:rgba(2, 8, 12, 0.32);
+      box-shadow:inset 0 2px 0 rgba(0,0,0,0.22);
+    }
+    html[data-theme="light"] .archive-grid{ background:#e5f1f8; border-color:rgba(13,61,86,0.34); box-shadow:inset 0 2px 0 rgba(13,61,86,0.08) }
+    .archive-tile{
+      --tile-tint:var(--neon-cyan);
+      display:flex; flex-direction:column; justify-content:center; gap:2px; min-width:0;
+      padding:var(--space-2) var(--space-3);
+      box-shadow:1px 0 0 var(--line-soft), 0 1px 0 var(--line-soft);
+      color:var(--muted);
+      text-decoration:none;
+      transition:background-color .14s ease;
+    }
+    .archive-tile:hover{ background:color-mix(in srgb, var(--tile-tint) 12%, transparent) }
+    .archive-tile:hover .archive-label{ text-decoration:underline; text-underline-offset:3px }
+    .level-chip{
       --tile-tint:var(--neon-cyan);
       display:flex; flex-direction:column; gap:2px; min-width:0;
       padding:var(--space-2) var(--space-3);
@@ -1075,7 +1105,7 @@
       text-decoration:none;
       transition:background-color .14s ease, border-color .14s ease, transform .14s ease;
     }
-    .archive-tile:hover, .level-chip:hover{
+    .level-chip:hover{
       background:color-mix(in srgb, var(--tile-tint) 14%, transparent);
       border-color:color-mix(in srgb, var(--tile-tint) 48%, transparent);
       transform:translateY(-1px);
@@ -1124,6 +1154,8 @@
     html[data-theme="light"] .archive-count{ text-shadow:none }
     @media (max-width:1024px){
       .welcome-top{ grid-template-columns:minmax(0, 1fr) }
+      .archive-index{ padding-top:var(--space-4) }
+      .archive-index::before{ top:0; bottom:auto; left:0; right:0; border-left:0; border-top:1px solid var(--line-soft) }
       .archive-grid{ grid-template-columns:repeat(4, minmax(0, 1fr)) }
       .level-grid{ grid-template-columns:repeat(3, minmax(0, 1fr)) }
     }
