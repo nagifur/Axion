@@ -188,16 +188,35 @@ const bulletins = [
             </ol>
           </nav>
 
-          <ol class="console-log" aria-label="Terminal output">
-            <li><span class="console-prompt">&gt;</span> A1oS boot sequence <span class="console-ok">OK</span></li>
-            <li><span class="console-prompt">&gt;</span> Archive mounted: {archiveTotal} records indexed</li>
-            <li><span class="console-prompt">&gt;</span> Containment sweep: {entities.length} entities accounted for</li>
-            {latestUpdate && (
-              <li><span class="console-prompt">&gt;</span> Last write: {latestUpdate.verb.toLowerCase()} [{latestUpdate.title}]</li>
-            )}
-            <li><span class="console-prompt">&gt;</span> Server connection <span class="console-ok">OK</span></li>
-            <li><span class="console-prompt">&gt;</span> Awaiting input<span class="console-caret" aria-hidden="true"></span></li>
-          </ol>
+          <div class="console-log" data-terminal>
+            <ol class="console-lines" aria-label="Terminal output" aria-live="polite" data-terminal-output>
+              <li><span class="console-prompt">&gt;</span> A1oS boot sequence <span class="console-ok">OK</span></li>
+              <li><span class="console-prompt">&gt;</span> Archive mounted: {archiveTotal} records indexed</li>
+              <li><span class="console-prompt">&gt;</span> Containment sweep: {entities.length} entities accounted for</li>
+              {latestUpdate && (
+                <li><span class="console-prompt">&gt;</span> Last write: {latestUpdate.verb.toLowerCase()} [{latestUpdate.title}]</li>
+              )}
+              <li><span class="console-prompt">&gt;</span> Server connection <span class="console-ok">OK</span></li>
+            </ol>
+            <label class="console-input-line">
+              <span class="console-prompt" aria-hidden="true">&gt;</span>
+              <span class="console-input-field">
+                <input
+                  class="console-input"
+                  type="text"
+                  placeholder="Awaiting input"
+                  aria-label="Terminal command (type help for a list of commands)"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                  enterkeyhint="send"
+                  data-terminal-input
+                />
+                <span class="console-input-mirror" aria-hidden="true" data-terminal-mirror>Awaiting input<span class="console-caret"></span></span>
+              </span>
+            </label>
+          </div>
 
           <div class="bulletin" role="complementary" aria-label="Facility bulletin">
             <div class="bulletin-track">
@@ -252,6 +271,8 @@ const bulletins = [
   <Footer></Footer>
 
 <script>
+  import { initTerminal } from '../lib/terminal';
+
   function formatLocalDate(date: Date) {
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
@@ -298,6 +319,7 @@ const bulletins = [
   }
 
   function initializeStatusPanel() {
+    document.querySelectorAll<HTMLElement>('[data-terminal]').forEach(initTerminal);
     localizeTimestamps();
     tick();
     stopClock();
