@@ -86,13 +86,42 @@ const updates = [
   },
 ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
-const recentUpdates = updates.slice(0, 5);
+const recentUpdates = updates.slice(0, 6);
 const lastSync = updates.length ? updates[0].date : new Date();
 
 const formatDate = (date: Date) => date.toLocaleDateString('en-US', {
   year: 'numeric', month: 'short', day: 'numeric',
 });
 const formatDateTime = (date: Date) => `${formatDate(date)} — ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}`;
+
+const archiveIndex = [
+  { label: 'Entities', unit: 'files', count: entities.length, tint: 'var(--neon-blue)', tab: 'entities' },
+  { label: 'Personnel', unit: 'records', count: personnel.length, tint: 'var(--neon-yellow)', tab: 'personnel' },
+  { label: 'Synthetics', unit: 'units', count: synthetics.length, tint: 'var(--neon-cyan)', tab: 'synthetics' },
+  { label: 'Reports', unit: 'logs', count: articles.length, tint: 'var(--neon-green)', tab: 'articles' },
+];
+
+const facilityLevels = [
+  { level: 0, name: 'Reception', tint: 'var(--text)' },
+  { level: 1, name: 'Offices', tint: 'var(--neon-blue)' },
+  { level: 2, name: 'Light Containment', tint: 'var(--neon-cyan)' },
+  { level: 3, name: 'Heavy Containment', tint: 'var(--neon-green)' },
+  { level: 4, name: 'Research', tint: 'var(--neon-orange)' },
+  { level: 5, name: 'Private', tint: 'var(--neon-red)', restricted: true },
+];
+const levelsOnline = facilityLevels.filter((level) => !level.restricted).length;
+const archiveTotal = archiveIndex.reduce((sum, item) => sum + item.count, 0);
+const latestUpdate = recentUpdates[0];
+
+const slugOf = (id: string) => id.replace(/\.md$/, '');
+const terminalDestinations = Object.fromEntries(
+  [
+    ...entities.map((entry) => [slugOf(entry.id), `/Entities/${slugOf(entry.id)}`]),
+    ...personnel.map((entry) => [slugOf(entry.id), `/Personnel/${slugOf(entry.id)}`]),
+    ...synthetics.map((entry) => [slugOf(entry.id), `/Synthetics/${slugOf(entry.id)}`]),
+    ...articles.map((entry) => [entry.slug, `/Articles/${entry.slug}`]),
+  ].map(([key, href]) => [key.toLowerCase(), href]),
+);
 
 const bulletins = [
   { title: 'Gear 100% OFF!!', body: 'For all Axion employees, register for a new cybernetic magi-tech implant now!' },
@@ -107,14 +136,96 @@ const bulletins = [
   <main id="main" tabindex="-1">
     <section class="hero" role="region" aria-label="Main">
       <div>
-        <div class="card" role="article" aria-labelledby="welcome-title">
-          <h1 id="welcome-title">Welcome <span class="cursor" aria-hidden="true"></span></h1>
-          <p class="lead">Axion Labs main database.</p>
-          <p class="lead"> A1oS - ver 1.0</p>
+        <div class="card welcome-card" role="article" aria-labelledby="welcome-title">
+          <div class="welcome-top">
+            <div class="welcome-intro">
+              <div class="panel-kicker">
+                <span class="kicker-keep-case">A1oS · ver 1.0</span>
+              </div>
+              <h1 id="welcome-title">Welcome <span class="cursor" aria-hidden="true"></span></h1>
+              <p class="lead">Axion Labs main database.</p>
 
-          <div class="cta" aria-hidden="false">
-            <a class="btn" href="/database">Access Database</a>
-            <a class="btn secondary" href="/facility">Facility Overview</a>
+              <nav class="command-grid" aria-label="Quick access">
+                <a class="command-tile primary" href="/database" style="--tile-tint:var(--neon-cyan)">
+                  <span class="command-key">CMD.01 / Archive</span>
+                  <span class="command-label">Access Database</span>
+                  <span class="command-arrow" aria-hidden="true">&gt;</span>
+                </a>
+                <a class="command-tile" href="/facility" style="--tile-tint:var(--neon-blue)">
+                  <span class="command-key">CMD.02 / Schematics</span>
+                  <span class="command-label">Facility Overview</span>
+                  <span class="command-arrow" aria-hidden="true">&gt;</span>
+                </a>
+              </nav>
+            </div>
+
+            <nav class="archive-index" aria-labelledby="archive-index-title">
+              <div class="panel-kicker">
+                <span id="archive-index-title">Archive Index</span>
+                <span class="panel-kicker-meta">{archiveTotal} records</span>
+              </div>
+              <div class="archive-grid">
+                {archiveIndex.map((item) => (
+                  <a class="archive-tile" href={`/database?tab=${item.tab}`} style={`--tile-tint:${item.tint}`}>
+                    <span class="archive-count">{String(item.count).padStart(3, '0')}</span>
+                    <span class="archive-label">{item.label} <span class="archive-unit">{item.unit}</span></span>
+                  </a>
+                ))}
+              </div>
+            </nav>
+          </div>
+
+          <nav class="level-strip" aria-labelledby="level-strip-title">
+            <div class="panel-kicker">
+              <span id="level-strip-title">Level Connection Status</span>
+              <span class="panel-kicker-meta">{levelsOnline}/{facilityLevels.length} accessible</span>
+            </div>
+            <ol class="level-grid">
+              {facilityLevels.map((item) => (
+                <li>
+                  <a
+                    class:list={['level-chip', { restricted: item.restricted }]}
+                    href={`/Levels/${item.level}`}
+                    style={`--tile-tint:${item.tint}`}
+                    aria-label={item.restricted ? `Level ${item.level}, restricted` : undefined}
+                  >
+                    <span class="level-num">Level {item.level}</span>
+                    <span class="level-name">{item.name}</span>
+                    <span class="level-state"><span class="status-dot" aria-hidden="true"></span>{item.restricted ? 'Unauthorized' : 'Online'}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </nav>
+
+          <div class="console-log" data-terminal data-destinations={JSON.stringify(terminalDestinations)}>
+            <ol class="console-lines" aria-label="Terminal output" aria-live="polite" data-terminal-output>
+              <li><span class="console-prompt">&gt;</span> A1oS boot sequence <span class="console-ok">OK</span></li>
+              <li><span class="console-prompt">&gt;</span> Archive mounted: {archiveTotal} records indexed</li>
+              <li><span class="console-prompt">&gt;</span> Containment sweep: {entities.length} entities accounted for</li>
+              {latestUpdate && (
+                <li><span class="console-prompt">&gt;</span> Last write: {latestUpdate.verb.toLowerCase()} [{latestUpdate.title}]</li>
+              )}
+              <li><span class="console-prompt">&gt;</span> Server connection <span class="console-ok">OK</span></li>
+            </ol>
+            <label class="console-input-line">
+              <span class="console-prompt" aria-hidden="true">&gt;</span>
+              <span class="console-input-field">
+                <input
+                  class="console-input"
+                  type="text"
+                  placeholder="Awaiting input"
+                  aria-label="Terminal command (type help for a list of commands)"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellcheck="false"
+                  enterkeyhint="send"
+                  data-terminal-input
+                />
+                <span class="console-input-mirror" aria-hidden="true" data-terminal-mirror>Awaiting input<span class="console-caret"></span></span>
+              </span>
+            </label>
           </div>
 
           <div class="bulletin" role="complementary" aria-label="Facility bulletin">
@@ -130,7 +241,7 @@ const bulletins = [
         </div>
       </div>
       <aside>
-        <div class="card" style="text-align:left">
+        <div class="card status-card" style="text-align:left">
           <h2 style="margin-top:0">System Status</h2>
 
           <div class="status-row">
@@ -154,6 +265,11 @@ const bulletins = [
               ))}
             </ul>
           </div>
+
+          <div class="status-row status-footer">
+            <span class="status-label">Containment</span>
+            <span class="status-ok"><span class="status-dot" aria-hidden="true"></span>All Good</span>
+          </div>
         </div>
       </aside>
     </section>
@@ -165,6 +281,8 @@ const bulletins = [
   <Footer></Footer>
 
 <script>
+  import { initTerminal } from '../lib/terminal';
+
   function formatLocalDate(date: Date) {
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
@@ -211,6 +329,7 @@ const bulletins = [
   }
 
   function initializeStatusPanel() {
+    document.querySelectorAll<HTMLElement>('[data-terminal]').forEach(initTerminal);
     localizeTimestamps();
     tick();
     stopClock();
