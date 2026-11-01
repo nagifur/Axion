@@ -64,6 +64,21 @@ document.addEventListener('click', function (event) {
   window.history.back();
 }, true);
 
+// Backspace triggers the page's Back button, unless the user is typing in a field.
+document.addEventListener('keydown', function (event) {
+  if (event.key !== 'Backspace' || event.repeat || event.defaultPrevented) return;
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+  var target = event.target;
+  if (target instanceof Element && target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+
+  var link = document.querySelector('.article-return-top a, .article-return a');
+  if (!link) return;
+
+  event.preventDefault();
+  link.click();
+});
+
 // Astro view transitions swap the document without reloading script.js, so all
 // DOM bindings must be re-run after every navigation via astro:page-load.
 document.addEventListener('astro:page-load', function () {
