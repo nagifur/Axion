@@ -1,4 +1,5 @@
 import { navigate } from 'astro:transitions/client';
+import { terminalKey } from './terminalKey';
 
 export type OutputTone = 'default' | 'ok' | 'denied' | 'muted';
 
@@ -32,11 +33,11 @@ const destinations: Record<string, string> = {
   articles: '/Articles',
 };
 
-// Filled at runtime from the page's data-destinations attribute (database entries by slug).
+// Filled at runtime from the page's data-destinations attribute (database slugs and nicknames).
 const databaseDestinations: Record<string, string> = {};
 
 function resolveDestination(target: string): string | null {
-  const key = target.toLowerCase();
+  const key = terminalKey(target);
   if (Object.hasOwn(destinations, key)) return destinations[key];
   if (Object.hasOwn(databaseDestinations, key)) return databaseDestinations[key];
   const level = key.match(/^(?:level-?|l)?([0-5])$/);
@@ -64,11 +65,11 @@ export const commands: Record<string, TerminalCommand> = {
     usage: 'open <page>',
     aliases: ['goto', 'cd'],
     run: ({ args, print, open }) => {
-      const target = args.join('');
+      const target = args.join(' ');
       if (!target) {
         print(`Usage: open <page>`);
         print(`Pages: ${Object.keys(destinations).join(', ')}, level <0-5>`, 'muted');
-        print('...or any database ID, e.g. m-031, nagi, r3vi', 'muted');
+        print('...or any database ID or nickname, e.g. m-031, mei, nagi, revie', 'muted');
         return;
       }
       const href = resolveDestination(target);

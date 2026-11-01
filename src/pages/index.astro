@@ -5,6 +5,7 @@ import { getCollection } from 'astro:content';
 import { execSync } from 'node:child_process';
 import { statSync } from 'node:fs';
 import path from 'node:path';
+import { terminalKey } from '../lib/terminalKey';
 
 // Prefer real git history for "last updated"; fall back to filesystem mtime if git is unavailable.
 function lastUpdated(absPath: string): Date {
@@ -114,13 +115,26 @@ const archiveTotal = archiveIndex.reduce((sum, item) => sum + item.count, 0);
 const latestUpdate = recentUpdates[0];
 
 const slugOf = (id: string) => id.replace(/\.md$/, '');
+
+// "“The Host” / “The Hive Mind”" becomes two nicknames; schema placeholders like "None" are skipped.
+const nicknamesOf = (nickname: string) => nickname
+  .split('/')
+  .map(terminalKey)
+  .filter((key) => key && key !== 'none');
+
+const entityHref = (entry: (typeof entities)[number]) => `/Entities/${slugOf(entry.id)}`;
+const syntheticHref = (entry: (typeof synthetics)[number]) => `/Synthetics/${slugOf(entry.id)}`;
+
+// Nicknames come first so a real slug always wins if the two ever collide.
 const terminalDestinations = Object.fromEntries(
   [
-    ...entities.map((entry) => [slugOf(entry.id), `/Entities/${slugOf(entry.id)}`]),
+    ...entities.flatMap((entry) => nicknamesOf(entry.data.nickname).map((key) => [key, entityHref(entry)])),
+    ...synthetics.flatMap((entry) => nicknamesOf(entry.data.nickname).map((key) => [key, syntheticHref(entry)])),
+    ...entities.map((entry) => [slugOf(entry.id), entityHref(entry)]),
     ...personnel.map((entry) => [slugOf(entry.id), `/Personnel/${slugOf(entry.id)}`]),
-    ...synthetics.map((entry) => [slugOf(entry.id), `/Synthetics/${slugOf(entry.id)}`]),
+    ...synthetics.map((entry) => [slugOf(entry.id), syntheticHref(entry)]),
     ...articles.map((entry) => [entry.slug, `/Articles/${entry.slug}`]),
-  ].map(([key, href]) => [key.toLowerCase(), href]),
+  ].map(([key, href]) => [terminalKey(key), href]),
 );
 
 const bulletins = [
