@@ -2806,7 +2806,7 @@ html[data-theme="light"] .facility-level-title a:focus-visible{ text-shadow:1px 
 .facility-restricted:focus-visible{ color:var(--level-tint); border-color:color-mix(in srgb, var(--level-tint) 55%, transparent); outline:none }
 .facility-level.is-restricted:has(a:hover, a:focus-visible) .facility-level-art img,
 .facility-restricted:hover span,
-.facility-restricted:focus-visible span{ animation:facility-glitch .3s steps(2, end) infinite }
+
 .facility-restricted span{ display:inline-block }
 @keyframes facility-glitch{
   0%{ transform:translate(0, 0) }
