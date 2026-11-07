@@ -267,7 +267,9 @@
       mix-blend-mode:screen;
       transform:translate3d(0, -72px, 0);
       will-change:transform;
-      animation: scan-sweep 18s linear infinite;
+      /* --scan-phase is a negative delay derived from the wall clock (see script.js) so the sweep
+         continues from the same position across page loads instead of restarting at the top. */
+      animation: scan-sweep 18s linear var(--scan-phase, 0s) infinite;
     }
     html[data-theme="light"] body::after{ opacity:0.32 }
     html[data-theme="light"] body::after{

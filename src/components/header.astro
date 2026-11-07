@@ -42,6 +42,8 @@ const ogImageURL = new URL(image, Astro.site);
         document.documentElement.setAttribute('data-theme', theme);
         document.documentElement.classList.add('js');
       } catch (_) {}
+      // Keep in sync with syncScanPhase() in public/script.js.
+      document.documentElement.style.setProperty('--scan-phase', -(Date.now() % 18000) + 'ms');
     })();
   </script>
   <meta name="color-scheme" content="dark light" />

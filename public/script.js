@@ -9,6 +9,15 @@ document.addEventListener('astro:before-swap', function (event) {
   event.newDocument.documentElement.classList.add('js');
 });
 
+// The body::after scan stripe is recreated whenever <body> is swapped (or animations are
+// re-enabled), which restarts its CSS animation. Offsetting it by a wall-clock-based negative
+// delay keeps the sweep continuous. Must match the scan-sweep duration in style.css.
+var SCAN_SWEEP_MS = 18000;
+function syncScanPhase() {
+  document.documentElement.style.setProperty('--scan-phase', -(Date.now() % SCAN_SWEEP_MS) + 'ms');
+}
+document.addEventListener('astro:after-swap', syncScanPhase);
+
 // Shared "portal" bubble for .hover-tooltip: appended directly to <body> so tooltips render
 // above every div instead of being clipped by whichever ancestor has overflow:hidden. View
 // transitions can remove/replace this node, so it's always re-fetched via getTooltipPortal()
@@ -783,6 +792,7 @@ document.addEventListener('astro:page-load', function () {
 
     function applyAnimations(enabled, lockedBySystem){
       if (!document.body) return;
+      if (enabled && document.body.classList.contains('animations-off')) syncScanPhase();
       document.body.classList.toggle('animations-off', !enabled);
       document.documentElement.setAttribute('data-animations', enabled ? 'on' : 'off');
 
