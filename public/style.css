@@ -777,7 +777,7 @@
     .card:is(.is-window-floating, .is-window-fullscreen) .profile{ border-top-color:color-mix(in srgb, var(--window-fullscreen-tint) 35%, var(--line-soft)) }
     .card:is(.is-window-floating, .is-window-fullscreen) .stat-cell{
       background:color-mix(in srgb, var(--stat-cell) 68%, var(--window-fullscreen-tint) 32%);
-      border-left-color:var(--window-fullscreen-tint);
+      --bracket-tint:var(--window-fullscreen-tint);
     }
     .card:is(.is-window-floating, .is-window-fullscreen) .stat-value a{ color:var(--window-fullscreen-tint) }
     .card:is(.is-window-floating, .is-window-fullscreen) .info-icon{ color:var(--window-fullscreen-tint) }
@@ -842,7 +842,7 @@
     .profile-page .profile{ border-top-color:color-mix(in srgb, var(--profile-tint) 35%, var(--line-soft)) }
     .profile-page .stat-cell{
       background:color-mix(in srgb, var(--stat-cell) 68%, var(--profile-tint) 32%);
-      border-left-color:var(--profile-tint);
+      --bracket-tint:var(--profile-tint);
     }
     .profile-page .stat-value a{ color:var(--profile-tint) }
     .profile-page .info-icon{ color:var(--profile-tint) }
@@ -901,18 +901,41 @@
     p a{ color:var(--neon-cyan); text-decoration:underline; }
 
     .cta{margin-top:16px; display:flex; gap:10px; flex-wrap:wrap}
-    /* Buttons share the raised .command-tile look from the index: tinted fill, 3px accent edge, flat offset shadow.
+    /* HUD corner brackets: tinted L-marks on the top-left and bottom-right corners.
+       Hosts set --bracket-tint (and --bracket-offset:0 when they have no border). */
+    :is(.btn, .article-return-top a, .article-return a, .command-tile, .level-chip, .stat-cell)::before,
+    :is(.btn, .article-return-top a, .article-return a, .command-tile, .level-chip, .stat-cell)::after{
+      content:"";
+      position:absolute;
+      width:var(--bracket-size, 10px); height:var(--bracket-size, 10px);
+      border:0 solid var(--bracket-tint, var(--neon-cyan));
+      pointer-events:none;
+      transition:width .14s ease, height .14s ease;
+    }
+    :is(.btn, .article-return-top a, .article-return a, .command-tile, .level-chip, .stat-cell)::before{
+      top:var(--bracket-offset, -1px); left:var(--bracket-offset, -1px);
+      border-top-width:2px; border-left-width:2px;
+      border-top-left-radius:var(--radius);
+    }
+    :is(.btn, .article-return-top a, .article-return a, .command-tile, .level-chip, .stat-cell)::after{
+      bottom:var(--bracket-offset, -1px); right:var(--bracket-offset, -1px);
+      border-bottom-width:2px; border-right-width:2px;
+      border-bottom-right-radius:var(--radius);
+    }
+    :is(.btn, .article-return-top a, .article-return a, .command-tile):hover{ --bracket-size:14px }
+
+    /* Buttons share the raised .command-tile look from the index: tinted fill, corner brackets, flat offset shadow.
        Set --btn-tint to recolor; .secondary is the quieter variant and .danger is for destructive actions. */
     .btn, .article-return-top a, .article-return a{
       --btn-tint:var(--neon-cyan);
       --btn-fill:24%;
       --btn-edge:72%;
+      --bracket-tint:var(--btn-tint);
       position:relative;
       display:inline-flex; align-items:center; justify-content:center; gap:var(--space-2);
       min-height:40px;
       padding:var(--space-2) var(--space-4);
       border:1px solid color-mix(in srgb, var(--btn-tint) var(--btn-edge), transparent);
-      border-left:3px solid var(--btn-tint);
       border-radius:var(--radius);
       background:color-mix(in srgb, var(--btn-tint) var(--btn-fill), var(--card-surface-top));
       box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-md);
@@ -1029,12 +1052,13 @@
     /* Command tiles are "raised" (offset shadow = pressable) to contrast with the recessed archive readout */
     .command-tile{
       --tile-tint:var(--neon-cyan);
+      --bracket-tint:var(--tile-tint);
+      position:relative;
       display:grid; grid-template-columns:minmax(0, 1fr) auto; grid-template-rows:auto auto; column-gap:var(--space-3); row-gap:2px;
       align-items:center;
       min-width:0;
       padding:14px var(--space-4);
       border:1px solid color-mix(in srgb, var(--tile-tint) 52%, transparent);
-      border-left:3px solid var(--tile-tint);
       border-radius:var(--radius);
       background:color-mix(in srgb, var(--tile-tint) 12%, var(--card-surface-top));
       box-shadow:inset 0 1px 0 var(--window-highlight), var(--shadow-md);
@@ -1099,10 +1123,12 @@
     .archive-tile:hover .archive-label{ text-decoration:underline; text-underline-offset:3px }
     .level-chip{
       --tile-tint:var(--neon-cyan);
+      --bracket-tint:var(--tile-tint);
+      --bracket-size:8px;
+      position:relative;
       display:flex; flex-direction:column; gap:2px; min-width:0;
       padding:var(--space-2) var(--space-3);
       border:1px solid color-mix(in srgb, var(--tile-tint) 26%, transparent);
-      border-left:3px solid var(--tile-tint);
       border-radius:var(--radius);
       background:color-mix(in srgb, var(--tile-tint) 7%, transparent);
       color:var(--muted);
@@ -1137,7 +1163,8 @@
       display:inline-flex; align-items:center; gap:5px; margin-top:auto; padding-top:2px;
       color:var(--neon-green); font-size:0.62rem; letter-spacing:0.1em; text-transform:uppercase;
     }
-    .level-chip.restricted{ border-style:dashed; border-left-style:solid }
+    .level-chip.restricted{ border-style:dashed }
+    .level-chip:hover{ --bracket-size:12px }
     .level-chip.restricted .level-state{ color:var(--neon-red) }
     .console-log{
       flex:1 1 auto;
@@ -1876,8 +1903,12 @@
     }
     @media (max-width:480px){ .stat-grid{ grid-template-columns:1fr } }
     .stat-cell{
+      --bracket-tint:var(--neon-cyan);
+      --bracket-offset:0;
+      --bracket-size:8px;
+      position:relative;
       min-width:0;
-      background:var(--stat-cell); border-left:2px solid var(--neon-cyan); border-radius:var(--radius);
+      background:var(--stat-cell); border-radius:var(--radius);
       padding:8px 12px;
     }
     .stat-cell.span-2{ grid-column:1 / -1 }
