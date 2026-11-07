@@ -2,20 +2,22 @@
 title: Level 3
 ---
 
-
-Level 3 clearance grants access to heavy containment areas and it is the home of the security department. 
+Level 3 clearance grants access to heavy containment areas and it is the home of the security department.
 
 ## Sectors On this Level
 
-<hr />
+<div class="level-sector">
+<div class="level-sector-header">
+	<img class="level-sector-icon" src="/icons/heavy-containment.svg" alt="" width="48" height="48" />
+	<h3 id="heavy-containment">Heavy Containment</h3>
+</div>
+<div class="level-sector-body">
 <div class="level-preview">
-	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<span class="level-preview-tag-error">FEED UNAVAILABLE</span>
+	<div class="level-preview-nosignal" aria-hidden="true"><span>No signal</span></div>
 	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
-<div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 id="heavy-containment" style="margin:0;">Heavy Containment</h3>
-	<img src="/icons/heavy-containment.svg" alt="Heavy Containment icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
-</div>
+<div class="level-sector-text">
 
 Heavy containment is where the most dangerous entities are kept, you will find most C class and M class entities here. Entities contained here require constant monitoring and interaction from personel, many creatures require special containment measures to ensure the safety of personnel and the facility.
 
@@ -23,35 +25,47 @@ A lot of creatures need to be kept fed, and some require special environmental c
 
 It is important to keep the entities happy and healthy, as many of them are highly intelligent and can become aggressive or treat the staff as food. Incase this happens, the security department is on standby to assist. Although if the risk is too high, Axion may let the creature keep the staff member as food, as it is not worth the risk of losing more personnel.
 
+</div>
+</div>
+</div>
 
-<hr />
-
+<div class="level-sector">
+<div class="level-sector-header">
+	<img class="level-sector-icon" src="/icons/security.svg" alt="" width="48" height="48" />
+	<h3 id="security">Security</h3>
+</div>
+<div class="level-sector-body">
 <div class="level-preview">
-	<span class="level-preview-tag-error" >FEED UNAVAILABLE</span>
+	<span class="level-preview-tag-error">FEED UNAVAILABLE</span>
+	<div class="level-preview-nosignal" aria-hidden="true"><span>No signal</span></div>
 	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
-
-<div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 id="security" style="margin:0;">Security</h3>
-	<img src="/icons/security.svg" alt="Security icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
-</div>
+<div class="level-sector-text">
 
 This is where the main security department is located, they are responsible for the safety of the facility and its personnel. They monitor all sectors and respond to any security breaches or incidents.
 
 While every level has its own security personnel, the main department is located on level 3, it functions as the central hub for all security operations, stores most of the security equipment, and is where all security personnel are trained. The security department also has a direct line of communication with the monitoring sector on level 2 and A1, the main overseer of the facility. This allows them to quickly respond to any incidents or emergencies that may arise.
 
-<hr />
+</div>
+</div>
+</div>
 
+<div class="level-sector">
+<div class="level-sector-header">
+	<img class="level-sector-icon" src="/icons/biocare.svg" alt="" width="48" height="48" />
+	<h3 id="biocare">BioCare</h3>
+</div>
+<div class="level-sector-body">
 <div class="level-preview">
 	<span class="level-preview-tag">Live Feed</span>
 	<img src="/biocare.gif" alt="Level 3 sector biocare center preview" loading="lazy" />
 </div>
-
-<div style="display:flex; align-items:center; gap:12px; margin:1rem 0;">
-	<h3 id="biocare" style="margin:0;">BioCare</h3>
-	<img src="/icons/biocare.svg" alt="BioCare icon" width="50" height="50" style="display:block; margin: 0 0 0 0;" />
-</div>
+<div class="level-sector-text">
 
 This is the BioCare center, where injured or sick personnel receive medical attention and care. The whole sector is fully under Mellisa's supervision. Its where all medical goods and supplies are produced. Biocare center is capable of healing both sickness and injuries. Capable of regrowing lost limbs and repairing severe physical damage. Majority of workers in this sector are directly under Mellisa's command as mind controlled drones.
 
 > WARNING: BioCare sector is filled with Mellisa's mind-controlling pheromones. Personnel entering this area may be susceptible to her influence if no protective measures are taken. Every outside personnel must follow strict decontamination protocols before entering and upon leaving the sector. Wearing a mask is mandatory.
+
+</div>
+</div>
+</div>

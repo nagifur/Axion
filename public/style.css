@@ -2019,12 +2019,69 @@
     .gallery-grid figcaption{ color:var(--muted); font-size:0.86rem; margin-top:6px }
     @media (max-width:700px){ .gallery-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); } }
 
-    /* Level preview: CCTV-style framed .gif embed used on Level pages, floated beside prose */
+    /* Level sectors: each sector is its own panel with a header strip, prose column and feed column */
+    .article-body{ counter-reset:level-sector }
+    .level-sector{
+      counter-increment:level-sector;
+      margin:var(--space-5) 0;
+      border:1px solid var(--line-soft);
+      border-left:3px solid var(--neon-cyan);
+      border-radius:var(--radius);
+      background:color-mix(in srgb, var(--neon-cyan) 4%, transparent);
+      overflow:hidden;
+    }
+    .level-sector:last-child{ margin-bottom:0 }
+    .level-sector-header{
+      display:flex;
+      align-items:center;
+      gap:var(--space-3);
+      padding:var(--space-3) var(--space-4);
+      border-bottom:1px solid var(--line-soft);
+      background:color-mix(in srgb, var(--neon-cyan) 10%, transparent);
+    }
+    .level-sector-header::after{
+      content:"SEC-" counter(level-sector, decimal-leading-zero);
+      margin-left:auto;
+      color:var(--muted);
+      font-size:0.72rem;
+      letter-spacing:0.14em;
+      white-space:nowrap;
+    }
+    .article-body .level-sector-header h3{ margin:0 }
+    .article-body .level-sector-icon{
+      flex:none;
+      width:40px;
+      height:40px;
+      margin:0;
+      border:none;
+      border-radius:0;
+    }
+    .level-sector-body{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) min(240px, 38%);
+      grid-template-areas:"text feed";
+      gap:var(--space-5);
+      align-items:start;
+      padding:var(--space-4);
+    }
+    .level-sector-body > .level-preview{ grid-area:feed }
+    .level-sector-text{ grid-area:text; min-width:0 }
+    .level-sector-text > :first-child{ margin-top:0 }
+    .level-sector-text > :last-child{ margin-bottom:0 }
+    .level-sector-text blockquote{ margin:1.25rem 0 0 }
+    @media (max-width:700px){
+      .level-sector-header{ padding:var(--space-2) var(--space-3) }
+      .level-sector-body{
+        grid-template-columns:minmax(0, 1fr);
+        grid-template-areas:"feed" "text";
+        gap:var(--space-4);
+        padding:var(--space-3);
+      }
+    }
+
+    /* Level preview: CCTV-style framed feed shown beside each sector's prose */
     .level-preview{
       position:relative;
-      float:right;
-      width:min(240px, 40%);
-      margin:0.25rem 0 1rem 1.5rem;
       border-radius:var(--radius);
       overflow:hidden;
       border:1px solid color-mix(in srgb, var(--neon-cyan) 35%, transparent);
@@ -2097,9 +2154,33 @@
       0%, 49%{ opacity:1 }
       50%, 100%{ opacity:0.15 }
     }
-    body.animations-off .level-preview-tag::before{ animation:none }
-    @media (max-width:640px){
-      .level-preview{ float:none; width:min(260px, 78%); margin:1.25rem auto }
+    .level-preview-nosignal{
+      display:grid;
+      place-items:center;
+      aspect-ratio:4 / 3;
+      background:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 3px),
+
+        rgba(0,0,0,0.35);
+    }
+    .level-preview-nosignal span{
+      padding:var(--space-1) var(--space-3);
+      border:1px solid color-mix(in srgb, var(--neon-red) 55%, transparent);
+      color:var(--neon-red);
+      font-size:0.75rem;
+      letter-spacing:0.2em;
+      text-transform:uppercase;
+      animation:level-preview-blink 2.4s steps(1) infinite;
+    }
+    body.animations-off .level-preview-tag::before,
+    body.animations-off .level-preview-nosignal span{ animation:none }
+    @media (prefers-reduced-motion: reduce){
+      .level-preview-tag::before,
+      .level-preview-nosignal span{ animation:none }
+    }
+    @media (max-width:700px){
+      .level-preview{ width:min(320px, 100%); margin:0 auto }
+      .level-preview-nosignal{ aspect-ratio:auto; min-height:72px }
       .level-preview-tag{ font-size:0.66rem; padding:5px 8px }
       .level-preview-caption{ font-size:0.78rem; padding:6px 10px }
     }
@@ -2163,17 +2244,9 @@
       overflow:hidden;
       padding-top:var(--space-8);
       border-color:color-mix(in srgb, var(--neon-red) 62%, var(--line-soft));
-      box-shadow:var(--shadow-lg), 0 0 38px color-mix(in srgb, var(--neon-red) 16%, transparent), inset 0 0 48px color-mix(in srgb, var(--neon-red) 7%, transparent);
       text-align:center;
     }
-    .access-gate::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      opacity:0.3;
-      background:repeating-linear-gradient(0deg, transparent 0 5px, color-mix(in srgb, var(--neon-red) 18%, transparent) 6px 7px);
-    }
+    
     .access-gate-status,
     .access-gate-lock,
     .access-gate-kicker,
@@ -2191,7 +2264,7 @@
       letter-spacing:0.12em;
       text-transform:uppercase;
     }
-    .access-gate-status span{ width:8px; height:8px; border-radius:var(--radius-sm); background:var(--neon-red); box-shadow:0 0 10px var(--neon-red) }
+    .access-gate-status span{ width:8px; height:8px; border-radius:var(--radius-sm); background:var(--neon-red); }
     .access-gate-lock{
       position:relative;
       display:grid;
@@ -2201,7 +2274,7 @@
       margin:var(--space-7) auto var(--space-3);
       border:3px solid var(--neon-red);
       border-radius:var(--radius-sm);
-      box-shadow:0 0 18px color-mix(in srgb, var(--neon-red) 62%, transparent);
+      
     }
     .access-gate-lock::before{
       content:"";
@@ -2217,7 +2290,7 @@
     }
     .access-gate-lock span{ width:10px; height:18px; border-radius:5px 5px 2px 2px; background:var(--neon-red) }
     .access-gate-kicker{ width:100%; margin:auto; color:var(--muted); font-size:0.75rem; letter-spacing:0.12em; text-align:center; text-transform:uppercase }
-    .access-gate h2{ margin:var(--space-2) 0 var(--space-5); color:var(--neon-red); font-size:clamp(1.8rem, 7vw, 3rem); text-shadow:0 0 18px color-mix(in srgb, var(--neon-red) 55%, transparent) }
+    .access-gate h2{ margin:var(--space-2) 0 var(--space-5); color:var(--neon-red); font-size:clamp(1.8rem, 7vw, 3rem); }
     .access-gate.card:is(.is-window-floating, .is-window-fullscreen) > h2{ color:var(--neon-red) }
     .access-gate-details{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:var(--space-2); margin:0 auto; max-width:620px }
     .access-gate-details div{ padding:var(--space-3); border:1px solid color-mix(in srgb, var(--neon-red) 35%, transparent); background:color-mix(in srgb, var(--panel-alt) 82%, var(--neon-red) 7%) }
