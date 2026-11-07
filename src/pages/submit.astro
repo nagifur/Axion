@@ -24,8 +24,16 @@ const articleCategories = Array.from(new Set(
         account to submit it directly, or download the files to send manually.
       </p>
       <p class="lead">
-        Nothing here is uploaded automatically until you click Submit.
+        Nothing here is uploaded automatically until you click Submit. Your draft, including images, is kept in this browser
+        so it survives a page reload.
       </p>
+      <div class="discord-auth-box">
+        <div class="cta discord-login-prompt" style="align-items: center;">
+          <button type="button" class="btn discord-login-btn">Connect Discord</button>
+          <span class="field-hint">Connect now so you're ready to submit once your file is done.</span>
+        </div>
+        <p class="discord-user-info field-hint" style="display: none; margin-top: 1rem;"></p>
+      </div>
     </section>
 
     <section class="card submit-form-card" aria-labelledby="submit-form-title">
@@ -234,9 +242,11 @@ const articleCategories = Array.from(new Set(
         
       </div>
       <div id="export-image-list" class="field-hint"></div>
-      <div id="discord-auth-box" class="field-hint" style="margin-bottom: 1rem;">
-          <button type="button" id="discord-login-btn" class="btn">Connect Discord to Submit</button>
-          <p id="discord-user-info" style="display: none; margin-top: 0.5rem;"></p>
+      <div class="discord-auth-box field-hint" style="margin-bottom: 1rem;">
+          <div class="discord-login-prompt">
+            <button type="button" class="btn discord-login-btn">Connect Discord to Submit</button>
+          </div>
+          <p class="discord-user-info" style="display: none; margin-top: 0.5rem;"></p>
       </div>
       <div class="cta">
         <button type="button" id="export-send-discord" class="btn" disabled>Submit</button>
@@ -306,6 +316,7 @@ const articleCategories = Array.from(new Set(
 
   let profileImageUrl: string | null = null;
   let profileImageFile: File | null = null;
+  let profileSourceFile: File | null = null;
   let profileImageExt = 'png';
   let profileSourceImage: HTMLImageElement | null = null;
   let profileImageIsGif = false;
@@ -566,6 +577,7 @@ const articleCategories = Array.from(new Set(
     galleryPickerTarget = null;
     galleryFilePickerEl.value = '';
     updatePreview();
+    scheduleImageSave();
   });
 
   const appendGalleryRow = (row: GalleryRow) => {
@@ -601,6 +613,7 @@ const articleCategories = Array.from(new Set(
     captionInput.addEventListener('input', () => {
       row.caption = captionInput.value;
       updatePreview();
+      scheduleImageSave();
     });
 
     removeButton.addEventListener('click', () => {
@@ -617,6 +630,7 @@ const articleCategories = Array.from(new Set(
         remainingWrap.querySelector('[data-role="preview"]')!.setAttribute('alt', `Gallery image ${i + 1}`);
       });
       updatePreview();
+      scheduleImageSave();
     });
 
     galleryRowsEl.appendChild(wrap);
@@ -634,14 +648,16 @@ const articleCategories = Array.from(new Set(
     if (changed) bodyInput.dispatchEvent(new Event('input', { bubbles: true }));
   };
 
-  const addArticleImageRow = () => {
-    const row: ArticleImageRow = {
-      file: null,
-      url: null,
-      caption: '',
-      alignment: 'full',
-      filename: `${nextArticleImageNumber++}.png`,
-    };
+  const addArticleImageRow = (initial?: Omit<ArticleImageRow, 'url'>) => {
+    const row: ArticleImageRow = initial
+      ? { ...initial, url: initial.file ? URL.createObjectURL(initial.file) : null }
+      : {
+        file: null,
+        url: null,
+        caption: '',
+        alignment: 'full',
+        filename: `${nextArticleImageNumber++}.png`,
+      };
     articleImages.push(row);
 
     const wrap = document.createElement('div');
@@ -673,6 +689,19 @@ const articleCategories = Array.from(new Set(
     const insertButton = wrap.querySelector('[data-role="insert"]') as HTMLButtonElement;
     const removeButton = wrap.querySelector('.article-image-remove') as HTMLButtonElement;
 
+    captionInput.value = row.caption;
+    alignmentSelect.value = row.alignment;
+    insertButton.disabled = !row.file;
+    if (row.file) {
+      try {
+        const transfer = new DataTransfer();
+        transfer.items.add(row.file);
+        fileInput.files = transfer.files;
+      } catch {
+        // Older browsers can't prefill file inputs; the row still keeps the restored file.
+      }
+    }
+
     fileInput.addEventListener('change', () => {
       const chosen = fileInput.files?.[0] ?? null;
       const previousFilename = row.filename;
@@ -685,17 +714,20 @@ const articleCategories = Array.from(new Set(
       insertButton.disabled = !chosen;
       syncArticleImageDirective(row, previousFilename);
       updatePreview();
+      scheduleImageSave();
     });
 
     captionInput.addEventListener('input', () => {
       row.caption = captionInput.value;
       syncArticleImageDirective(row);
       updatePreview();
+      scheduleImageSave();
     });
     alignmentSelect.addEventListener('change', () => {
       row.alignment = alignmentSelect.value as ArticleImageAlignment;
       syncArticleImageDirective(row);
       updatePreview();
+      scheduleImageSave();
     });
     insertButton.addEventListener('click', () => {
       const insertion = `\n\n${articleImageDirective(row)}\n\n`;
@@ -716,6 +748,7 @@ const articleCategories = Array.from(new Set(
       articleImages.splice(articleImages.indexOf(row), 1);
       wrap.remove();
       updatePreview();
+      scheduleImageSave();
     });
 
     articleImageRowsEl.appendChild(wrap);
@@ -750,12 +783,15 @@ const articleCategories = Array.from(new Set(
       profileImageFile = new File([blob], 'profile.png', { type: 'image/png' });
       profileImageExt = 'png';
       updateExport();
+      scheduleImageSave();
     }, 'image/png');
   };
 
-  profileImageInput.addEventListener('change', () => {
-    const chosen = profileImageInput.files?.[0] ?? null;
+  type ProfileCrop = { x: number; y: number; scale: number };
+
+  const loadProfileImage = (chosen: File | null, crop: ProfileCrop = { x: 0, y: 0, scale: 1 }) => {
     if (profileImageUrl) URL.revokeObjectURL(profileImageUrl);
+    profileSourceFile = chosen;
     profileImageFile = chosen;
     profileImageUrl = chosen ? URL.createObjectURL(chosen) : null;
     profileImageExt = chosen?.name.split('.').pop()?.toLowerCase() || 'png';
@@ -763,6 +799,7 @@ const articleCategories = Array.from(new Set(
     if (!chosen) {
       profileSourceImage = null;
       updatePreview();
+      scheduleImageSave();
       return;
     }
 
@@ -771,20 +808,25 @@ const articleCategories = Array.from(new Set(
     const image = new Image();
     image.onload = () => {
       profileSourceImage = image;
-      profileCropX = 0;
-      profileCropY = 0;
-      profileCropScale = 1;
+      profileCropX = crop.x;
+      profileCropY = crop.y;
+      profileCropScale = crop.scale;
       profileCropSmooth = false;
-      profileCropZoom.value = '1';
+      profileCropZoom.value = String(crop.scale);
       if (profileImageIsGif) {
         image.id = 'profile-gif-preview';
         updatePreview();
+        scheduleImageSave();
         return;
       }
       drawProfileCrop();
       saveProfileCrop();
     };
     image.src = sourceUrl;
+  };
+
+  profileImageInput.addEventListener('change', () => {
+    loadProfileImage(profileImageInput.files?.[0] ?? null);
   });
 
   profileCropZoom.addEventListener('input', () => {
@@ -840,7 +882,7 @@ const articleCategories = Array.from(new Set(
   };
 
   document.getElementById('gallery-add')!.addEventListener('click', addGalleryRow);
-  document.getElementById('article-image-add')!.addEventListener('click', addArticleImageRow);
+  document.getElementById('article-image-add')!.addEventListener('click', () => addArticleImageRow());
   titleInput.addEventListener('input', () => {
     if (currentType() === 'article') articleImages.forEach((row) => syncArticleImageDirective(row));
   });
@@ -1277,7 +1319,7 @@ const articleCategories = Array.from(new Set(
     URL.revokeObjectURL(url);
   });
 
-  // Persist text inputs so they survive reloads and the Discord OAuth redirect (files can't be stored).
+  // Persist text inputs so they survive reloads and the Discord OAuth redirect. Images live in IndexedDB below.
   const DRAFT_KEY = 'axion_submit_draft_v1';
 
   const saveDraft = () => {
@@ -1331,6 +1373,95 @@ const articleCategories = Array.from(new Set(
   document.addEventListener('input', scheduleSave);
   document.addEventListener('change', scheduleSave);
   window.addEventListener('pagehide', saveDraft);
+
+  // Uploaded images can't go in localStorage, so they're stored in IndexedDB to survive the Discord OAuth redirect.
+  type ImageDraft = {
+    profile: { file: File; crop: ProfileCrop } | null;
+    gallery: { file: File; caption: string; filename: string }[];
+    article: Omit<ArticleImageRow, 'url'>[];
+  };
+  const IMAGE_DB_NAME = 'axion_submit_draft';
+  const IMAGE_STORE = 'images';
+  const IMAGE_DRAFT_KEY = 'current';
+
+  let imageDbPromise: Promise<IDBDatabase> | null = null;
+  const openImageDb = () => {
+    imageDbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(IMAGE_DB_NAME, 1);
+      request.onupgradeneeded = () => request.result.createObjectStore(IMAGE_STORE);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    return imageDbPromise;
+  };
+
+  const runImageStore = async <T,>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T>) => {
+    const db = await openImageDb();
+    return new Promise<T>((resolve, reject) => {
+      const transaction = db.transaction(IMAGE_STORE, mode);
+      const request = run(transaction.objectStore(IMAGE_STORE));
+      transaction.oncomplete = () => resolve(request.result);
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+  };
+
+  // Blocks saves until the stored draft is restored, so an early save can't overwrite it with an empty one.
+  let imageDraftRestored = false;
+  let imageSaveTimer: number | undefined;
+
+  const saveImageDraft = async () => {
+    clearTimeout(imageSaveTimer);
+    if (!imageDraftRestored) return;
+    const draft: ImageDraft = {
+      profile: profileSourceFile
+        ? { file: profileSourceFile, crop: { x: profileCropX, y: profileCropY, scale: profileCropScale } }
+        : null,
+      gallery: galleryRows.filter((row) => row.file).map((row) => ({ file: row.file!, caption: row.caption, filename: row.filename })),
+      article: articleImages.map(({ file, caption, alignment, filename }) => ({ file, caption, alignment, filename })),
+    };
+    try {
+      await runImageStore('readwrite', (store) => store.put(draft, IMAGE_DRAFT_KEY));
+    } catch {
+      // IndexedDB may be unavailable (e.g. some private modes); images just won't persist.
+    }
+  };
+
+  function scheduleImageSave() {
+    clearTimeout(imageSaveTimer);
+    imageSaveTimer = window.setTimeout(saveImageDraft, 400);
+  }
+
+  const restoreImageDraft = async () => {
+    let draft: ImageDraft | undefined;
+    try {
+      draft = await runImageStore<ImageDraft | undefined>('readonly', (store) => store.get(IMAGE_DRAFT_KEY));
+    } catch {
+      // Fall through with nothing to restore.
+    }
+
+    if (draft) {
+      for (const { file, caption, filename } of draft.gallery ?? []) {
+        const row: GalleryRow = { file, url: URL.createObjectURL(file), caption, filename };
+        galleryRows.push(row);
+        appendGalleryRow(row);
+      }
+      galleryEmptyStateEl.hidden = galleryRows.length > 0;
+
+      for (const image of draft.article ?? []) {
+        addArticleImageRow(image);
+        const number = Number(image.filename.split('.')[0]);
+        if (Number.isFinite(number)) nextArticleImageNumber = Math.max(nextArticleImageNumber, number + 1);
+      }
+
+      if (draft.profile?.file) loadProfileImage(draft.profile.file, draft.profile.crop);
+      updatePreview();
+    }
+
+    imageDraftRestored = true;
+  };
+
+  restoreImageDraft();
 const DISCORD_CLIENT_ID = import.meta.env.PUBLIC_DISCORD_CLIENT_ID;
 const REDIRECT_URI = encodeURIComponent(window.location.origin + window.location.pathname.replace(/\/$/, ''));
 const WORKER_URL = import.meta.env.PUBLIC_WORKER_URL;
@@ -1354,7 +1485,7 @@ if (savedUser) {
 }
 
 // 2. Discord Login Button Action with CSRF State Protection
-document.getElementById('discord-login-btn')?.addEventListener('click', () => {
+document.querySelectorAll<HTMLButtonElement>('.discord-login-btn').forEach((loginBtn) => loginBtn.addEventListener('click', async () => {
   if (!DISCORD_CLIENT_ID) {
     alert('Configuration error: PUBLIC_DISCORD_CLIENT_ID is not set in build environment variables.');
     return;
@@ -1362,9 +1493,17 @@ document.getElementById('discord-login-btn')?.addEventListener('click', () => {
   const scope = encodeURIComponent('identify guilds.members.read');
   const state = crypto.randomUUID();
   sessionStorage.setItem('oauth_state', state);
+  loginBtn.disabled = true;
   saveDraft();
+  // Images must finish writing before leaving the page, or they'd be lost on the redirect.
+  await saveImageDraft();
   const authUrl = `https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=code&scope=${scope}&state=${state}`;
   window.location.href = authUrl;
+}));
+
+// Re-enable login buttons if the user navigates back from Discord via the back/forward cache.
+window.addEventListener('pageshow', () => {
+  document.querySelectorAll<HTMLButtonElement>('.discord-login-btn').forEach((button) => { button.disabled = false; });
 });
 
 // 3. Handle OAuth callback code on page load with State Verification
@@ -1406,26 +1545,30 @@ async function checkOAuthCallback() {
   }
 }
 
-function enableDiscordSubmissions() {
-  if (!currentUser) return;
-  const loginBtn = document.getElementById('discord-login-btn');
-  const sendBtn = document.getElementById('export-send-discord') as HTMLButtonElement;
-  const userInfo = document.getElementById('discord-user-info');
-
-  if (loginBtn) loginBtn.style.display = 'none';
-  if (sendBtn) sendBtn.disabled = false;
-  if (userInfo) {
-    userInfo.style.display = 'block';
-    userInfo.innerHTML = `Connected as <strong>@${currentUser.username}</strong> (<a href="#" id="discord-logout">Disconnect</a>)`;
-    document.getElementById('discord-logout')?.addEventListener('click', (e) => {
+function setDiscordConnectedUi(user: DiscordUser | null) {
+  const sendBtn = document.getElementById('export-send-discord') as HTMLButtonElement | null;
+  if (sendBtn) sendBtn.disabled = !user;
+  document.querySelectorAll<HTMLElement>('.discord-login-prompt').forEach((prompt) => {
+    prompt.style.display = user ? 'none' : '';
+  });
+  document.querySelectorAll<HTMLButtonElement>('.discord-login-btn').forEach((button) => { button.disabled = false; });
+  document.querySelectorAll<HTMLElement>('.discord-user-info').forEach((userInfo) => {
+    userInfo.style.display = user ? 'block' : 'none';
+    userInfo.innerHTML = user
+      ? `Connected as <strong>@${escapeHtml(user.username)}</strong> (<a href="#" class="discord-logout">Disconnect</a>)`
+      : '';
+    userInfo.querySelector('.discord-logout')?.addEventListener('click', (e) => {
       e.preventDefault();
       currentUser = null;
       sessionStorage.removeItem('discord_user');
-      sendBtn.disabled = true;
-      if (loginBtn) loginBtn.style.display = 'inline-block';
-      userInfo.style.display = 'none';
+      setDiscordConnectedUi(null);
     });
-  }
+  });
+}
+
+function enableDiscordSubmissions() {
+  if (!currentUser) return;
+  setDiscordConnectedUi(currentUser);
 }
 
 // 4. Send to Discord Button Action
