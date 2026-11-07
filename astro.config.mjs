@@ -5,6 +5,7 @@ import rehypeKatex from 'rehype-katex';
 import remarkAutoLinkReferences from './src/lib/remarkAutoLinkReferences';
 import remarkArticleImage from './src/lib/remarkArticleImage';
 import remarkHoverTooltip from './src/lib/remarkHoverTooltip';
+import { rehypeSanitizeContent } from './src/lib/rehypeSanitizeContent';
 
 // https://astro.build/config
 export default defineConfig({
@@ -12,7 +13,8 @@ export default defineConfig({
   base: '/',
   markdown: {
     remarkPlugins: [remarkMath, remarkArticleImage, remarkHoverTooltip, [remarkAutoLinkReferences, { base: '' }]],
-    rehypePlugins: [rehypeKatex],
+    // Sanitize before KaTeX so its generated math markup is left intact.
+    rehypePlugins: [rehypeSanitizeContent, rehypeKatex],
   },
   redirects: {
     "/caard": "http://nagifur.art",
