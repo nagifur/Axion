@@ -1121,8 +1121,12 @@
     .archive-label{ font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--text) }
     .archive-unit{ display:block; color:var(--muted); letter-spacing:0.06em; text-transform:lowercase }
 
-    .level-strip{ margin:var(--space-4) 0; padding-top:var(--space-4); border-top:1px solid var(--line-soft) }
+    .level-strip{ margin:var(--space-4) 0; padding-top:var(--space-4); border-top:1px solid var(--line-soft); container-type:inline-size }
     .level-grid{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:var(--space-2) }
+    /* Six columns are too narrow for the "Unauthorized" label below this width. */
+    @container (max-width:780px){
+      .level-grid{ grid-template-columns:repeat(3, minmax(0, 1fr)) }
+    }
     .level-chip{ height:100%; box-sizing:border-box; padding:var(--space-2) }
     .level-num{ font-family:Ethnocentric, "Arial Black", sans-serif; font-size:0.9rem; color:var(--tile-tint); line-height:1.1 }
     .level-name{ font-size:0.68rem; letter-spacing:0.06em; text-transform:uppercase; color:var(--text); line-height:1.25; overflow-wrap:anywhere }
@@ -1181,7 +1185,6 @@
       .archive-index{ padding-top:var(--space-4) }
       .archive-index::before{ top:0; bottom:auto; left:0; right:0; border-left:0; border-top:1px solid var(--line-soft) }
       .archive-grid{ grid-template-columns:repeat(4, minmax(0, 1fr)) }
-      .level-grid{ grid-template-columns:repeat(3, minmax(0, 1fr)) }
     }
     @media (max-width:520px){
       .archive-grid, .level-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)) }
