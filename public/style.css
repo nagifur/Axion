@@ -2220,11 +2220,23 @@
     .article-body h2, .article-body h3, .article-body h4{ color:var(--neon-cyan); line-height:1.2; margin:2rem 0 0.75rem }
     .article-body h2{ font-size:1.6rem }
     .article-body h3{ color:var(--neon-yellow); font-size:1.25rem }
-    .article-body p, .article-body li{ color:var(--text); max-width:100% }
-    .article-body ul, .article-body ol{ padding-left:1.5rem }
+    /* Section breaks in long text: a dashed rule above each heading that isn't the first block */
+    .article-body > :is(h2, h3):not(:first-child, h2 + h3){ padding-top:1.5rem; border-top:1px dashed var(--line-soft) }
+    /* The global p rule is tuned for compact UI copy; long-form prose needs roomier rhythm */
+    .article-body p, .article-body li{ color:var(--text); max-width:100%; line-height:inherit }
+    .article-body p{ margin:0 0 1em }
+    .article-body ul, .article-body ol{ margin:0 0 1em; padding-left:1.5rem }
+    .article-body li + li{ margin-top:0.2em }
+    .article-body:not(.preview-traits-rendered) :is(ul, ol):not(.db-list) > li::marker{ color:var(--neon-cyan) }
     .article-body a{ color:var(--neon-cyan) }
-    .article-body blockquote{ border-left:3px solid var(--neon-green); color:var(--muted); margin:1.5rem 0; padding-left:1rem }
-    .article-body blockquote p{ color:var(--muted) }
+    .article-body blockquote{
+      margin:1.5rem 0;
+      padding:var(--space-3) var(--space-4);
+      border:1px solid color-mix(in srgb, var(--neon-green) 45%, transparent);
+      border-radius:var(--radius);
+      background:color-mix(in srgb, var(--neon-green) 8%, transparent);
+    }
+    .article-body blockquote > :last-child{ margin-bottom:0 }
     .article-body img{ border:1px solid var(--window-border); border-radius:var(--radius); display:block; height:auto; margin:1.5rem auto; max-width:100% }
     .article-body::after{ content:""; display:block; clear:both }
     .article-image{ margin:1.5rem 0 }
