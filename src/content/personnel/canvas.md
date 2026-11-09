@@ -30,8 +30,6 @@ gallery:
 ---
 
 
->THIS EMPLOYEE HAS BEEN FIRED FOR ACTIONS AGAINTS AXION AND HAS BEEN PUT ON THE MOST WANTED LIST. IF YOU SEE THIS PERSON, PLEASE CONTACT AXION IMMEDIATELY.
-
 A former level 3 caretaker at Axion, went rogue after a containment breach incident. 
 
 Did not agree with Axion's containment procedures regarding alien lifeforms and went on a protest stealing valuable Axion artifacts from containment and releasing them into the wild.
