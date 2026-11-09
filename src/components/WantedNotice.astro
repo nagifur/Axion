@@ -1,0 +1,28 @@
+---
+// Alert banner shown on profiles that Axion is actively hunting (fired + wanted, escaped, etc.).
+import HoverText from './HoverText.astro';
+
+interface Props {
+  status: string;
+  reason?: string;
+  instruction?: string;
+}
+
+const { status, reason, instruction } = Astro.props;
+---
+
+<aside class="wanted-notice" role="alert" aria-label={`${status} notice`}>
+  <div class="wanted-notice-head">
+    <svg class="wanted-notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M12 3 L22 20 H2 Z" stroke-linejoin="round" />
+      <path d="M12 10 V14 M12 17 V17.5" stroke-linecap="round" />
+    </svg>
+    <span class="wanted-notice-status">{status}</span>
+    <span class="wanted-notice-flag">
+      <span class="wanted-notice-light" aria-hidden="true"></span>
+      Active pursuit order
+    </span>
+  </div>
+  {reason && <p class="wanted-notice-reason"><HoverText value={reason} /></p>}
+  {instruction && <p class="wanted-notice-instruction"><HoverText value={instruction} /></p>}
+</aside>

@@ -19,6 +19,7 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
     id: String(character.employeeID),
     tint: character.colorTint,
     image: await getDatabaseImageDataUri(slug, character.profileImage),
+    wanted: character.wanted?.status,
     fields: [
       { label: 'Access Level', value: `Level ${character.accessLevel}` },
       { label: 'Facility Position', value: character.position },

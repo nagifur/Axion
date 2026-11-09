@@ -188,6 +188,12 @@ const patreonUrls = new Set([
   ...synthetics.filter((entry) => entry.data.patreonSubmission).map((entry) => `/Synthetics/${contentSlug(entry.id)}`),
   ...publishedArticles.filter((article) => article.data.patreonSubmission).map((article) => `/Articles/${article.slug}`),
 ]);
+// Status label (e.g. "Wanted", "Escaped") for entries Axion is actively hunting.
+const wantedStatusByUrl = new Map<string, string>([
+  ...personnel.filter((entry) => entry.data.wanted).map((entry) => [`/Personnel/${contentSlug(entry.id)}`, entry.data.wanted!.status] as const),
+  ...entities.filter((entry) => entry.data.wanted).map((entry) => [`/Entities/${contentSlug(entry.id)}`, entry.data.wanted!.status] as const),
+  ...synthetics.filter((entry) => entry.data.wanted).map((entry) => [`/Synthetics/${contentSlug(entry.id)}`, entry.data.wanted!.status] as const),
+]);
 // Determine whether a given link target is currently active.
 const linkState = (href: string): 'active' | 'inactive' => activeUrls.has(href) ? 'active' : 'inactive';
 // Combine active state with the Patreon-submission highlight, if applicable.
@@ -239,7 +245,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                         <h3 class="db-section-title"><DatabaseFolderIcon />Level {group.level}</h3>
                         <ul class="db-list db-sublist">
                           {group.members.map((person) => (
-                            <li><a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>{person.data.title}</a></li>
+                            <li><a href={`/Personnel/${contentSlug(person.id)}`} class={linkClass(`/Personnel/${contentSlug(person.id)}`)}>{person.data.title}</a>{wantedStatusByUrl.has(`/Personnel/${contentSlug(person.id)}`) && <span class="db-wanted-tag">{wantedStatusByUrl.get(`/Personnel/${contentSlug(person.id)}`)}</span>}</li>
                           ))}
                         </ul>
                       </section>
@@ -270,7 +276,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                         {group.note && <p class="db-group-note">{group.note}</p>}
                         <ul class="db-list db-sublist">
                           {group.entries.map((entry) => (
-                            <li><a href={entry.href} class={linkClass(entry.href)}>{entry.label}</a></li>
+                            <li><a href={entry.href} class={linkClass(entry.href)}>{entry.label}</a>{wantedStatusByUrl.has(entry.href) && <span class="db-wanted-tag">{wantedStatusByUrl.get(entry.href)}</span>}</li>
                           ))}
                         </ul>
                       </section>
@@ -294,7 +300,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                         <h3 class="db-section-title"><DatabaseFolderIcon />{group.type}</h3>
                         <ul class="db-list db-sublist">
                           {group.members.length ? group.members.map((synthetic) => (
-                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{databaseEntryLabel(synthetic.data)}</a></li>
+                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{databaseEntryLabel(synthetic.data)}</a>{wantedStatusByUrl.has(`/Synthetics/${contentSlug(synthetic.id)}`) && <span class="db-wanted-tag">{wantedStatusByUrl.get(`/Synthetics/${contentSlug(synthetic.id)}`)}</span>}</li>
                           )) : <li class="db-group-note">No entries.</li>}
                         </ul>
                       </section>
@@ -304,7 +310,7 @@ const linkClass = (href: string) => patreonUrls.has(href) ? `${linkState(href)} 
                         <h3 class="db-section-title"><DatabaseFolderIcon />Other</h3>
                         <ul class="db-list db-sublist">
                           {otherSynthetics.map((synthetic) => (
-                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{databaseEntryLabel(synthetic.data)}</a></li>
+                            <li><a href={`/Synthetics/${contentSlug(synthetic.id)}`} class={linkClass(`/Synthetics/${contentSlug(synthetic.id)}`)}>{databaseEntryLabel(synthetic.data)}</a>{wantedStatusByUrl.has(`/Synthetics/${contentSlug(synthetic.id)}`) && <span class="db-wanted-tag">{wantedStatusByUrl.get(`/Synthetics/${contentSlug(synthetic.id)}`)}</span>}</li>
                           ))}
                         </ul>
                       </section>

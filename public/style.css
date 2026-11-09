@@ -1913,6 +1913,80 @@
       .patreon-indicator{ position:static; order:-1; margin-bottom:var(--space-1); }
     }
 
+    /* Wanted / escaped profiles (frontmatter `wanted:`) */
+    .profile-page.is-wanted{ --wanted:#ff3b3b; --wanted-shade:#140406 }
+    html[data-theme="light"] .profile-page.is-wanted{ --wanted:#c11c1c; --wanted-shade:#2a0a0a }
+    .profile-page.is-wanted .page-stack > .card:first-child{
+      border-color:color-mix(in srgb, var(--wanted) 72%, transparent);
+      box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--wanted) 30%, transparent),
+        0 0 32px color-mix(in srgb, var(--wanted) 22%, transparent),
+        var(--shadow-lg);
+    }
+    .wanted-notice{
+      position:relative; overflow:hidden;
+      margin:var(--space-3) 0 0; padding:20px var(--space-4) 18px;
+      border:1px solid color-mix(in srgb, var(--wanted) 70%, transparent);
+      border-radius:var(--radius);
+      background:color-mix(in srgb, var(--wanted) 13%, var(--panel));
+    }
+    .wanted-notice::before,
+    .wanted-notice::after{
+      content:""; position:absolute; left:0; right:0; height:7px;
+      background:repeating-linear-gradient(-45deg, var(--wanted) 0 10px, var(--wanted-shade) 10px 20px);
+    }
+    .wanted-notice::before{ top:0 }
+    .wanted-notice::after{ bottom:0 }
+    .wanted-notice-head{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px }
+    .wanted-notice-icon{ width:30px; height:30px; flex:0 0 30px; color:var(--wanted) }
+    .wanted-notice-status{
+      font-family:Ethnocentric, "Arial Black", sans-serif; font-size:clamp(1.3rem, 3.6vw, 2rem);
+      line-height:1; letter-spacing:0.12em; text-transform:uppercase; color:var(--wanted);
+      text-shadow:0 0 14px color-mix(in srgb, var(--wanted) 55%, transparent);
+    }
+    .wanted-notice-flag{
+      margin-left:auto; display:inline-flex; align-items:center; gap:7px;
+      color:var(--wanted); font-family:BOMBARD, sans-serif; font-size:0.7rem;
+      letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap;
+    }
+    .wanted-notice-light{ width:9px; height:9px; flex:0 0 9px; border-radius:50%; background:var(--wanted); box-shadow:0 0 8px var(--wanted) }
+    body:not(.animations-off) .wanted-notice-light{ animation:blink 1s steps(2, start) infinite }
+    .wanted-notice-reason{ margin:10px 0 0; color:var(--text); font-weight:700 }
+    .wanted-notice-instruction{
+      margin:6px 0 0; color:var(--wanted); font-family:BOMBARD, sans-serif;
+      font-size:0.74rem; letter-spacing:0.06em; text-transform:uppercase;
+    }
+    .profile-page.is-wanted .profile-media{ position:relative; container-type:inline-size }
+    .profile-page.is-wanted .pixelart-profile{
+      border-color:var(--wanted);
+      box-shadow:0 0 18px color-mix(in srgb, var(--wanted) 35%, transparent);
+    }
+    .profile-page.is-wanted .profile-id{ color:var(--wanted) }
+    .wanted-stamp{
+      position:absolute; top:0; left:0; width:100%; aspect-ratio:3/4;
+      display:flex; align-items:flex-end; justify-content:center; padding-bottom:14%;
+      box-sizing:border-box; overflow:hidden; pointer-events:none;
+    }
+    .wanted-stamp > span{
+      
+      padding:0.25em 0.5em; border:3px double var(--wanted); border-radius:4px;
+      background:color-mix(in srgb, var(--wanted-shade) 72%, transparent);
+      color:var(--wanted); font-family:Ethnocentric, "Arial Black", sans-serif;
+      font-size:clamp(11px, 9cqi, 20px); letter-spacing:0.1em; text-transform:uppercase; white-space:nowrap;
+      text-shadow:0 0 8px color-mix(in srgb, var(--wanted) 60%, transparent);
+    }
+    html[data-theme="light"] .wanted-stamp > span{ background:rgba(255,255,255,0.78); text-shadow:none }
+    @media (max-width:520px){
+      .wanted-notice{ padding:18px var(--space-3) 16px }
+      .wanted-notice-flag{ margin-left:0; flex-basis:100% }
+    }
+    .db-wanted-tag{
+      display:inline-block; margin-left:8px; padding:1px 5px; vertical-align:middle;
+      border:1px solid currentColor; border-radius:var(--radius-sm);
+      color:var(--neon-red); font-family:BOMBARD, sans-serif; font-size:0.62rem;
+      letter-spacing:0.08em; line-height:1.4; text-transform:uppercase;
+    }
+
     /* Personnel profile */
     .profile{
       display:flex; gap:24px; align-items:flex-start;

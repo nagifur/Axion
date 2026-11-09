@@ -20,6 +20,7 @@ export async function GET({ props }: { props: { entry: any; slug: string } }) {
     id: slug,
     tint: entity.colorTint,
     image: await getDatabaseImageDataUri(slug, entity.profileImage),
+    wanted: entity.wanted?.status,
     fields: [
       { label: 'Containment Class', value: entity.containmentClass },
       { label: 'Type', value: entity.type },

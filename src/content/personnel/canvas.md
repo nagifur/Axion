@@ -14,6 +14,10 @@ galleryAlt: Canvas drawing
 positiveTraits: [Kind To Animals, Artistic]
 negativeTraits: [Vengeful, Unpredictable]
 vorePreference: [Predator]
+wanted:
+  status: Wanted
+  reason: Fired. Wanted for theft of Axion artifacts, including S-688, and attacks on Axion personnel.
+  instruction: If sighted, do not engage. Contact Axion Security immediately.
 gallery:
   - file: 1.png
     caption: Reference

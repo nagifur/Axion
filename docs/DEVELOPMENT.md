@@ -44,6 +44,20 @@ Set `draft: true` on articles, personnel, entities, or synthetics that should no
 appear in the published database. Draft files committed to this public repository
 are still publicly readable; this is not a privacy setting.
 
+To mark a personnel, entity, or synthetic profile as hunted by Axion (fired and
+wanted, escaped containment, etc.), add a `wanted` block to its frontmatter. The
+profile then shows a red alert banner, a stamp over the profile image, a tag in
+the database list, and a stamp on its social share image:
+
+```yaml
+wanted:
+  status: Escaped # Headline text, e.g. Wanted or Escaped (defaults to Wanted)
+  reason: Breached containment. Believed to be hiding in the city.
+  instruction: If sighted, do not engage. Contact Axion Security immediately. # Optional; this is the default
+```
+
+Remove the block once the character is captured or cleared.
+
 Images are stored in [`src/assets/images/`](../src/assets/images/), while files
 that need to be served directly are stored in [`public/`](../public/).
 

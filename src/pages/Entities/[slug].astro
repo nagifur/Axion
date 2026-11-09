@@ -5,6 +5,7 @@ import { Image } from 'astro:assets';
 import { getCollection, render } from 'astro:content';
 import HoverText from '../../components/HoverText.astro';
 import StatIcon from '../../components/StatIcon.astro';
+import WantedNotice from '../../components/WantedNotice.astro';
 
 export async function getStaticPaths() {
   const entries = await getCollection('entities', ({ data }) => !data.draft);
@@ -76,15 +77,15 @@ const profileIsPlaceholder = profileImport === placeholderImage;
 
 <Header
   title={entity.title}
-  description={`${entity.containmentClass} | ${entity.type} | Axion Labs entity file`}
-  image={`${base}/Entities/${slug}/og.png?v=2`}
+  description={`${entity.wanted ? `${entity.wanted.status.toUpperCase()} | ` : ''}${entity.containmentClass} | ${entity.type} | Axion Labs entity file`}
+  image={`${base}/Entities/${slug}/og.png?v=3`}
   imageAlt={`Database card for ${entity.title}`}
   type="profile"
 />
 
 <main
   id="main"
-  class="profile-page"
+  class:list={["profile-page", { "is-wanted": entity.wanted }]}
   tabindex="-1"
   style={`--profile-tint: ${entity.colorTint ?? 'var(--neon-cyan)'}`}
 >
@@ -108,12 +109,17 @@ const profileIsPlaceholder = profileImport === placeholderImage;
         {entity.author && <p class="profile-author">Submission by {entity.author}</p>}
       </div>
 
+      {entity.wanted && <WantedNotice status={entity.wanted.status} reason={entity.wanted.reason} instruction={entity.wanted.instruction} />}
+
       <div class="profile">
         <div class="profile-media">
           {profileIsGif || profileIsPlaceholder ? (
             <img src={profileNativeSrc} class="pixelart-profile" alt={`Profile image of ${entity.title}`} loading="eager" fetchpriority="high" decoding="async" />
           ) : (
             <Image src={profileImport} class="pixelart-profile" quality={100} alt={`Profile image of ${entity.title}`} loading="eager" fetchpriority="high" decoding="async" />
+          )}
+          {entity.wanted && (
+            <span class="wanted-stamp" aria-hidden="true"><span>{entity.wanted.status}</span></span>
           )}
           <span class="profile-id">ID {slug}</span>
         </div>

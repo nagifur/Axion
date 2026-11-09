@@ -10,6 +10,14 @@ const galleryItem = z.object({
   caption: z.string(),
 });
 
+// Marks a character/entity as being actively hunted by Axion (fired + wanted, escaped, etc.).
+// `status` is the headline shown on the page (e.g. "Wanted", "Escaped").
+const wanted = z.object({
+  status: z.string().default('Wanted'),
+  reason: z.string().optional(),
+  instruction: z.string().default('If sighted, do not engage. Contact Axion Security immediately.'),
+}).optional();
+
 const articles = defineCollection({
   schema: z.object({
     title: z.string(),
@@ -53,6 +61,7 @@ const personnel = defineCollection({
     negativeTraits: z.array(z.string()).default([]),
     vorePreference: z.array(z.string()).default(['None']),
     gallery: z.array(galleryItem).default([]),
+    wanted,
     draft: z.boolean().default(false),
     patreonSubmission: z.boolean().default(false),
   }),
@@ -77,6 +86,7 @@ const entities = defineCollection({
     noteableEvents: z.array(z.string()).default([]),
     vorePreference: z.array(z.string()).default(['None']),
     gallery: z.array(galleryItem).default([]),
+    wanted,
     patreonSubmission: z.boolean().default(false),
     draft: z.boolean().default(false),
   }),
@@ -102,6 +112,7 @@ const synthetics = defineCollection({
     negativeTraits: z.array(z.string()).default([]),
     vorePreference: z.array(z.string()).default(['None']),
     gallery: z.array(galleryItem).default([]),
+    wanted,
     draft: z.boolean().default(false),
     patreonSubmission: z.boolean().default(false),
   }),

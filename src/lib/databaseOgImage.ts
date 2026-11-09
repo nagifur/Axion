@@ -15,6 +15,8 @@ interface DatabaseOgImageOptions {
   tint?: string;
   image?: string;
   fields: DatabaseOgField[];
+  /** Status label (e.g. "Wanted", "Escaped") stamped on profiles Axion is hunting. */
+  wanted?: string;
 }
 
 export const toOgText = (value: unknown) => parseHoverSegments(String(value))
@@ -65,6 +67,7 @@ export const createDatabaseOgImage = ({
   tint = '#7ef5ff',
   image,
   fields,
+  wanted,
 }: DatabaseOgImageOptions) => {
   const safeTint = escapeXml(tint);
   const safeTitle = escapeXml(title);
@@ -86,6 +89,14 @@ export const createDatabaseOgImage = ({
         <text x="18" y="54" class="value">${safeValue}</text>
       </g>`;
   }).join('');
+
+  const wantedMarkup = wanted
+    ? `<g transform="translate(141 404) rotate(-12)">
+         <rect x="-92" y="-24" width="184" height="48" rx="4" fill="#140406" fill-opacity=".8" stroke="#ff3b3b" stroke-width="4" />
+         <text x="0" y="10" text-anchor="middle" class="stamp">${escapeXml(truncate(wanted.toUpperCase(), 10))}</text>
+       </g>
+       <text x="1128" y="76" text-anchor="end" class="alert">${escapeXml(truncate(wanted.toUpperCase(), 18))} // ACTIVE PURSUIT</text>`
+    : '';
 
   const imageMarkup = image
     ? `<clipPath id="profile-clip"><rect x="42" y="190" width="198" height="264" rx="7" /></clipPath>
@@ -112,6 +123,8 @@ export const createDatabaseOgImage = ({
       .label { fill: #c4dce2; font-family: 'Bombardier'; font-size: 15px; letter-spacing: 1px; }
       .value { fill: #f0fbff; font-family: 'Bombardier'; font-size: 20px; }
       .id { fill: #aac4cb; font-family: Arial, sans-serif; font-size: 16px; letter-spacing: 2px; }
+      .stamp { fill: #ff3b3b; font-family: 'Ethnocentric'; font-size: 24px; letter-spacing: 2px; }
+      .alert { fill: #ff3b3b; font-family: 'Ethnocentric'; font-size: 16px; font-weight: 700; letter-spacing: 3px; }
       .brand { fill: #8faab2; font-family: 'Ethnocentric'; font-size: 15px; font-weight: 700; letter-spacing: 4px; }
     </style>
   </defs>
@@ -122,6 +135,7 @@ export const createDatabaseOgImage = ({
   <text x="58" y="142" class="title">${safeTitle}</text>
   ${safeSubtitle ? `<text x="60" y="170" class="subtitle">&quot;${safeSubtitle}&quot;</text>` : ''}
   ${imageMarkup}
+  ${wantedMarkup}
   <text x="141" y="485" text-anchor="middle" class="id">ID ${safeId}</text>
   <rect x="280" y="170" width="790" height="372" rx="9" fill="url(#panel)" stroke="${safeTint}" stroke-opacity=".22" />
   ${fieldMarkup}
