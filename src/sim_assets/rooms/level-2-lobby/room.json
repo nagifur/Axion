@@ -1,0 +1,12 @@
+{
+  "name": "Entrance",
+  "level": 2,
+  "camera": "CAM 2-01",
+  
+  "props": [
+    { "type": "light", "x": 83, "y": 34 },
+    { "type": "light", "x": 370, "y": 34 },
+    { "type": "bench", "x": 62, "y": 118 }
+   
+  ]
+}
