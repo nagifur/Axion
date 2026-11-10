@@ -1,6 +1,6 @@
-import { Agent, enterThroughDoor, exitThroughDoor, phaseThroughWall, rideElevatorIn } from './agent';
+import { Agent, enterThroughDoor, leaveRoom, phaseThroughWall, rideElevatorIn } from './agent';
 import type { SimCharacter, SimImpostor } from './roster';
-import { DOORS, ELEVATOR, SPOTS, randomFloorPoint, type Door, type Spot } from './room';
+import type { Door, Room, Spot } from './room';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -96,6 +96,7 @@ export class Elevator {
 
 export interface WorldOptions {
   roster: SimCharacter[];
+  room: Room;
   now?: () => Date;
 }
 
@@ -115,6 +116,7 @@ export class World {
   agents: Agent[] = [];
   readonly elevator = new Elevator();
   readonly roster: SimCharacter[];
+  readonly room: Room;
   readonly now: () => Date;
   hooks: WorldHooks = {};
   /** Earliest time each off-camera character may come back. */
@@ -123,6 +125,7 @@ export class World {
 
   constructor(options: WorldOptions) {
     this.roster = options.roster;
+    this.room = options.room;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -156,7 +159,7 @@ export class World {
 
   freeSpot(kind: Spot['kind']): Spot | undefined {
     const taken = new Set(this.agents.map((agent) => agent.spot?.id));
-    const free = SPOTS.filter((spot) => spot.kind === kind && !taken.has(spot.id));
+    const free = this.room.spots.filter((spot) => spot.kind === kind && !taken.has(spot.id));
     return free[Math.floor(Math.random() * free.length)];
   }
 
@@ -173,7 +176,7 @@ export class World {
     for (let i = 0; i < count; i++) {
       const character = this.pickArrival();
       if (!character) break;
-      this.spawn(character, randomFloorPoint());
+      this.spawn(character, this.room.randomFloorPoint());
     }
   }
 
@@ -190,16 +193,16 @@ export class World {
     return weightedPick(candidates);
   }
 
-  arriveByElevator(character: SimCharacter) {
-    const agent = this.spawn(character, ELEVATOR.inside);
+  arriveByElevator(character: SimCharacter, impostor?: SimImpostor) {
+    const agent = this.spawn(character, this.room.elevator!.inside, impostor);
     agent.layer = 'inside';
     agent.facing = 'front';
     agent.setPlan(this, [rideElevatorIn(this.elevator.request('arrive', agent))]);
-    this.log(`${character.name} arrived on Level 1 by elevator.`, 'muted');
+    this.log(`${character.name} arrived on ${this.room.label} by elevator.`, 'muted');
     return agent;
   }
 
-  arriveByDoor(character: SimCharacter, door: Door = DOORS[Math.floor(Math.random() * DOORS.length)], impostor?: SimImpostor) {
+  arriveByDoor(character: SimCharacter, door: Door, impostor?: SimImpostor) {
     const agent = this.spawn(character, door.outside, impostor);
     agent.alpha = 0;
     agent.setPlan(this, [enterThroughDoor(door)]);
@@ -208,18 +211,25 @@ export class World {
   }
 
   arriveThroughWall(character: SimCharacter) {
-    const agent = this.spawn(character, { x: Math.round(300 + Math.random() * 180), y: 146 });
+    const { x } = this.room.randomFloorPoint();
+    const agent = this.spawn(character, { x, y: (this.room.topFloorY(x) ?? this.room.height) - 3 });
     agent.alpha = 0;
     agent.setPlan(this, [phaseThroughWall('in')]);
     this.log(`${character.name} drifted in through the wall.`, 'muted');
     return agent;
   }
 
-  /** Brings a new person onto the floor. */
-  arrive(character = this.pickArrival()) {
+  /** Brings a new person (or a disguised impostor) onto the floor through one of the room's exits. */
+  arrive(character = this.pickArrival(), impostor?: SimImpostor) {
     if (!character) return undefined;
-    if (character.behavior.ghost && Math.random() < 0.4) return this.arriveThroughWall(character);
-    return Math.random() < 0.6 ? this.arriveByElevator(character) : this.arriveByDoor(character);
+    const { doors, elevator } = this.room;
+    const ghost = character.behavior.ghost && !impostor;
+    if ((ghost && Math.random() < 0.4) || (!doors.length && !elevator)) return this.arriveThroughWall(character);
+    // Don't stack arrivals on a busy elevator when a door is available.
+    if (elevator && (!doors.length || (!this.elevator.busy && Math.random() < 0.6))) {
+      return this.arriveByElevator(character, impostor);
+    }
+    return this.arriveByDoor(character, doors[Math.floor(Math.random() * doors.length)], impostor);
   }
 
   remove(agent: Agent, via: string) {
@@ -230,8 +240,9 @@ export class World {
     const name = agent.character.name;
 
     if (agent.impostor) {
-      if (agent.revealed) this.log(`${agent.impostor.name} escaped Level 1. Containment team dispatched.`, 'alert');
-      else this.log(`Duplicate badge signal for ${name} lost. Subject left Level 1 unidentified.`, 'warn');
+      const level = this.room.label;
+      if (agent.revealed) this.log(`${agent.impostor.name} escaped ${level}. Containment team dispatched.`, 'alert');
+      else this.log(`Duplicate badge signal for ${name} lost. Subject left ${level} unidentified.`, 'warn');
     } else {
       this.returnAt.set(agent.character.id, this.time + 45 + Math.random() * 120);
       if (via === 'elevator') this.log(`${name} took the elevator.`, 'muted');
@@ -251,9 +262,7 @@ export class World {
       agent.say('!', 3);
       this.log(`Shapeshifter identified: ${agent.impostor.name} "${agent.impostor.nickname}" was posing as ${agent.character.name}!`, 'alert');
       this.achieve('doppelganger');
-      const door = DOORS.reduce((best, door) =>
-        Math.abs(door.inside.x - agent.x) < Math.abs(best.inside.x - agent.x) ? door : best);
-      agent.setPlan(this, [exitThroughDoor(door, 2.2)]);
+      agent.setPlan(this, leaveRoom(agent, this, true));
       return 'revealed';
     }
 
@@ -280,12 +289,7 @@ export class World {
     this.nextArrival -= dt;
     if (this.nextArrival <= 0) {
       this.nextArrival = 6 + Math.random() * 10;
-      // Don't stack arrivals on a busy elevator; walking in through a door is fine.
-      if (this.presentCount() < this.targetPopulation()) {
-        const character = this.pickArrival();
-        if (character && this.elevator.busy && !character.behavior.ghost) this.arriveByDoor(character);
-        else this.arrive(character);
-      }
+      if (this.presentCount() < this.targetPopulation()) this.arrive();
     }
 
     for (const agent of [...this.agents]) {

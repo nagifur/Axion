@@ -1,0 +1,13 @@
+{
+  "name": "Offices",
+  "level": 1,
+  "camera": "CAM 1-01",
+  "props": [
+    { "type": "light", "x": 83, "y": 34 },
+    { "type": "light", "x": 370, "y": 34 },
+    { "type": "bench", "x": 62, "y": 118 },
+    { "type": "table", "x": 347, "y": 127 },
+    { "type": "chair", "x": 317, "y": 122 },
+    { "type": "chair", "x": 415, "y": 122, "flip": true }
+  ]
+}

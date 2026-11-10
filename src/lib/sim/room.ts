@@ -1,92 +1,41 @@
-// Layout and sprite manifest for the Level 1 office camera.
-// All coordinates are in room pixels (the size of room_test.png). When new art is drawn,
-// this is the only file that should need updating.
+// A room the simulation runs in, built from its folder in src/sim_assets/rooms/:
+// the nav map decides where feet can go and where the exits are, room.json places the props.
 
-export const ROOM = { width: 577, height: 209 };
+import type { NavMapData, Point, Rect } from './navMap';
+import { NavGrid } from './pathfinding.ts';
+import { PROP_TYPES, type Facing } from './sprites.ts';
 
-/** Asset names map to PNG files in src/sim_assets/ (e.g. "bench" -> bench.png). */
-export type AssetName = 'room' | 'character' | 'bench' | 'chair' | 'table' | 'light' | 'elevatorDoor' | 'elevatorLights';
+export type { Point } from './navMap';
+export type { Facing } from './sprites';
 
-export interface Frame {
+export interface PlacedProp {
+  type: string;
+  asset: string;
   x: number;
   y: number;
   w: number;
   h: number;
-  /** Horizontal pixel inside the frame that sits on the character's position. */
-  anchorX: number;
+  flip: boolean;
 }
 
-export type FrameName = 'walk1' | 'walk2' | 'side' | 'front' | 'back';
-
-// char_spritesheet.png: side-facing frames face right and are flipped for left.
-// Anchors line the head up between frames so characters don't wobble while walking.
-export const CHARACTER_FRAMES: Record<FrameName, Frame> = {
-  walk1: { x: 0, y: 0, w: 44, h: 90, anchorX: 27 },
-  walk2: { x: 44, y: 0, w: 49, h: 88, anchorX: 27 },
-  side: { x: 94, y: 0, w: 41, h: 89, anchorX: 28 },
-  front: { x: 135, y: 0, w: 30, h: 89, anchorX: 15 },
-  back: { x: 165, y: 0, w: 29, h: 89, anchorX: 14 },
-};
-export const WALK_CYCLE: FrameName[] = ['walk1', 'walk2'];
-/** Pixels walked before switching to the next walk frame. */
-export const WALK_STRIDE = 7;
-
-export interface Prop {
+/** Everything the browser needs to rebuild a room. Produced at build time by roomLoader.ts. */
+export interface RoomData {
   id: string;
-  asset: AssetName;
-  x: number;
-  y: number;
-  flip?: boolean;
+  name: string;
+  level: number;
+  camera: string;
+  width: number;
+  height: number;
+  nav: NavMapData;
+  props: PlacedProp[];
 }
-
-// Furniture is depth sorted with characters by its bottom edge.
-export const PROPS: Prop[] = [
-  { id: 'bench', asset: 'bench', x: 62, y: 118 },
-  { id: 'table', asset: 'table', x: 347, y: 127 },
-  { id: 'chair-left', asset: 'chair', x: 317, y: 122 },
-  { id: 'chair-right', asset: 'chair', x: 415, y: 122, flip: true },
-];
-
-export const CEILING_LIGHTS = [
-  { x: 83, y: 34 },
-  { x: 370, y: 34 },
-];
-
-export const ELEVATOR = {
-  // Transparent opening in room_test.png that the doors and riders are drawn behind.
-  x: 177,
-  y: 89,
-  w: 48,
-  h: 67,
-  lights: { x: 189, y: 73, upWidth: 11, downX: 13 },
-  /** Where people wait for, and step out of, the elevator. */
-  front: { x: 201, y: 168 },
-  /** Feet position of someone standing inside the car. */
-  inside: { x: 201, y: 154 },
-  /** Characters with feet above this line are drawn behind the room (inside the car). */
-  thresholdY: 158,
-};
-
-export interface Point {
-  x: number;
-  y: number;
-}
-
-export type Facing = 'left' | 'right' | 'front' | 'back';
 
 export interface Spot extends Point {
   id: string;
-  kind: 'bench' | 'table';
+  /** Prop type the spot belongs to, e.g. "bench" or "chair". */
+  kind: string;
   facing: Facing;
 }
-
-export const SPOTS: Spot[] = [
-  { id: 'bench-1', kind: 'bench', x: 78, y: 154, facing: 'front' },
-  { id: 'bench-2', kind: 'bench', x: 98, y: 154, facing: 'front' },
-  { id: 'bench-3', kind: 'bench', x: 118, y: 154, facing: 'front' },
-  { id: 'table-left', kind: 'table', x: 327, y: 157, facing: 'right' },
-  { id: 'table-right', kind: 'table', x: 431, y: 157, facing: 'left' },
-];
 
 export interface Door {
   id: string;
@@ -96,58 +45,161 @@ export interface Door {
   outside: Point;
 }
 
-export const DOORS: Door[] = [
-  { id: 'west', inside: { x: 52, y: 180 }, outside: { x: 30, y: 180 } },
-  { id: 'east', inside: { x: 525, y: 180 }, outside: { x: 547, y: 180 } },
-];
-
-// Walkable floor: between the back wall and the bottom edge, inside the slanted side walls,
-// and not inside the elevator column that sticks out from the back wall.
-const FLOOR = { backY: 151, frontY: 204, backLeftX: 57, backRightX: 519, slope: 57 / 58, margin: 10 };
-const PILLAR = { x0: 132, x1: 266, frontY: 162 };
-
-export function floorBounds(y: number) {
-  const depth = y - 147;
-  return {
-    left: FLOOR.backLeftX - depth * FLOOR.slope + FLOOR.margin,
-    right: FLOOR.backRightX + depth * FLOOR.slope - FLOOR.margin,
-  };
+export interface Elevator extends Rect {
+  /** Where people wait for, and step out of, the elevator. */
+  front: Point;
+  /** Feet position of someone standing inside the car. */
+  inside: Point;
+  /** Characters with feet above this line are drawn behind the room (inside the car). */
+  thresholdY: number;
 }
 
-export function isBlocked(point: Point, ghost = false): boolean {
-  if (point.y < FLOOR.backY || point.y > FLOOR.frontY) return true;
-  const { left, right } = floorBounds(point.y);
-  if (point.x < left || point.x > right) return true;
-  return !ghost && point.x > PILLAR.x0 && point.x < PILLAR.x1 && point.y < PILLAR.frontY;
-}
+/** Pixels kept free between feet and the edge of the floor, so bodies don't clip into walls. */
+const EDGE_MARGIN = { x: 8, y: 3 };
+const GRID_CELL = 4;
+const FLIPPED: Record<Facing, Facing> = { left: 'right', right: 'left', front: 'front', back: 'back' };
 
-export function randomFloorPoint(rand: () => number = Math.random): Point {
-  for (let i = 0; i < 50; i++) {
-    const point = {
-      x: Math.round(20 + rand() * (ROOM.width - 40)),
-      y: Math.round(FLOOR.backY + rand() * (FLOOR.frontY - FLOOR.backY)),
+const mirror = (rect: Rect, width: number): Rect => ({ ...rect, x: width - rect.x - rect.w });
+const contains = (rect: Rect, point: Point) =>
+  point.x >= rect.x && point.x < rect.x + rect.w && point.y >= rect.y && point.y < rect.y + rect.h;
+
+export class Room {
+  readonly id: string;
+  readonly name: string;
+  readonly level: number;
+  readonly camera: string;
+  readonly width: number;
+  readonly height: number;
+  readonly props: PlacedProp[];
+  readonly spots: Spot[] = [];
+  readonly doors: Door[] = [];
+  readonly elevator?: Elevator;
+  private readonly floor: number[][];
+  private readonly blocked: Rect[] = [];
+  private readonly grid: NavGrid;
+  private readonly openCells: number[];
+
+  constructor(data: RoomData) {
+    this.id = data.id;
+    this.name = data.name;
+    this.level = data.level;
+    this.camera = data.camera;
+    this.width = data.width;
+    this.height = data.height;
+    this.props = data.props;
+    this.floor = data.nav.floor;
+
+    this.props.forEach((prop, propIndex) => {
+      const type = PROP_TYPES[prop.type];
+      if (type?.blocks) {
+        const rect = prop.flip ? mirror(type.blocks, prop.w) : type.blocks;
+        this.blocked.push({ ...rect, x: prop.x + rect.x, y: prop.y + rect.y });
+      }
+      type?.seats?.forEach((seat, seatIndex) => {
+        this.spots.push({
+          id: `${prop.type}-${propIndex}-${seatIndex}`,
+          kind: prop.type,
+          x: prop.x + (prop.flip ? prop.w - 1 - seat.x : seat.x),
+          y: prop.y + seat.y,
+          facing: prop.flip ? FLIPPED[seat.facing] : seat.facing,
+        });
+      });
+    });
+
+    this.grid = new NavGrid(this.width, this.height, GRID_CELL, (point) => this.isWalkable(point));
+    this.openCells = this.grid.openCells();
+
+    for (const exit of data.nav.exits) {
+      if (exit.kind === 'door') {
+        this.doors.push({ id: exit.id, inside: this.nearestWalkable(exit.threshold), outside: exit.base });
+        continue;
+      }
+      const { x, y, w, h } = exit.bounds;
+      const centerX = Math.round(x + w / 2);
+      this.elevator = {
+        x, y, w, h,
+        inside: { x: centerX, y: y + h - 2 },
+        thresholdY: y + h + 2,
+        front: this.nearestWalkable({ x: centerX, y: y + h + 12 }),
+      };
+    }
+  }
+
+  get label() {
+    return `Level ${this.level}`;
+  }
+
+  /** Painted green on the nav map. */
+  isFloor(x: number, y: number): boolean {
+    const spans = this.floor[Math.round(y)];
+    if (!spans) return false;
+    const px = Math.round(x);
+    for (let i = 0; i < spans.length; i += 2) {
+      if (px >= spans[i] && px < spans[i + 1]) return true;
+    }
+    return false;
+  }
+
+  /** Floor with some room to spare around the feet, and not under furniture. */
+  isWalkable(point: Point): boolean {
+    const { x, y } = point;
+    const { x: mx, y: my } = EDGE_MARGIN;
+    if (!this.isFloor(x, y)) return false;
+    if (!this.isFloor(x - mx, y) || !this.isFloor(x + mx, y) || !this.isFloor(x, y - my) || !this.isFloor(x, y + my)) return false;
+    return !this.blocked.some((rect) => contains(rect, point));
+  }
+
+  nearestWalkable(point: Point): Point {
+    if (this.isWalkable(point)) return { x: Math.round(point.x), y: Math.round(point.y) };
+    const cell = this.grid.nearest(point);
+    return cell >= 0 ? this.grid.center(cell) : { x: Math.round(point.x), y: Math.round(point.y) };
+  }
+
+  randomFloorPoint(rand: () => number = Math.random): Point {
+    if (!this.openCells.length) return { x: Math.round(this.width / 2), y: Math.round(this.height / 2) };
+    const center = this.grid.center(this.openCells[Math.floor(rand() * this.openCells.length)]);
+    const jittered = {
+      x: center.x + Math.round((rand() - 0.5) * GRID_CELL),
+      y: center.y + Math.round((rand() - 0.5) * GRID_CELL),
     };
-    if (!isBlocked(point)) return point;
+    return this.isWalkable(jittered) ? jittered : center;
   }
-  return { ...ELEVATOR.front };
-}
 
-function segmentBlocked(from: Point, to: Point): boolean {
-  const steps = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 4);
-  for (let i = 1; i < steps; i++) {
-    const t = i / steps;
-    if (isBlocked({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t })) return true;
+  /** Top edge of the floor in a column: where the back wall meets the floor. */
+  topFloorY(x: number): number | null {
+    for (let y = 0; y < this.height; y++) {
+      if (this.isFloor(x, y)) return y;
+    }
+    return null;
   }
-  return false;
-}
 
-/** Straight line when possible, otherwise step forward around the elevator column. */
-export function route(from: Point, to: Point, ghost = false): Point[] {
-  if (ghost || !segmentBlocked(from, to)) return [to];
-  const detourY = PILLAR.frontY + 4;
-  return [
-    { x: from.x, y: Math.max(from.y, detourY) },
-    { x: to.x, y: Math.max(to.y, detourY) },
-    to,
-  ];
+  private lineClear(from: Point, to: Point): boolean {
+    const steps = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 2);
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      if (!this.isWalkable({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t })) return false;
+    }
+    return true;
+  }
+
+  /** Waypoints from `from` to `to` around walls and furniture. Ghosts go straight. */
+  route(from: Point, to: Point, ghost = false): Point[] {
+    if (ghost || this.lineClear(from, to)) return [to];
+    const cells = this.grid.findPath(from, to);
+    if (!cells) return [to];
+
+    // Skip every waypoint that can be reached in a straight line, so paths don't zigzag.
+    const points = [...cells, to];
+    const path: Point[] = [];
+    let current = from;
+    let i = 0;
+    while (i < points.length) {
+      let j = points.length - 1;
+      while (j > i && !this.lineClear(current, points[j])) j--;
+      path.push(points[j]);
+      current = points[j];
+      i = j + 1;
+    }
+    return path;
+  }
 }

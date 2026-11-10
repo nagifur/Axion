@@ -1,9 +1,6 @@
 import type { SimCharacter, SimImpostor } from './roster';
-import {
-  CHARACTER_FRAMES, DOORS, ELEVATOR, WALK_CYCLE, WALK_STRIDE,
-  isBlocked, randomFloorPoint, route,
-  type Door, type Facing, type FrameName, type Point, type Spot,
-} from './room';
+import type { Door, Facing, Point, Spot } from './room';
+import { CHARACTER_FRAMES, WALK_CYCLE, WALK_STRIDE, type FrameName } from './sprites';
 import type { ElevatorRequest, World } from './world';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | null;
@@ -159,14 +156,15 @@ export class Agent {
 
 const range = (min: number, max: number) => min + Math.random() * (max - min);
 const pick = <T>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
+const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 
 export function walkTo(target: Point, activity = 'Walking', speedMul = 1): Task {
   let path: Point[] = [];
   return {
     activity,
     interruptible: true,
-    start(agent) {
-      path = route(agent, target, agent.ghost);
+    start(agent, world) {
+      path = world.room.route(agent, target, agent.ghost);
     },
     update(agent, world, dt) {
       if (!path.length) return true;
@@ -294,7 +292,7 @@ function listen(conversation: Conversation): Task {
 function startConversation(agent: Agent, partner: Agent, world: World): Task[] | null {
   const offset = agent.x < partner.x ? -24 : 24;
   const spots = [{ x: partner.x + offset, y: partner.y }, { x: partner.x - offset, y: partner.y }];
-  const meet = spots.find((spot) => !isBlocked(spot));
+  const meet = spots.find((spot) => world.room.isWalkable(spot));
   if (!meet) return null;
 
   const conversation: Conversation = { initiator: agent, partner, started: false, ended: false, elapsed: 0 };
@@ -306,20 +304,22 @@ function startConversation(agent: Agent, partner: Agent, world: World): Task[] |
 
 /** Walks to the elevator, waits for the car, and rides it off the floor. */
 export function rideElevatorOut(): Task {
-  const waitSpot = { x: ELEVATOR.front.x + Math.round(range(-10, 10)), y: ELEVATOR.front.y };
   let path: Point[] = [];
   let request: ElevatorRequest | undefined;
   return {
     activity: 'Heading to the elevator',
     interruptible: false,
-    start(agent) {
-      path = route(agent, waitSpot, agent.ghost);
+    start(agent, world) {
+      const { front } = world.room.elevator!;
+      const waitSpot = world.room.nearestWalkable({ x: front.x + Math.round(range(-10, 10)), y: front.y });
+      path = world.room.route(agent, waitSpot, agent.ghost);
     },
     update(agent, world, dt) {
       if (path.length) {
         if (agent.moveToward(path[0], dt)) path.shift();
         return false;
       }
+      const elevator = world.room.elevator!;
       if (!request) {
         request = world.elevator.request('depart', agent);
         agent.facing = 'back';
@@ -327,8 +327,8 @@ export function rideElevatorOut(): Task {
       }
       if (request.board && !request.ready) {
         agent.activity = 'Taking the elevator';
-        if (agent.y < ELEVATOR.thresholdY) agent.layer = 'inside';
-        if (agent.moveToward(ELEVATOR.inside, dt)) {
+        if (agent.y < elevator.thresholdY) agent.layer = 'inside';
+        if (agent.moveToward(elevator.inside, dt)) {
           agent.facing = 'front';
           request.ready = true;
         }
@@ -340,14 +340,19 @@ export function rideElevatorOut(): Task {
 
 /** Steps out of an elevator car that has arrived on this floor. */
 export function rideElevatorIn(request: ElevatorRequest): Task {
-  const exit = { x: ELEVATOR.front.x + Math.round(range(-14, 14)), y: Math.round(range(170, 182)) };
+  let exit: Point | undefined;
   return {
     activity: 'Arriving by elevator',
     interruptible: false,
-    update(agent, _world, dt) {
+    update(agent, world, dt) {
       if (!request.board) return false;
+      const elevator = world.room.elevator!;
+      exit ??= world.room.nearestWalkable({
+        x: elevator.front.x + Math.round(range(-14, 14)),
+        y: elevator.front.y + Math.round(range(2, 14)),
+      });
       const done = agent.moveToward(exit, dt);
-      if (agent.y > ELEVATOR.thresholdY) {
+      if (agent.y > elevator.thresholdY) {
         agent.layer = 'room';
         request.ready = true;
       }
@@ -360,10 +365,10 @@ export function exitThroughDoor(door: Door, speedMul = 1): Task {
   let path: Point[] = [];
   let fading = false;
   return {
-    activity: 'Leaving the office',
+    activity: 'Heading out',
     interruptible: false,
-    start(agent) {
-      path = route(agent, door.inside, agent.ghost);
+    start(agent, world) {
+      path = world.room.route(agent, door.inside, agent.ghost);
     },
     update(agent, world, dt) {
       if (!fading) {
@@ -371,9 +376,9 @@ export function exitThroughDoor(door: Door, speedMul = 1): Task {
         fading = path.length === 0;
         return false;
       }
-      const total = Math.abs(door.outside.x - door.inside.x);
+      const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.outside, dt, speedMul);
-      agent.alpha = Math.max(0, Math.abs(door.outside.x - agent.x) / total);
+      agent.alpha = Math.max(0, distance(door.outside, agent) / total);
       if (reached) world.remove(agent, door.id);
       return reached;
     },
@@ -385,9 +390,9 @@ export function enterThroughDoor(door: Door): Task {
     activity: 'Arriving',
     interruptible: false,
     update(agent, _world, dt) {
-      const total = Math.abs(door.outside.x - door.inside.x);
+      const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.inside, dt);
-      agent.alpha = Math.min(1, 1 - Math.abs(door.inside.x - agent.x) / total);
+      agent.alpha = Math.min(1, 1 - distance(door.inside, agent) / total);
       return reached;
     },
   };
@@ -395,15 +400,17 @@ export function enterThroughDoor(door: Door): Task {
 
 /** Ghosts don't need doors: they fade in or out through the back wall. */
 export function phaseThroughWall(direction: 'in' | 'out'): Task {
-  const wallY = 146;
-  const floorY = 156;
+  let wallY = 0;
+  let floorY = 0;
   let path: Point[] = [];
   return {
     activity: direction === 'in' ? 'Phasing in' : 'Phasing through the wall',
     interruptible: false,
-    start(agent) {
-      if (direction === 'out') path = [{ x: agent.x, y: floorY }, { x: agent.x, y: wallY }];
-      else path = [{ x: agent.x, y: floorY }];
+    start(agent, world) {
+      const top = world.room.topFloorY(agent.x) ?? agent.y;
+      wallY = top - 3;
+      floorY = top + 7;
+      path = direction === 'out' ? [{ x: agent.x, y: floorY }, { x: agent.x, y: wallY }] : [{ x: agent.x, y: floorY }];
     },
     update(agent, world, dt) {
       if (!path.length) return true;
@@ -430,9 +437,28 @@ function rest(agent: Agent, spot: Spot, world: World): Task {
   const nightOwl = world.isNight() ? 1.4 : 1;
   if (Math.random() < agent.character.behavior.napChance * nightOwl) return nap(range(25, 50), spot.facing);
   const hour = world.now().getHours();
-  const atTable = spot.kind === 'table';
-  const activity = atTable ? (hour >= 11 && hour < 14 ? 'Having lunch' : 'Working at the table') : 'Taking a break';
+  const onChair = spot.kind === 'chair';
+  const activity = onChair ? (hour >= 11 && hour < 14 ? 'Having lunch' : 'Working at the table') : 'Taking a break';
   return wait(range(8, 18), activity, spot.facing);
+}
+
+/** Tasks that take the agent off camera through whatever exits the room has. */
+export function leaveRoom(agent: Agent, world: World, hurry = false): Task[] {
+  const { room } = world;
+  const { doors, elevator } = room;
+  agent.leaving = true;
+
+  if (hurry && doors.length) {
+    const nearest = doors.reduce((best, door) => (distance(door.inside, agent) < distance(best.inside, agent) ? door : best));
+    return [exitThroughDoor(nearest, 2.2)];
+  }
+  if (agent.ghost && (Math.random() < 0.5 || (!doors.length && !elevator))) {
+    return [walkTo(room.randomFloorPoint()), phaseThroughWall('out')];
+  }
+  if (elevator && (!doors.length || Math.random() < 0.65)) return [rideElevatorOut()];
+  if (doors.length) return [exitThroughDoor(pick(doors))];
+  // A room without exits: fade out against the back wall.
+  return [phaseThroughWall('out')];
 }
 
 /** Picks the next thing an agent does once their plan runs out. */
@@ -443,14 +469,14 @@ export function planNext(agent: Agent, world: World): Task[] {
   const crowded = world.presentCount() - world.targetPopulation();
 
   const benchSpot = world.freeSpot('bench');
-  const tableSpot = world.freeSpot('table');
+  const chairSpot = world.freeSpot('chair');
   const partner = world.findChatPartner(agent);
 
   const options: Option[] = [
     {
       weight: 3,
       build: () => [
-        walkTo(randomFloorPoint()),
+        walkTo(world.room.randomFloorPoint()),
         wait(range(2, 6), 'Looking around', pick<Facing>(['front', 'left', 'right'])),
       ],
     },
@@ -463,10 +489,10 @@ export function planNext(agent: Agent, world: World): Task[] {
       },
     },
     {
-      weight: tableSpot ? 2 : 0,
+      weight: chairSpot ? 2 : 0,
       build: () => {
-        agent.spot = tableSpot!;
-        return [walkTo(tableSpot!, 'Heading to the table'), rest(agent, tableSpot!, world)];
+        agent.spot = chairSpot!;
+        return [walkTo(chairSpot!, 'Grabbing a chair'), rest(agent, chairSpot!, world)];
       },
     },
     {
@@ -476,11 +502,7 @@ export function planNext(agent: Agent, world: World): Task[] {
     {
       // Impostors stay until the event director sends them off.
       weight: !agent.impostor && stayed > 35 ? 0.5 + Math.max(0, crowded) * 2 : 0,
-      build: () => {
-        agent.leaving = true;
-        if (agent.ghost && Math.random() < 0.5) return [walkTo(randomFloorPoint()), phaseThroughWall('out')];
-        return Math.random() < 0.65 ? [rideElevatorOut()] : [exitThroughDoor(pick(DOORS))];
-      },
+      build: () => leaveRoom(agent, world),
     },
   ];
 

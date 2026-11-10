@@ -2,13 +2,15 @@ import { nap, trip, type Agent } from './agent';
 import { ACHIEVEMENTS, EventDirector } from './events';
 import { Renderer, loadAssets } from './render';
 import type { SimCharacter, SimImpostor } from './roster';
-import { ROOM, type AssetName } from './room';
+import { Room, type RoomData } from './room';
 import { World, type LogTone } from './world';
 
 export interface MonitorConfig {
   roster: SimCharacter[];
   impostors: SimImpostor[];
-  assets: Record<AssetName, string>;
+  room: RoomData;
+  /** Image URLs by name: "room", "character", and every prop file name. */
+  assets: Record<string, string>;
 }
 
 interface Progress {
@@ -73,7 +75,8 @@ export function initMonitor(root: HTMLElement): () => void {
   const pauseToggle = root.querySelector<HTMLButtonElement>('[data-monitor-toggle-pause]');
   const debugPanel = root.querySelector<HTMLElement>('[data-monitor-debug]');
 
-  const world = new World({ roster: config.roster });
+  const room = new Room(config.room);
+  const world = new World({ roster: config.roster, room });
   const director = new EventDirector(config.impostors);
   const progress = loadProgress();
   const unlocked = new Set(progress.achievements);
@@ -278,8 +281,8 @@ export function initMonitor(root: HTMLElement): () => void {
       .sort((a, b) => b.agent.y - a.agent.y);
     const placed: { left: number; right: number; top: number; bottom: number }[] = [];
     for (const tag of sized) {
-      const x = (tag.head.x / ROOM.width) * layerWidth;
-      let bottom = (Math.max(8, tag.head.y - 1) / ROOM.height) * layerHeight;
+      const x = (tag.head.x / room.width) * layerWidth;
+      let bottom = (Math.max(8, tag.head.y - 1) / room.height) * layerHeight;
       for (let attempt = 0; attempt < 8; attempt++) {
         const left = x - tag.width / 2;
         const right = x + tag.width / 2;
@@ -298,8 +301,8 @@ export function initMonitor(root: HTMLElement): () => void {
   const toRoom = (event: PointerEvent | MouseEvent) => {
     const rect = canvas.getBoundingClientRect();
     return {
-      x: ((event.clientX - rect.left) / rect.width) * ROOM.width,
-      y: ((event.clientY - rect.top) / rect.height) * ROOM.height,
+      x: ((event.clientX - rect.left) / rect.width) * room.width,
+      y: ((event.clientY - rect.top) / rect.height) * room.height,
     };
   };
 
@@ -409,10 +412,10 @@ export function initMonitor(root: HTMLElement): () => void {
 
   loadAssets(config.assets).then((assets) => {
     if (disposed) return;
-    renderer = new Renderer(canvas, assets);
+    renderer = new Renderer(canvas, assets, room);
     renderer.resize();
     world.populate();
-    log('A1oS camera link established: CAM 1-01, Level 1 Offices.', 'ok');
+    log(`A1oS camera link established: ${room.camera}, ${room.label} ${room.name}.`, 'ok');
     if (status) status.hidden = true;
     root.classList.add('is-live');
     last = performance.now();

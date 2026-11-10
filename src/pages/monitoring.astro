@@ -6,21 +6,27 @@ import { getCollection } from 'astro:content';
 import type { ImageMetadata } from 'astro';
 import { toSimCharacter, toSimImpostor, type SimCharacter, type SimImpostor } from '../lib/sim/roster';
 import type { MonitorConfig } from '../lib/sim/monitor';
-import room from '../sim_assets/room_test.png';
-import characterSheet from '../sim_assets/char_spritesheet.png';
-import bench from '../sim_assets/bench.png';
-import chair from '../sim_assets/chair.png';
-import table from '../sim_assets/table.png';
-import light from '../sim_assets/light.png';
-import elevatorDoor from '../sim_assets/elevator_door.png';
-import elevatorLights from '../sim_assets/elevator_lights.png';
+import { loadRoom } from '../lib/sim/roomLoader';
+import characterSheet from '../sim_assets/characters/char_spritesheet.png';
+
+// Folder in src/sim_assets/rooms/ shown on this camera.
+const ROOM_ID = 'level-1-offices';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-const profileImages = import.meta.glob<{ default: ImageMetadata }>(
+type ImageModule = { default: ImageMetadata };
+const fileStem = (path: string) => path.split('/').pop()!.replace(/\.[^.]+$/, '');
+
+const profileImages = import.meta.glob<ImageModule>(
   '../assets/images/*/*.{png,jpg,jpeg,webp,gif}',
   { eager: true },
 );
+const roomImages = import.meta.glob<ImageModule>('../sim_assets/rooms/*/room.png', { eager: true });
+const propImages = import.meta.glob<ImageModule>('../sim_assets/props/*.png', { eager: true });
+
+const room = await loadRoom(ROOM_ID);
+const roomImage = roomImages[`../sim_assets/rooms/${ROOM_ID}/room.png`]?.default;
+if (!roomImage) throw new Error(`Missing src/sim_assets/rooms/${ROOM_ID}/room.png`);
 
 // Small thumbnails for the file panel, matched like profile pages do (same name, any extension).
 async function thumbnail(folder: string, file: string) {
@@ -50,15 +56,11 @@ const impostors = (await Promise.all(entities.map(async (entry) => {
 const config: MonitorConfig = {
   roster,
   impostors,
+  room,
   assets: {
-    room: room.src,
+    room: roomImage.src,
     character: characterSheet.src,
-    bench: bench.src,
-    chair: chair.src,
-    table: table.src,
-    light: light.src,
-    elevatorDoor: elevatorDoor.src,
-    elevatorLights: elevatorLights.src,
+    ...Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src])),
   },
 };
 // Escape "<" so profile text can never close the inline JSON script.
@@ -83,7 +85,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     <header class="card article-header">
       <h1>Live Monitoring <span class="cursor" aria-hidden="true"></span></h1>
       <p>
-        Monitoring sector relay of the Level 1 security cameras. Select anyone on the feed to pull up
+        Monitoring sector relay of the Level {room.level} security cameras. Select anyone on the feed to pull up
         their database file. Report anything unusual. All activity on this feed is logged by A1.
       </p>
     </header>
@@ -91,7 +93,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     <section class="card monitor-feed" aria-labelledby="monitor-feed-title">
       <div class="monitor-hud">
         <span class="monitor-rec"><span class="monitor-rec-dot" aria-hidden="true"></span>Rec</span>
-        <h2 id="monitor-feed-title" class="monitor-cam">CAM 1-01 · Level 1 · Offices</h2>
+        <h2 id="monitor-feed-title" class="monitor-cam">{room.camera} · Level {room.level} · {room.name}</h2>
         <span class="monitor-alert" data-monitor-alert>All clear</span>
         <time class="monitor-clock" data-monitor-clock>--:--:--</time>
       </div>
@@ -99,10 +101,11 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
       <div class="monitor-screen">
         <canvas
           data-monitor-canvas
-          width="577"
-          height="209"
+          width={room.width}
+          height={room.height}
+          style={`aspect-ratio:${room.width} / ${room.height}`}
           role="img"
-          aria-label="Live camera feed of the Level 1 offices. Use the name tags to open personnel files."
+          aria-label={`Live camera feed of the Level ${room.level} ${room.name.toLowerCase()}. Use the name tags to open personnel files.`}
         ></canvas>
         <div class="monitor-tags" data-monitor-tags></div>
         <div class="monitor-crt" aria-hidden="true"></div>
@@ -191,7 +194,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     background:#05080d; border:2px solid var(--line-soft); border-radius:var(--radius-sm);
   }
   .monitor-screen canvas{
-    display:block; width:100%; height:auto; aspect-ratio:577 / 209;
+    display:block; width:100%; height:auto;
     image-rendering:pixelated; touch-action:manipulation;
   }
   .monitor-crt{

@@ -1,13 +1,12 @@
 import type { Agent } from './agent';
-import {
-  CEILING_LIGHTS, CHARACTER_FRAMES, ELEVATOR, PROPS, ROOM,
-  type AssetName, type Frame, type FrameName,
-} from './room';
+import type { Room } from './room';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, type Frame, type FrameName } from './sprites';
 import type { World } from './world';
 
-export type Assets = Record<AssetName, HTMLImageElement>;
+/** Loaded images by name: "room", "character", and every prop file name (e.g. "bench"). */
+export type Assets = Record<string, HTMLImageElement>;
 
-export function loadAssets(urls: Record<AssetName, string>): Promise<Assets> {
+export function loadAssets(urls: Record<string, string>): Promise<Assets> {
   const entries = Object.entries(urls).map(([name, url]) => new Promise<[string, HTMLImageElement]>((resolve, reject) => {
     const image = new Image();
     image.decoding = 'async';
@@ -15,7 +14,7 @@ export function loadAssets(urls: Record<AssetName, string>): Promise<Assets> {
     image.onerror = () => reject(new Error(`Failed to load sim asset "${name}"`));
     image.src = url;
   }));
-  return Promise.all(entries).then((loaded) => Object.fromEntries(loaded) as Assets);
+  return Promise.all(entries).then((loaded) => Object.fromEntries(loaded));
 }
 
 type Canvas = HTMLCanvasElement;
@@ -65,29 +64,33 @@ export class Renderer {
   private readonly canvas: Canvas;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly assets: Assets;
+  private readonly room: Room;
   private readonly redEyeSheet: Canvas;
-  private readonly litArrows: Canvas;
+  private readonly litArrows?: Canvas;
   private readonly sheets = new Map<number, ScaledSheet>();
   private readonly outline = makeCanvas(160, 160);
   private pixelScale = 1;
 
-  constructor(canvas: Canvas, assets: Assets) {
+  constructor(canvas: Canvas, assets: Assets, room: Room) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.assets = assets;
+    this.room = room;
     this.redEyeSheet = recolor(assets.character, EYE_WHITE, EYE_RED);
-    this.litArrows = recolor(assets.elevatorLights, LIGHT_OFF, LIGHT_ON);
+    const lights = assets[ELEVATOR_SPRITES.lights];
+    if (lights) this.litArrows = recolor(lights, LIGHT_OFF, LIGHT_ON);
   }
 
   /** Renders at an integer multiple of the room size so pixels stay square and crisp. */
   resize() {
+    const { width, height } = this.room;
     const ratio = window.devicePixelRatio || 1;
-    const cssWidth = this.canvas.clientWidth || ROOM.width;
-    const scale = Math.max(1, Math.round((cssWidth * ratio) / ROOM.width));
-    if (scale === this.pixelScale && this.canvas.width === ROOM.width * scale) return;
+    const cssWidth = this.canvas.clientWidth || width;
+    const scale = Math.max(1, Math.round((cssWidth * ratio) / width));
+    if (scale === this.pixelScale && this.canvas.width === width * scale) return;
     this.pixelScale = scale;
-    this.canvas.width = ROOM.width * scale;
-    this.canvas.height = ROOM.height * scale;
+    this.canvas.width = width * scale;
+    this.canvas.height = height * scale;
   }
 
   /** Characters are scaled by height once, at room resolution, then cached. */
@@ -214,51 +217,67 @@ export class Renderer {
     ctx.restore();
   }
 
-  draw(world: World, highlights: Map<Agent, string>) {
+  /** The elevator car, its sliding doors and arrow lights, drawn behind the room art. */
+  private drawElevator(world: World, highlights: Map<Agent, string>) {
+    const opening = this.room.elevator;
+    if (!opening) return;
     const ctx = this.ctx;
-    const { assets } = this;
-    ctx.setTransform(this.pixelScale, 0, 0, this.pixelScale, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = '#05080d';
-    ctx.fillRect(0, 0, ROOM.width, ROOM.height);
-
-    // Everything visible through the elevator opening is drawn first, then the room covers it.
+    const door = this.assets[ELEVATOR_SPRITES.door];
+    const lights = this.assets[ELEVATOR_SPRITES.lights];
     const { elevator } = world;
+
     ctx.fillStyle = '#0b141b';
-    ctx.fillRect(ELEVATOR.x, ELEVATOR.y, ELEVATOR.w, ELEVATOR.h);
+    ctx.fillRect(opening.x, opening.y, opening.w, opening.h);
     ctx.fillStyle = '#1d3340';
-    ctx.fillRect(ELEVATOR.x, ELEVATOR.y, ELEVATOR.w, 2);
+    ctx.fillRect(opening.x, opening.y, opening.w, 2);
 
     for (const agent of world.agents.filter((a) => a.layer === 'inside').sort((a, b) => a.y - b.y)) {
       this.drawAgent(agent, highlights.get(agent));
     }
 
-    const doorWidth = assets.elevatorDoor.width;
-    const slide = Math.round(elevator.open * doorWidth);
-    ctx.drawImage(assets.elevatorDoor, ELEVATOR.x - slide, ELEVATOR.y);
-    ctx.save();
-    ctx.translate(ELEVATOR.x + doorWidth * 2 + slide, ELEVATOR.y);
-    ctx.scale(-1, 1);
-    ctx.drawImage(assets.elevatorDoor, 0, 0);
-    ctx.restore();
-
-    const { lights } = ELEVATOR;
-    ctx.drawImage(assets.elevatorLights, lights.x, lights.y);
-    if (elevator.light && Math.floor(world.time * 3) % 2 === 0) {
-      const sx = elevator.light === 'up' ? 0 : lights.downX;
-      const sw = elevator.light === 'up' ? lights.upWidth : assets.elevatorLights.width - lights.downX;
-      ctx.drawImage(this.litArrows, sx, 0, sw, this.litArrows.height, lights.x + sx, lights.y, sw, this.litArrows.height);
+    if (door) {
+      // The room art is drawn on top afterwards, hiding the parts of the doors that slide into the wall.
+      const slide = Math.round(elevator.open * door.width);
+      ctx.drawImage(door, opening.x - slide, opening.y);
+      ctx.save();
+      ctx.translate(opening.x + opening.w + slide, opening.y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(door, 0, 0);
+      ctx.restore();
     }
 
-    ctx.drawImage(assets.room, 0, 0);
-    for (const light of CEILING_LIGHTS) ctx.drawImage(assets.light, light.x, light.y);
+    if (lights && this.litArrows) {
+      const x = Math.round(opening.x + (opening.w - lights.width) / 2);
+      const y = opening.y - ELEVATOR_SPRITES.lightsGap - lights.height;
+      ctx.drawImage(lights, x, y);
+      if (elevator.light && Math.floor(world.time * 3) % 2 === 0) {
+        const { upWidth, downX } = ELEVATOR_SPRITES;
+        const sx = elevator.light === 'up' ? 0 : downX;
+        const sw = elevator.light === 'up' ? upWidth : lights.width - downX;
+        ctx.drawImage(this.litArrows, sx, 0, sw, lights.height, x + sx, y, sw, lights.height);
+      }
+    }
+  }
 
-    // Furniture and people share one depth-sorted pass, ordered by where they touch the floor.
-    const drawables: { depth: number; draw: () => void }[] = PROPS.map((prop) => {
+  draw(world: World, highlights: Map<Agent, string>) {
+    const ctx = this.ctx;
+    const { assets, room } = this;
+    ctx.setTransform(this.pixelScale, 0, 0, this.pixelScale, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = '#05080d';
+    ctx.fillRect(0, 0, room.width, room.height);
+
+    // Everything visible through openings in the room art is drawn first, then the room covers it.
+    this.drawElevator(world, highlights);
+    ctx.drawImage(assets.room, 0, 0);
+
+    // Props and people share one depth-sorted pass, ordered by where they touch the floor.
+    const drawables: { depth: number; draw: () => void }[] = room.props.map((prop) => {
       const image = assets[prop.asset];
       return {
-        depth: prop.y + image.height - 0.5,
+        depth: prop.y + prop.h - 0.5,
         draw: () => {
+          if (!image) return;
           if (!prop.flip) return ctx.drawImage(image, prop.x, prop.y);
           ctx.save();
           ctx.translate(prop.x + image.width, prop.y);

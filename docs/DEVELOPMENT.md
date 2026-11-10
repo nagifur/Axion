@@ -137,11 +137,56 @@ disguised as staff.
 
 | File | Purpose |
 | --- | --- |
-| [`src/sim_assets/`](../src/sim_assets/) | Pixel-art sprites (room, props, character spritesheet). |
-| [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Sprite frame rectangles, prop positions, walkable floor, elevator. Update this when art changes. |
+| [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |
+| [`src/lib/sim/sprites.ts`](../src/lib/sim/sprites.ts) | What is inside each shared sprite: character frames, prop seats and blocked areas. |
+| [`src/lib/sim/navMap.ts`](../src/lib/sim/navMap.ts) | Reads and checks nav maps at build time. |
+| [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
 | [`src/lib/sim/roster.ts`](../src/lib/sim/roster.ts) | Profile → character conversion, trait rules, and per-character overrides. |
 | [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | Character tasks (walk, nap, chat, elevator) and decision making. |
 | [`src/lib/sim/events.ts`](../src/lib/sim/events.ts) | Random events, A1 announcements, and achievements. |
 
 Add `?debug` to the URL to show buttons that trigger events and speed up time.
 Achievements are stored in the visitor's browser (`localStorage`).
+
+#### Adding a Room
+
+Each room is a folder in [`src/sim_assets/rooms/`](../src/sim_assets/rooms/):
+
+```text
+rooms/level-1-offices/
+|-- room.png        # The room art. Leave the elevator opening transparent.
+|-- navMap.png      # Same size as room.png, painted with the colours below.
+|-- room.json       # Name, camera label, and where props are placed.
+`-- prototype.png   # Optional mockup; not used by the site.
+```
+
+Paint the nav map with a hard pencil at 100% opacity, anti-aliasing off, and save
+it as PNG. Keep it as a layer in the same art file as the room so it stays aligned.
+
+| Colour | Hex | Meaning |
+| --- | --- | --- |
+| Green | `#05FF00` | Floor: where feet can stand (not where bodies are). |
+| Blue | `#0074FF` | Door. Must touch the floor; named west/east by position. |
+| Pink | `#FF00E7` | Elevator opening (at most one per room). Must touch the floor. |
+| Red or transparent | `#FF0000` | Blocked. |
+
+Don't paint furniture on the nav map. Place props in `room.json` instead; each prop
+type in `sprites.ts` brings its own seats and blocked floor area:
+
+```json
+{
+  "name": "Offices",
+  "level": 1,
+  "camera": "CAM 1-01",
+  "props": [
+    { "type": "bench", "x": 62, "y": 118 },
+    { "type": "chair", "x": 415, "y": 122, "flip": true }
+  ]
+}
+```
+
+Prop `x`/`y` is the sprite's top-left corner in room pixels. The build stops with
+the file and pixel position if a nav map uses an unknown colour, has floor patches
+that can't be reached, has an exit that doesn't touch the floor, or doesn't match
+the size of `room.png`. The camera page currently shows the room named by
+`ROOM_ID` in [`monitoring.astro`](../src/pages/monitoring.astro).

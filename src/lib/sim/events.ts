@@ -1,6 +1,5 @@
-import { exitThroughDoor } from './agent';
+import { leaveRoom } from './agent';
 import type { SimCharacter, SimImpostor } from './roster';
-import { DOORS } from './room';
 import type { World } from './world';
 
 export interface Achievement {
@@ -59,10 +58,7 @@ export class EventDirector {
       if (!agent.impostor || agent.revealed) continue;
       // The disguise slips now and then: the eyes flash red for a moment.
       if (Math.random() < dt * 0.12) agent.eyeFlash = 0.35;
-      if (world.time > agent.expiresAt && !agent.leaving) {
-        agent.leaving = true;
-        agent.setPlan(world, [exitThroughDoor(pick(DOORS))]);
-      }
+      if (world.time > agent.expiresAt && !agent.leaving) agent.setPlan(world, leaveRoom(agent, world));
     }
   }
 
@@ -81,9 +77,10 @@ export class EventDirector {
     let roll = Math.random() * this.impostors.reduce((sum, item) => sum + item.weight, 0);
     const impostor = this.impostors.find((item) => (roll -= item.weight) <= 0) ?? this.impostors[0];
 
-    const agent = world.arriveByDoor(victim, undefined, impostor);
+    const agent = world.arrive(victim, impostor);
+    if (!agent) return false;
     agent.expiresAt = world.time + range(80, 120);
-    world.log(`A1: Duplicate badge scan. ID ${victim.employeeID} (${victim.name}) is already on Level 1.`, 'warn');
+    world.log(`A1: Duplicate badge scan. ID ${victim.employeeID} (${victim.name}) is already on ${world.room.label}.`, 'warn');
     return true;
   }
 }
