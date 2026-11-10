@@ -6,12 +6,26 @@ import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import JSZip from 'jszip';
+import yaml from 'js-yaml';
 import { findUnsafeMarkdown, isCleanText, sniffImageExtension } from './submissionSafety.mjs';
 
 const MAX_ZIP_BYTES = 25 * 1024 * 1024;
 const MAX_ENTRY_BYTES = 15 * 1024 * 1024;
 const MARKDOWN_PATH = /^src\/content\/(personnel|synthetics|entities|articles)\/[A-Za-z0-9_-]+\.md$/;
 const IMAGE_PATH = /^src\/assets\/images\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+\.(png|jpe?g|gif|webp)$/;
+
+// A frontmatter YAML error makes Astro fail to load the whole content collection, taking the site down.
+export function findFrontmatterProblem(markdown) {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) return 'missing frontmatter (the file must start with a --- block)';
+  try {
+    const data = yaml.load(match[1]);
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return 'frontmatter is not a key/value block';
+  } catch (error) {
+    return `invalid frontmatter YAML: ${error.reason ?? error.message}${error.mark ? ` (line ${error.mark.line + 2})` : ''}`;
+  }
+  return null;
+}
 
 export async function checkSubmissionZip(zipBytes) {
   const problems = [];
@@ -38,7 +52,8 @@ export async function checkSubmissionZip(zipBytes) {
     }
 
     if (isMarkdown) {
-      const reason = isCleanText(data) ? findUnsafeMarkdown(new TextDecoder().decode(data)) : 'not clean text';
+      const text = isCleanText(data) ? new TextDecoder().decode(data) : null;
+      const reason = text === null ? 'not clean text' : findUnsafeMarkdown(text) ?? findFrontmatterProblem(text);
       if (reason) problems.push(`${entry.name}: ${reason}`);
     } else {
       const ext = entry.name.split('.').pop().toLowerCase();
