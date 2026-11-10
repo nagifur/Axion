@@ -129,7 +129,9 @@ node scripts/pixel-png-to-svg.mjs public/Level_0.png public/facility/level-0.svg
 ### Live Monitoring Simulation
 
 [`/monitoring`](../src/pages/monitoring.astro) is a small in-browser simulation of the
-Level 1 offices. Characters are built at build time from non-draft personnel files:
+facility, watched through security cameras. Every room folder becomes a camera; all
+rooms are simulated at once and people walk between connected rooms. Characters are
+built at build time from non-draft personnel files:
 height sets sprite size, `colorTint` colours the name tag, and traits such as *Sleepy*,
 *Clumsy*, *Anti-Social*, or *Can phase through objects* change how they behave.
 Wanted characters are left out. Entities with a *Shapeshifting* ability can sneak in
@@ -140,13 +142,15 @@ disguised as staff.
 | [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |
 | [`src/lib/sim/sprites.ts`](../src/lib/sim/sprites.ts) | What is inside each shared sprite: character frames, prop seats and blocked areas. |
 | [`src/lib/sim/navMap.ts`](../src/lib/sim/navMap.ts) | Reads and checks nav maps at build time. |
+| [`src/lib/sim/roomLoader.ts`](../src/lib/sim/roomLoader.ts) | Loads every room folder at build time and connects their doors. |
 | [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
 | [`src/lib/sim/roster.ts`](../src/lib/sim/roster.ts) | Profile → character conversion, trait rules, and per-character overrides. |
-| [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | Character tasks (walk, nap, chat, elevator) and decision making. |
+| [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | Character tasks (walk, nap, chat, doors, elevator) and decision making. |
+| [`src/lib/sim/world.ts`](../src/lib/sim/world.ts) | All rooms and people: arrivals, moving between rooms, elevators. |
 | [`src/lib/sim/events.ts`](../src/lib/sim/events.ts) | Random events, A1 announcements, and achievements. |
 
 Add `?debug` to the URL to show buttons that trigger events and speed up time.
-Achievements are stored in the visitor's browser (`localStorage`).
+Achievements and the last camera watched are stored in the visitor's browser (`localStorage`).
 
 #### Adding a Room
 
@@ -166,7 +170,7 @@ it as PNG. Keep it as a layer in the same art file as the room so it stays align
 | Colour | Hex | Meaning |
 | --- | --- | --- |
 | Green | `#05FF00` | Floor: where feet can stand (not where bodies are). |
-| Blue | `#0074FF` | Door. Must touch the floor; named west/east by position. |
+| Blue | `#0074FF` | Door. Must touch the floor; named by position (see below). |
 | Pink | `#FF00E7` | Elevator opening (at most one per room). Must touch the floor. |
 | Red or transparent | `#FF0000` | Blocked. |
 
@@ -185,8 +189,36 @@ type in `sprites.ts` brings its own seats and blocked floor area:
 }
 ```
 
-Prop `x`/`y` is the sprite's top-left corner in room pixels. The build stops with
-the file and pixel position if a nav map uses an unknown colour, has floor patches
-that can't be reached, has an exit that doesn't touch the floor, or doesn't match
-the size of `room.png`. The camera page currently shows the room named by
-`ROOM_ID` in [`monitoring.astro`](../src/pages/monitoring.astro).
+Prop `x`/`y` is the sprite's top-left corner in room pixels. Everything painted in
+`room.png` is drawn behind characters; anything that should cover people walking past
+(a railing near the camera, a foreground pillar) must be a prop instead.
+
+#### Connecting Rooms
+
+Doors are named by which half of the room they are in: `west` or `east`. When one
+side has several doors they are numbered left to right as they appear in the
+image: `west-1`, `west-2`. In `room.json`, `exits` says which room each door leads to:
+
+```json
+"exits": {
+  "west": "level-1-pipeRoom",
+  "east-2": { "room": "level-1-recRoom", "door": "west-1" }
+}
+```
+
+The short form (`"west": "level-1-pipeRoom"`) comes out of the other room's `east`
+door, or its only door. Use the long form for numbered doors or anything else. A
+connection only needs to be written in one of the two rooms; the way back is added
+automatically, and the build stops if the two rooms disagree. Doors without an exit
+lead off camera to the rest of the facility, so people still arrive and leave through
+them (as they do through elevators).
+
+Cameras are shown as a floor plan, one row per level, with rooms placed west to east
+by how they connect. Every camera uses the same pixel scale, so narrower rooms appear
+centred. The first camera shown is `INITIAL_ROOM` in
+[`monitoring.astro`](../src/pages/monitoring.astro).
+
+The build stops with the file and pixel position if a nav map uses an unknown colour,
+has floor patches that can't be reached, has an exit that doesn't touch the floor, or
+doesn't match the size of `room.png`, and names the problem if an exit points to a
+door or room that doesn't exist.

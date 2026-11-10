@@ -2,6 +2,10 @@
   "name": "Offices",
   "level": 1,
   "camera": "CAM 1-01",
+  "exits": {
+    "west": "level-1-pipeRoom",
+    "east": "level-1-recRoom"
+  },
   "props": [
     { "type": "light", "x": 83, "y": 34 },
     { "type": "light", "x": 370, "y": 34 },

@@ -1,6 +1,8 @@
 {
   "name": "Pipe Room",
   "level": 1,
-  "camera": "CAM 1-03"
-  
+  "camera": "CAM 1-03",
+  "exits": {
+    "east": "level-1-offices"
+  }
 }

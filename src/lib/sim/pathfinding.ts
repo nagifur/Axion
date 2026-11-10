@@ -1,4 +1,4 @@
-import type { Point } from './navMap';
+import type { Point } from './navMap.ts';
 
 const SQRT2 = Math.SQRT2;
 const NEIGHBOURS = [

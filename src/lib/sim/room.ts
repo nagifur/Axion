@@ -1,12 +1,12 @@
 // A room the simulation runs in, built from its folder in src/sim_assets/rooms/:
 // the nav map decides where feet can go and where the exits are, room.json places the props.
 
-import type { NavMapData, Point, Rect } from './navMap';
+import type { NavMapData, Point, Rect } from './navMap.ts';
 import { NavGrid } from './pathfinding.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
 
-export type { Point } from './navMap';
-export type { Facing } from './sprites';
+export type { Point } from './navMap.ts';
+export type { Facing } from './sprites.ts';
 
 export interface PlacedProp {
   type: string;
@@ -16,6 +16,12 @@ export interface PlacedProp {
   w: number;
   h: number;
   flip: boolean;
+}
+
+/** Where a door leads: a door in another room. */
+export interface ExitLink {
+  room: string;
+  door: string;
 }
 
 /** Everything the browser needs to rebuild a room. Produced at build time by roomLoader.ts. */
@@ -28,6 +34,8 @@ export interface RoomData {
   height: number;
   nav: NavMapData;
   props: PlacedProp[];
+  /** Doors that lead to another room, by door id. Doors not listed lead off camera. */
+  links: Record<string, ExitLink>;
 }
 
 export interface Spot extends Point {
@@ -43,6 +51,8 @@ export interface Door {
   inside: Point;
   /** Point inside the doorway where characters fade out. */
   outside: Point;
+  /** Set when the door leads to another room on camera; otherwise it leads off camera. */
+  to?: ExitLink;
 }
 
 export interface Elevator extends Rect {
@@ -111,7 +121,7 @@ export class Room {
 
     for (const exit of data.nav.exits) {
       if (exit.kind === 'door') {
-        this.doors.push({ id: exit.id, inside: this.nearestWalkable(exit.threshold), outside: exit.base });
+        this.doors.push({ id: exit.id, inside: this.nearestWalkable(exit.threshold), outside: exit.base, to: data.links?.[exit.id] });
         continue;
       }
       const { x, y, w, h } = exit.bounds;
@@ -127,6 +137,21 @@ export class Room {
 
   get label() {
     return `Level ${this.level}`;
+  }
+
+  /** Doors that lead off camera (to the rest of the facility). */
+  get outerDoors() {
+    return this.doors.filter((door) => !door.to);
+  }
+
+  /** Doors that lead to another room on camera. */
+  get linkedDoors() {
+    return this.doors.filter((door) => door.to);
+  }
+
+  /** Whether people can enter or leave the facility from this room. */
+  get hasOuterExit() {
+    return !!this.elevator || this.outerDoors.length > 0;
   }
 
   /** Painted green on the nav map. */

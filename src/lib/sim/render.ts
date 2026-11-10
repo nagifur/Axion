@@ -1,9 +1,9 @@
-import type { Agent } from './agent';
-import type { Room } from './room';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, type Frame, type FrameName } from './sprites';
-import type { World } from './world';
+import type { Agent } from './agent.ts';
+import type { Room } from './room.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, type Frame, type FrameName } from './sprites.ts';
+import type { World } from './world.ts';
 
-/** Loaded images by name: "room", "character", and every prop file name (e.g. "bench"). */
+/** Loaded images by name: "room:<room id>", "character", and every prop file name (e.g. "bench"). */
 export type Assets = Record<string, HTMLImageElement>;
 
 export function loadAssets(urls: Record<string, string>): Promise<Assets> {
@@ -64,7 +64,7 @@ export class Renderer {
   private readonly canvas: Canvas;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly assets: Assets;
-  private readonly room: Room;
+  private room: Room;
   private readonly redEyeSheet: Canvas;
   private readonly litArrows?: Canvas;
   private readonly sheets = new Map<number, ScaledSheet>();
@@ -81,13 +81,19 @@ export class Renderer {
     if (lights) this.litArrows = recolor(lights, LIGHT_OFF, LIGHT_ON);
   }
 
+  /** Switches which room's camera is drawn. */
+  setRoom(room: Room) {
+    this.room = room;
+    this.resize();
+  }
+
   /** Renders at an integer multiple of the room size so pixels stay square and crisp. */
   resize() {
     const { width, height } = this.room;
     const ratio = window.devicePixelRatio || 1;
     const cssWidth = this.canvas.clientWidth || width;
     const scale = Math.max(1, Math.round((cssWidth * ratio) / width));
-    if (scale === this.pixelScale && this.canvas.width === width * scale) return;
+    if (scale === this.pixelScale && this.canvas.width === width * scale && this.canvas.height === height * scale) return;
     this.pixelScale = scale;
     this.canvas.width = width * scale;
     this.canvas.height = height * scale;
@@ -148,8 +154,8 @@ export class Renderer {
   }
 
   isVisible(agent: Agent, world: World) {
-    if (agent.alpha < 0.3) return false;
-    return agent.layer === 'room' || world.elevator.open > 0.4;
+    if (agent.room !== this.room || agent.alpha < 0.3) return false;
+    return agent.layer === 'room' || (world.elevatorFor(this.room)?.open ?? 0) > 0.4;
   }
 
   /** Pixel-accurate picking, with a small tolerance so thin limbs are still easy to click. */
@@ -220,18 +226,18 @@ export class Renderer {
   /** The elevator car, its sliding doors and arrow lights, drawn behind the room art. */
   private drawElevator(world: World, highlights: Map<Agent, string>) {
     const opening = this.room.elevator;
-    if (!opening) return;
+    const elevator = world.elevatorFor(this.room);
+    if (!opening || !elevator) return;
     const ctx = this.ctx;
     const door = this.assets[ELEVATOR_SPRITES.door];
     const lights = this.assets[ELEVATOR_SPRITES.lights];
-    const { elevator } = world;
 
     ctx.fillStyle = '#0b141b';
     ctx.fillRect(opening.x, opening.y, opening.w, opening.h);
     ctx.fillStyle = '#1d3340';
     ctx.fillRect(opening.x, opening.y, opening.w, 2);
 
-    for (const agent of world.agents.filter((a) => a.layer === 'inside').sort((a, b) => a.y - b.y)) {
+    for (const agent of world.agentsIn(this.room).filter((a) => a.layer === 'inside').sort((a, b) => a.y - b.y)) {
       this.drawAgent(agent, highlights.get(agent));
     }
 
@@ -269,7 +275,7 @@ export class Renderer {
 
     // Everything visible through openings in the room art is drawn first, then the room covers it.
     this.drawElevator(world, highlights);
-    ctx.drawImage(assets.room, 0, 0);
+    ctx.drawImage(assets[`room:${room.id}`], 0, 0);
 
     // Props and people share one depth-sorted pass, ordered by where they touch the floor.
     const drawables: { depth: number; draw: () => void }[] = room.props.map((prop) => {
@@ -287,7 +293,7 @@ export class Renderer {
         },
       };
     });
-    for (const agent of world.agents) {
+    for (const agent of world.agentsIn(room)) {
       if (agent.layer !== 'room') continue;
       drawables.push({ depth: agent.y, draw: () => this.drawAgent(agent, highlights.get(agent)) });
     }

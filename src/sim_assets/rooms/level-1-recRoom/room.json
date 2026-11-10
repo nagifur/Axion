@@ -1,6 +1,8 @@
 {
   "name": "Rec Room",
   "level": 1,
-  "camera": "CAM 1-02"
-  
+  "camera": "CAM 1-02",
+  "exits": {
+    "west": "level-1-offices"
+  }
 }

@@ -1,6 +1,6 @@
-import { Agent, enterThroughDoor, leaveRoom, phaseThroughWall, rideElevatorIn } from './agent';
-import type { SimCharacter, SimImpostor } from './roster';
-import type { Door, Room, Spot } from './room';
+import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './agent.ts';
+import type { SimCharacter, SimImpostor } from './roster.ts';
+import type { Door, Room, Spot } from './room.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -96,13 +96,14 @@ export class Elevator {
 
 export interface WorldOptions {
   roster: SimCharacter[];
-  room: Room;
+  rooms: Room[];
   now?: () => Date;
 }
 
 export interface WorldHooks {
   log?: (text: string, tone: LogTone) => void;
-  achieve?: (id: string) => void;
+  /** `room` is set for things that only count when seen on that room's camera. */
+  achieve?: (id: string, room?: Room) => void;
   removed?: (agent: Agent) => void;
 }
 
@@ -110,31 +111,50 @@ const weightedPick = <T extends { weight: number }>(items: T[]): T | undefined =
   let roll = Math.random() * items.reduce((sum, item) => sum + item.weight, 0);
   return items.find((item) => (roll -= item.weight) <= 0) ?? items.at(-1);
 };
+const pick = <T>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
+
+/** Average number of staff per room, by the viewer's local time. */
+const DENSITY = { night: 1, evening: 2.5, day: 3.5 };
+
+type Entrance =
+  | { kind: 'elevator'; room: Room; weight: number }
+  | { kind: 'door'; room: Room; door: Door; weight: number };
 
 export class World {
   time = 0;
   agents: Agent[] = [];
-  readonly elevator = new Elevator();
   readonly roster: SimCharacter[];
-  readonly room: Room;
+  readonly rooms: Room[];
   readonly now: () => Date;
   hooks: WorldHooks = {};
+  private readonly elevators = new Map<Room, Elevator>();
   /** Earliest time each off-camera character may come back. */
   private returnAt = new Map<string, number>();
   private nextArrival = 3;
 
   constructor(options: WorldOptions) {
     this.roster = options.roster;
-    this.room = options.room;
+    this.rooms = options.rooms;
     this.now = options.now ?? (() => new Date());
+    for (const room of this.rooms) {
+      if (room.elevator) this.elevators.set(room, new Elevator());
+    }
   }
 
   log(text: string, tone: LogTone = 'default') {
     this.hooks.log?.(text, tone);
   }
 
-  achieve(id: string) {
-    this.hooks.achieve?.(id);
+  achieve(id: string, room?: Room) {
+    this.hooks.achieve?.(id, room);
+  }
+
+  room(id: string): Room | undefined {
+    return this.rooms.find((room) => room.id === id);
+  }
+
+  elevatorFor(room: Room): Elevator | undefined {
+    return this.elevators.get(room);
   }
 
   isNight() {
@@ -142,11 +162,11 @@ export class World {
     return hour < 6;
   }
 
-  /** How many staff should be on camera, following the viewer's local time. */
+  /** How many staff should be around in total, following the viewer's local time. */
   targetPopulation() {
     const hour = this.now().getHours();
-    const target = hour < 6 ? 2 : hour < 8 || hour >= 20 ? 4 : 6;
-    return Math.min(target, this.roster.length);
+    const density = hour < 6 ? DENSITY.night : hour < 8 || hour >= 20 ? DENSITY.evening : DENSITY.day;
+    return Math.min(Math.max(1, Math.round(density * this.rooms.length)), this.roster.length);
   }
 
   presentCount() {
@@ -157,32 +177,62 @@ export class World {
     return this.agents.some((agent) => !agent.impostor && agent.character.id === characterId);
   }
 
-  freeSpot(kind: Spot['kind']): Spot | undefined {
+  agentsIn(room: Room) {
+    return this.agents.filter((agent) => agent.room === room);
+  }
+
+  freeSpot(room: Room, kind: Spot['kind']): Spot | undefined {
     const taken = new Set(this.agents.map((agent) => agent.spot?.id));
-    const free = this.room.spots.filter((spot) => spot.kind === kind && !taken.has(spot.id));
+    const free = room.spots.filter((spot) => spot.kind === kind && !taken.has(spot.id));
     return free[Math.floor(Math.random() * free.length)];
   }
 
   findChatPartner(agent: Agent): Agent | undefined {
     if (agent.leaving) return undefined;
     const candidates = this.agents.filter((other) =>
-      other !== agent && !other.busy && !other.removed && Math.abs(other.x - agent.x) < 260);
+      other !== agent && other.room === agent.room && !other.busy && !other.removed && Math.abs(other.x - agent.x) < 260);
     return candidates[Math.floor(Math.random() * candidates.length)];
   }
 
-  /** Puts the first few people on camera immediately so the feed never starts empty. */
+  /**
+   * First door to take from `room` to reach the nearest room with a way out of the facility.
+   * Null if `room` already has one. With `doorsOnly`, elevators don't count as a way out.
+   */
+  doorTowardExit(room: Room, doorsOnly = false): Door | null {
+    const hasExit = (candidate: Room) => (doorsOnly ? candidate.outerDoors.length > 0 : candidate.hasOuterExit);
+    if (hasExit(room)) return null;
+    const firstDoor = new Map<Room, Door>();
+    const queue: Room[] = [room];
+    const seen = new Set([room]);
+    while (queue.length) {
+      const current = queue.shift()!;
+      for (const door of current.linkedDoors) {
+        const next = this.room(door.to!.room);
+        if (!next || seen.has(next)) continue;
+        seen.add(next);
+        firstDoor.set(next, firstDoor.get(current) ?? door);
+        if (hasExit(next)) return firstDoor.get(next)!;
+        queue.push(next);
+      }
+    }
+    return null;
+  }
+
+  /** Puts people around the facility immediately so the cameras never start empty. */
   populate() {
     const count = Math.max(1, this.targetPopulation() - 1);
     for (let i = 0; i < count; i++) {
       const character = this.pickArrival();
       if (!character) break;
-      this.spawn(character, this.room.randomFloorPoint());
+      const room = pick(this.rooms);
+      this.spawn(character, room, room.randomFloorPoint());
     }
   }
 
-  spawn(character: SimCharacter, at: { x: number; y: number }, impostor?: SimImpostor) {
-    const agent = new Agent(character, at, impostor);
+  spawn(character: SimCharacter, room: Room, at: { x: number; y: number }, impostor?: SimImpostor) {
+    const agent = new Agent(character, room, at, impostor);
     agent.arrivedAt = this.time;
+    agent.enteredRoomAt = this.time;
     this.agents.push(agent);
     return agent;
   }
@@ -193,43 +243,67 @@ export class World {
     return weightedPick(candidates);
   }
 
-  arriveByElevator(character: SimCharacter, impostor?: SimImpostor) {
-    const agent = this.spawn(character, this.room.elevator!.inside, impostor);
+  arriveByElevator(character: SimCharacter, room: Room, impostor?: SimImpostor) {
+    const agent = this.spawn(character, room, room.elevator!.inside, impostor);
     agent.layer = 'inside';
     agent.facing = 'front';
-    agent.setPlan(this, [rideElevatorIn(this.elevator.request('arrive', agent))]);
-    this.log(`${character.name} arrived on ${this.room.label} by elevator.`, 'muted');
+    agent.setPlan(this, [rideElevatorIn(this.elevatorFor(room)!.request('arrive', agent))]);
+    this.log(`${character.name} arrived on ${room.label} by elevator.`, 'muted');
     return agent;
   }
 
-  arriveByDoor(character: SimCharacter, door: Door, impostor?: SimImpostor) {
-    const agent = this.spawn(character, door.outside, impostor);
+  arriveByDoor(character: SimCharacter, room: Room, door: Door, impostor?: SimImpostor) {
+    const agent = this.spawn(character, room, door.outside, impostor);
     agent.alpha = 0;
     agent.setPlan(this, [enterThroughDoor(door)]);
-    this.log(`${character.name} entered from the ${door.id} corridor.`, 'muted');
+    this.log(`${character.name} entered the ${room.name} from the ${door.id} corridor.`, 'muted');
     return agent;
   }
 
-  arriveThroughWall(character: SimCharacter) {
-    const { x } = this.room.randomFloorPoint();
-    const agent = this.spawn(character, { x, y: (this.room.topFloorY(x) ?? this.room.height) - 3 });
+  arriveThroughWall(character: SimCharacter, room: Room) {
+    const { x } = room.randomFloorPoint();
+    const agent = this.spawn(character, room, { x, y: (room.topFloorY(x) ?? room.height) - 3 });
     agent.alpha = 0;
     agent.setPlan(this, [phaseThroughWall('in')]);
-    this.log(`${character.name} drifted in through the wall.`, 'muted');
+    this.log(`${character.name} drifted into the ${room.name} through the wall.`, 'muted');
     return agent;
   }
 
-  /** Brings a new person (or a disguised impostor) onto the floor through one of the room's exits. */
+  /** Brings a new person (or a disguised impostor) into the facility through one of its ways in. */
   arrive(character = this.pickArrival(), impostor?: SimImpostor) {
     if (!character) return undefined;
-    const { doors, elevator } = this.room;
     const ghost = character.behavior.ghost && !impostor;
-    if ((ghost && Math.random() < 0.4) || (!doors.length && !elevator)) return this.arriveThroughWall(character);
-    // Don't stack arrivals on a busy elevator when a door is available.
-    if (elevator && (!doors.length || (!this.elevator.busy && Math.random() < 0.6))) {
-      return this.arriveByElevator(character, impostor);
+    const entrances: Entrance[] = [];
+    for (const room of this.rooms) {
+      // Don't stack arrivals on an elevator that is already busy.
+      const elevator = this.elevatorFor(room);
+      if (elevator) entrances.push({ kind: 'elevator', room, weight: elevator.busy ? 0.15 : 1.5 });
+      for (const door of room.outerDoors) entrances.push({ kind: 'door', room, door, weight: 1 });
     }
-    return this.arriveByDoor(character, doors[Math.floor(Math.random() * doors.length)], impostor);
+
+    const entrance = weightedPick(entrances);
+    if (!entrance || (ghost && Math.random() < 0.4)) return this.arriveThroughWall(character, entrance?.room ?? pick(this.rooms));
+    if (entrance.kind === 'elevator') return this.arriveByElevator(character, entrance.room, impostor);
+    return this.arriveByDoor(character, entrance.room, entrance.door, impostor);
+  }
+
+  /** Moves an agent through a door that leads to another room on camera. */
+  transfer(agent: Agent, door: Door) {
+    const room = door.to && this.room(door.to.room);
+    const arrival = room?.doors.find((other) => other.id === door.to!.door);
+    if (!room || !arrival) {
+      this.remove(agent, door.id);
+      return;
+    }
+    agent.room = room;
+    agent.x = arrival.outside.x;
+    agent.y = arrival.outside.y;
+    agent.alpha = 0;
+    agent.layer = 'room';
+    agent.enteredRoomAt = this.time;
+    // People who were on their way out keep heading for the exit.
+    const onward = agent.leaving ? leaveFacility(agent, this, agent.revealed) : [];
+    agent.setPlan(this, [enterThroughDoor(arrival), ...onward]);
   }
 
   remove(agent: Agent, via: string) {
@@ -238,18 +312,18 @@ export class World {
     agent.setPlan(this, []);
     this.agents = this.agents.filter((other) => other !== agent);
     const name = agent.character.name;
+    const { room } = agent;
 
     if (agent.impostor) {
-      const level = this.room.label;
-      if (agent.revealed) this.log(`${agent.impostor.name} escaped ${level}. Containment team dispatched.`, 'alert');
-      else this.log(`Duplicate badge signal for ${name} lost. Subject left ${level} unidentified.`, 'warn');
+      if (agent.revealed) this.log(`${agent.impostor.name} escaped ${room.label}. Containment team dispatched.`, 'alert');
+      else this.log(`Duplicate badge signal for ${name} lost. Subject left ${room.label} unidentified.`, 'warn');
     } else {
       this.returnAt.set(agent.character.id, this.time + 45 + Math.random() * 120);
       if (via === 'elevator') this.log(`${name} took the elevator.`, 'muted');
       else if (via === 'wall') {
-        this.log(`${name} phased through the wall.`, 'muted');
-        this.achieve('ghost-story');
-      } else this.log(`${name} left through the ${via} door.`, 'muted');
+        this.log(`${name} phased through the wall of the ${room.name}.`, 'muted');
+        this.achieve('ghost-story', room);
+      } else this.log(`${name} left the ${room.name} through the ${via} door.`, 'muted');
     }
     this.hooks.removed?.(agent);
   }
@@ -258,11 +332,10 @@ export class World {
   interact(agent: Agent): 'revealed' | 'woke' | 'verified' | null {
     if (agent.impostor && !agent.revealed) {
       agent.revealed = true;
-      agent.leaving = true;
       agent.say('!', 3);
       this.log(`Shapeshifter identified: ${agent.impostor.name} "${agent.impostor.nickname}" was posing as ${agent.character.name}!`, 'alert');
       this.achieve('doppelganger');
-      agent.setPlan(this, leaveRoom(agent, this, true));
+      agent.setPlan(this, leaveFacility(agent, this, true));
       return 'revealed';
     }
 
@@ -284,11 +357,11 @@ export class World {
 
   update(dt: number) {
     this.time += dt;
-    this.elevator.update(this, dt);
+    for (const elevator of this.elevators.values()) elevator.update(this, dt);
 
     this.nextArrival -= dt;
     if (this.nextArrival <= 0) {
-      this.nextArrival = 6 + Math.random() * 10;
+      this.nextArrival = 4 + Math.random() * 8;
       if (this.presentCount() < this.targetPopulation()) this.arrive();
     }
 

@@ -1,7 +1,7 @@
 // What is inside each shared sprite in src/sim_assets/characters and src/sim_assets/props.
 // Coordinates are pixels relative to the sprite's top-left corner, as drawn facing its default way.
 
-import type { Rect } from './navMap';
+import type { Rect } from './navMap.ts';
 
 export type Facing = 'left' | 'right' | 'front' | 'back';
 

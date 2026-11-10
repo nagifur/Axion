@@ -1,6 +1,6 @@
-import { leaveRoom } from './agent';
-import type { SimCharacter, SimImpostor } from './roster';
-import type { World } from './world';
+import { leaveFacility } from './agent.ts';
+import type { SimCharacter, SimImpostor } from './roster.ts';
+import type { World } from './world.ts';
 
 export interface Achievement {
   id: string;
@@ -16,6 +16,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'ghost-story', title: 'Ghost Story', description: 'See someone leave without using a door.' },
   { id: 'full-roster', title: 'Full Roster', description: 'Identify every employee that works on Level 1.' },
   { id: 'night-shift', title: 'Night Shift', description: 'Watch the feed between midnight and 5 AM.' },
+  { id: 'channel-surfer', title: 'Channel Surfer', description: 'Check every camera feed.' },
 ];
 
 const pick = <T>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
@@ -58,7 +59,7 @@ export class EventDirector {
       if (!agent.impostor || agent.revealed) continue;
       // The disguise slips now and then: the eyes flash red for a moment.
       if (Math.random() < dt * 0.12) agent.eyeFlash = 0.35;
-      if (world.time > agent.expiresAt && !agent.leaving) agent.setPlan(world, leaveRoom(agent, world));
+      if (world.time > agent.expiresAt && !agent.leaving) agent.setPlan(world, leaveFacility(agent, world));
     }
   }
 
@@ -79,8 +80,13 @@ export class EventDirector {
 
     const agent = world.arrive(victim, impostor);
     if (!agent) return false;
-    agent.expiresAt = world.time + range(80, 120);
-    world.log(`A1: Duplicate badge scan. ID ${victim.employeeID} (${victim.name}) is already on ${world.room.label}.`, 'warn');
+    // Longer than in a single room: the duplicate may wander between cameras.
+    agent.expiresAt = world.time + range(120, 180);
+    const { room } = agent;
+    world.log(
+      `A1: Duplicate badge scan at ${room.camera} (${room.name}). ID ${victim.employeeID} (${victim.name}) is already on ${room.label}.`,
+      'warn',
+    );
     return true;
   }
 }

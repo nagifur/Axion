@@ -6,11 +6,11 @@ import { getCollection } from 'astro:content';
 import type { ImageMetadata } from 'astro';
 import { toSimCharacter, toSimImpostor, type SimCharacter, type SimImpostor } from '../lib/sim/roster';
 import type { MonitorConfig } from '../lib/sim/monitor';
-import { loadRoom } from '../lib/sim/roomLoader';
+import { loadFacility } from '../lib/sim/roomLoader';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
 
-// Folder in src/sim_assets/rooms/ shown on this camera.
-const ROOM_ID = 'level-1-offices';
+// Room folder in src/sim_assets/rooms/ shown first, before the viewer picks a camera.
+const INITIAL_ROOM = 'level-1-offices';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -24,9 +24,28 @@ const profileImages = import.meta.glob<ImageModule>(
 const roomImages = import.meta.glob<ImageModule>('../sim_assets/rooms/*/room.png', { eager: true });
 const propImages = import.meta.glob<ImageModule>('../sim_assets/props/*.png', { eager: true });
 
-const room = await loadRoom(ROOM_ID);
-const roomImage = roomImages[`../sim_assets/rooms/${ROOM_ID}/room.png`]?.default;
-if (!roomImage) throw new Error(`Missing src/sim_assets/rooms/${ROOM_ID}/room.png`);
+const rooms = await loadFacility();
+const initialRoom = rooms.find((room) => room.id === INITIAL_ROOM) ?? rooms[0];
+if (!initialRoom) throw new Error('No rooms found in src/sim_assets/rooms/');
+// Every camera is drawn at the same pixel scale; narrower rooms sit centred on the screen.
+const maxRoomWidth = Math.max(...rooms.map((room) => room.width));
+const roomAssets = Object.fromEntries(rooms.map((room) => {
+  const image = roomImages[`../sim_assets/rooms/${room.id}/room.png`]?.default;
+  if (!image) throw new Error(`Missing src/sim_assets/rooms/${room.id}/room.png`);
+  return [`room:${room.id}`, image.src];
+}));
+
+// Camera buttons are laid out like a floor plan: one row per level, rooms west to east.
+const levels = [...new Set(rooms.map((room) => room.level))].map((level) => {
+  const row = rooms.filter((room) => room.level === level);
+  return {
+    level,
+    rooms: row.map((room, index) => ({
+      ...room,
+      linkedToNext: index < row.length - 1 && Object.values(room.links).some((link) => link.room === row[index + 1].id),
+    })),
+  };
+});
 
 // Small thumbnails for the file panel, matched like profile pages do (same name, any extension).
 async function thumbnail(folder: string, file: string) {
@@ -56,9 +75,10 @@ const impostors = (await Promise.all(entities.map(async (entry) => {
 const config: MonitorConfig = {
   roster,
   impostors,
-  room,
+  rooms,
+  initialRoom: initialRoom.id,
   assets: {
-    room: roomImage.src,
+    ...roomAssets,
     character: characterSheet.src,
     ...Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src])),
   },
@@ -85,29 +105,61 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     <header class="card article-header">
       <h1>Live Monitoring <span class="cursor" aria-hidden="true"></span></h1>
       <p>
-        Monitoring sector relay of the Level {room.level} security cameras. Select anyone on the feed to pull up
-        their database file. Report anything unusual. All activity on this feed is logged by A1.
+        Monitoring sector relay of the facility security cameras. Switch between feeds and select anyone on
+        camera to pull up their database file. Report anything unusual. All activity is logged by A1.
       </p>
     </header>
 
     <section class="card monitor-feed" aria-labelledby="monitor-feed-title">
       <div class="monitor-hud">
         <span class="monitor-rec"><span class="monitor-rec-dot" aria-hidden="true"></span>Rec</span>
-        <h2 id="monitor-feed-title" class="monitor-cam">{room.camera} · Level {room.level} · {room.name}</h2>
+        <h2 id="monitor-feed-title" class="monitor-cam" data-monitor-cam-title>
+          {initialRoom.camera} · Level {initialRoom.level} · {initialRoom.name}
+        </h2>
         <span class="monitor-alert" data-monitor-alert>All clear</span>
         <time class="monitor-clock" data-monitor-clock>--:--:--</time>
       </div>
 
-      <div class="monitor-screen">
-        <canvas
-          data-monitor-canvas
-          width={room.width}
-          height={room.height}
-          style={`aspect-ratio:${room.width} / ${room.height}`}
-          role="img"
-          aria-label={`Live camera feed of the Level ${room.level} ${room.name.toLowerCase()}. Use the name tags to open personnel files.`}
-        ></canvas>
-        <div class="monitor-tags" data-monitor-tags></div>
+      <nav class="monitor-map" aria-label="Camera feeds">
+        {levels.map(({ level, rooms: row }) => (
+          <div class="monitor-map-level">
+            <span class="monitor-map-label">L{level}</span>
+            <div class="monitor-map-row">
+              {row.map((room) => (
+                <>
+                  <button
+                    type="button"
+                    class:list={['monitor-map-room', { 'is-active': room.id === initialRoom.id }]}
+                    style={`flex-grow:${room.width}`}
+                    data-monitor-camera={room.id}
+                    aria-pressed={String(room.id === initialRoom.id)}
+                  >
+                    <span class="monitor-map-cam">{room.camera}</span>
+                    <span class="monitor-map-name">{room.name}</span>
+                    <span class="monitor-map-count" title="People on camera">
+                      <span data-monitor-camera-count>0</span><span class="sr-only"> on camera</span>
+                    </span>
+                  </button>
+                  {room.linkedToNext && <span class="monitor-map-door" aria-hidden="true"></span>}
+                </>
+              ))}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      <div class="monitor-screen" data-monitor-screen>
+        <div class="monitor-stage" data-monitor-stage style={`width:${(initialRoom.width / maxRoomWidth) * 100}%`}>
+          <canvas
+            data-monitor-canvas
+            width={initialRoom.width}
+            height={initialRoom.height}
+            style={`aspect-ratio:${initialRoom.width} / ${initialRoom.height}`}
+            role="img"
+            aria-label={`Live camera feed of the Level ${initialRoom.level} ${initialRoom.name}. Use the name tags to open personnel files.`}
+          ></canvas>
+          <div class="monitor-tags" data-monitor-tags></div>
+        </div>
         <div class="monitor-crt" aria-hidden="true"></div>
         <p class="monitor-status" data-monitor-status>Connecting to feed…</p>
         <noscript><p class="monitor-status">Feed requires JavaScript</p></noscript>
@@ -189,10 +241,52 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   body.animations-off :is(.monitor-rec-dot, .monitor-alert){ animation:none }
   @keyframes monitor-blink{ 50%{ opacity:0.25 } }
 
+  .monitor-map{ display:flex; flex-direction:column; gap:6px }
+  .monitor-map-level{ display:flex; align-items:stretch; gap:8px }
+  .monitor-map-label{ align-self:center; min-width:2.2em; color:var(--muted); font-size:0.68rem; letter-spacing:0.14em }
+  .monitor-map-row{ flex:1; display:flex; align-items:stretch; min-width:0 }
+  .monitor-map-room{
+    flex-basis:0; min-width:0; display:grid; grid-template-columns:1fr auto; align-items:center; gap:0 8px;
+    padding:6px 10px; border:1px solid var(--line-soft); border-radius:var(--radius-sm);
+    background:color-mix(in srgb, var(--panel) 85%, #000); color:var(--muted);
+    font:inherit; text-align:left; cursor:pointer; transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .monitor-map-room:hover{ color:var(--text); border-color:var(--neon-cyan) }
+  .monitor-map-room:focus-visible{ outline:2px solid var(--neon-cyan); outline-offset:2px }
+  .monitor-map-room.is-active{
+    color:var(--text); border-color:var(--neon-cyan);
+    background:color-mix(in srgb, var(--neon-cyan) 14%, var(--panel));
+    box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--neon-cyan) 40%, transparent);
+  }
+  .monitor-map-cam{ font-size:0.62rem; letter-spacing:0.14em; color:var(--neon-cyan) }
+  .monitor-map-name{ grid-column:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.78rem }
+  .monitor-map-count{
+    grid-column:2; grid-row:1 / span 2; min-width:1.8em; padding:2px 6px; border-radius:var(--radius-pill);
+    background:rgba(5, 8, 13, 0.6); color:var(--text); font-size:0.75rem; text-align:center; font-variant-numeric:tabular-nums;
+  }
+  /* A short corridor between rooms whose doors connect. */
+  .monitor-map-door{ flex:0 0 10px; align-self:center; height:6px; background:var(--line-soft) }
+
+  .monitor-screen.is-switching::before{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.5) 0 2px, rgba(120, 140, 150, 0.35) 2px 3px, transparent 3px 5px),
+      #0a1016;
+    animation:monitor-static 0.22s steps(4) forwards;
+  }
+  body.animations-off .monitor-screen.is-switching::before{ display:none }
+  @keyframes monitor-static{
+    0%{ opacity:1; background-position:0 0, 0 0 }
+    50%{ background-position:0 7px, 3px 0 }
+    100%{ opacity:0; background-position:0 2px, 1px 0 }
+  }
+
   .monitor-screen{
     position:relative; overflow:hidden;
     background:#05080d; border:2px solid var(--line-soft); border-radius:var(--radius-sm);
   }
+  .monitor-stage{ position:relative; margin:0 auto }
   .monitor-screen canvas{
     display:block; width:100%; height:auto;
     image-rendering:pixelated; touch-action:manipulation;
@@ -257,6 +351,11 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-file-stats > div{ display:flex; justify-content:space-between; gap:12px; padding:4px 8px; background:var(--stat-cell); border-radius:var(--radius-sm) }
   .monitor-file-stats dt{ color:var(--muted); font-size:0.75rem; letter-spacing:0.08em; text-transform:uppercase }
   .monitor-file-stats dd{ margin:0; text-align:right }
+  .monitor-file-jump{
+    display:block; margin:4px 0 0 auto; padding:2px 8px; border:1px solid var(--neon-cyan); border-radius:var(--radius-sm);
+    background:none; color:var(--neon-cyan); font:inherit; font-size:0.72rem; cursor:pointer;
+  }
+  .monitor-file-jump:hover{ background:color-mix(in srgb, var(--neon-cyan) 16%, transparent) }
   .monitor-file-warning{ margin:0; padding:6px 8px; border:1px solid var(--neon-red); color:var(--neon-red); font-size:0.8rem }
   .monitor-file-traits{ display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none }
   .monitor-file-traits li{ padding:2px 8px; border:1px solid var(--line-soft); border-radius:var(--radius-pill); font-size:0.72rem }

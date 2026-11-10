@@ -1,25 +1,32 @@
-import { nap, trip, type Agent } from './agent';
-import { ACHIEVEMENTS, EventDirector } from './events';
-import { Renderer, loadAssets } from './render';
-import type { SimCharacter, SimImpostor } from './roster';
-import { Room, type RoomData } from './room';
-import { World, type LogTone } from './world';
+import { nap, trip, type Agent } from './agent.ts';
+import { ACHIEVEMENTS, EventDirector } from './events.ts';
+import { Renderer, loadAssets } from './render.ts';
+import type { SimCharacter, SimImpostor } from './roster.ts';
+import { Room, type RoomData } from './room.ts';
+import { World, type LogTone } from './world.ts';
 
 export interface MonitorConfig {
   roster: SimCharacter[];
   impostors: SimImpostor[];
-  room: RoomData;
-  /** Image URLs by name: "room", "character", and every prop file name. */
+  /** Every room on camera, in floor-plan order. */
+  rooms: RoomData[];
+  /** Room shown when nobody has picked a camera yet. */
+  initialRoom: string;
+  /** Image URLs by name: "room:<room id>", "character", and every prop file name. */
   assets: Record<string, string>;
 }
 
 interface Progress {
   achievements: string[];
   identified: string[];
+  /** Cameras the viewer has looked at, and the one they last had open. */
+  cameras: string[];
+  camera?: string;
 }
 
 const STORAGE_KEY = 'axion-monitor';
 const MAX_LOG_LINES = 40;
+const SWITCH_STATIC_MS = 220;
 
 function loadProgress(): Progress {
   try {
@@ -27,9 +34,11 @@ function loadProgress(): Progress {
     return {
       achievements: Array.isArray(stored.achievements) ? stored.achievements : [],
       identified: Array.isArray(stored.identified) ? stored.identified : [],
+      cameras: Array.isArray(stored.cameras) ? stored.cameras : [],
+      camera: typeof stored.camera === 'string' ? stored.camera : undefined,
     };
   } catch {
-    return { achievements: [], identified: [] };
+    return { achievements: [], identified: [], cameras: [] };
   }
 }
 
@@ -74,13 +83,20 @@ export function initMonitor(root: HTMLElement): () => void {
   const tagsToggle = root.querySelector<HTMLButtonElement>('[data-monitor-toggle-tags]');
   const pauseToggle = root.querySelector<HTMLButtonElement>('[data-monitor-toggle-pause]');
   const debugPanel = root.querySelector<HTMLElement>('[data-monitor-debug]');
+  const screen = root.querySelector<HTMLElement>('[data-monitor-screen]');
+  const stage = root.querySelector<HTMLElement>('[data-monitor-stage]');
+  const camTitle = root.querySelector<HTMLElement>('[data-monitor-cam-title]');
+  const cameraButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-camera]')];
 
-  const room = new Room(config.room);
-  const world = new World({ roster: config.roster, room });
+  const rooms = config.rooms.map((data) => new Room(data));
+  const world = new World({ roster: config.roster, rooms });
   const director = new EventDirector(config.impostors);
   const progress = loadProgress();
   const unlocked = new Set(progress.achievements);
   const identified = new Set(progress.identified);
+  const camerasSeen = new Set(progress.cameras);
+  const maxRoomWidth = Math.max(...rooms.map((room) => room.width));
+  let viewed = world.room(progress.camera ?? '') ?? world.room(config.initialRoom) ?? rooms[0];
 
   let disposed = false;
   let raf = 0;
@@ -122,9 +138,10 @@ export function initMonitor(root: HTMLElement): () => void {
     }
   };
 
-  const achieve = (id: string) => {
+  const achieve = (id: string, room?: Room) => {
     const achievement = ACHIEVEMENTS.find((item) => item.id === id);
-    if (!achievement || unlocked.has(id)) return;
+    // Some directives only count when they happen on the camera being watched.
+    if (!achievement || unlocked.has(id) || (room && room !== viewed)) return;
     unlocked.add(id);
     progress.achievements = [...unlocked];
     saveProgress(progress);
@@ -135,6 +152,58 @@ export function initMonitor(root: HTMLElement): () => void {
       toast.hidden = false;
       window.clearTimeout(toastTimer);
       toastTimer = window.setTimeout(() => { toast.hidden = true; }, 4000);
+    }
+  };
+
+  // --- Cameras -------------------------------------------------------------
+
+  let staticTimer = 0;
+
+  const switchCamera = (room: Room) => {
+    const changed = room !== viewed;
+    viewed = room;
+    // Same pixel scale on every camera, so characters don't change size between rooms.
+    if (stage) stage.style.width = `${(room.width / maxRoomWidth) * 100}%`;
+    canvas.style.aspectRatio = `${room.width} / ${room.height}`;
+    if (changed) {
+      hovered = null;
+      renderer?.setRoom(room);
+      if (screen) {
+        // A burst of static, like a real CCTV feed changing channel.
+        screen.classList.remove('is-switching');
+        void screen.offsetWidth;
+        screen.classList.add('is-switching');
+        window.clearTimeout(staticTimer);
+        staticTimer = window.setTimeout(() => screen.classList.remove('is-switching'), SWITCH_STATIC_MS);
+      }
+    }
+    canvas.setAttribute('aria-label', `Live camera feed of the ${room.label} ${room.name}. Use the name tags to open personnel files.`);
+    if (camTitle) camTitle.textContent = `${room.camera} · ${room.label} · ${room.name}`;
+    for (const button of cameraButtons) {
+      const active = button.dataset.monitorCamera === room.id;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
+
+    progress.camera = room.id;
+    camerasSeen.add(room.id);
+    progress.cameras = [...camerasSeen];
+    saveProgress(progress);
+    if (rooms.every((other) => camerasSeen.has(other.id))) achieve('channel-surfer');
+  };
+
+  const onCameraClick = (event: MouseEvent) => {
+    const id = (event.currentTarget as HTMLElement).dataset.monitorCamera;
+    const room = id && world.room(id);
+    if (room) switchCamera(room);
+  };
+  for (const button of cameraButtons) button.addEventListener('click', onCameraClick);
+
+  const updateCameraCounts = () => {
+    for (const button of cameraButtons) {
+      const room = world.room(button.dataset.monitorCamera ?? '');
+      const count = button.querySelector('[data-monitor-camera-count]');
+      if (room && count) count.textContent = String(world.agentsIn(room).length);
     }
   };
 
@@ -151,7 +220,8 @@ export function initMonitor(root: HTMLElement): () => void {
   const renderFile = (agent: Agent | null) => {
     if (!fileNode) return;
     const twin = agent ? hasTwin(agent) : false;
-    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}` : '';
+    const onScreen = agent ? agent.room === viewed : false;
+    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}` : '';
     if (key === fileKey) {
       if (agent && activityNode) activityNode.textContent = agent.removed ? 'Off camera' : agent.activity;
       return;
@@ -198,6 +268,15 @@ export function initMonitor(root: HTMLElement): () => void {
       stat('Species', character.species);
     }
     activityNode = stat('Status', agent.removed ? 'Off camera' : agent.activity);
+    if (!agent.removed) {
+      const location = stat('Location', `${agent.room.name} · ${agent.room.camera}`);
+      if (!onScreen) {
+        const jump = el('button', 'monitor-file-jump', `View ${agent.room.camera} →`);
+        jump.type = 'button';
+        jump.addEventListener('click', () => switchCamera(agent.room));
+        location.append(jump);
+      }
+    }
 
     const parts: HTMLElement[] = [head, stats];
     if (twin) parts.push(el('p', 'monitor-file-warning', 'A1: Duplicate badge signal detected for this ID.'));
@@ -281,8 +360,8 @@ export function initMonitor(root: HTMLElement): () => void {
       .sort((a, b) => b.agent.y - a.agent.y);
     const placed: { left: number; right: number; top: number; bottom: number }[] = [];
     for (const tag of sized) {
-      const x = (tag.head.x / room.width) * layerWidth;
-      let bottom = (Math.max(8, tag.head.y - 1) / room.height) * layerHeight;
+      const x = (tag.head.x / viewed.width) * layerWidth;
+      let bottom = (Math.max(8, tag.head.y - 1) / viewed.height) * layerHeight;
       for (let attempt = 0; attempt < 8; attempt++) {
         const left = x - tag.width / 2;
         const right = x + tag.width / 2;
@@ -301,8 +380,8 @@ export function initMonitor(root: HTMLElement): () => void {
   const toRoom = (event: PointerEvent | MouseEvent) => {
     const rect = canvas.getBoundingClientRect();
     return {
-      x: ((event.clientX - rect.left) / rect.width) * room.width,
-      y: ((event.clientY - rect.top) / rect.height) * room.height,
+      x: ((event.clientX - rect.left) / rect.width) * viewed.width,
+      y: ((event.clientY - rect.top) / rect.height) * viewed.height,
     };
   };
 
@@ -340,7 +419,8 @@ export function initMonitor(root: HTMLElement): () => void {
 
   if (debugPanel && new URLSearchParams(location.search).has('debug')) {
     debugPanel.hidden = false;
-    const randomAgent = () => world.agents.filter((agent) => !agent.busy)[0];
+    // Debug actions pick someone on the camera being watched.
+    const randomAgent = () => world.agentsIn(viewed).filter((agent) => !agent.busy)[0];
     const actions: Record<string, () => void> = {
       impostor: () => { if (!director.triggerImpostor(world)) log('Debug: no impostor possible right now.', 'muted'); },
       arrive: () => { if (!world.arrive()) log('Debug: everyone is already on the floor.', 'muted'); },
@@ -351,8 +431,11 @@ export function initMonitor(root: HTMLElement): () => void {
       reset: () => {
         unlocked.clear();
         identified.clear();
+        camerasSeen.clear();
+        camerasSeen.add(viewed.id);
         progress.achievements = [];
         progress.identified = [];
+        progress.cameras = [...camerasSeen];
         saveProgress(progress);
         renderAchievements();
       },
@@ -374,6 +457,7 @@ export function initMonitor(root: HTMLElement): () => void {
       alertNode.textContent = duplicate ? 'Duplicate badge' : 'All clear';
       alertNode.classList.toggle('is-alert', duplicate);
     }
+    updateCameraCounts();
   };
   tick();
   const clockTimer = window.setInterval(tick, 1000);
@@ -387,6 +471,7 @@ export function initMonitor(root: HTMLElement): () => void {
   };
   renderAchievements();
   renderFile(null);
+  switchCamera(viewed);
 
   const resizeObserver = new ResizeObserver(() => renderer?.resize());
   resizeObserver.observe(canvas);
@@ -412,10 +497,11 @@ export function initMonitor(root: HTMLElement): () => void {
 
   loadAssets(config.assets).then((assets) => {
     if (disposed) return;
-    renderer = new Renderer(canvas, assets, room);
+    renderer = new Renderer(canvas, assets, viewed);
     renderer.resize();
     world.populate();
-    log(`A1oS camera link established: ${room.camera}, ${room.label} ${room.name}.`, 'ok');
+    updateCameraCounts();
+    log(`A1oS camera link established: ${rooms.length} feed${rooms.length === 1 ? '' : 's'} online.`, 'ok');
     if (status) status.hidden = true;
     root.classList.add('is-live');
     last = performance.now();
@@ -430,9 +516,11 @@ export function initMonitor(root: HTMLElement): () => void {
     cancelAnimationFrame(raf);
     window.clearInterval(clockTimer);
     window.clearTimeout(toastTimer);
+    window.clearTimeout(staticTimer);
     resizeObserver.disconnect();
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerleave', onPointerLeave);
     canvas.removeEventListener('click', onClick);
+    for (const button of cameraButtons) button.removeEventListener('click', onCameraClick);
   };
 }
