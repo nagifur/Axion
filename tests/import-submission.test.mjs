@@ -35,7 +35,7 @@ test("accepts a well-formed submission", async () => {
 test("rejects paths outside the expected layout", async () => {
   const { problems } = await checkSubmissionZip(
     await zipOf({
-      "src/content/entities/x.md": "ok",
+      "src/content/entities/x.md": "---\ntitle: T\n---\nok",
       "../../evil.md": "x",
       "src/pages/index.astro": "x",
       "src/assets/images/x/run.sh": "x",
@@ -57,6 +57,26 @@ test("rejects unsafe markdown and fake images", async () => {
   assert.match(problems.join("\n"), /not a png image/);
 });
 
+test("rejects frontmatter that would crash the site", async () => {
+  const { problems } = await checkSubmissionZip(
+    await zipOf({
+      "src/content/personnel/bad-quote.md": enc('---\ntitle: Bluejay\nheight: "4\'3""\n---\nBio'),
+      "src/content/personnel/no-frontmatter.md": enc("Just a bio"),
+    }),
+  );
+  assert.match(problems.join("\n"), /bad-quote\.md: invalid frontmatter YAML/);
+  assert.match(problems.join("\n"), /no-frontmatter\.md: missing frontmatter/);
+});
+
+test("accepts quoted frontmatter containing quotes and colons", async () => {
+  const { problems } = await checkSubmissionZip(
+    await zipOf({
+      "src/content/personnel/ok.md": enc('---\ntitle: "Dr: Who"\nheight: "4\'3\\""\npositiveTraits: ["Kind # really", "[odd]"]\n---\nBio'),
+    }),
+  );
+  assert.deepEqual(problems, []);
+});
+
 test("requires exactly one markdown file", async () => {
   const { problems } = await checkSubmissionZip(await zipOf({ "src/assets/images/x/1.png": png }));
   assert.deepEqual(problems, ["The zip must contain exactly one markdown file."]);
@@ -66,7 +86,7 @@ test("refuses to overwrite an existing page without --overwrite", async () => {
   const dir = await mkdtemp(join(tmpdir(), "import-test-"));
   try {
     const zipPath = join(dir, "a-071.zip");
-    await writeFile(zipPath, await zipOf({ "src/content/entities/a-071.md": "Replaced bio" }));
+    await writeFile(zipPath, await zipOf({ "src/content/entities/a-071.md": "---\ntitle: T\n---\nReplaced bio" }));
     assert.throws(
       () => execFileSync("node", ["scripts/import-submission.mjs", zipPath], { stdio: "pipe" }),
       (error) => /already exist[\s\S]*src\/content\/entities\/a-071\.md/.test(error.stderr.toString()),

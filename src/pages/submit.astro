@@ -1172,9 +1172,12 @@ const articleCategories = Array.from(new Set(
     const slug = slugify(title) || 'slug';
     const bio = field('bio').trim();
     const author = field('author').trim();
-    const yamlList = (items: string[]) => `[${items.join(', ')}]`;
+    // JSON strings are valid YAML double-quoted scalars, so user text (quotes, colons, #) can't break the frontmatter.
+    const yamlString = (value: string) => JSON.stringify(value);
+    const yamlScalar = (value: string) => (/^\d+$/.test(value) ? value : yamlString(value));
+    const yamlList = (items: string[]) => `[${items.map(yamlString).join(', ')}]`;
     const galleryYaml = galleryRows.length
-      ? `\n${galleryRows.map((row) => `  - file: ${row.filename}\n    caption: ${row.caption || 'Caption'}`).join('\n')}`
+      ? `\n${galleryRows.map((row) => `  - file: ${yamlString(row.filename)}\n    caption: ${yamlString(row.caption || 'Caption')}`).join('\n')}`
       : ' []';
 
     let frontmatter = '';
@@ -1189,18 +1192,18 @@ const articleCategories = Array.from(new Set(
       ].join('\n');
     } else if (type === 'personnel') {
       frontmatter = [
-        `title: ${title}`,
+        `title: ${yamlString(title)}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
-        `employeeID: ${field('employeeID') || 'None'}`,
-        `position: ${field('position') || 'None'}`,
-        `species: ${field('species') || 'None'}`,
-        `gender: ${field('gender') || 'None'}`,
-        `height: "${field('height') || 'None'}"`,
-        `age: ${field('age') || 'None'}`,
-        `accessLevel: ${field('accessLevel') || 1}`,
-        `birthplace: ${field('birthplace') || 'None'}`,
+        `employeeID: ${yamlScalar(field('employeeID') || 'None')}`,
+        `position: ${yamlString(field('position') || 'None')}`,
+        `species: ${yamlString(field('species') || 'None')}`,
+        `gender: ${yamlString(field('gender') || 'None')}`,
+        `height: ${yamlString(field('height') || 'None')}`,
+        `age: ${yamlScalar(field('age') || 'None')}`,
+        `accessLevel: ${yamlScalar(field('accessLevel') || '1')}`,
+        `birthplace: ${yamlString(field('birthplace') || 'None')}`,
         `profileImage: profile.${profileImageExt}`,
-        `galleryAlt: ${title} drawing`,
+        `galleryAlt: ${yamlString(`${title} drawing`)}`,
         `positiveTraits: ${yamlList(csvList(field('positiveTraits')))}`,
         `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
@@ -1210,19 +1213,19 @@ const articleCategories = Array.from(new Set(
       ].join('\n');
     } else if (type === 'synthetic') {
       frontmatter = [
-        `title: ${title}`,
+        `title: ${yamlString(title)}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
-        `nickname: ${field('nickname') || 'None'}`,
-        `syntheticID: ${field('syntheticID') || 'None'}`,
-        `position: ${field('position') || 'None'}`,
-        `type: ${field('syntheticType') || 'None'}`,
-        `gender: ${field('gender') || 'None'}`,
-        `height: "${field('height') || 'None'}"`,
-        `age: ${field('age') || 'None'}`,
-        `accessLevel: ${field('accessLevel') || 1}`,
-        `createdOn: ${field('createdOn') || 'None'}`,
+        `nickname: ${yamlString(field('nickname') || 'None')}`,
+        `syntheticID: ${yamlScalar(field('syntheticID') || 'None')}`,
+        `position: ${yamlString(field('position') || 'None')}`,
+        `type: ${yamlString(field('syntheticType') || 'None')}`,
+        `gender: ${yamlString(field('gender') || 'None')}`,
+        `height: ${yamlString(field('height') || 'None')}`,
+        `age: ${yamlScalar(field('age') || 'None')}`,
+        `accessLevel: ${yamlScalar(field('accessLevel') || '1')}`,
+        `createdOn: ${yamlString(field('createdOn') || 'None')}`,
         `profileImage: profile.${profileImageExt}`,
-        `galleryAlt: ${title} drawing`,
+        `galleryAlt: ${yamlString(`${title} drawing`)}`,
         `positiveTraits: ${yamlList(csvList(field('positiveTraits')))}`,
         `negativeTraits: ${yamlList(csvList(field('negativeTraits')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
@@ -1232,17 +1235,17 @@ const articleCategories = Array.from(new Set(
       ].join('\n');
     } else {
       frontmatter = [
-        `title: ${title}`,
+        `title: ${yamlString(title)}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
-        `nickname: ${field('nickname') || 'None'}`,
-        `containmentClass: ${field('containmentClass') || 'None'}`,
-        `type: ${field('type') || 'None'}`,
-        `species: ${field('species') || 'None'}`,
-        `gender: ${field('gender') || 'None'}`,
-        `age: ${field('age') || 'None'}`,
-        `foundOn: ${field('foundOn') || 'None'}`,
+        `nickname: ${yamlString(field('nickname') || 'None')}`,
+        `containmentClass: ${yamlString(field('containmentClass') || 'None')}`,
+        `type: ${yamlString(field('type') || 'None')}`,
+        `species: ${yamlString(field('species') || 'None')}`,
+        `gender: ${yamlString(field('gender') || 'None')}`,
+        `age: ${yamlScalar(field('age') || 'None')}`,
+        `foundOn: ${yamlString(field('foundOn') || 'None')}`,
         `profileImage: profile.${profileImageExt}`,
-        `galleryAlt: ${title} drawing`,
+        `galleryAlt: ${yamlString(`${title} drawing`)}`,
         `usefulAbilities: ${yamlList(csvList(field('usefulAbilities')))}`,
         `noteableEvents: ${yamlList(csvList(field('noteableEvents')))}`,
         `vorePreference: ${yamlList([field('vorePreference') || 'None'])}`,
