@@ -1,0 +1,7 @@
+{
+  "name": "Checkpoint",
+  "level": 3,
+  "camera": "CAM 3-01",
+  "elevators": { "elevator": "main" }
+  
+}
