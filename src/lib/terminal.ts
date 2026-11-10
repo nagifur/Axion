@@ -26,6 +26,7 @@ const destinations: Record<string, string> = {
   database: '/database',
   archive: '/database',
   facility: '/facility',
+  monitoring: '/monitoring',
   about: '/about',
   contact: '/contact',
   submit: '/submit',

@@ -125,3 +125,23 @@ For example, from the repository root:
 ```sh
 node scripts/pixel-png-to-svg.mjs public/Level_0.png public/facility/level-0.svg
 ```
+
+### Live Monitoring Simulation
+
+[`/monitoring`](../src/pages/monitoring.astro) is a small in-browser simulation of the
+Level 1 offices. Characters are built at build time from non-draft personnel files:
+height sets sprite size, `colorTint` colours the name tag, and traits such as *Sleepy*,
+*Clumsy*, *Anti-Social*, or *Can phase through objects* change how they behave.
+Wanted characters are left out. Entities with a *Shapeshifting* ability can sneak in
+disguised as staff.
+
+| File | Purpose |
+| --- | --- |
+| [`src/sim_assets/`](../src/sim_assets/) | Pixel-art sprites (room, props, character spritesheet). |
+| [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Sprite frame rectangles, prop positions, walkable floor, elevator. Update this when art changes. |
+| [`src/lib/sim/roster.ts`](../src/lib/sim/roster.ts) | Profile → character conversion, trait rules, and per-character overrides. |
+| [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | Character tasks (walk, nap, chat, elevator) and decision making. |
+| [`src/lib/sim/events.ts`](../src/lib/sim/events.ts) | Random events, A1 announcements, and achievements. |
+
+Add `?debug` to the URL to show buttons that trigger events and speed up time.
+Achievements are stored in the visitor's browser (`localStorage`).
