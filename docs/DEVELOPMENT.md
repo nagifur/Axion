@@ -213,12 +213,31 @@ automatically, and the build stops if the two rooms disagree. Doors without an e
 lead off camera to the rest of the facility, so people still arrive and leave through
 them (as they do through elevators).
 
-Cameras are shown as a floor plan, one row per level, with rooms placed west to east
-by how they connect. Every camera uses the same pixel scale, so narrower rooms appear
-centred. The first camera shown is `INITIAL_ROOM` in
-[`monitoring.astro`](../src/pages/monitoring.astro).
+#### Connecting Floors With Elevators
+
+An elevator connects many floors, so instead of linking pairs of rooms, each room
+names the **shaft** its elevator belongs to. Every room with the same shaft name is a
+stop of the same lift:
+
+```json
+"elevators": { "elevator": "main" }
+```
+
+The key is the elevator's name from the nav map (`elevator`), so the format stays the
+same if a room ever gets more than one. Add `"elevators"` to the room on each floor; a
+separate lift elsewhere just uses another shaft name, e.g. `"service"`. A shaft can
+stop only once per level. Elevators also keep leading off camera, since the shaft
+continues to floors that aren't filmed. Level numbers grow going down, so a ride from
+Level 1 to Level 2 shows the down arrow. Keep elevator openings in the same place on
+every floor so the shaft lines up.
+
+Cameras are shown as a floor plan: a floor selector (L1, L2, …) next to the selected
+floor's rooms, placed west to east by how they connect. Changing floors shows the
+camera last watched there, otherwise the room on the same elevator shaft. Every camera
+uses the same pixel scale, so narrower rooms appear centred. The first camera shown is
+`INITIAL_ROOM` in [`monitoring.astro`](../src/pages/monitoring.astro).
 
 The build stops with the file and pixel position if a nav map uses an unknown colour,
 has floor patches that can't be reached, has an exit that doesn't touch the floor, or
 doesn't match the size of `room.png`, and names the problem if an exit points to a
-door or room that doesn't exist.
+door or room that doesn't exist, or an elevator or shaft is set up wrong.

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import test from 'node:test';
+import sharp from 'sharp';
 import { NAV_COLORS, NavMapError, parseNavMap } from '../src/lib/sim/navMap.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { loadRoom } from '../src/lib/sim/roomLoader.ts';
+import { SIM_ASSETS_DIR, loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
 
 const color = (kind) => [...NAV_COLORS.find((entry) => entry.kind === kind).rgb, 255];
 const CLEAR = [0, 0, 0, 0];
@@ -57,13 +59,26 @@ test('accepts close-enough hand-picked colours', () => {
   assert.doesNotThrow(() => parse(['gx'], { x: [0, 255, 0, 255] }));
 });
 
+test('every elevator opening is left transparent in its room art', async () => {
+  for (const data of await loadFacility()) {
+    const elevator = data.nav.exits.find((exit) => exit.kind === 'elevator');
+    if (!elevator) continue;
+    const { data: pixels, info } = await sharp(path.join(SIM_ASSETS_DIR, 'rooms', data.id, 'room.png'))
+      .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const { x, y, w, h } = elevator.bounds;
+    let opaque = 0;
+    for (let row = y; row < y + h; row++) {
+      for (let col = x; col < x + w; col++) {
+        if (pixels[(row * info.width + col) * 4 + 3] !== 0) opaque++;
+      }
+    }
+    assert.equal(opaque, 0, `${data.id}: the elevator painted on navMap.png should be see-through in room.png`);
+  }
+});
+
 test('loads the Level 1 office room from its folder', async () => {
   const data = await loadRoom('level-1-offices');
-  assert.equal(data.width, 577);
-  assert.equal(data.height, 209);
   assert.deepEqual(data.nav.exits.map((exit) => exit.id), ['west', 'east', 'elevator']);
-  // The elevator must line up with the transparent opening in room.png.
-  assert.deepEqual(data.nav.exits[2].bounds, { x: 177, y: 89, w: 48, h: 67 });
 
   const room = new Room(data);
   assert.equal(room.spots.length, 5);

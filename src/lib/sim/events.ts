@@ -70,7 +70,7 @@ export class EventDirector {
 
   /** A shapeshifting entity walks in disguised as someone already on the floor. */
   triggerImpostor(world: World): boolean {
-    if (!this.impostors.length || world.agents.some((agent) => agent.impostor && !agent.removed)) return false;
+    if (!this.impostors.length || world.everyone().some((agent) => agent.impostor && !agent.removed)) return false;
     const victims = world.agents.filter((agent) => !agent.impostor && !agent.leaving && !agent.ghost);
     if (!victims.length) return false;
 

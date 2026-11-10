@@ -1,5 +1,5 @@
 import type { SimCharacter, SimImpostor } from './roster.ts';
-import type { Door, Facing, Point, Room, Spot } from './room.ts';
+import { directionTo, type Door, type Facing, type Point, type Room, type Spot } from './room.ts';
 import { CHARACTER_FRAMES, WALK_CYCLE, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
 
@@ -307,14 +307,14 @@ function startConversation(agent: Agent, partner: Agent, world: World): Task[] |
   return [walkTo(meet, `Going to talk to ${partner.character.name}`), talk(conversation, range(6, 12))];
 }
 
-/** Walks to the elevator, waits for the car, and rides it off the floor. */
-export function rideElevatorOut(): Task {
+/** Walks to the elevator, waits for the car, and rides it to `destination` (another floor on camera) or off camera. */
+export function rideElevatorOut(destination?: Room): Task {
   let path: Point[] = [];
   let request: ElevatorRequest | undefined;
   return {
     activity: 'Heading to the elevator',
     interruptible: false,
-    start(agent, world) {
+    start(agent) {
       const { front } = agent.room.elevator!;
       const waitSpot = agent.room.nearestWalkable({ x: front.x + Math.round(range(-10, 10)), y: front.y });
       path = agent.room.route(agent, waitSpot, agent.ghost);
@@ -326,9 +326,10 @@ export function rideElevatorOut(): Task {
       }
       const elevator = agent.room.elevator!;
       if (!request) {
-        request = world.elevatorFor(agent.room)!.request('depart', agent);
+        const direction = destination ? directionTo(agent.room, destination) : undefined;
+        request = world.elevatorFor(agent.room)!.request('depart', agent, { destination, direction });
         agent.facing = 'back';
-        agent.activity = 'Waiting for the elevator';
+        agent.activity = destination ? `Waiting for the elevator to ${destination.label}` : 'Waiting for the elevator';
       }
       if (request.board && !request.ready) {
         agent.activity = 'Taking the elevator';
@@ -339,6 +340,13 @@ export function rideElevatorOut(): Task {
         }
       }
       return false;
+    },
+    end(agent) {
+      // Plans changed before boarding (e.g. an impostor was unmasked): let the car go without them.
+      if (request && !request.ready) {
+        request.cancelled = true;
+        agent.layer = 'room';
+      }
     },
   };
 }
@@ -362,6 +370,13 @@ export function rideElevatorIn(request: ElevatorRequest): Task {
         request.ready = true;
       }
       return done;
+    },
+    end(agent) {
+      // Interrupted before stepping out: free the elevator and walk out from where they are.
+      if (!request.ready) {
+        request.ready = true;
+        agent.layer = 'room';
+      }
     },
   };
 }
@@ -493,6 +508,7 @@ export function planNext(agent: Agent, world: World): Task[] {
   const chairSpot = world.freeSpot(room, 'chair');
   const partner = world.findChatPartner(agent);
   const linked = room.linkedDoors;
+  const floors = world.elevatorStops(room);
 
   const options: Option[] = [
     {
@@ -528,6 +544,11 @@ export function planNext(agent: Agent, world: World): Task[] {
         const door = pick(linked);
         return [exitThroughDoor(door, 1, `Heading to the ${world.room(door.to!.room)?.name ?? 'next room'}`)];
       },
+    },
+    {
+      // Take the elevator to another floor on camera.
+      weight: floors.length && inRoom > 25 ? 0.8 : 0,
+      build: () => [rideElevatorOut(pick(floors))],
     },
     {
       // Impostors stay until the event director sends them off.

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EventDirector } from '../src/lib/sim/events.ts';
+import { rideElevatorOut } from '../src/lib/sim/agent.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { linkRooms, loadFacility, orderRooms } from '../src/lib/sim/roomLoader.ts';
+import { checkShafts, linkRooms, loadFacility, orderRooms } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
 
 // Minimal room folder contents: only what linking and ordering look at.
@@ -62,9 +63,9 @@ const character = (id, behavior = {}) => ({
 const roster = Array.from({ length: 14 }, (_, i) => character(`staff-${i}`));
 const noon = () => new Date(2026, 0, 1, 12);
 
-test('loads the Level 1 rooms in floor-plan order', async () => {
+test('loads the rooms in floor-plan order, level by level', async () => {
   const rooms = await facility();
-  assert.deepEqual(rooms.map((room) => room.id), ['level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom']);
+  assert.deepEqual(rooms.map((room) => room.id), ['level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom', 'level-2-lobby']);
   const offices = rooms[1];
   assert.deepEqual(offices.linkedDoors.map((door) => door.to.room), ['level-1-pipeRoom', 'level-1-recRoom']);
   assert.equal(offices.outerDoors.length, 0);
@@ -112,4 +113,52 @@ test('an unmasked impostor escapes through another room if needed', async () => 
   assert.equal(world.interact(impostor), 'revealed');
   for (let t = 0; t < 120 && !impostor.removed; t += 0.1) world.update(0.1);
   assert.ok(impostor.removed, 'the impostor got away');
+});
+
+test('an elevator shaft stops at most once per level', () => {
+  const stop = (id, level, shaft) => ({ id, level, shafts: { elevator: shaft } });
+  assert.doesNotThrow(() => checkShafts([stop('a', 1, 'main'), stop('b', 2, 'main'), stop('c', 1, 'service')]));
+  assert.throws(() => checkShafts([stop('a', 1, 'main'), stop('b', 1, 'main')]), /shaft "main" already stops on level 1 in a/);
+});
+
+test('the main elevator connects the offices and the level 2 entrance', async () => {
+  const rooms = await facility();
+  const world = new World({ roster, rooms, now: noon });
+  const offices = world.room('level-1-offices');
+  const lobby = world.room('level-2-lobby');
+  assert.deepEqual(world.elevatorStops(offices), [lobby]);
+  assert.deepEqual(world.elevatorStops(lobby), [offices]);
+  assert.deepEqual(world.elevatorStops(world.room('level-1-recRoom')), []);
+});
+
+test('riding the elevator down to level 2', async () => {
+  const rooms = await facility();
+  // A roster of one, so nobody else arrives by elevator and changes its lights.
+  const world = new World({ roster: roster.slice(0, 1), rooms, now: noon });
+  const offices = world.room('level-1-offices');
+  const lobby = world.room('level-2-lobby');
+  const log = [];
+  world.hooks.log = (text) => log.push(text);
+
+  const agent = world.spawn(roster[0], offices, offices.randomFloorPoint());
+  agent.setPlan(world, [rideElevatorOut(lobby)]);
+  const lights = { offices: new Set(), lobby: new Set() };
+  let rode = false;
+  for (let t = 0; t < 60 && !(agent.room === lobby && agent.layer === 'room' && !world.isRiding(agent)); t += 0.1) {
+    world.update(0.1);
+    lights.offices.add(world.elevatorFor(offices).light);
+    lights.lobby.add(world.elevatorFor(lobby).light);
+    if (world.isRiding(agent)) {
+      rode = true;
+      assert.ok(world.isPresent(agent.character.id), 'riders still count as present');
+      assert.ok(!world.agentsIn(offices).includes(agent) && !world.agentsIn(lobby).includes(agent), 'riders are on no camera');
+    }
+  }
+
+  assert.ok(rode, 'the agent spent time inside the moving car');
+  assert.equal(agent.room, lobby);
+  assert.equal(agent.layer, 'room');
+  assert.ok(lights.offices.has('down') && !lights.offices.has('up'), 'level 2 is down from level 1');
+  assert.ok(lights.lobby.has('down'), 'the car arrives at level 2 going down');
+  assert.ok(log.some((line) => line.includes('from Level 1 to Level 2')));
 });

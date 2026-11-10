@@ -17,6 +17,7 @@ interface RoomJson {
   camera?: unknown;
   props?: unknown;
   exits?: unknown;
+  elevators?: unknown;
 }
 
 /** An exit as written in room.json; the door on the other side may be left for us to work out. */
@@ -55,6 +56,24 @@ function readExits(raw: unknown, id: string): Map<string, DeclaredExit> {
   return exits;
 }
 
+/** "elevators": { "<elevator name>": "<shaft name>" }. Elevators sharing a shaft name are stops of one lift. */
+function readShafts(raw: unknown, id: string, nav: RoomData['nav']): Record<string, string> {
+  if (raw === undefined) return {};
+  const elevators = nav.exits.filter((exit) => exit.kind === 'elevator').map((exit) => exit.id);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new NavMapError(`${jsonLabel(id)}: "elevators" should look like { "elevator": "main" }.`);
+  }
+  for (const [elevator, shaft] of Object.entries(raw)) {
+    if (!elevators.includes(elevator)) {
+      throw new NavMapError(`${jsonLabel(id)}: "elevators" mentions "${elevator}", but navMap.png has: ${listOr(elevators, 'no elevator')}.`);
+    }
+    if (typeof shaft !== 'string' || !shaft) {
+      throw new NavMapError(`${jsonLabel(id)}: elevator "${elevator}" needs a shaft name, e.g. "main".`);
+    }
+  }
+  return raw as Record<string, string>;
+}
+
 async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   const folder = path.join(assetsDir, 'rooms', id);
   const label = `sim_assets/rooms/${id}`;
@@ -89,7 +108,10 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   }
 
   return {
-    data: { id, name: json.name, level: json.level, camera: json.camera, width: room.width, height: room.height, nav, props, links: {} },
+    data: {
+      id, name: json.name, level: json.level, camera: json.camera, width: room.width, height: room.height,
+      nav, props, links: {}, shafts: readShafts(json.elevators, id, nav),
+    },
     exits: readExits(json.exits, id),
   };
 }
@@ -177,11 +199,30 @@ export function orderRooms(rooms: RoomData[]): RoomData[] {
   });
 }
 
-/** Loads every room folder, links their doors together, and orders them for the camera map. */
+/** A shaft can only stop once per level: two of its elevators on the same floor would be two different lifts. */
+export function checkShafts(rooms: RoomData[]) {
+  const stops = new Map<string, RoomData>();
+  for (const room of rooms) {
+    for (const shaft of Object.values(room.shafts)) {
+      const key = `${shaft}@${room.level}`;
+      const other = stops.get(key);
+      if (other) {
+        throw new NavMapError(
+          `${jsonLabel(room.id)}: elevator shaft "${shaft}" already stops on level ${room.level} in ${other.id}. ` +
+          'Give one of them a different shaft name.',
+        );
+      }
+      stops.set(key, room);
+    }
+  }
+}
+
+/** Loads every room folder, links their doors and elevators together, and orders them for the camera map. */
 export async function loadFacility(assetsDir = SIM_ASSETS_DIR): Promise<RoomData[]> {
   const folders = await readdir(path.join(assetsDir, 'rooms'), { withFileTypes: true });
   const ids = folders.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   const rooms = await Promise.all(ids.map((id) => readRoom(id, assetsDir)));
   linkRooms(rooms);
+  checkShafts(rooms.map((room) => room.data));
   return orderRooms(rooms.map((room) => room.data));
 }

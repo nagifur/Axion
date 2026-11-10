@@ -1,31 +1,46 @@
 import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './agent.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
-import type { Door, Room, Spot } from './room.ts';
+import { directionTo, type Direction, type Door, type Room, type Spot } from './room.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
 export interface ElevatorRequest {
   type: 'depart' | 'arrive';
   agent: Agent;
+  /** Which way the car is travelling, shown on the arrow lights. */
+  direction: Direction;
+  /** Floor on camera the rider is going to; unset means off camera. */
+  destination?: Room;
   /** Doors are open and the rider can move. */
   board: boolean;
   /** Rider is fully in (depart) or out (arrive); doors may close. */
   ready: boolean;
+  /** The rider changed plans before boarding; the car leaves without them. */
+  cancelled: boolean;
 }
 
 const DOOR_SECONDS = 0.7;
+/** Seconds the car takes between floors on camera: a fixed part plus a part per level travelled. */
+const RIDE_SECONDS = { base: 2, perLevel: 2 };
 
+const randomDirection = (): Direction => (Math.random() < 0.5 ? 'up' : 'down');
+
+/** The doors, lights and queue of one elevator stop. */
 export class Elevator {
   /** 0 = closed, 1 = fully open. */
   open = 0;
   phase: 'idle' | 'arriving' | 'opening' | 'holding' | 'closing' | 'leaving' = 'idle';
-  light: 'up' | 'down' | null = null;
+  light: Direction | null = null;
   private timer = 0;
   private queue: ElevatorRequest[] = [];
   private current?: ElevatorRequest;
 
-  request(type: ElevatorRequest['type'], agent: Agent): ElevatorRequest {
-    const request: ElevatorRequest = { type, agent, board: false, ready: false };
+  request(type: ElevatorRequest['type'], agent: Agent, options: { direction?: Direction; destination?: Room } = {}): ElevatorRequest {
+    const request: ElevatorRequest = {
+      type, agent, board: false, ready: false, cancelled: false,
+      destination: options.destination,
+      direction: options.direction ?? randomDirection(),
+    };
     this.queue.push(request);
     return request;
   }
@@ -44,14 +59,14 @@ export class Elevator {
         this.current = next;
         this.phase = 'arriving';
         this.timer = 1.4;
-        this.light = 'up';
+        this.light = next.direction;
         return;
       }
       case 'arriving':
         this.timer -= dt;
         if (this.timer <= 0) {
           this.light = null;
-          this.phase = current && !current.agent.removed ? 'opening' : 'idle';
+          this.phase = current && !current.agent.removed && !current.cancelled ? 'opening' : 'idle';
         }
         return;
       case 'opening':
@@ -62,17 +77,20 @@ export class Elevator {
           if (current) current.board = true;
         }
         return;
-      case 'holding':
+      case 'holding': {
         this.timer -= dt;
-        if (!current || current.ready || current.agent.removed || this.timer <= 0) this.phase = 'closing';
+        // Departing riders are always waited for (unless they change plans); arrivals have a safety timeout.
+        const timedOut = this.timer <= 0 && current?.type === 'arrive';
+        if (!current || current.ready || current.cancelled || current.agent.removed || timedOut) this.phase = 'closing';
         return;
+      }
       case 'closing':
         this.open = Math.max(0, this.open - dt / DOOR_SECONDS);
         if (this.open > 0) return;
-        if (current?.type === 'depart' && !current.agent.removed) {
+        if (current?.type === 'depart' && current.ready && !current.agent.removed) {
           this.phase = 'leaving';
           this.timer = 1.2;
-          this.light = 'down';
+          this.light = current.direction;
         } else {
           this.finish();
         }
@@ -80,7 +98,7 @@ export class Elevator {
       case 'leaving':
         this.timer -= dt;
         if (this.timer <= 0) {
-          if (current && !current.agent.removed) world.remove(current.agent, 'elevator');
+          if (current && !current.agent.removed) world.elevatorDeparted(current.agent, current.destination);
           this.finish();
         }
         return;
@@ -120,14 +138,24 @@ type Entrance =
   | { kind: 'elevator'; room: Room; weight: number }
   | { kind: 'door'; room: Room; door: Door; weight: number };
 
+/** Someone riding the elevator between two floors on camera. They are on no camera meanwhile. */
+interface Ride {
+  agent: Agent;
+  from: Room;
+  to: Room;
+  arrivesAt: number;
+}
+
 export class World {
   time = 0;
+  /** People in a room on camera. */
   agents: Agent[] = [];
   readonly roster: SimCharacter[];
   readonly rooms: Room[];
   readonly now: () => Date;
   hooks: WorldHooks = {};
   private readonly elevators = new Map<Room, Elevator>();
+  private rides: Ride[] = [];
   /** Earliest time each off-camera character may come back. */
   private returnAt = new Map<string, number>();
   private nextArrival = 3;
@@ -157,6 +185,22 @@ export class World {
     return this.elevators.get(room);
   }
 
+  /** Other rooms on camera that `room`'s elevator stops at, ordered by level. */
+  elevatorStops(room: Room): Room[] {
+    const shaft = room.elevator?.shaft;
+    if (!shaft) return [];
+    return this.rooms.filter((other) => other !== room && other.elevator?.shaft === shaft).sort((a, b) => a.level - b.level);
+  }
+
+  /** Everyone in the facility, including people riding the elevator between floors. */
+  everyone(): Agent[] {
+    return [...this.agents, ...this.rides.map((ride) => ride.agent)];
+  }
+
+  isRiding(agent: Agent) {
+    return this.rides.some((ride) => ride.agent === agent);
+  }
+
   isNight() {
     const hour = this.now().getHours();
     return hour < 6;
@@ -170,11 +214,11 @@ export class World {
   }
 
   presentCount() {
-    return this.agents.filter((agent) => !agent.impostor && !agent.leaving).length;
+    return this.everyone().filter((agent) => !agent.impostor && !agent.leaving).length;
   }
 
   isPresent(characterId: string) {
-    return this.agents.some((agent) => !agent.impostor && agent.character.id === characterId);
+    return this.everyone().some((agent) => !agent.impostor && agent.character.id === characterId);
   }
 
   agentsIn(room: Room) {
@@ -306,6 +350,43 @@ export class World {
     agent.setPlan(this, [enterThroughDoor(arrival), ...onward]);
   }
 
+  /** The car has left `agent.room` with the agent inside: off camera, or to another floor on camera. */
+  elevatorDeparted(agent: Agent, destination?: Room) {
+    if (!destination) {
+      this.remove(agent, 'elevator');
+      return;
+    }
+    const from = agent.room;
+    this.agents = this.agents.filter((other) => other !== agent);
+    agent.setPlan(this, []);
+    agent.spot = undefined;
+    agent.room = destination;
+    agent.activity = `Riding the elevator to ${destination.label}`;
+    const levels = Math.abs(destination.level - from.level);
+    this.rides.push({ agent, from, to: destination, arrivesAt: this.time + RIDE_SECONDS.base + RIDE_SECONDS.perLevel * levels });
+  }
+
+  /** The car reaches the rider's floor: they appear inside it and wait for the doors. */
+  private deliver(ride: Ride) {
+    const { agent, from, to } = ride;
+    const elevator = this.elevatorFor(to);
+    if (!elevator || !to.elevator) {
+      this.remove(agent, 'elevator');
+      return;
+    }
+    agent.x = to.elevator.inside.x;
+    agent.y = to.elevator.inside.y;
+    agent.layer = 'inside';
+    agent.facing = 'front';
+    agent.alpha = 1;
+    agent.enteredRoomAt = this.time;
+    this.agents.push(agent);
+    const request = elevator.request('arrive', agent, { direction: directionTo(from, to) });
+    const onward = agent.leaving ? leaveFacility(agent, this, agent.revealed) : [];
+    agent.setPlan(this, [rideElevatorIn(request), ...onward]);
+    this.log(`${agent.character.name} took the elevator from ${from.label} to ${to.label}.`, 'muted');
+  }
+
   remove(agent: Agent, via: string) {
     if (agent.removed) return;
     agent.removed = true;
@@ -347,7 +428,7 @@ export class World {
       return 'woke';
     }
 
-    const twin = this.agents.find((other) => other.impostor && !other.revealed && other.character.id === agent.character.id);
+    const twin = this.everyone().find((other) => other.impostor && !other.revealed && other.character.id === agent.character.id);
     if (twin && !agent.impostor) {
       this.log(`Badge ${agent.character.employeeID} verified: this ${agent.character.name} is genuine.`, 'ok');
       return 'verified';
@@ -358,6 +439,12 @@ export class World {
   update(dt: number) {
     this.time += dt;
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
+
+    const arrived = this.rides.filter((ride) => ride.arrivesAt <= this.time);
+    if (arrived.length) {
+      this.rides = this.rides.filter((ride) => ride.arrivesAt > this.time);
+      for (const ride of arrived) this.deliver(ride);
+    }
 
     this.nextArrival -= dt;
     if (this.nextArrival <= 0) {

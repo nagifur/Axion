@@ -87,6 +87,8 @@ export function initMonitor(root: HTMLElement): () => void {
   const stage = root.querySelector<HTMLElement>('[data-monitor-stage]');
   const camTitle = root.querySelector<HTMLElement>('[data-monitor-cam-title]');
   const cameraButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-camera]')];
+  const levelButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-level]')];
+  const levelRows = [...root.querySelectorAll<HTMLElement>('[data-monitor-level-row]')];
 
   const rooms = config.rooms.map((data) => new Room(data));
   const world = new World({ roster: config.roster, rooms });
@@ -158,6 +160,7 @@ export function initMonitor(root: HTMLElement): () => void {
   // --- Cameras -------------------------------------------------------------
 
   let staticTimer = 0;
+  const lastRoomOnLevel = new Map<number, Room>();
 
   const switchCamera = (room: Room) => {
     const changed = room !== viewed;
@@ -184,6 +187,14 @@ export function initMonitor(root: HTMLElement): () => void {
       button.classList.toggle('is-active', active);
       button.setAttribute('aria-pressed', String(active));
     }
+    // Show this floor's row of cameras.
+    lastRoomOnLevel.set(room.level, room);
+    for (const row of levelRows) row.hidden = Number(row.dataset.monitorLevelRow) !== room.level;
+    for (const button of levelButtons) {
+      const active = Number(button.dataset.monitorLevel) === room.level;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    }
 
     progress.camera = room.id;
     camerasSeen.add(room.id);
@@ -199,11 +210,27 @@ export function initMonitor(root: HTMLElement): () => void {
   };
   for (const button of cameraButtons) button.addEventListener('click', onCameraClick);
 
+  // Changing floor shows the camera last watched there, else the one on the same elevator shaft
+  // as the current camera (so "down" from the Offices lands in the room below), else the first one.
+  const onLevelClick = (event: MouseEvent) => {
+    const level = Number((event.currentTarget as HTMLElement).dataset.monitorLevel);
+    if (level === viewed.level) return;
+    const sameShaft = world.elevatorStops(viewed).find((room) => room.level === level);
+    const target = lastRoomOnLevel.get(level) ?? sameShaft ?? rooms.find((room) => room.level === level);
+    if (target) switchCamera(target);
+  };
+  for (const button of levelButtons) button.addEventListener('click', onLevelClick);
+
   const updateCameraCounts = () => {
     for (const button of cameraButtons) {
       const room = world.room(button.dataset.monitorCamera ?? '');
       const count = button.querySelector('[data-monitor-camera-count]');
       if (room && count) count.textContent = String(world.agentsIn(room).length);
+    }
+    for (const button of levelButtons) {
+      const level = Number(button.dataset.monitorLevel);
+      const count = button.querySelector('[data-monitor-level-count]');
+      if (count) count.textContent = String(world.agents.filter((agent) => agent.room.level === level).length);
     }
   };
 
@@ -213,7 +240,7 @@ export function initMonitor(root: HTMLElement): () => void {
   let activityNode: HTMLElement | null = null;
 
   // True while the selected badge ID is shared with an undetected shapeshifter.
-  const hasTwin = (agent: Agent) => world.agents.some((other) =>
+  const hasTwin = (agent: Agent) => world.everyone().some((other) =>
     other !== agent && other.character.id === agent.character.id
     && ((other.impostor && !other.revealed) || (agent.impostor && !agent.revealed)));
 
@@ -453,7 +480,7 @@ export function initMonitor(root: HTMLElement): () => void {
     if (clockNode) clockNode.textContent = clock(now, true);
     if (now.getHours() < 5) achieve('night-shift');
     if (alertNode) {
-      const duplicate = world.agents.some((agent) => agent.impostor && !agent.revealed);
+      const duplicate = world.everyone().some((agent) => agent.impostor && !agent.revealed);
       alertNode.textContent = duplicate ? 'Duplicate badge' : 'All clear';
       alertNode.classList.toggle('is-alert', duplicate);
     }
@@ -522,5 +549,6 @@ export function initMonitor(root: HTMLElement): () => void {
     canvas.removeEventListener('pointerleave', onPointerLeave);
     canvas.removeEventListener('click', onClick);
     for (const button of cameraButtons) button.removeEventListener('click', onCameraClick);
+    for (const button of levelButtons) button.removeEventListener('click', onLevelClick);
   };
 }

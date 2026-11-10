@@ -36,6 +36,8 @@ export interface RoomData {
   props: PlacedProp[];
   /** Doors that lead to another room, by door id. Doors not listed lead off camera. */
   links: Record<string, ExitLink>;
+  /** Elevator shaft each elevator belongs to, by elevator id. Rooms on the same shaft are its stops. */
+  shafts: Record<string, string>;
 }
 
 export interface Spot extends Point {
@@ -56,6 +58,8 @@ export interface Door {
 }
 
 export interface Elevator extends Rect {
+  /** Name shared by every stop of the same lift, if it is connected to other rooms on camera. */
+  shaft?: string;
   /** Where people wait for, and step out of, the elevator. */
   front: Point;
   /** Feet position of someone standing inside the car. */
@@ -68,6 +72,10 @@ export interface Elevator extends Rect {
 const EDGE_MARGIN = { x: 8, y: 3 };
 const GRID_CELL = 4;
 const FLIPPED: Record<Facing, Facing> = { left: 'right', right: 'left', front: 'front', back: 'back' };
+
+export type Direction = 'up' | 'down';
+/** Deeper levels have higher numbers, so going to a higher level number is going down. */
+export const directionTo = (from: Room, to: Room): Direction => (to.level > from.level ? 'down' : 'up');
 
 const mirror = (rect: Rect, width: number): Rect => ({ ...rect, x: width - rect.x - rect.w });
 const contains = (rect: Rect, point: Point) =>
@@ -128,6 +136,7 @@ export class Room {
       const centerX = Math.round(x + w / 2);
       this.elevator = {
         x, y, w, h,
+        shaft: data.shafts?.[exit.id],
         inside: { x: centerX, y: y + h - 2 },
         thresholdY: y + h + 2,
         front: this.nearestWalkable({ x: centerX, y: y + h + 12 }),

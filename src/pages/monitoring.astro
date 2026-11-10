@@ -121,9 +121,27 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
       </div>
 
       <nav class="monitor-map" aria-label="Camera feeds">
+        {levels.length > 1 && (
+          <div class="monitor-floors" role="group" aria-label="Floors">
+            {levels.map(({ level }) => (
+              <button
+                type="button"
+                class:list={['monitor-floor', { 'is-active': level === initialRoom.level }]}
+                data-monitor-level={level}
+                aria-pressed={String(level === initialRoom.level)}
+              >
+                <span class="monitor-floor-name">L{level}</span>
+                <span class="monitor-floor-count" title="People on this floor">
+                  <span data-monitor-level-count>0</span><span class="sr-only"> on this floor</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div class="monitor-map-levels">
         {levels.map(({ level, rooms: row }) => (
-          <div class="monitor-map-level">
-            <span class="monitor-map-label">L{level}</span>
+          <div class="monitor-map-level" data-monitor-level-row={level} hidden={level !== initialRoom.level}>
+            {levels.length === 1 && <span class="monitor-map-label">L{level}</span>}
             <div class="monitor-map-row">
               {row.map((room) => (
                 <>
@@ -146,6 +164,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
             </div>
           </div>
         ))}
+        </div>
       </nav>
 
       <div class="monitor-screen" data-monitor-screen>
@@ -241,8 +260,23 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   body.animations-off :is(.monitor-rec-dot, .monitor-alert){ animation:none }
   @keyframes monitor-blink{ 50%{ opacity:0.25 } }
 
-  .monitor-map{ display:flex; flex-direction:column; gap:6px }
-  .monitor-map-level{ display:flex; align-items:stretch; gap:8px }
+  .monitor-map{ display:flex; align-items:stretch; gap:8px }
+  .monitor-map-levels{ flex:1; min-width:0; display:flex }
+  .monitor-map-level{ flex:1; min-width:0; display:flex; align-items:stretch; gap:8px }
+  .monitor-map-level[hidden]{ display:none }
+
+  /* Floor selector, styled like an elevator button panel: L1 on top, deeper levels below. */
+  .monitor-floors{ display:flex; flex-direction:column; gap:3px }
+  .monitor-floor{
+    flex:1; display:flex; align-items:center; justify-content:space-between; gap:6px; min-width:4.6em;
+    padding:2px 6px; border:1px solid var(--line-soft); border-radius:var(--radius-sm);
+    background:color-mix(in srgb, var(--panel) 85%, #000); color:var(--muted);
+    font:inherit; font-size:0.68rem; letter-spacing:0.12em; cursor:pointer;
+  }
+  .monitor-floor:hover{ color:var(--text); border-color:var(--neon-orange) }
+  .monitor-floor:focus-visible{ outline:2px solid var(--neon-orange); outline-offset:2px }
+  .monitor-floor.is-active{ color:var(--text); border-color:var(--neon-orange); background:color-mix(in srgb, var(--neon-orange) 18%, var(--panel)) }
+  .monitor-floor-count{ min-width:1.6em; padding:0 4px; border-radius:var(--radius-pill); background:rgba(5, 8, 13, 0.6); color:var(--text); text-align:center; font-variant-numeric:tabular-nums }
   .monitor-map-label{ align-self:center; min-width:2.2em; color:var(--muted); font-size:0.68rem; letter-spacing:0.14em }
   .monitor-map-row{ flex:1; display:flex; align-items:stretch; min-width:0 }
   .monitor-map-room{
