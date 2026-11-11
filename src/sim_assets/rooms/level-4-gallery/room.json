@@ -2,6 +2,10 @@
   "name": "Gallery",
   "level": 4,
   "camera": "CAM 4-01",
-  "elevators": { "elevator": "main" }
+  "elevators": { "elevator": "main" },
+  "exits": {
+    "north": "level-4-trophyRoom"
+    
+  }
   
 }
