@@ -5,7 +5,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
-import { NavMapError, parseNavMap } from './navMap.ts';
+import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
 import { PROP_TYPES } from './sprites.ts';
 
@@ -123,8 +123,13 @@ export async function loadRoom(id: string, assetsDir = SIM_ASSETS_DIR): Promise<
 
 const doorIds = (room: RoomData) => room.nav.exits.filter((exit) => exit.kind === 'door').map((exit) => exit.id);
 const listOr = (items: string[], empty: string) => (items.length ? items.join(', ') : empty);
-// Only plain "west"/"east" pair up automatically; numbered doors (west-1, west-2) must say which door they lead to.
-const OPPOSITE: Record<string, string> = { west: 'east', east: 'west' };
+// Only plain side names pair up automatically; numbered doors (west-1, west-2) must say which door they lead to.
+const OPPOSITE: Record<string, string> = { west: 'east', east: 'west', north: 'south', south: 'north' };
+/** One step on the camera map for each wall a door can be in. North is up. */
+const MAP_STEP: Record<DoorSide, { col: number; row: number }> = {
+  west: { col: -1, row: 0 }, east: { col: 1, row: 0 }, north: { col: 0, row: -1 }, south: { col: 0, row: 1 },
+};
+const doorSide = (doorId: string) => doorId.split('-')[0] as DoorSide;
 
 /** Turns every room's "exits" into two-way links between doors, checking that they make sense. */
 export function linkRooms(rooms: LoadedRoom[]) {
@@ -170,33 +175,48 @@ export function linkRooms(rooms: LoadedRoom[]) {
   }
 }
 
-/** Orders rooms per level the way they connect, west to east, so cameras can be shown as a floor plan. */
+/**
+ * Places every room on a grid per level (west/east are columns, north/south are rows) by following
+ * the doors that connect them, so cameras can be shown as a floor plan. Sets `room.map` and returns
+ * the rooms ordered level by level, top to bottom, west to east.
+ */
 export function orderRooms(rooms: RoomData[]): RoomData[] {
   const byId = new Map(rooms.map((room) => [room.id, room]));
-  const placement = new Map<string, { group: number; x: number }>();
   const sorted = [...rooms].sort((a, b) => a.level - b.level || a.id.localeCompare(b.id));
+  const nextCol = new Map<number, number>();
 
-  sorted.forEach((start, group) => {
-    if (placement.has(start.id)) return;
-    placement.set(start.id, { group, x: 0 });
+  for (const start of sorted) {
+    if (start.map) continue;
+    // Walk outwards from this room through doors on the same level.
+    const placed = new Map<RoomData, { col: number; row: number }>([[start, { col: 0, row: 0 }]]);
+    const taken = new Set(['0,0']);
     const queue = [start];
     while (queue.length) {
       const room = queue.shift()!;
-      const { x } = placement.get(room.id)!;
+      const at = placed.get(room)!;
       for (const [door, link] of Object.entries(room.links)) {
         const next = byId.get(link.room);
-        if (!next || placement.has(next.id) || next.level !== room.level) continue;
-        placement.set(next.id, { group, x: x + (door.startsWith('west') ? -1 : 1) });
+        if (!next || placed.has(next) || next.map || next.level !== room.level) continue;
+        const step = MAP_STEP[doorSide(door)] ?? MAP_STEP.east;
+        const spot = { col: at.col + step.col, row: at.row + step.row };
+        // Rooms that don't fit on a simple grid (loops, odd layouts) move east to the next free cell.
+        while (taken.has(`${spot.col},${spot.row}`)) spot.col++;
+        taken.add(`${spot.col},${spot.row}`);
+        placed.set(next, spot);
         queue.push(next);
       }
     }
-  });
 
-  return sorted.sort((a, b) => {
-    const pa = placement.get(a.id)!;
-    const pb = placement.get(b.id)!;
-    return a.level - b.level || pa.group - pb.group || pa.x - pb.x;
-  });
+    // Unconnected groups on the same level sit side by side.
+    const cells = [...placed.values()];
+    const minCol = Math.min(...cells.map((cell) => cell.col));
+    const minRow = Math.min(...cells.map((cell) => cell.row));
+    const offset = nextCol.get(start.level) ?? 0;
+    for (const [room, cell] of placed) room.map = { col: cell.col - minCol + offset, row: cell.row - minRow };
+    nextCol.set(start.level, offset + Math.max(...cells.map((cell) => cell.col)) - minCol + 1);
+  }
+
+  return sorted.sort((a, b) => a.level - b.level || a.map!.row - b.map!.row || a.map!.col - b.map!.col);
 }
 
 /** A shaft can only stop once per level: two of its elevators on the same floor would be two different lifts. */

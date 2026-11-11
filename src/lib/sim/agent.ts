@@ -399,6 +399,7 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
       }
       const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.outside, dt, speedMul);
+      poseInDoorway(agent, door, 'out');
       agent.alpha = Math.max(0, distance(door.outside, agent) / total);
       if (reached) {
         if (door.to) world.transfer(agent, door);
@@ -416,10 +417,22 @@ export function enterThroughDoor(door: Door): Task {
     update(agent, _world, dt) {
       const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.inside, dt);
+      poseInDoorway(agent, door, 'in');
       agent.alpha = Math.min(1, 1 - distance(door.inside, agent) / total);
       return reached;
     },
   };
+}
+
+/**
+ * Back-wall (north) and front-edge (south) doors are walked through towards or away from the camera.
+ * There are no front/back walking frames yet, so hold the front or back pose for that short step.
+ */
+function poseInDoorway(agent: Agent, door: Door, direction: 'in' | 'out') {
+  if (door.side !== 'north' && door.side !== 'south') return;
+  const awayFromCamera = (door.side === 'north') === (direction === 'out');
+  agent.facing = awayFromCamera ? 'back' : 'front';
+  agent.moving = false;
 }
 
 /** Ghosts don't need doors: they fade in or out through the back wall. */

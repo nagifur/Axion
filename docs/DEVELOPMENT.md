@@ -170,7 +170,7 @@ it as PNG. Keep it as a layer in the same art file as the room so it stays align
 | Colour | Hex | Meaning |
 | --- | --- | --- |
 | Green | `#05FF00` | Floor: where feet can stand (not where bodies are). |
-| Blue | `#0074FF` | Door. Must touch the floor; named by position (see below). |
+| Blue | `#0074FF` | Door. Must touch the floor; named by the wall it's in (see below). |
 | Pink | `#FF00E7` | Elevator opening (at most one per room). Must touch the floor. |
 | Red or transparent | `#FF0000` | Blocked. |
 
@@ -195,23 +195,38 @@ Prop `x`/`y` is the sprite's top-left corner in room pixels. Everything painted 
 
 #### Connecting Rooms
 
-Doors are named by which half of the room they are in: `west` or `east`. When one
-side has several doors they are numbered left to right as they appear in the
-image: `west-1`, `west-2`. In `room.json`, `exits` says which room each door leads to:
+Doors are named by the wall they are in, which is worked out from where the green
+floor touches them:
+
+| Name | Wall | Paint it |
+| --- | --- | --- |
+| `west` / `east` | Left / right side wall | On the slanted side wall, touching the floor's edge. |
+| `north` | Back wall | On the back wall, with the floor directly below it. |
+| `south` | Front edge, towards the camera | A blue strip along the bottom edge, directly below the floor. |
+
+A thin strip is all a south door needs, since the wall it's in isn't visible. Make
+it as wide as the opening people should walk through. When one wall has several doors
+they are numbered left to right as they appear in the image: `west-1`, `west-2`. In
+`room.json`, `exits` says which room each door leads to:
 
 ```json
 "exits": {
   "west": "level-1-pipeRoom",
+  "north": "level-4-trophyRoom",
   "east-2": { "room": "level-1-recRoom", "door": "west-1" }
 }
 ```
 
-The short form (`"west": "level-1-pipeRoom"`) comes out of the other room's `east`
-door, or its only door. Use the long form for numbered doors or anything else. A
-connection only needs to be written in one of the two rooms; the way back is added
-automatically, and the build stops if the two rooms disagree. Doors without an exit
-lead off camera to the rest of the facility, so people still arrive and leave through
-them (as they do through elevators).
+The short form (`"west": "level-1-pipeRoom"`) comes out of the other room's opposite
+door (`east` for `west`, `south` for `north`), or its only door. Use the long form for
+numbered doors or anything else. A connection only needs to be written in one of the
+two rooms; the way back is added automatically, and the build stops if the two rooms
+disagree. Doors without an exit lead off camera to the rest of the facility, so people
+still arrive and leave through them (as they do through elevators).
+
+People step into north doors facing away from the camera and walk out of the picture
+through south doors facing it. There are no front/back walking frames yet, so they
+hold the back or front pose for that short step.
 
 #### Connecting Floors With Elevators
 
@@ -232,10 +247,11 @@ Level 1 to Level 2 shows the down arrow. Keep elevator openings in the same plac
 every floor so the shaft lines up.
 
 Cameras are shown as a floor plan: a floor selector (L1, L2, …) next to the selected
-floor's rooms, placed west to east by how they connect. Changing floors shows the
-camera last watched there, otherwise the room on the same elevator shaft. Every camera
-uses the same pixel scale, so narrower rooms appear centred. The first camera shown is
-`INITIAL_ROOM` in [`monitoring.astro`](../src/pages/monitoring.astro).
+floor's rooms, laid out on a grid by how their doors connect: west/east doors place
+rooms side by side and north/south doors stack them, with north at the top. Changing
+floors shows the camera last watched there, otherwise the room on the same elevator
+shaft. Every camera uses the same pixel scale, so narrower rooms appear centred. The
+first camera shown is `INITIAL_ROOM` in [`monitoring.astro`](../src/pages/monitoring.astro).
 
 The build stops with the file and pixel position if a nav map uses an unknown colour,
 has floor patches that can't be reached, has an exit that doesn't touch the floor, or

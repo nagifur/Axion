@@ -38,12 +38,24 @@ test('reads floor spans and exits from a nav map', () => {
   assert.deepEqual(elevator.threshold, { x: 4, y: 2 });
 });
 
-test('numbers doors that share a side', () => {
+test('numbers doors that share a wall, left to right', () => {
   const nav = parse([
     'd.d.......',
     'gggggggggg',
   ]);
-  assert.deepEqual(nav.exits.map((exit) => exit.id), ['west-1', 'west-2']);
+  assert.deepEqual(nav.exits.map((exit) => exit.id), ['north-1', 'north-2']);
+});
+
+test('names doors by the wall they are in, from where the floor touches them', () => {
+  const nav = parse([
+    '....dd....',
+    'd...gg...d',
+    'dggggggggd',
+    '.gggggggg.',
+    '...ddd....',
+  ]);
+  const sides = Object.fromEntries(nav.exits.map((exit) => [exit.id, exit.side]));
+  assert.deepEqual(sides, { west: 'west', north: 'north', south: 'south', east: 'east' });
 });
 
 test('reports mistakes with the pixel position', () => {

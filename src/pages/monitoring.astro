@@ -35,15 +35,30 @@ const roomAssets = Object.fromEntries(rooms.map((room) => {
   return [`room:${room.id}`, image.src];
 }));
 
-// Camera buttons are laid out like a floor plan: one row per level, rooms west to east.
+// Camera buttons are laid out like a floor plan per level: west/east are columns, north is up.
+// Grid tracks alternate between rooms and thin corridor tracks that show which rooms connect.
 const levels = [...new Set(rooms.map((room) => room.level))].map((level) => {
-  const row = rooms.filter((room) => room.level === level);
+  const onLevel = rooms.filter((room) => room.level === level);
+  const cols = Math.max(...onLevel.map((room) => room.map!.col)) + 1;
+  const rows = Math.max(...onLevel.map((room) => room.map!.row)) + 1;
+  const colWidth = (col: number) => Math.max(1, ...onLevel.filter((room) => room.map!.col === col).map((room) => room.width));
+  const at = (col: number, row: number) => onLevel.find((room) => room.map!.col === col && room.map!.row === row);
+  const linked = (a: typeof onLevel[number], b?: typeof onLevel[number]) =>
+    !!b && Object.values(a.links).some((link) => link.room === b.id);
+
+  const corridors: { col: number; row: number; dir: 'h' | 'v' }[] = [];
+  for (const room of onLevel) {
+    const { col, row } = room.map!;
+    if (linked(room, at(col + 1, row))) corridors.push({ col: col * 2 + 2, row: row * 2 + 1, dir: 'h' });
+    if (linked(room, at(col, row + 1))) corridors.push({ col: col * 2 + 1, row: row * 2 + 2, dir: 'v' });
+  }
+
   return {
     level,
-    rooms: row.map((room, index) => ({
-      ...room,
-      linkedToNext: index < row.length - 1 && Object.values(room.links).some((link) => link.room === row[index + 1].id),
-    })),
+    rooms: onLevel,
+    corridors,
+    columns: Array.from({ length: cols }, (_, col) => `${colWidth(col)}fr`).join(' 10px '),
+    rows: Array.from({ length: rows }, () => 'auto').join(' 8px '),
   };
 });
 
@@ -139,27 +154,27 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           </div>
         )}
         <div class="monitor-map-levels">
-        {levels.map(({ level, rooms: row }) => (
+        {levels.map(({ level, rooms: onLevel, corridors, columns, rows }) => (
           <div class="monitor-map-level" data-monitor-level-row={level} hidden={level !== initialRoom.level}>
             {levels.length === 1 && <span class="monitor-map-label">L{level}</span>}
-            <div class="monitor-map-row">
-              {row.map((room) => (
-                <>
-                  <button
-                    type="button"
-                    class:list={['monitor-map-room', { 'is-active': room.id === initialRoom.id }]}
-                    style={`flex-grow:${room.width}`}
-                    data-monitor-camera={room.id}
-                    aria-pressed={String(room.id === initialRoom.id)}
-                  >
-                    <span class="monitor-map-cam">{room.camera}</span>
-                    <span class="monitor-map-name">{room.name}</span>
-                    <span class="monitor-map-count" title="People on camera">
-                      <span data-monitor-camera-count>0</span><span class="sr-only"> on camera</span>
-                    </span>
-                  </button>
-                  {room.linkedToNext && <span class="monitor-map-door" aria-hidden="true"></span>}
-                </>
+            <div class="monitor-map-grid" style={`grid-template-columns:${columns};grid-template-rows:${rows}`}>
+              {onLevel.map((room) => (
+                <button
+                  type="button"
+                  class:list={['monitor-map-room', { 'is-active': room.id === initialRoom.id }]}
+                  style={`grid-column:${room.map!.col * 2 + 1};grid-row:${room.map!.row * 2 + 1}`}
+                  data-monitor-camera={room.id}
+                  aria-pressed={String(room.id === initialRoom.id)}
+                >
+                  <span class="monitor-map-cam">{room.camera}</span>
+                  <span class="monitor-map-name">{room.name}</span>
+                  <span class="monitor-map-count" title="People on camera">
+                    <span data-monitor-camera-count>0</span><span class="sr-only"> on camera</span>
+                  </span>
+                </button>
+              ))}
+              {corridors.map(({ col, row, dir }) => (
+                <span class={`monitor-map-door is-${dir}`} style={`grid-column:${col};grid-row:${row}`} aria-hidden="true"></span>
               ))}
             </div>
           </div>
@@ -278,9 +293,9 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-floor.is-active{ color:var(--text); border-color:var(--neon-orange); background:color-mix(in srgb, var(--neon-orange) 18%, var(--panel)) }
   .monitor-floor-count{ min-width:1.6em; padding:0 4px; border-radius:var(--radius-pill); background:rgba(5, 8, 13, 0.6); color:var(--text); text-align:center; font-variant-numeric:tabular-nums }
   .monitor-map-label{ align-self:center; min-width:2.2em; color:var(--muted); font-size:0.68rem; letter-spacing:0.14em }
-  .monitor-map-row{ flex:1; display:flex; align-items:stretch; min-width:0 }
+  .monitor-map-grid{ flex:1; display:grid; min-width:0 }
   .monitor-map-room{
-    flex-basis:0; min-width:0; display:grid; grid-template-columns:1fr auto; align-items:center; gap:0 8px;
+    min-width:0; display:grid; grid-template-columns:1fr auto; align-items:center; gap:0 8px;
     padding:6px 10px; border:1px solid var(--line-soft); border-radius:var(--radius-sm);
     background:color-mix(in srgb, var(--panel) 85%, #000); color:var(--muted);
     font:inherit; text-align:left; cursor:pointer; transition:border-color .15s ease, color .15s ease, background .15s ease;
@@ -299,7 +314,10 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     background:rgba(5, 8, 13, 0.6); color:var(--text); font-size:0.75rem; text-align:center; font-variant-numeric:tabular-nums;
   }
   /* A short corridor between rooms whose doors connect. */
-  .monitor-map-door{ flex:0 0 10px; align-self:center; height:6px; background:var(--line-soft) }
+  /* Short corridors between rooms whose doors connect: sideways for west/east, upright for north/south. */
+  .monitor-map-door{ background:var(--line-soft) }
+  .monitor-map-door.is-h{ align-self:center; height:6px }
+  .monitor-map-door.is-v{ justify-self:center; width:6px }
 
   .monitor-screen.is-switching::before{
     content:''; position:absolute; inset:0; pointer-events:none;

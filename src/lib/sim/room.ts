@@ -1,11 +1,11 @@
 // A room the simulation runs in, built from its folder in src/sim_assets/rooms/:
 // the nav map decides where feet can go and where the exits are, room.json places the props.
 
-import type { NavMapData, Point, Rect } from './navMap.ts';
+import type { DoorSide, NavMapData, Point, Rect } from './navMap.ts';
 import { NavGrid } from './pathfinding.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
 
-export type { Point } from './navMap.ts';
+export type { DoorSide, Point } from './navMap.ts';
 export type { Facing } from './sprites.ts';
 
 export interface PlacedProp {
@@ -38,6 +38,8 @@ export interface RoomData {
   links: Record<string, ExitLink>;
   /** Elevator shaft each elevator belongs to, by elevator id. Rooms on the same shaft are its stops. */
   shafts: Record<string, string>;
+  /** Position on its level's camera map (north is row 0). Set when the whole facility is loaded. */
+  map?: { col: number; row: number };
 }
 
 export interface Spot extends Point {
@@ -49,6 +51,8 @@ export interface Spot extends Point {
 
 export interface Door {
   id: string;
+  /** Wall the door is in. */
+  side: DoorSide;
   /** Standing spot just inside the room. */
   inside: Point;
   /** Point inside the doorway where characters fade out. */
@@ -78,6 +82,19 @@ export type Direction = 'up' | 'down';
 export const directionTo = (from: Room, to: Room): Direction => (to.level > from.level ? 'down' : 'up');
 
 const mirror = (rect: Rect, width: number): Rect => ({ ...rect, x: width - rect.x - rect.w });
+
+/** How far people walk past a back-wall or front-edge door's threshold while fading in or out. */
+const DOORWAY_DEPTH = { north: 14, south: 30 };
+
+/**
+ * Where people disappear when going through a door. Side doors use the bottom of the doorway;
+ * back-wall doors are walked into a little way; front-edge doors are walked out of the picture.
+ */
+function doorwayPoint(side: DoorSide, inside: Point, base: Point): Point {
+  if (side === 'north') return { x: inside.x, y: inside.y - DOORWAY_DEPTH.north };
+  if (side === 'south') return { x: inside.x, y: Math.max(base.y, inside.y) + DOORWAY_DEPTH.south };
+  return base;
+}
 const contains = (rect: Rect, point: Point) =>
   point.x >= rect.x && point.x < rect.x + rect.w && point.y >= rect.y && point.y < rect.y + rect.h;
 
@@ -129,7 +146,9 @@ export class Room {
 
     for (const exit of data.nav.exits) {
       if (exit.kind === 'door') {
-        this.doors.push({ id: exit.id, inside: this.nearestWalkable(exit.threshold), outside: exit.base, to: data.links?.[exit.id] });
+        const side = exit.side ?? 'west';
+        const inside = this.nearestWalkable(exit.threshold);
+        this.doors.push({ id: exit.id, side, inside, outside: doorwayPoint(side, inside, exit.base), to: data.links?.[exit.id] });
         continue;
       }
       const { x, y, w, h } = exit.bounds;

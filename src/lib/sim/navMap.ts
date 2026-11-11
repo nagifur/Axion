@@ -28,10 +28,20 @@ const COLOR_TOLERANCE = 40;
 /** How many of an exit's lowest pixel rows count as its "ground" (where feet go through). */
 const EXIT_BASE_ROWS = 6;
 
+/**
+ * Which wall a door is in, worked out from where the floor touches it:
+ * side walls touch the floor sideways, the back wall (north) has floor below it,
+ * and the front edge (south) has floor above it.
+ */
+export type DoorSide = 'west' | 'east' | 'north' | 'south';
+export const DOOR_SIDES: DoorSide[] = ['west', 'east', 'north', 'south'];
+
 export interface NavExit {
-  /** "west"/"east" for doors (by position), "elevator" for the elevator. */
+  /** Doors: their side ("west", "north", ...), numbered when a side has several ("west-1"). Elevators: "elevator". */
   id: string;
   kind: 'door' | 'elevator';
+  /** Wall the door is in (doors only). */
+  side?: DoorSide;
   bounds: Rect;
   /** Average position of the floor pixels touching the exit. */
   threshold: Point;
@@ -147,11 +157,14 @@ export function parseNavMap(pixels: ArrayLike<number>, width: number, height: nu
       const bounds = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs) + 1, h: Math.max(...ys) - Math.min(...ys) + 1 };
 
       const contact = new Map<number, Point>();
+      // How much floor touches the exit from each direction.
+      const touch = { left: 0, right: 0, above: 0, below: 0 };
+      const isFloor = (nx: number, ny: number) => nx >= 0 && ny >= 0 && nx < width && ny < height && kinds[ny * width + nx] === 'floor';
       for (const { x, y } of points) {
-        for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
-          if (nx >= 0 && ny >= 0 && nx < width && ny < height && kinds[ny * width + nx] === 'floor') {
-            contact.set(ny * width + nx, { x: nx, y: ny });
-          }
+        for (const [nx, ny, from] of [[x - 1, y, 'left'], [x + 1, y, 'right'], [x, y - 1, 'above'], [x, y + 1, 'below']] as const) {
+          if (!isFloor(nx, ny)) continue;
+          contact.set(ny * width + nx, { x: nx, y: ny });
+          touch[from]++;
         }
       }
       if (!contact.size) {
@@ -160,10 +173,17 @@ export function parseNavMap(pixels: ArrayLike<number>, width: number, height: nu
         );
       }
 
+      // Side-wall doors on the slanted walls touch the floor sideways about as much as from below.
+      const sideways = Math.max(touch.left, touch.right);
+      const side: DoorSide = sideways * 2 >= Math.max(touch.above, touch.below)
+        ? (touch.right >= touch.left ? 'west' : 'east')
+        : (touch.above > touch.below ? 'south' : 'north');
+
       const baseY = bounds.y + bounds.h - EXIT_BASE_ROWS;
       exits.push({
         id: kind,
         kind,
+        side: kind === 'door' ? side : undefined,
         bounds,
         threshold: average([...contact.values()]),
         base: average(points.filter((point) => point.y >= baseY)),
@@ -174,12 +194,11 @@ export function parseNavMap(pixels: ArrayLike<number>, width: number, height: nu
   const elevators = exits.filter((exit) => exit.kind === 'elevator');
   if (elevators.length > 1) throw new NavMapError(`${file}: only one elevator per room is supported (found ${elevators.length}).`);
 
-  // Name doors by which half of the room they are in; number them if a side has several.
-  const doors = exits.filter((exit) => exit.kind === 'door').sort((a, b) => a.bounds.x - b.bounds.x);
-  const side = (exit: NavExit) => (exit.bounds.x + exit.bounds.w / 2 < width / 2 ? 'west' : 'east');
+  // Name doors by their wall; number them left to right if a wall has several.
+  const doors = exits.filter((exit) => exit.kind === 'door').sort((a, b) => a.bounds.x - b.bounds.x || a.bounds.y - b.bounds.y);
   for (const door of doors) {
-    const sameSide = doors.filter((other) => side(other) === side(door));
-    door.id = sameSide.length > 1 ? `${side(door)}-${sameSide.indexOf(door) + 1}` : side(door);
+    const sameSide = doors.filter((other) => other.side === door.side);
+    door.id = sameSide.length > 1 ? `${door.side}-${sameSide.indexOf(door) + 1}` : door.side!;
   }
 
   return { width, height, floor, exits: [...doors, ...elevators] };
