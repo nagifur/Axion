@@ -3,7 +3,7 @@ import { directionTo, type Door, type Facing, type Point, type Room, type Spot }
 import { CHARACTER_FRAMES, WALK_CYCLE, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
 
-export type Bubble = 'zZ' | '!' | '…' | '?' | null;
+export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
 
 /** A unit of behaviour. Agents run one task at a time from their plan. */
 export interface Task {
@@ -251,6 +251,12 @@ function chatBubble(conversation: Conversation, agent: Agent) {
   const speaking = (turn === 0) === (agent === conversation.initiator);
   agent.bubble = conversation.started && speaking ? '…' : null;
 }
+
+function meow(agent: Agent, world: World) {
+  agent.say('Meow!', 1.3);
+  world.log(`${agent.character.name} meowed in the ${agent.room.name}.`, 'muted');
+}
+
 
 function talk(conversation: Conversation, seconds: number): Task {
   const { partner } = conversation;
@@ -537,6 +543,13 @@ export function planNext(agent: Agent, world: World): Task[] {
       build: () => {
         agent.spot = benchSpot!;
         return [walkTo(benchSpot!, 'Heading to the bench'), rest(agent, benchSpot!, world)];
+      },
+    },
+    {
+      weight: ['feline', 'cat'].includes(agent.character.species.trim().toLowerCase()) ? 1 : 0.1,
+      build: () => {
+        meow(agent, world);
+        return [wait(range(1, 3), 'Meowing', 'front')];
       },
     },
     {
