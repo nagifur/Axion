@@ -2,6 +2,10 @@
   "name": "Checkpoint",
   "level": 3,
   "camera": "CAM 3-01",
-  "elevators": { "elevator": "main" }
+  "elevators": { "elevator": "main" },
+  "props": [
+  { "type": "light", "x": 136, "y": 80 },
+  { "type": "light", "x": 239, "y": 80 }
+]
   
 }
