@@ -6,7 +6,8 @@ import { getCollection } from 'astro:content';
 import type { ImageMetadata } from 'astro';
 import { toSimCharacter, toSimImpostor, type SimCharacter, type SimImpostor } from '../lib/sim/roster';
 import type { MonitorConfig } from '../lib/sim/monitor';
-import { loadFacility } from '../lib/sim/roomLoader';
+import { listPropTypes, loadFacility } from '../lib/sim/roomLoader';
+import { propTypeOf } from '../lib/sim/sprites';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
 
 // Room folder in src/sim_assets/rooms/ shown first, before the viewer picks a camera.
@@ -87,6 +88,10 @@ const impostors = (await Promise.all(entities.map(async (entry) => {
   return toSimImpostor(entry, base, await thumbnail(id, entry.data.profileImage));
 }))).filter((impostor): impostor is SimImpostor => impostor !== null);
 
+const propSources = Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src]));
+// Prop palette for the debug prop editor.
+const propTypes = (await listPropTypes()).map((type) => ({ type, src: propSources[propTypeOf(type).asset] }));
+
 const config: MonitorConfig = {
   roster,
   impostors,
@@ -95,7 +100,7 @@ const config: MonitorConfig = {
   assets: {
     ...roomAssets,
     character: characterSheet.src,
-    ...Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src])),
+    ...propSources,
   },
 };
 // Escape "<" so profile text can never close the inline JSON script.
@@ -211,7 +216,41 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <button type="button" class="btn" data-debug="trip">Trip</button>
           <button type="button" class="btn" data-debug="announce">A1 message</button>
           <button type="button" class="btn" data-debug="speed">Speed ×4</button>
+          <button type="button" class="btn" data-debug="props" aria-pressed="false">Edit props</button>
           <button type="button" class="btn danger" data-debug="reset">Reset progress</button>
+        </div>
+      </div>
+
+      <div class="monitor-editor" data-monitor-editor hidden>
+        <div class="monitor-editor-head">
+          <span class="monitor-debug-label">Prop editor</span>
+          <span class="monitor-editor-room" data-editor-room></span>
+          <span class="monitor-editor-cursor" data-editor-cursor>Cursor: –</span>
+        </div>
+        <div class="monitor-editor-palette" role="group" aria-label="Add a prop">
+          {propTypes.map(({ type, src }) => (
+            <button type="button" class="monitor-editor-add" data-editor-add={type} aria-pressed="false" title={`Add ${type}`}>
+              {src && <img src={src} alt="" />}
+              <span>{type}</span>
+            </button>
+          ))}
+        </div>
+        <div class="monitor-editor-selected">
+          <span data-editor-selected>Nothing selected</span>
+          <button type="button" class="btn secondary" data-editor-flip disabled>Flip (F)</button>
+          <button type="button" class="btn danger" data-editor-delete disabled>Delete</button>
+        </div>
+        <p class="monitor-editor-help">
+          Pick a prop above, then click the feed to place it. Drag props to move them. Arrow keys nudge the selected
+          prop by 1px (Shift: 10px), F flips it, Delete removes it, Esc cancels. Red is floor the prop blocks; blue dots are seats.
+        </p>
+        <label class="monitor-editor-label" for="monitor-editor-snippet">
+          Replace the <code>"props"</code> list in <code data-editor-file></code> with:
+        </label>
+        <textarea id="monitor-editor-snippet" class="monitor-editor-snippet" data-editor-snippet readonly spellcheck="false" rows="6"></textarea>
+        <div class="monitor-editor-actions">
+          <button type="button" class="btn" data-editor-copy>Copy</button>
+          <button type="button" class="btn secondary" data-editor-reset>Undo all changes in this room</button>
         </div>
       </div>
     </section>
@@ -293,7 +332,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-floor.is-active{ color:var(--text); border-color:var(--neon-orange); background:color-mix(in srgb, var(--neon-orange) 18%, var(--panel)) }
   .monitor-floor-count{ min-width:1.6em; padding:0 4px; border-radius:var(--radius-pill); background:rgba(5, 8, 13, 0.6); color:var(--text); text-align:center; font-variant-numeric:tabular-nums }
   .monitor-map-label{ align-self:center; min-width:2.2em; color:var(--muted); font-size:0.68rem; letter-spacing:0.14em }
-  .monitor-map-grid{ flex:1; display:grid; min-width:0 }
+  .monitor-map-grid{ flex:1; display:grid; align-content:center; min-width:0 }
   .monitor-map-room{
     min-width:0; display:grid; grid-template-columns:1fr auto; align-items:center; gap:0 8px;
     padding:6px 10px; border:1px solid var(--line-soft); border-radius:var(--radius-sm);
@@ -389,6 +428,37 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-debug{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto }
   .monitor-debug[hidden]{ display:none }
   .monitor-debug-label{ font-size:0.68rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--neon-yellow) }
+  .monitor-debug .btn[aria-pressed="true"]{ --btn-tint:var(--neon-yellow); --btn-fill:30% }
+
+  /* Debug prop editor. */
+  .monitor-page.is-editing .monitor-tags{ display:none }
+  .monitor-page.is-editing .monitor-screen canvas{ cursor:crosshair }
+  .monitor-editor{
+    display:flex; flex-direction:column; gap:10px; padding:12px;
+    border:1px dashed var(--neon-yellow); border-radius:var(--radius-sm); font-size:0.8rem;
+  }
+  .monitor-editor[hidden]{ display:none }
+  .monitor-editor-head{ display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 16px }
+  .monitor-editor-room{ color:var(--text) }
+  .monitor-editor-cursor{ margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums }
+  .monitor-editor-palette{ display:flex; flex-wrap:wrap; gap:6px }
+  .monitor-editor-add{
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px; min-width:64px; padding:6px;
+    border:1px solid var(--line-soft); border-radius:var(--radius-sm); background:#05080d; color:var(--muted);
+    font:inherit; font-size:0.7rem; cursor:pointer;
+  }
+  .monitor-editor-add img{ max-width:56px; max-height:40px; image-rendering:pixelated }
+  .monitor-editor-add:hover, .monitor-editor-add[aria-pressed="true"]{ color:var(--text); border-color:var(--neon-green) }
+  .monitor-editor-add[aria-pressed="true"]{ background:color-mix(in srgb, var(--neon-green) 16%, #05080d) }
+  .monitor-editor-selected{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+  .monitor-editor-selected > span{ margin-right:auto; color:var(--neon-yellow); font-variant-numeric:tabular-nums }
+  .monitor-editor-help{ margin:0; color:var(--muted) }
+  .monitor-editor-label{ color:var(--muted) }
+  .monitor-editor-snippet{
+    width:100%; box-sizing:border-box; resize:vertical; padding:8px; border:1px solid var(--line-soft); border-radius:var(--radius-sm);
+    background:#05080d; color:var(--neon-green); font:0.78rem/1.4 ui-monospace, monospace; white-space:pre;
+  }
+  .monitor-editor-actions{ display:flex; flex-wrap:wrap; gap:8px }
 
   .monitor-panels{ display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px; align-items:start }
 

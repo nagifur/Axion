@@ -87,6 +87,16 @@ export class Renderer {
     this.resize();
   }
 
+  /** Drawing context, already scaled so 1 unit is 1 room pixel (valid after draw()). */
+  get context() {
+    return this.ctx;
+  }
+
+  /** Screen pixels per room pixel. */
+  get scale() {
+    return this.pixelScale;
+  }
+
   /** Renders at an integer multiple of the room size so pixels stay square and crisp. */
   resize() {
     const { width, height } = this.room;

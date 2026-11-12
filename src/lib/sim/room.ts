@@ -105,14 +105,14 @@ export class Room {
   readonly camera: string;
   readonly width: number;
   readonly height: number;
-  readonly props: PlacedProp[];
+  props: PlacedProp[] = [];
   readonly spots: Spot[] = [];
   readonly doors: Door[] = [];
   readonly elevator?: Elevator;
   private readonly floor: number[][];
   private readonly blocked: Rect[] = [];
-  private readonly grid: NavGrid;
-  private readonly openCells: number[];
+  private grid!: NavGrid;
+  private openCells: number[] = [];
 
   constructor(data: RoomData) {
     this.id = data.id;
@@ -121,28 +121,8 @@ export class Room {
     this.camera = data.camera;
     this.width = data.width;
     this.height = data.height;
-    this.props = data.props;
     this.floor = data.nav.floor;
-
-    this.props.forEach((prop, propIndex) => {
-      const type = PROP_TYPES[prop.type];
-      if (type?.blocks) {
-        const rect = prop.flip ? mirror(type.blocks, prop.w) : type.blocks;
-        this.blocked.push({ ...rect, x: prop.x + rect.x, y: prop.y + rect.y });
-      }
-      type?.seats?.forEach((seat, seatIndex) => {
-        this.spots.push({
-          id: `${prop.type}-${propIndex}-${seatIndex}`,
-          kind: prop.type,
-          x: prop.x + (prop.flip ? prop.w - 1 - seat.x : seat.x),
-          y: prop.y + seat.y,
-          facing: prop.flip ? FLIPPED[seat.facing] : seat.facing,
-        });
-      });
-    });
-
-    this.grid = new NavGrid(this.width, this.height, GRID_CELL, (point) => this.isWalkable(point));
-    this.openCells = this.grid.openCells();
+    this.setProps(data.props);
 
     for (const exit of data.nav.exits) {
       if (exit.kind === 'door') {
@@ -165,6 +145,44 @@ export class Room {
 
   get label() {
     return `Level ${this.level}`;
+  }
+
+  /**
+   * Places the room's props and works out their seats and the floor they block.
+   * Also used by the debug prop editor to apply changes live.
+   */
+  setProps(props: PlacedProp[]) {
+    this.props = props;
+    this.spots.length = 0;
+    this.blocked.length = 0;
+    props.forEach((prop, propIndex) => {
+      const type = PROP_TYPES[prop.type];
+      if (type?.blocks) {
+        const rect = prop.flip ? mirror(type.blocks, prop.w) : type.blocks;
+        this.blocked.push({ ...rect, x: prop.x + rect.x, y: prop.y + rect.y });
+      }
+      type?.seats?.forEach((seat, seatIndex) => {
+        this.spots.push({
+          id: `${prop.type}-${propIndex}-${seatIndex}`,
+          kind: prop.type,
+          x: prop.x + (prop.flip ? prop.w - 1 - seat.x : seat.x),
+          y: prop.y + seat.y,
+          facing: prop.flip ? FLIPPED[seat.facing] : seat.facing,
+        });
+      });
+    });
+    this.grid = new NavGrid(this.width, this.height, GRID_CELL, (point) => this.isWalkable(point));
+    this.openCells = this.grid.openCells();
+  }
+
+  /** Floor areas under props that people walk around. */
+  get blockedAreas(): readonly Rect[] {
+    return this.blocked;
+  }
+
+  /** Painted floor per row, as [start, end) pairs (see NavMapData.floor). */
+  get floorSpans(): readonly number[][] {
+    return this.floor;
   }
 
   /** Doors that lead off camera (to the rest of the facility). */

@@ -149,7 +149,8 @@ disguised as staff.
 | [`src/lib/sim/world.ts`](../src/lib/sim/world.ts) | All rooms and people: arrivals, moving between rooms, elevators. |
 | [`src/lib/sim/events.ts`](../src/lib/sim/events.ts) | Random events, A1 announcements, and achievements. |
 
-Add `?debug` to the URL to show buttons that trigger events and speed up time.
+Add `?debug` to the URL to show buttons that trigger events, speed up time, and open
+the prop editor (see [Placing Props With the Editor](#placing-props-with-the-editor)).
 Achievements and the last camera watched are stored in the visitor's browser (`localStorage`).
 
 #### Adding a Room
@@ -192,6 +193,26 @@ type in `sprites.ts` brings its own seats and blocked floor area:
 Prop `x`/`y` is the sprite's top-left corner in room pixels. Everything painted in
 `room.png` is drawn behind characters; anything that should cover people walking past
 (a railing near the camera, a foreground pillar) must be a prop instead.
+
+Any image in [`src/sim_assets/props/`](../src/sim_assets/props/) can be placed by its
+file name (`plant.png` → `"type": "plant"`) as plain decoration. To give a prop seats
+or floor that people walk around, add it to `PROP_TYPES` in
+[`sprites.ts`](../src/lib/sim/sprites.ts).
+
+#### Placing Props With the Editor
+
+Instead of working out pixels by hand, open `/monitoring?debug`, go to the room's
+camera and press **Edit props**:
+
+1. Pick a prop from the palette and click the feed to place it (it stands where you click).
+2. Drag props to move them. Arrow keys nudge the selected prop by 1px (Shift: 10px),
+   **F** flips it, **Delete** removes it, **Esc** cancels.
+3. Press **Copy** and replace the `"props"` list in the room's `room.json` with it.
+
+While editing, the feed shows the walkable floor (green), floor blocked by props (red),
+seats (blue dots) and the position of the selected prop. Changes apply to the running
+simulation straight away but are not saved anywhere until pasted into `room.json`;
+reloading the page discards them.
 
 #### Connecting Rooms
 

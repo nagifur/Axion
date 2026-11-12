@@ -7,7 +7,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
-import { PROP_TYPES } from './sprites.ts';
+import { placeablePropTypes, propTypeOf } from './sprites.ts';
 
 export const SIM_ASSETS_DIR = path.resolve('src/sim_assets');
 
@@ -37,6 +37,12 @@ async function imageSize(file: string) {
   const { width, height } = await sharp(file).metadata();
   if (!width || !height) throw new NavMapError(`${file}: could not read image size.`);
   return { width, height };
+}
+
+/** Every prop type a room can place (see placeablePropTypes). */
+export async function listPropTypes(assetsDir = SIM_ASSETS_DIR): Promise<string[]> {
+  const files = await readdir(path.join(assetsDir, 'props'));
+  return placeablePropTypes(files.filter((file) => file.endsWith('.png')).map((file) => file.slice(0, -4)));
 }
 
 function readExits(raw: unknown, id: string): Map<string, DeclaredExit> {
@@ -94,17 +100,21 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
 
   const props: PlacedProp[] = [];
   const entries = Array.isArray(json.props) ? json.props : [];
+  const known = entries.length ? await listPropTypes(assetsDir) : [];
   for (const [index, entry] of entries.entries()) {
     const { type, x, y, flip } = entry ?? {};
-    const propType = PROP_TYPES[type];
-    if (!propType) {
-      throw new NavMapError(`${label}/room.json: prop ${index + 1} has unknown type "${type}". Known: ${Object.keys(PROP_TYPES).join(', ')}.`);
+    if (typeof type !== 'string' || !known.includes(type)) {
+      throw new NavMapError(
+        `${label}/room.json: prop ${index + 1} has unknown type "${type}". ` +
+        `Known: ${known.join(', ')} (any image in sim_assets/props/ can be placed).`,
+      );
     }
     if (!Number.isInteger(x) || !Number.isInteger(y)) {
       throw new NavMapError(`${label}/room.json: prop ${index + 1} (${type}) needs whole-number "x" and "y".`);
     }
-    const size = await imageSize(path.join(assetsDir, 'props', `${propType.asset}.png`));
-    props.push({ type, asset: propType.asset, x, y, w: size.width, h: size.height, flip: flip === true });
+    const { asset } = propTypeOf(type);
+    const size = await imageSize(path.join(assetsDir, 'props', `${asset}.png`));
+    props.push({ type, asset, x, y, w: size.width, h: size.height, flip: flip === true });
   }
 
   return {

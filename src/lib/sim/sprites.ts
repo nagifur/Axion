@@ -74,3 +74,18 @@ export const ELEVATOR_SPRITES = {
   upWidth: 11,
   downX: 13,
 };
+
+/**
+ * Prop types that can be placed in a room: the ones listed in PROP_TYPES, plus any other image in
+ * src/sim_assets/props/ as plain decoration (no seats, nothing blocked). `files` are the image names
+ * without ".png".
+ */
+export function placeablePropTypes(files: Iterable<string>): string[] {
+  const reserved = new Set([ELEVATOR_SPRITES.door, ELEVATOR_SPRITES.lights]);
+  const types = new Set(Object.keys(PROP_TYPES));
+  for (const file of files) if (!reserved.has(file)) types.add(file);
+  return [...types].sort();
+}
+
+/** The type's details, or plain decoration using the image of the same name. */
+export const propTypeOf = (type: string): PropType => PROP_TYPES[type] ?? { asset: type };

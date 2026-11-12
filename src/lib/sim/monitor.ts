@@ -1,5 +1,6 @@
 import { nap, trip, type Agent } from './agent.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
+import { PropEditor } from './propEditor.ts';
 import { Renderer, loadAssets } from './render.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import { Room, type RoomData } from './room.ts';
@@ -171,6 +172,7 @@ export function initMonitor(root: HTMLElement): () => void {
     if (changed) {
       hovered = null;
       renderer?.setRoom(room);
+      editor?.setRoom(room);
       if (screen) {
         // A burst of static, like a real CCTV feed changing channel.
         screen.classList.remove('is-switching');
@@ -415,22 +417,43 @@ export function initMonitor(root: HTMLElement): () => void {
   const onPointerMove = (event: PointerEvent) => {
     if (!renderer) return;
     const point = toRoom(event);
+    if (editor?.active) {
+      editor.pointerMove(point);
+      if (editorCursor && editor.cursor) editorCursor.textContent = `Cursor: ${editor.cursor.x}, ${editor.cursor.y}`;
+      return;
+    }
     hovered = renderer.hitTest(world, point.x, point.y);
     canvas.style.cursor = hovered ? 'pointer' : '';
   };
   const onPointerLeave = () => {
     hovered = null;
     canvas.style.cursor = '';
+    editor?.pointerLeave();
+    if (editorCursor) editorCursor.textContent = 'Cursor: –';
   };
   const onClick = (event: MouseEvent) => {
-    if (!renderer) return;
+    if (!renderer || editor?.active) return;
     const point = toRoom(event);
     const agent = renderer.hitTest(world, point.x, point.y);
     if (agent) select(agent);
   };
+  const onPointerDown = (event: PointerEvent) => {
+    if (!editor?.active || event.button !== 0) return;
+    canvas.setPointerCapture(event.pointerId);
+    editor.pointerDown(toRoom(event));
+  };
+  const onPointerUp = () => editor?.pointerUp();
+  const onKeyDown = (event: KeyboardEvent) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!editor?.active || target?.closest('input, textarea')) return;
+    if (editor.key(event)) event.preventDefault();
+  };
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', onPointerLeave);
   canvas.addEventListener('click', onClick);
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('keydown', onKeyDown);
 
   tagsToggle?.addEventListener('click', () => {
     showAllTags = !showAllTags;
@@ -444,7 +467,8 @@ export function initMonitor(root: HTMLElement): () => void {
     root.classList.toggle('is-paused', paused);
   });
 
-  if (debugPanel && new URLSearchParams(location.search).has('debug')) {
+  const debugMode = !!debugPanel && new URLSearchParams(location.search).has('debug');
+  if (debugPanel && debugMode) {
     debugPanel.hidden = false;
     // Debug actions pick someone on the camera being watched.
     const randomAgent = () => world.agentsIn(viewed).filter((agent) => !agent.busy)[0];
@@ -455,6 +479,7 @@ export function initMonitor(root: HTMLElement): () => void {
       trip: () => randomAgent()?.interrupt(world, trip()),
       announce: () => director.announce(world),
       speed: () => { speed = speed === 1 ? 4 : 1; log(`Debug: speed x${speed}.`, 'muted'); },
+      props: () => toggleEditor(),
       reset: () => {
         unlocked.clear();
         identified.clear();
@@ -472,6 +497,66 @@ export function initMonitor(root: HTMLElement): () => void {
       if (action) actions[action]?.();
     });
   }
+
+  // --- Debug prop editor ---------------------------------------------------
+
+  let editor: PropEditor | null = null;
+  let copyTimer = 0;
+  const editorPanel = root.querySelector<HTMLElement>('[data-monitor-editor]');
+  const editorCursor = root.querySelector<HTMLElement>('[data-editor-cursor]');
+  const editorSnippet = root.querySelector<HTMLTextAreaElement>('[data-editor-snippet]');
+  const editorCopy = root.querySelector<HTMLButtonElement>('[data-editor-copy]');
+
+  const renderEditor = () => {
+    if (!editor || !editorPanel) return;
+    const { room, selected, placing } = editor;
+    const edited = editor.isEdited();
+    editorPanel.querySelector('[data-editor-room]')!.textContent = `${room.camera} · ${room.name}${edited ? ' · unsaved changes' : ''}`;
+    editorPanel.querySelector('[data-editor-file]')!.textContent = `src/sim_assets/rooms/${room.id}/room.json`;
+    editorPanel.querySelector('[data-editor-selected]')!.textContent = placing
+      ? `Click the feed to place: ${placing}`
+      : selected
+        ? `${selected.type} · x ${selected.x}, y ${selected.y}${selected.flip ? ' · flipped' : ''}`
+        : 'Nothing selected';
+    editorPanel.querySelector<HTMLButtonElement>('[data-editor-flip]')!.disabled = !selected;
+    editorPanel.querySelector<HTMLButtonElement>('[data-editor-delete]')!.disabled = !selected;
+    for (const button of editorPanel.querySelectorAll<HTMLElement>('[data-editor-add]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.editorAdd === placing));
+    }
+    if (editorSnippet) editorSnippet.value = editor.snippet();
+  };
+
+  const toggleEditor = () => {
+    if (!editor || !editorPanel) return;
+    editor.active = !editor.active;
+    editorPanel.hidden = !editor.active;
+    root.classList.toggle('is-editing', editor.active);
+    debugPanel?.querySelector('[data-debug="props"]')?.setAttribute('aria-pressed', String(editor.active));
+    hovered = null;
+    renderEditor();
+  };
+
+  editorPanel?.addEventListener('click', (event) => {
+    if (!editor) return;
+    const target = (event.target as HTMLElement).closest<HTMLElement>('button');
+    if (!target) return;
+    if (target.dataset.editorAdd) editor.add(target.dataset.editorAdd);
+    else if (target.hasAttribute('data-editor-flip')) editor.flip();
+    else if (target.hasAttribute('data-editor-delete')) editor.remove();
+    else if (target.hasAttribute('data-editor-reset')) editor.reset();
+    else if (target.hasAttribute('data-editor-copy') && editorSnippet) {
+      const done = () => {
+        if (!editorCopy) return;
+        editorCopy.textContent = 'Copied!';
+        window.clearTimeout(copyTimer);
+        copyTimer = window.setTimeout(() => { editorCopy.textContent = 'Copy'; }, 1500);
+      };
+      navigator.clipboard?.writeText(editorSnippet.value).then(done, () => {
+        // Clipboard access can be blocked; leave the text selected for Cmd/Ctrl+C.
+        editorSnippet.select();
+      });
+    }
+  });
 
   // --- Clock & status ------------------------------------------------------
 
@@ -517,6 +602,7 @@ export function initMonitor(root: HTMLElement): () => void {
     if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
     if (hovered) highlights.set(hovered, '#ffffff');
     renderer.draw(world, highlights);
+    if (editor?.active) editor.draw(renderer.context, renderer.scale);
     syncTags();
     renderFile(selected);
     raf = requestAnimationFrame(frame);
@@ -526,6 +612,7 @@ export function initMonitor(root: HTMLElement): () => void {
     if (disposed) return;
     renderer = new Renderer(canvas, assets, viewed);
     renderer.resize();
+    if (debugMode) editor = new PropEditor(assets, viewed, renderEditor);
     world.populate();
     updateCameraCounts();
     log(`A1oS camera link established: ${rooms.length} feed${rooms.length === 1 ? '' : 's'} online.`, 'ok');
@@ -544,10 +631,14 @@ export function initMonitor(root: HTMLElement): () => void {
     window.clearInterval(clockTimer);
     window.clearTimeout(toastTimer);
     window.clearTimeout(staticTimer);
+    window.clearTimeout(copyTimer);
     resizeObserver.disconnect();
     canvas.removeEventListener('pointermove', onPointerMove);
     canvas.removeEventListener('pointerleave', onPointerLeave);
     canvas.removeEventListener('click', onClick);
+    canvas.removeEventListener('pointerdown', onPointerDown);
+    canvas.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('keydown', onKeyDown);
     for (const button of cameraButtons) button.removeEventListener('click', onCameraClick);
     for (const button of levelButtons) button.removeEventListener('click', onLevelClick);
   };
