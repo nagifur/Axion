@@ -44,6 +44,11 @@ Set `draft: true` on articles, personnel, entities, or synthetics that should no
 appear in the published database. Draft files committed to this public repository
 are still publicly readable; this is not a privacy setting.
 
+On the submit page, personnel and synthetic IDs can be edited below the profile
+image. They are exported as strings to preserve leading zeroes. An entity's ID
+is its filename slug, generated from its entity number. When writing YAML
+manually, quote IDs with leading zeroes (for example, `employeeID: "0001"`).
+
 To mark a personnel, entity, or synthetic profile as hunted by Axion (fired and
 wanted, escaped containment, etc.), add a `wanted` block to its frontmatter. The
 profile then shows a red alert banner, a stamp over the profile image, a tag in

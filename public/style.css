@@ -1613,8 +1613,8 @@
     .form-field textarea{ resize:vertical }
     .form-field input:focus, .form-field select:focus, .form-field textarea:focus{ outline:2px solid var(--line); outline-offset:1px }
     .field-hint{ color:var(--muted); font-size:0.8rem; margin:10px 0 0 }
-    .profile-crop-target{ position:relative; width:100%; aspect-ratio:3/4; margin-bottom:52px; border:1px solid var(--window-border); border-radius:var(--radius); background:var(--bg-deep) }
-    .profile-crop-target.is-animated{ margin-bottom:0 }
+    .profile-crop-target{ position:relative; width:100%; aspect-ratio:3/4; border:1px solid var(--window-border); border-radius:var(--radius); background:var(--bg-deep) }
+    .profile-crop-target:has(#profile-crop-canvas){ margin-bottom:52px }
     #profile-gif-preview{ display:block; width:100%; height:100%; border-radius:inherit; object-fit:cover; image-rendering:pixelated }
     #profile-crop-canvas{ display:block; width:100%; height:100%; overflow:hidden; border-radius:inherit; cursor:grab; touch-action:none; image-rendering:pixelated }
     #profile-crop-canvas.is-zooming{ image-rendering:auto }
@@ -2005,6 +2005,9 @@
       color:var(--muted); font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em;
       white-space:nowrap;
     }
+    .profile-id-editor{ display:flex; align-items:center; gap:0.4em; max-width:100% }
+    .profile-id-editor .preview-inline-input{ flex:0 1 12ch; width:12ch; min-width:0 }
+    #submit-preview .profile-id:not(.profile-id-editor){ max-width:100%; white-space:normal; overflow-wrap:anywhere; text-align:center }
     .stat-grid{
       flex:1; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;
       width:100%;
