@@ -40,8 +40,8 @@ All communications are live monitored and logged by A1, and any repeated attempt
 </div>
 <div class="level-sector-body">
 <div class="level-preview">
-	<span class="level-preview-tag-error">FEED UNAVAILABLE</span>
-	<div class="level-preview-nosignal" aria-hidden="true"><span>No signal</span></div>
+	<span class="level-preview-tag">Live Feed</span>
+	<img src="/level-1-server.gif" alt="Level 1 sector server preview" loading="lazy" />
 	<p class="level-preview-caption">Sector surveillance loop</p>
 </div>
 <div class="level-sector-text">
