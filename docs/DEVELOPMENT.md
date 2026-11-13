@@ -153,6 +153,26 @@ Add `?debug` to the URL to show buttons that trigger events, speed up time, and 
 the prop editor (see [Placing Props With the Editor](#placing-props-with-the-editor)).
 Achievements and the last camera watched are stored in the visitor's browser (`localStorage`).
 
+#### Character Sprite Sheet
+
+[`characters/char_spritesheet.png`](../src/sim_assets/characters/char_spritesheet.png)
+uses untrimmed **96 × 96 pixel cells**, with one animation per row, top to bottom:
+
+| Row | Animation | Frames |
+| --- | --- | --- |
+| 1 | Walking front | 4 |
+| 2 | Walking back | 4 |
+| 3 | Walking right | 4 |
+| 4 | Idle right | 2 |
+| 5 | Idle front | 2 |
+| 6 | Idle back | 2 |
+
+Frames run left to right; unused cells remain transparent. Keep the ground baseline
+at the cell's bottom and the body centered on x = 48. Left-facing animations mirror
+the right-facing rows. Walking uses the dominant movement direction and advances
+every 4.5 room pixels traveled; idle frames alternate every 0.6 simulation seconds.
+Frame coordinates and timing are defined in [`sprites.ts`](../src/lib/sim/sprites.ts).
+
 #### Adding a Room
 
 Each room is a folder in [`src/sim_assets/rooms/`](../src/sim_assets/rooms/):
@@ -246,8 +266,7 @@ disagree. Doors without an exit lead off camera to the rest of the facility, so 
 still arrive and leave through them (as they do through elevators).
 
 People step into north doors facing away from the camera and walk out of the picture
-through south doors facing it. There are no front/back walking frames yet, so they
-hold the back or front pose for that short step.
+through south doors facing it, using the back and front walking animations.
 
 #### Connecting Floors With Elevators
 

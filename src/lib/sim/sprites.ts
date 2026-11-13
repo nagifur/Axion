@@ -14,20 +14,53 @@ export interface Frame {
   anchorX: number;
 }
 
-export type FrameName = 'walk1' | 'walk2' | 'side' | 'front' | 'back';
+export type FrameName =
+  | `${'walkFront' | 'walkBack' | 'walkRight'}${1 | 2 | 3 | 4}`
+  | `${'idleRight' | 'idleFront' | 'idleBack'}${1 | 2}`;
 
-// characters/char_spritesheet.png: side-facing frames face right and are flipped for left.
-// Anchors line the head up between frames so characters don't wobble while walking.
+const gridFrame = (column: number, row: number): Frame => ({
+  x: column * 96, y: row * 96, w: 96, h: 96, anchorX: 48,
+});
+
+// Untrimmed 96x96 cells, anchored at bottom center. Right-facing poses are mirrored for left.
 export const CHARACTER_FRAMES: Record<FrameName, Frame> = {
-  walk1: { x: 0, y: 0, w: 44, h: 90, anchorX: 27 },
-  walk2: { x: 44, y: 0, w: 49, h: 88, anchorX: 27 },
-  side: { x: 94, y: 0, w: 41, h: 89, anchorX: 28 },
-  front: { x: 135, y: 0, w: 30, h: 89, anchorX: 15 },
-  back: { x: 165, y: 0, w: 29, h: 89, anchorX: 14 },
+  walkFront1: gridFrame(0, 0),
+  walkFront2: gridFrame(1, 0),
+  walkFront3: gridFrame(2, 0),
+  walkFront4: gridFrame(3, 0),
+  walkBack1: gridFrame(0, 1),
+  walkBack2: gridFrame(1, 1),
+  walkBack3: gridFrame(2, 1),
+  walkBack4: gridFrame(3, 1),
+  walkRight1: gridFrame(0, 2),
+  walkRight2: gridFrame(1, 2),
+  walkRight3: gridFrame(2, 2),
+  walkRight4: gridFrame(3, 2),
+  idleRight1: gridFrame(0, 3),
+  idleRight2: gridFrame(1, 3),
+  idleFront1: gridFrame(0, 4),
+  idleFront2: gridFrame(1, 4),
+  idleBack1: gridFrame(0, 5),
+  idleBack2: gridFrame(1, 5),
 };
-export const WALK_CYCLE: FrameName[] = ['walk1', 'walk2'];
+const WALK_RIGHT: FrameName[] = ['walkRight1', 'walkRight2', 'walkRight3', 'walkRight4'];
+const IDLE_RIGHT: FrameName[] = ['idleRight1', 'idleRight2'];
+export const WALK_CYCLES: Record<Facing, readonly FrameName[]> = {
+  front: ['walkFront1', 'walkFront2', 'walkFront3', 'walkFront4'],
+  back: ['walkBack1', 'walkBack2', 'walkBack3', 'walkBack4'],
+  right: WALK_RIGHT,
+  left: WALK_RIGHT,
+};
+export const IDLE_CYCLES: Record<Facing, readonly FrameName[]> = {
+  front: ['idleFront1', 'idleFront2'],
+  back: ['idleBack1', 'idleBack2'],
+  right: IDLE_RIGHT,
+  left: IDLE_RIGHT,
+};
 /** Pixels walked before switching to the next walk frame. */
-export const WALK_STRIDE = 7;
+export const WALK_STRIDE = 4.5;
+/** Seconds before switching to the next idle frame. */
+export const IDLE_FRAME_SECONDS = 0.6;
 
 export interface Seat {
   /** Where the feet go. */

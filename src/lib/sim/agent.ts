@@ -1,6 +1,6 @@
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import { directionTo, type Door, type Facing, type Point, type Room, type Spot } from './room.ts';
-import { CHARACTER_FRAMES, WALK_CYCLE, WALK_STRIDE, type FrameName } from './sprites.ts';
+import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
@@ -30,10 +30,9 @@ export class Agent {
   x: number;
   y: number;
   facing: Facing = 'front';
-  /** Last horizontal direction, used for walk frames. */
-  side: 'left' | 'right' = 'right';
   moving = false;
   walkDistance = 0;
+  private idleElapsed = 0;
   layer: 'room' | 'inside' = 'room';
   alpha = 1;
 
@@ -72,16 +71,13 @@ export class Agent {
   }
 
   get frame(): { name: FrameName; flip: boolean } {
-    if (this.moving) {
-      const name = WALK_CYCLE[Math.floor(this.walkDistance / WALK_STRIDE) % WALK_CYCLE.length];
-      return { name, flip: this.side === 'left' };
-    }
-    if (this.facing === 'front' || this.facing === 'back') return { name: this.facing, flip: false };
-    return { name: 'side', flip: this.facing === 'left' };
+    const cycle = (this.moving ? WALK_CYCLES : IDLE_CYCLES)[this.facing];
+    const phase = this.moving ? this.walkDistance / WALK_STRIDE : this.idleElapsed / IDLE_FRAME_SECONDS;
+    return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
   }
 
   get height() {
-    return CHARACTER_FRAMES.side.h * this.character.scale;
+    return CHARACTER_FRAMES.idleRight1.h * this.character.scale;
   }
 
   say(bubble: Bubble, seconds = 2) {
@@ -92,7 +88,6 @@ export class Agent {
   face(target: Point) {
     if (Math.abs(target.x - this.x) < 2) return;
     this.facing = target.x < this.x ? 'left' : 'right';
-    this.side = this.facing;
   }
 
   /** Replaces whatever the agent is doing. */
@@ -116,6 +111,12 @@ export class Agent {
     const dy = target.y - this.y;
     const distance = Math.hypot(dx, dy);
     const step = BASE_SPEED * this.character.behavior.speed * speedMul * Math.max(0, dt);
+    const travelled = Math.min(step, distance);
+    if (travelled > 0) {
+      this.walkDistance += travelled;
+      this.moving = true;
+      this.facing = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'back' : 'front');
+    }
     if (distance <= step) {
       this.x = target.x;
       this.y = target.y;
@@ -123,12 +124,6 @@ export class Agent {
     }
     this.x += (dx / distance) * step;
     this.y += (dy / distance) * step;
-    this.walkDistance += step;
-    this.moving = true;
-    if (Math.abs(dx) > 0.5) {
-      this.side = dx < 0 ? 'left' : 'right';
-      this.facing = this.side;
-    }
     return false;
   }
 
@@ -153,6 +148,7 @@ export class Agent {
       task.end?.(this, world);
       this.task = undefined;
     }
+    this.idleElapsed = this.moving ? 0 : (this.idleElapsed + Math.max(0, dt)) % (IDLE_FRAME_SECONDS * 2);
   }
 }
 
@@ -430,15 +426,11 @@ export function enterThroughDoor(door: Door): Task {
   };
 }
 
-/**
- * Back-wall (north) and front-edge (south) doors are walked through towards or away from the camera.
- * There are no front/back walking frames yet, so hold the front or back pose for that short step.
- */
+/** Keep north/south doorway movement facing along the door, even when the entry path is diagonal. */
 function poseInDoorway(agent: Agent, door: Door, direction: 'in' | 'out') {
   if (door.side !== 'north' && door.side !== 'south') return;
   const awayFromCamera = (door.side === 'north') === (direction === 'out');
   agent.facing = awayFromCamera ? 'back' : 'front';
-  agent.moving = false;
 }
 
 /** Ghosts don't need doors: they fade in or out through the back wall. */

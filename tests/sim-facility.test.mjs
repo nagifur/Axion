@@ -5,6 +5,7 @@ import { exitThroughDoor, rideElevatorOut } from '../src/lib/sim/agent.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { checkShafts, linkRooms, loadFacility, orderRooms } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
+import { WALK_CYCLES } from '../src/lib/sim/sprites.ts';
 
 // Minimal room folder contents: only what linking and ordering look at.
 function fakeRoom(id, doors, exits = {}) {
@@ -209,7 +210,8 @@ test('walking through the gallery north door into the trophy room and back', asy
     if (agent.alpha < 1 && agent.room === gallery) poses.add(agent.frame.name);
   }
   assert.equal(agent.room, trophy);
-  assert.deepEqual([...poses], ['back'], 'faces away from the camera while stepping through');
+  assert.ok(poses.size > 1, 'animates while stepping through');
+  assert.ok([...poses].every((pose) => WALK_CYCLES.back.includes(pose)), 'walks away from the camera while stepping through');
 
   for (let t = 0; t < 5 && agent.alpha < 1; t += 0.1) world.update(0.1);
   assert.equal(agent.alpha, 1);
