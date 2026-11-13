@@ -172,6 +172,8 @@ at the cell's bottom and the body centered on x = 48. Left-facing animations mir
 the right-facing rows. Walking uses the dominant movement direction and advances
 every 4.5 room pixels traveled; idle frames alternate every 0.6 simulation seconds.
 Frame coordinates and timing are defined in [`sprites.ts`](../src/lib/sim/sprites.ts).
+The renderer crops each frame before scaling it, so neighboring animation rows cannot
+bleed into characters or their highlight outlines at fractional sizes.
 
 #### Adding a Room
 

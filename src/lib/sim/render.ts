@@ -117,12 +117,6 @@ export class Renderer {
     const source = this.assets.character;
     const width = Math.round(source.width * scale);
     const height = Math.round(source.height * scale);
-    const draw = (image: CanvasImageSource) => {
-      const canvas = makeCanvas(width, height);
-      context(canvas).drawImage(image, 0, 0, width, height);
-      return canvas;
-    };
-    const normal = draw(source);
     const frames = Object.fromEntries(Object.entries(CHARACTER_FRAMES).map(([name, frame]) => {
       const x = Math.round(frame.x * scale);
       const y = Math.round(frame.y * scale);
@@ -134,6 +128,17 @@ export class Renderer {
         anchorX: Math.round(frame.anchorX * scale),
       }];
     })) as Record<FrameName, Frame>;
+    const draw = (image: CanvasImageSource) => {
+      const canvas = makeCanvas(width, height);
+      const ctx = context(canvas);
+      // Crop before scaling so rounded frame boundaries cannot sample neighboring rows.
+      for (const [name, frame] of Object.entries(CHARACTER_FRAMES)) {
+        const scaled = frames[name as FrameName];
+        ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, scaled.x, scaled.y, scaled.w, scaled.h);
+      }
+      return canvas;
+    };
+    const normal = draw(source);
 
     const sheet: ScaledSheet = {
       normal,

@@ -58,7 +58,7 @@ export const IDLE_CYCLES: Record<Facing, readonly FrameName[]> = {
   left: IDLE_RIGHT,
 };
 /** Pixels walked before switching to the next walk frame. */
-export const WALK_STRIDE = 4.5;
+export const WALK_STRIDE = 8;
 /** Seconds before switching to the next idle frame. */
 export const IDLE_FRAME_SECONDS = 0.6;
 
