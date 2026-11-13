@@ -1,6 +1,6 @@
 ---
 title: Snowy
-syntheticID: 0009
+syntheticID: 0001
 position: Personnal Assistant
 type: Living
 nickname: Magic Bunny
