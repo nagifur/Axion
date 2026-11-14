@@ -29,7 +29,7 @@ test('the snippet reproduces a real room.json', async () => {
 });
 
 test('any image in props/ can be placed as decoration, except elevator parts', async () => {
-  assert.deepEqual(placeablePropTypes(['plant', 'elevator_door', 'elevator_lights', 'bench']), ['bench', 'chair', 'light', 'plant', 'table']);
+  assert.deepEqual(placeablePropTypes(['plant', 'elevator_door', 'elevator_door_big', 'elevator_lights', 'bench']), ['bench', 'chair', 'light', 'plant', 'table']);
   assert.deepEqual(propTypeOf('plant'), { asset: 'plant' });
   assert.ok(propTypeOf('chair').seats);
   const types = await listPropTypes();

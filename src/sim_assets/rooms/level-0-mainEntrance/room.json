@@ -1,0 +1,11 @@
+{
+  "name": "Main Entrance",
+  "level": 0,
+  "camera": "CAM 0-01",
+  "elevators": { "shaft": "big", "big": true },
+  "exits": {
+  
+    "east-2": "level-0-Lookout"
+  }
+ 
+}

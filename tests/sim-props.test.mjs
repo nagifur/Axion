@@ -166,6 +166,17 @@ test('elevator doors and lit arrows use their cropped artwork dimensions', async
   elevator.light = 'down';
   renderer.drawElevator(world, new Map());
   assert.deepEqual(canvas.draws[3].slice(1), [49, 44, 11, 9, 45, 14, 11, 9]);
+
+  const bigDoor = { width: 96, height: 96 };
+  renderer.assets.elevator_door_big = bigDoor;
+  room.elevator = { x: 458, y: 251, w: 176, h: 73, big: true };
+  canvas.draws.length = 0;
+  canvas.translations.length = 0;
+  renderer.drawElevator(world, new Map());
+  assert.deepEqual(canvas.draws[0], [bigDoor, 5, 12, 87, 73, 414, 251, 87, 73]);
+  assert.deepEqual(canvas.draws[1], [bigDoor, 5, 12, 87, 73, 0, 0, 87, 73]);
+  assert.deepEqual(canvas.translations, [[678, 251]]);
+  assert.deepEqual(canvas.draws[2], [lights, 36, 44, 24, 9, 534, 235, 24, 9]);
 });
 
 test('asset loading rejects invalid prop sheets instead of rendering broken crops', async (t) => {

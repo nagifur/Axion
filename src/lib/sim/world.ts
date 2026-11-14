@@ -1,6 +1,6 @@
 import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './agent.ts';
 import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
-import { directionTo, type Direction, type Door, type Room, type Spot } from './room.ts';
+import { directionTo, type Direction, type Door, type Point, type Room, type Spot } from './room.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -17,6 +17,8 @@ export interface ElevatorRequest {
   ready: boolean;
   /** The rider changed plans before boarding; the car leaves without them. */
   cancelled: boolean;
+  /** Assigned standing position in a multi-person car. */
+  inside?: Point;
 }
 
 const DOOR_SECONDS = 0.7;
@@ -33,7 +35,12 @@ export class Elevator {
   light: Direction | null = null;
   private timer = 0;
   private queue: ElevatorRequest[] = [];
-  private current?: ElevatorRequest;
+  private current: ElevatorRequest[] = [];
+  readonly capacity: number;
+
+  constructor(capacity = 1) {
+    this.capacity = capacity;
+  }
 
   request(type: ElevatorRequest['type'], agent: Agent, options: { direction?: Direction; destination?: Room } = {}): ElevatorRequest {
     const request: ElevatorRequest = {
@@ -51,12 +58,16 @@ export class Elevator {
 
   update(world: World, dt: number) {
     const current = this.current;
+    if (this.phase === 'arriving' || this.phase === 'opening' || this.phase === 'holding') this.addRiders();
     switch (this.phase) {
       case 'idle': {
         this.light = null;
+        this.queue = this.queue.filter((request) => !request.cancelled && !request.agent.removed);
         const next = this.queue.shift();
         if (!next) return;
-        this.current = next;
+        this.current = [next];
+        this.assignSpot(next, 0);
+        this.addRiders();
         this.phase = 'arriving';
         this.timer = 1.4;
         this.light = next.direction;
@@ -66,7 +77,8 @@ export class Elevator {
         this.timer -= dt;
         if (this.timer <= 0) {
           this.light = null;
-          this.phase = current && !current.agent.removed && !current.cancelled ? 'opening' : 'idle';
+          if (current.some((request) => !request.agent.removed && !request.cancelled)) this.phase = 'opening';
+          else this.finish();
         }
         return;
       case 'opening':
@@ -74,23 +86,24 @@ export class Elevator {
         if (this.open >= 1) {
           this.phase = 'holding';
           this.timer = 12;
-          if (current) current.board = true;
+          for (const request of current) request.board = true;
         }
         return;
       case 'holding': {
         this.timer -= dt;
         // Departing riders are always waited for (unless they change plans); arrivals have a safety timeout.
-        const timedOut = this.timer <= 0 && current?.type === 'arrive';
-        if (!current || current.ready || current.cancelled || current.agent.removed || timedOut) this.phase = 'closing';
+        const timedOut = this.timer <= 0 && current[0]?.type === 'arrive';
+        if (current.every((request) => request.ready || request.cancelled || request.agent.removed) || timedOut) this.phase = 'closing';
         return;
       }
       case 'closing':
         this.open = Math.max(0, this.open - dt / DOOR_SECONDS);
         if (this.open > 0) return;
-        if (current?.type === 'depart' && current.ready && !current.agent.removed) {
+        const departing = current.find((request) => request.type === 'depart' && request.ready && !request.cancelled && !request.agent.removed);
+        if (departing) {
           this.phase = 'leaving';
           this.timer = 1.2;
-          this.light = current.direction;
+          this.light = departing.direction;
         } else {
           this.finish();
         }
@@ -98,15 +111,48 @@ export class Elevator {
       case 'leaving':
         this.timer -= dt;
         if (this.timer <= 0) {
-          if (current && !current.agent.removed) world.elevatorDeparted(current.agent, current.destination);
+          for (const request of current) {
+            if (request.ready && !request.cancelled && !request.agent.removed) world.elevatorDeparted(request.agent, request.destination);
+          }
           this.finish();
         }
         return;
     }
   }
 
+  private addRiders() {
+    const first = this.current.find((request) => !request.cancelled && !request.agent.removed);
+    if (!first) return;
+    this.queue = this.queue.filter((request) => !request.cancelled && !request.agent.removed);
+    for (let i = 0; i < this.queue.length && this.current.length < this.capacity;) {
+      const request = this.queue[i];
+      if (request.type !== first.type || request.direction !== first.direction || request.destination !== first.destination) {
+        i++;
+        continue;
+      }
+      this.queue.splice(i, 1);
+      this.assignSpot(request, this.current.length);
+      request.board = this.phase === 'holding';
+      this.current.push(request);
+    }
+  }
+
+  private assignSpot(request: ElevatorRequest, index: number) {
+    if (this.capacity === 1) return;
+    const opening = request.agent.room.elevator!;
+    const columns = 5;
+    request.inside = {
+      x: Math.round(opening.x + 12 + (index % columns) * (opening.w - 24) / (columns - 1)),
+      y: opening.inside.y - Math.floor(index / columns) * 10,
+    };
+    if (request.type === 'arrive') {
+      request.agent.x = request.inside.x;
+      request.agent.y = request.inside.y;
+    }
+  }
+
   private finish() {
-    this.current = undefined;
+    this.current = [];
     this.phase = 'idle';
     this.light = null;
   }
@@ -165,7 +211,7 @@ export class World {
     this.rooms = options.rooms;
     this.now = options.now ?? (() => new Date());
     for (const room of this.rooms) {
-      if (room.elevator) this.elevators.set(room, new Elevator());
+      if (room.elevator) this.elevators.set(room, new Elevator(room.elevator.big ? 10 : 1));
     }
   }
 

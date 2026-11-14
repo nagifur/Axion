@@ -70,22 +70,29 @@ function readExits(raw: unknown, id: string): Map<string, DeclaredExit> {
   return exits;
 }
 
-/** "elevators": { "<elevator name>": "<shaft name>" }. Elevators sharing a shaft name are stops of one lift. */
-function readShafts(raw: unknown, id: string, nav: RoomData['nav']): Record<string, string> {
-  if (raw === undefined) return {};
-  const elevators = nav.exits.filter((exit) => exit.kind === 'elevator').map((exit) => exit.id);
+/** "elevators": { "shaft": "main", "big": true }. */
+function readElevator(raw: unknown, id: string, nav: RoomData['nav']): RoomData['elevator'] {
+  if (raw === undefined) return undefined;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new NavMapError(`${jsonLabel(id)}: "elevators" should look like { "elevator": "main" }.`);
+    throw new NavMapError(`${jsonLabel(id)}: "elevators" should look like { "shaft": "main", "big": true }.`);
   }
-  for (const [elevator, shaft] of Object.entries(raw)) {
-    if (!elevators.includes(elevator)) {
-      throw new NavMapError(`${jsonLabel(id)}: "elevators" mentions "${elevator}", but navMap.png has: ${listOr(elevators, 'no elevator')}.`);
-    }
-    if (typeof shaft !== 'string' || !shaft) {
-      throw new NavMapError(`${jsonLabel(id)}: elevator "${elevator}" needs a shaft name, e.g. "main".`);
+  if (!nav.exits.some((exit) => exit.kind === 'elevator')) {
+    throw new NavMapError(`${jsonLabel(id)}: "elevators" is configured, but navMap.png has no elevator.`);
+  }
+  for (const key of Object.keys(raw)) {
+    if (key !== 'shaft' && key !== 'big') {
+      throw new NavMapError(`${jsonLabel(id)}: unknown elevator property "${key}"; use "shaft" for the shaft name and "big" for a large car.`);
     }
   }
-  return raw as Record<string, string>;
+  const shaft = 'shaft' in raw ? raw.shaft : undefined;
+  const big = 'big' in raw ? raw.big : undefined;
+  if (shaft !== undefined && (typeof shaft !== 'string' || !shaft.trim())) {
+    throw new NavMapError(`${jsonLabel(id)}: elevator "shaft" needs a non-empty name, e.g. "main".`);
+  }
+  if (big !== undefined && typeof big !== 'boolean') {
+    throw new NavMapError(`${jsonLabel(id)}: elevator "big" must be true or false.`);
+  }
+  return { shaft, big: big ?? false };
 }
 
 async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
@@ -142,7 +149,7 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   return {
     data: {
       id, name: json.name, level: json.level, camera: json.camera, width: room.width, height: room.height,
-      nav, props, links: {}, shafts: readShafts(json.elevators, id, nav),
+      nav, props, links: {}, elevator: readElevator(json.elevators, id, nav),
     },
     exits: readExits(json.exits, id),
   };
@@ -255,7 +262,8 @@ export function orderRooms(rooms: RoomData[]): RoomData[] {
 export function checkShafts(rooms: RoomData[]) {
   const stops = new Map<string, RoomData>();
   for (const room of rooms) {
-    for (const shaft of Object.values(room.shafts)) {
+    const shaft = room.elevator?.shaft;
+    if (shaft) {
       const key = `${shaft}@${room.level}`;
       const other = stops.get(key);
       if (other) {

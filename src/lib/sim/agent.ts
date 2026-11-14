@@ -350,7 +350,7 @@ export function rideElevatorOut(destination?: Room): Task {
       if (request.board && !request.ready) {
         agent.activity = 'Taking the elevator';
         if (agent.y < elevator.thresholdY) agent.layer = 'inside';
-        if (agent.moveToward(elevator.inside, dt)) {
+        if (agent.moveToward(request.inside ?? elevator.inside, dt)) {
           agent.facing = 'front';
           request.ready = true;
         }

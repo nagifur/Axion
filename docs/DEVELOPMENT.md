@@ -371,16 +371,24 @@ names the **shaft** its elevator belongs to. Every room with the same shaft name
 stop of the same lift:
 
 ```json
-"elevators": { "elevator": "main" }
+"elevators": { "shaft": "main" }
 ```
 
-The key is the elevator's name from the nav map (`elevator`), so the format stays the
-same if a room ever gets more than one. Add `"elevators"` to the room on each floor; a
+The pink region in the nav map defines the room's single elevator opening.
+Add `"elevators"` to the room on each floor; a
 separate lift elsewhere just uses another shaft name, e.g. `"service"`. A shaft can
 stop only once per level. Elevators also keep leading off camera, since the shaft
 continues to floors that aren't filmed. Level numbers grow going down, so a ride from
 Level 1 to Level 2 shows the down arrow. Keep elevator openings in the same place on
 every floor so the shaft lines up.
+
+For a large elevator, use `"elevators": { "shaft": "big", "big": true }`, as in
+the Level 0 main entrance. It uses `elevator_door_big.png` and carries up to 10
+riders together, with separate standing positions inside the car. Riders share a
+trip only when their request type, direction and destination match. Standard
+elevators omit `big` (or set it to `false`) and carry one person per trip.
+The old `"elevator"` property is now named `"shaft"`; update existing room JSON
+accordingly. Omitting `shaft` leaves an elevator connected only to off-camera floors.
 
 Cameras are shown as a floor plan: a floor selector (L1, L2, …) next to the selected
 floor's rooms, laid out on a grid by how their doors connect: west/east doors place

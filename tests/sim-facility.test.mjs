@@ -90,19 +90,20 @@ const noon = () => new Date(2026, 0, 1, 12);
 test('loads the rooms in floor-plan order, level by level', async () => {
   const rooms = await facility();
   assert.deepEqual(rooms.map((room) => room.id), [
+    'level-0-mainEntrance', 'level-0-Lookout',
     'level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom', 'level-2-lobby', 'level-3-checkpoint',
     'level-4-trophyRoom', 'level-4-gallery', 'level-5-sideEntry',
   ]);
-  const offices = rooms[1];
+  const offices = rooms.find((room) => room.id === 'level-1-offices');
   assert.deepEqual(offices.linkedDoors.map((door) => door.to.room), ['level-1-pipeRoom', 'level-1-recRoom']);
   assert.equal(offices.outerDoors.length, 0);
-  assert.equal(rooms[0].outerDoors[0].id, 'west', 'the pipe room west door leads off camera');
+  assert.equal(rooms.find((room) => room.id === 'level-1-pipeRoom').outerDoors[0].id, 'west', 'the pipe room west door leads off camera');
 });
 
 test('finds the way out from rooms without an exit', async () => {
   const rooms = await facility();
   const world = new World({ roster, rooms, now: noon });
-  const [pipe, offices, rec] = rooms;
+  const [pipe, offices, rec] = ['level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom'].map((id) => world.room(id));
   assert.equal(world.doorTowardExit(rec).to.room, offices.id, 'rec room leads to the elevator in the offices');
   assert.equal(world.doorTowardExit(offices), null, 'offices has the elevator');
   assert.equal(world.doorTowardExit(offices, true).to.room, pipe.id, 'without the elevator, run for the pipe room door');
@@ -245,7 +246,7 @@ test('an unmasked impostor escapes through another room if needed', async () => 
 });
 
 test('an elevator shaft stops at most once per level', () => {
-  const stop = (id, level, shaft) => ({ id, level, shafts: { elevator: shaft } });
+  const stop = (id, level, shaft) => ({ id, level, elevator: { shaft, big: false } });
   assert.doesNotThrow(() => checkShafts([stop('a', 1, 'main'), stop('b', 2, 'main'), stop('c', 1, 'service')]));
   assert.throws(() => checkShafts([stop('a', 1, 'main'), stop('b', 1, 'main')]), /shaft "main" already stops on level 1 in a/);
 });
@@ -255,7 +256,7 @@ test('the main elevator stops on every level', async () => {
   const world = new World({ roster, rooms, now: noon });
   const offices = world.room('level-1-offices');
   const lobby = world.room('level-2-lobby');
-  const stops = ['level-2-lobby', 'level-3-checkpoint', 'level-4-gallery', 'level-5-sideEntry'];
+  const stops = ['level-0-Lookout', 'level-2-lobby', 'level-3-checkpoint', 'level-4-gallery', 'level-5-sideEntry'];
   assert.deepEqual(world.elevatorStops(offices).map((room) => room.id), stops);
   assert.ok(world.elevatorStops(lobby).some((room) => room === offices));
   assert.deepEqual(world.elevatorStops(world.room('level-1-recRoom')), []);

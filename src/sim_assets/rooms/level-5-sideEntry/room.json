@@ -2,7 +2,7 @@
   "name": "???",
   "level": 5,
   "camera": "CAM 5-01",
-  "elevators": { "elevator": "main" },
+  "elevators": { "shaft": "main" },
   "props": [
     { "type": "light", "x": 83, "y": 34 },
     { "type": "light", "x": 370, "y": 34 }

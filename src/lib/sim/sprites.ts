@@ -105,6 +105,7 @@ export const PROP_SPRITES: Record<string, PropSprite> = {
     },
   },
   elevator_door: { frames: [{ x: 36, y: 15, w: 24, h: 67 }] },
+  elevator_door_big: { frames: [{ x: 5, y: 12, w: 87, h: 73 }] },
   elevator_lights: { frames: [{ x: 36, y: 44, w: 24, h: 9 }] },
 };
 
@@ -196,6 +197,7 @@ export const PROP_TYPES: Record<string, PropType> = {
 // The elevator is found from the nav map; its sprites are drawn to fit the opening.
 export const ELEVATOR_SPRITES = {
   door: 'elevator_door',
+  bigDoor: 'elevator_door_big',
   lights: 'elevator_lights',
   /** Gap between the top of the opening and the bottom of the arrow lights. */
   lightsGap: 7,
@@ -210,7 +212,7 @@ export const ELEVATOR_SPRITES = {
  * without ".png".
  */
 export function placeablePropTypes(files: Iterable<string>): string[] {
-  const reserved = new Set([ELEVATOR_SPRITES.door, ELEVATOR_SPRITES.lights]);
+  const reserved = new Set([ELEVATOR_SPRITES.door, ELEVATOR_SPRITES.bigDoor, ELEVATOR_SPRITES.lights]);
   const types = new Set(Object.keys(PROP_TYPES));
   for (const file of files) if (!reserved.has(file)) types.add(file);
   return [...types].sort();

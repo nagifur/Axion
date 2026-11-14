@@ -272,7 +272,8 @@ export class Renderer {
     const elevator = world.elevatorFor(this.room);
     if (!opening || !elevator) return;
     const ctx = this.ctx;
-    const door = this.assets[ELEVATOR_SPRITES.door];
+    const doorAsset = opening.big ? ELEVATOR_SPRITES.bigDoor : ELEVATOR_SPRITES.door;
+    const door = this.assets[doorAsset];
     const lights = this.assets[ELEVATOR_SPRITES.lights];
 
     ctx.fillStyle = '#0b141b';
@@ -286,10 +287,10 @@ export class Renderer {
 
     if (door) {
       // The room art is drawn on top afterwards, hiding the parts of the doors that slide into the wall.
-      const frame = propFrame(ELEVATOR_SPRITES.door, door, world.time);
+      const frame = propFrame(doorAsset, door, world.time);
       const slide = Math.round(elevator.open * frame.w);
-      drawPropSprite(ctx, door, ELEVATOR_SPRITES.door, opening.x - slide, opening.y, false, world.time);
-      drawPropSprite(ctx, door, ELEVATOR_SPRITES.door, opening.x + opening.w + slide - frame.w, opening.y, true, world.time);
+      drawPropSprite(ctx, door, doorAsset, opening.x - slide, opening.y, false, world.time);
+      drawPropSprite(ctx, door, doorAsset, opening.x + opening.w + slide - frame.w, opening.y, true, world.time);
     }
 
     if (lights && this.litArrows) {
