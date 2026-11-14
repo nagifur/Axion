@@ -80,7 +80,7 @@ export const directionTo = (from: Room, to: Room): Direction => (to.level > from
 const mirror = (rect: Rect, width: number): Rect => ({ ...rect, x: width - rect.x - rect.w });
 
 /** Seconds a room has to be empty before its lights switch off. */
-export const LIGHTS_OFF_SECONDS = 60;
+export const LIGHTS_OFF_SECONDS = 20;
 
 /** How far people walk past a back-wall or front-edge door's threshold while fading in or out. */
 const DOORWAY_DEPTH = { north: 14, south: 30 };
