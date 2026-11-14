@@ -151,6 +151,13 @@ level 1. This applies to connected doors, elevators, and ghost arrivals.
 Impostors ignore clearance limits, and emergency exit routes remain unrestricted.
 Explicit scripted moves are not blocked by this planning preference.
 
+Rooms expose a live `darkness` value: 0 on Level 0 or with at least one working,
+switched-on light, otherwise 1. Unlit underground cameras are dimmed by 55%,
+including props and people. Darkness adds a 1.2% trip chance per walking second
+on top of the clumsy trait's 0.6%; impostors still do not trip. At their next
+decision, agents are more likely to move rooms or leave, without the usual
+minimum stay. Clearance rules and motion-sensor lighting are unchanged.
+
 | File | Purpose |
 | --- | --- |
 | [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |

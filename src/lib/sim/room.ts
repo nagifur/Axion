@@ -190,6 +190,11 @@ export class Room {
     return this.props.filter((prop) => prop.switchable);
   }
 
+  /** 0 in daylight or with a working light; 1 in an unlit underground room. */
+  get darkness(): number {
+    return this.level === 0 || this.props.some((prop) => prop.type === 'light' && prop.lit) ? 0 : 1;
+  }
+
   /**
    * Motion-sensor lighting, called every tick: the lights come on as soon as someone is in
    * the room, and switch off once it has been empty for LIGHTS_OFF_SECONDS.

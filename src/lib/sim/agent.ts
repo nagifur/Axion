@@ -179,7 +179,8 @@ export function walkTo(target: Point, activity = 'Walking', speedMul = 1): Task 
     },
     update(agent, world, dt) {
       if (!path.length) return true;
-      if (agent.character.behavior.clumsy && !agent.impostor && Math.random() < dt * 0.006) {
+      const tripChance = (agent.character.behavior.clumsy ? 0.006 : 0) + agent.room.darkness * 0.012;
+      if (tripChance > 0 && !agent.impostor && Math.random() < dt * tripChance) {
         agent.interrupt(world, trip());
         return false;
       }
@@ -524,6 +525,7 @@ export function planNext(agent: Agent, world: World): Task[] {
   agent.spot = undefined;
   const { behavior } = agent.character;
   const { room } = agent;
+  const { darkness } = room;
   const stayed = world.time - agent.arrivedAt;
   const inRoom = world.time - agent.enteredRoomAt;
   const crowded = world.presentCount() - world.targetPopulation();
@@ -574,7 +576,7 @@ export function planNext(agent: Agent, world: World): Task[] {
     },
     {
       // Wander over to a neighbouring room on camera.
-      weight: linked.length && inRoom > 25 ? 1.2 : 0,
+      weight: linked.length && (inRoom > 25 || darkness > 0) ? 1.2 + darkness * 4 : 0,
       build: () => {
         const door = pick(linked);
         return [exitThroughDoor(door, 1, `Heading to the ${world.room(door.to!.room)?.name ?? 'next room'}`)];
@@ -582,12 +584,13 @@ export function planNext(agent: Agent, world: World): Task[] {
     },
     {
       // Take the elevator to another floor on camera.
-      weight: floors.length && inRoom > 25 ? 0.8 : 0,
+      weight: floors.length && (inRoom > 25 || darkness > 0) ? 0.8 + darkness * 3 : 0,
       build: () => [rideElevatorOut(pick(floors))],
     },
     {
       // Impostors stay until the event director sends them off.
-      weight: !agent.impostor && stayed > 35 ? 0.5 + Math.max(0, crowded) * 2 : 0,
+      weight: !agent.impostor && (stayed > 35 || darkness > 0)
+        ? 0.5 + Math.max(0, crowded) * 2 + darkness * 2 : 0,
       build: () => leaveFacility(agent, world),
     },
   ];

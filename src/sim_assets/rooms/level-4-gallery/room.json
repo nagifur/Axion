@@ -6,6 +6,10 @@
   "exits": {
     "north": "level-4-trophyRoom"
     
-  }
+  },
+  "props": [
+  { "type": "light", "x": 186, "y": 26 },
+  { "type": "light", "x": 355, "y": 26 }
+]
   
 }

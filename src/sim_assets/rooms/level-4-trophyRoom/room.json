@@ -1,7 +1,10 @@
 {
   "name": "Trophy Room",
   "level": 4,
-  "camera": "CAM 4-02"
+  "camera": "CAM 4-02",
+  "props": [
+  { "type": "light", "x": 163, "y": 10 }
+]
   
   
 }

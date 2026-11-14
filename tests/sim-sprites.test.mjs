@@ -120,6 +120,7 @@ function activityAgent(x = 0, napChance = 0) {
   Object.assign(agent.character.behavior, { napChance, social: 1, clumsy: false });
   agent.room = {
     name: 'Test room',
+    darkness: 0,
     linkedDoors: [],
     route(_agent, target) { return [target]; },
     isWalkable() { return true; },

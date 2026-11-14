@@ -56,25 +56,26 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
     value: {
       createElement() {
         const draws = [];
+        const fills = [];
         const ctx = {
           drawImage(...args) { draws.push(args); },
           getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4).fill(255) }; },
           putImageData() {},
           setTransform() {},
-          fillRect() {},
+          fillRect(...args) { fills.push({ style: this.fillStyle, rect: args, afterDraw: draws.length }); },
           save() {},
           restore() {},
           translate() {},
           scale() {},
         };
-        return { width: 0, height: 0, draws, getContext() { return ctx; } };
+        return { width: 0, height: 0, draws, fills, getContext() { return ctx; } };
       },
     },
   });
   const chair = { width: 96, height: 96 };
   const backdrop = {};
   const room = {
-    id: 'room', width: 400, height: 200,
+    id: 'room', width: 400, height: 200, darkness: 0,
     props: [{ asset: 'chair', x: 100, y: 100, w: 27, h: 38, flip: false }],
   };
   const canvas = document.createElement('canvas');
@@ -95,4 +96,15 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
   const second = new Agent(character, room, { x: 110, y: 138 });
   world.agents.push(second);
   assert.equal(renderer.hitTest(world, 110, 100), second, 'the last-drawn character wins at equal depth');
+
+  const dimming = () => canvas.fills.filter((fill) => fill.style === 'rgba(0, 0, 0, 0.55)');
+  assert.equal(dimming().length, 0, 'lit rooms are not dimmed');
+  room.darkness = 1;
+  renderer.draw(world, new Map());
+  assert.deepEqual(canvas.fills.at(-1), {
+    style: 'rgba(0, 0, 0, 0.55)', rect: [0, 0, room.width, room.height], afterDraw: canvas.draws.length,
+  }, 'darkness dims the entire scene after the props and people');
+  room.darkness = 0;
+  renderer.draw(world, new Map());
+  assert.equal(dimming().length, 1, 'restoring light removes the dimming pass');
 });

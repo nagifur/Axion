@@ -334,5 +334,10 @@ export class Renderer {
       drawables.push({ depth: agentDepth(agent), draw: () => this.drawAgent(agent, highlights.get(agent)) });
     }
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());
+
+    if (room.darkness > 0) {
+      ctx.fillStyle = `rgba(0, 0, 0, ${room.darkness * 0.55})`;
+      ctx.fillRect(0, 0, room.width, room.height);
+    }
   }
 }

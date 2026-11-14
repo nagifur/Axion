@@ -4,5 +4,9 @@
   "camera": "CAM 1-02",
   "exits": {
     "west": "level-1-offices"
-  }
+  },
+  "props": [
+  { "type": "light", "x": 84, "y": 16 },
+  { "type": "light", "x": 299, "y": 16 }
+]
 }
