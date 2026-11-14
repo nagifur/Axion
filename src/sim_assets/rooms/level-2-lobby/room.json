@@ -2,7 +2,7 @@
   "name": "Entrance",
   "level": 2,
   "camera": "CAM 2-01",
-  "elevators": { "shaft": "main" },
+  "elevators": { "shaft": "side" },
   "props": [
     { "type": "light", "x": 83, "y": 34 },
     { "type": "light", "x": 370, "y": 34 },
