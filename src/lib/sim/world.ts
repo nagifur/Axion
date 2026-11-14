@@ -227,7 +227,7 @@ export class World {
 
   freeSpot(room: Room, kind: Spot['kind']): Spot | undefined {
     const taken = new Set(this.agents.map((agent) => agent.spot?.id));
-    const free = room.spots.filter((spot) => spot.kind === kind && !taken.has(spot.id));
+    const free = room.spots.filter((spot) => spot.kind === kind && !spot.prop.broken && !taken.has(spot.id));
     return free[Math.floor(Math.random() * free.length)];
   }
 
@@ -453,7 +453,19 @@ export class World {
     }
 
     for (const agent of [...this.agents]) {
-      if (!agent.removed) agent.update(this, dt);
+      if (agent.removed) continue;
+      // Whoever is sitting on, or heading for, a prop that broke gives up on it.
+      const seat = agent.spot?.prop;
+      if (seat?.broken) {
+        if (agent.sitting) {
+          agent.say('!', 1.5);
+          this.log(`${agent.character.name}'s ${seat.type} broke in the ${agent.room.name}.`, 'warn');
+        }
+        agent.setPlan(this, []);
+      }
+      agent.update(this, dt);
     }
+
+    for (const room of this.rooms) room.updateLights(this.agentsIn(room).length > 0, dt);
   }
 }

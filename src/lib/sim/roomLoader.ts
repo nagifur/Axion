@@ -110,7 +110,7 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   const entries = Array.isArray(json.props) ? json.props : [];
   const known = entries.length ? await listPropTypes(assetsDir) : [];
   for (const [index, entry] of entries.entries()) {
-    const { type, x, y, flip } = entry ?? {};
+    const { type, x, y, flip, on, broken } = entry ?? {};
     if (typeof type !== 'string' || !known.includes(type)) {
       throw new NavMapError(
         `${label}/room.json: prop ${index + 1} has unknown type "${type}". ` +
@@ -120,9 +120,23 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
     if (!Number.isInteger(x) || !Number.isInteger(y)) {
       throw new NavMapError(`${label}/room.json: prop ${index + 1} (${type}) needs whole-number "x" and "y".`);
     }
-    const { asset } = propTypeOf(type);
+    const kind = propTypeOf(type);
+    const start: PlacedProp['start'] = {};
+    if (on !== undefined) {
+      if (typeof on !== 'boolean' || !kind.switchable) {
+        throw new NavMapError(`${label}/room.json: prop ${index + 1} (${type}) can't have "on"; only switchable props like lights can, as true or false.`);
+      }
+      if (!on) start.on = false;
+    }
+    if (broken !== undefined) {
+      if (typeof broken !== 'boolean' || !kind.breakable) {
+        throw new NavMapError(`${label}/room.json: prop ${index + 1} (${type}) can't have "broken"; only breakable props can, as true or false.`);
+      }
+      if (broken) start.broken = true;
+    }
+    const { asset } = kind;
     const frame = propFrame(asset, await imageSize(path.join(assetsDir, 'props', `${asset}.png`)));
-    props.push({ type, asset, x, y, w: frame.w, h: frame.h, flip: flip === true });
+    props.push({ type, asset, x, y, w: frame.w, h: frame.h, flip: flip === true, ...(Object.keys(start).length ? { start } : {}) });
   }
 
   return {

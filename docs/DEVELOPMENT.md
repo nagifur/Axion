@@ -149,6 +149,7 @@ disguised as staff.
 | --- | --- |
 | [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |
 | [`src/lib/sim/sprites.ts`](../src/lib/sim/sprites.ts) | What is inside each shared sprite: character frames, prop seats and blocked areas. |
+| [`src/lib/sim/prop.ts`](../src/lib/sim/prop.ts) | Placed props and their live state (on/off, broken). |
 | [`src/lib/sim/navMap.ts`](../src/lib/sim/navMap.ts) | Reads and checks nav maps at build time. |
 | [`src/lib/sim/roomLoader.ts`](../src/lib/sim/roomLoader.ts) | Loads every room folder at build time and connects their doors. |
 | [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
@@ -237,6 +238,26 @@ file name (`plant.png` → `"type": "plant"`) as plain decoration. To give a pro
 or floor that people walk around, add it to `PROP_TYPES` in
 [`sprites.ts`](../src/lib/sim/sprites.ts).
 
+#### Prop State
+
+While the simulation runs, every placed prop is a `Prop` object
+([`prop.ts`](../src/lib/sim/prop.ts)) with state that can change. What a prop can do comes
+from its `PROP_TYPES` entry:
+
+| Flag | Meaning |
+| --- | --- |
+| `switchable` | Can be on or off (lights). A room's switchable props come on as soon as someone is in it, and go off once it has been empty for a minute (`LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts)). |
+| `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
+
+`room.json` can set how a prop starts. Only props whose type allows it may use these:
+
+```json
+{ "type": "light", "x": 83, "y": 34, "on": false },
+{ "type": "chair", "x": 317, "y": 122, "broken": true }
+```
+
+Code changes state with `prop.setOn()`, `prop.break()` and `prop.repair()`.
+
 #### Prop Sprite Sheets
 
 The shared props use **96 × 96 pixel cells**, with frames running left to right.
@@ -256,8 +277,16 @@ light: {
     { x: 124, y: 39, w: 40, h: 17 },
   ],
   frameSeconds: 0.6,
+  states: {
+    off: { frames: [{ x: 28, y: 135, w: 40, h: 17 }] },
+  },
 },
 ```
+
+`states` holds the frames for a prop's other looks: `off` (switched off) and `broken`.
+They follow the same rules as `frames` and must be cropped to the same size. Put them
+on their own row of the sheet; the light's second row is its off look. A prop whose sheet
+has no art for a look yet keeps its normal frames, except broken lights, which use `off`.
 
 Frames can also come from other rows; include the row offset in `y`. Elevator door
 and arrow sprites have their own crops in the same registry. The editor palette uses
@@ -273,7 +302,8 @@ camera and press **Edit props**:
 
 1. Pick a prop from the palette and click the feed to place it (it stands where you click).
 2. Drag props to move them. Arrow keys nudge the selected prop by 1px (Shift: 10px),
-   **F** flips it, **Delete** removes it, **Esc** cancels.
+   **F** flips it, **B** makes it start broken, **O** makes a light start off,
+   **Delete** removes it, **Esc** cancels.
 3. Press **Copy** and replace the `"props"` list in the room's `room.json` with it.
 
 While editing, the feed shows the walkable floor (green), floor blocked by props (red),

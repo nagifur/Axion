@@ -240,11 +240,14 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
         <div class="monitor-editor-selected">
           <span data-editor-selected>Nothing selected</span>
           <button type="button" class="btn secondary" data-editor-flip disabled>Flip (F)</button>
+          <button type="button" class="btn secondary" data-editor-broken aria-pressed="false" disabled>Broken (B)</button>
+          <button type="button" class="btn secondary" data-editor-off aria-pressed="false" disabled>Starts off (O)</button>
           <button type="button" class="btn danger" data-editor-delete disabled>Delete</button>
         </div>
         <p class="monitor-editor-help">
           Pick a prop above, then click the feed to place it. Drag props to move them. Arrow keys nudge the selected
-          prop by 1px (Shift: 10px), F flips it, Delete removes it, Esc cancels. Red is floor the prop blocks; blue dots are seats.
+          prop by 1px (Shift: 10px), F flips it, B breaks or repairs it, O makes a light start off, Delete removes it,
+          Esc cancels. Red is floor the prop blocks; blue dots are seats.
         </p>
         <label class="monitor-editor-label" for="monitor-editor-snippet">
           Replace the <code>"props"</code> list in <code data-editor-file></code> with:
@@ -454,6 +457,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-editor-add[aria-pressed="true"]{ background:color-mix(in srgb, var(--neon-green) 16%, #05080d) }
   .monitor-editor-selected{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
   .monitor-editor-selected > span{ margin-right:auto; color:var(--neon-yellow); font-variant-numeric:tabular-nums }
+  .monitor-editor-selected .btn[aria-pressed="true"]{ --btn-tint:var(--neon-yellow); --btn-fill:30% }
   .monitor-editor-help{ margin:0; color:var(--muted) }
   .monitor-editor-label{ color:var(--muted) }
   .monitor-editor-snippet{

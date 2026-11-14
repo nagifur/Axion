@@ -1,8 +1,9 @@
 // Debug-only tool for placing props in a room by hand and copying the result into room.json.
 
 import { drawPropSprite, type Assets } from './render.ts';
-import type { PlacedProp, Point, Room } from './room.ts';
-import { propFrame, propTypeOf } from './sprites.ts';
+import { Prop, type PlacedProp } from './prop.ts';
+import type { Point, Room } from './room.ts';
+import { propFrame, propTypeOf, type PropLook } from './sprites.ts';
 
 interface Mask {
   alpha: Uint8ClampedArray;
@@ -11,7 +12,7 @@ interface Mask {
 }
 
 interface Drag {
-  prop: PlacedProp;
+  prop: Prop;
   offset: Point;
   moved: boolean;
 }
@@ -25,27 +26,29 @@ const COLORS = {
   ghost: '#33ff99',
 };
 
-const clone = (props: PlacedProp[]) => props.map((prop) => ({ ...prop }));
+/** Fresh copies in their starting state. */
+const clone = (props: PlacedProp[]) => props.map((prop) => new Prop(prop));
 
 /** Same layout as the existing room.json files: one prop per line. */
 export function propsSnippet(props: PlacedProp[]): string {
   if (!props.length) return '"props": []';
   const lines = props.map((prop) =>
-    `  { "type": ${JSON.stringify(prop.type)}, "x": ${prop.x}, "y": ${prop.y}${prop.flip ? ', "flip": true' : ''} }`);
+    `  { "type": ${JSON.stringify(prop.type)}, "x": ${prop.x}, "y": ${prop.y}${prop.flip ? ', "flip": true' : ''}` +
+    `${prop.start?.on === false ? ', "on": false' : ''}${prop.start?.broken ? ', "broken": true' : ''} }`);
   return `"props": [\n${lines.join(',\n')}\n]`;
 }
 
 export class PropEditor {
   active = false;
   room: Room;
-  selected: PlacedProp | null = null;
+  selected: Prop | null = null;
   /** Prop type waiting to be placed with the next click. */
   placing: string | null = null;
   cursor: Point | null = null;
   private drag: Drag | null = null;
   private readonly masks = new Map<string, Mask>();
   /** Props each room had when the page loaded, to show what changed and to reset. */
-  private readonly original = new Map<Room, PlacedProp[]>();
+  private readonly original = new Map<Room, Prop[]>();
   private readonly assets: Assets;
   private readonly onChange: () => void;
 
@@ -96,6 +99,20 @@ export class PropEditor {
     this.commit();
   }
 
+  /** Whether the selected prop starts broken. */
+  toggleBroken() {
+    if (!this.selected?.breakable) return;
+    this.selected.setStart({ broken: !this.selected.start?.broken });
+    this.commit();
+  }
+
+  /** Whether the selected light starts switched off. It still comes on when someone walks in. */
+  toggleOff() {
+    if (!this.selected?.switchable) return;
+    this.selected.setStart({ on: this.selected.start?.on === false });
+    this.commit();
+  }
+
   remove() {
     if (!this.selected) return;
     this.room.props = this.room.props.filter((prop) => prop !== this.selected);
@@ -113,7 +130,7 @@ export class PropEditor {
   pointerDown(point: Point, time = 0) {
     if (this.placing) {
       // Same whole-pixel position as the preview that followed the cursor.
-      const prop = this.ghost(this.placing, { x: Math.floor(point.x), y: Math.floor(point.y) });
+      const prop = new Prop(this.ghost(this.placing, { x: Math.floor(point.x), y: Math.floor(point.y) }));
       this.room.props = [...this.room.props, prop];
       this.selected = prop;
       this.placing = null;
@@ -157,6 +174,8 @@ export class PropEditor {
       case 'ArrowUp': this.nudge(0, -step); return !!this.selected;
       case 'ArrowDown': this.nudge(0, step); return !!this.selected;
       case 'f': case 'F': this.flip(); return !!this.selected;
+      case 'b': case 'B': this.toggleBroken(); return !!this.selected;
+      case 'o': case 'O': this.toggleOff(); return !!this.selected;
       case 'Delete': case 'Backspace': this.remove(); return true;
       case 'Escape':
         this.placing = null;
@@ -184,10 +203,10 @@ export class PropEditor {
     };
   }
 
-  private mask(asset: string, time: number): Mask {
+  private mask(asset: string, time: number, look?: PropLook): Mask {
     const image = this.assets[asset];
     if (!image) throw new Error(`Missing prop asset "${asset}".`);
-    const frame = propFrame(asset, image, time);
+    const frame = propFrame(asset, image, time, look);
     const key = `${asset}:${frame.x}:${frame.y}`;
     const cached = this.masks.get(key);
     if (cached) return cached;
@@ -202,12 +221,12 @@ export class PropEditor {
   }
 
   /** The frontmost prop under the point, preferring its visible pixels over its box. */
-  propAt(point: Point, time = 0): PlacedProp | null {
+  propAt(point: Point, time = 0): Prop | null {
     const front = [...this.room.props].reverse().sort((a, b) => b.y + b.h - (a.y + a.h));
     const inBox = front.filter((prop) =>
       point.x >= prop.x && point.x < prop.x + prop.w && point.y >= prop.y && point.y < prop.y + prop.h);
     const solid = inBox.find((prop) => {
-      const mask = this.mask(prop.asset, time);
+      const mask = this.mask(prop.asset, time, prop.look);
       let lx = Math.floor(point.x - prop.x);
       const ly = Math.floor(point.y - prop.y);
       if (prop.flip) lx = prop.w - 1 - lx;

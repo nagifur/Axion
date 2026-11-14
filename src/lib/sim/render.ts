@@ -1,6 +1,6 @@
 import type { Agent } from './agent.ts';
 import type { Room } from './room.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, propFrame, propFrames, type Frame, type FrameName } from './sprites.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, propFrame, propFrames, type Frame, type FrameName, type PropLook } from './sprites.ts';
 import type { World } from './world.ts';
 
 /** Loaded images by name: "room:<room id>", "character", and every prop file name (e.g. "bench"). */
@@ -27,9 +27,9 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
 /** Draws one artwork-sized prop frame, with mirroring around that frame rather than the sheet. */
 export function drawPropSprite(
   ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
-  asset: string, x: number, y: number, flip = false, time = 0,
+  asset: string, x: number, y: number, flip = false, time = 0, look?: PropLook,
 ) {
-  const frame = propFrame(asset, image, time);
+  const frame = propFrame(asset, image, time, look);
   if (!flip) {
     ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, x, y, frame.w, frame.h);
     return;
@@ -325,7 +325,7 @@ export class Renderer {
         depth: prop.y + prop.h - 0.5,
         draw: () => {
           if (!image) throw new Error(`Missing prop asset "${prop.asset}".`);
-          drawPropSprite(ctx, image, prop.asset, prop.x, prop.y, prop.flip, world.time);
+          drawPropSprite(ctx, image, prop.asset, prop.x, prop.y, prop.flip, world.time, prop.look);
         },
       };
     });

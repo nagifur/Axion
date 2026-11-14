@@ -3,20 +3,12 @@
 
 import type { DoorSide, NavMapData, Point, Rect } from './navMap.ts';
 import { NavGrid } from './pathfinding.ts';
+import { Prop, type PlacedProp } from './prop.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
 
 export type { DoorSide, Point } from './navMap.ts';
+export type { PlacedProp } from './prop.ts';
 export type { Facing } from './sprites.ts';
-
-export interface PlacedProp {
-  type: string;
-  asset: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  flip: boolean;
-}
 
 /** Where a door leads: a door in another room. */
 export interface ExitLink {
@@ -46,6 +38,8 @@ export interface Spot extends Point {
   id: string;
   /** Prop type the spot belongs to, e.g. "bench" or "chair". */
   kind: string;
+  /** The prop the spot is on. Nobody uses spots on broken props. */
+  prop: Prop;
   facing: Facing;
   /** Bottom edge of the seat's prop, used to draw an occupant in front of it. */
   propDepth: number;
@@ -85,6 +79,9 @@ export const directionTo = (from: Room, to: Room): Direction => (to.level > from
 
 const mirror = (rect: Rect, width: number): Rect => ({ ...rect, x: width - rect.x - rect.w });
 
+/** Seconds a room has to be empty before its lights switch off. */
+export const LIGHTS_OFF_SECONDS = 60;
+
 /** How far people walk past a back-wall or front-edge door's threshold while fading in or out. */
 const DOORWAY_DEPTH = { north: 14, south: 30 };
 
@@ -107,7 +104,7 @@ export class Room {
   readonly camera: string;
   readonly width: number;
   readonly height: number;
-  props: PlacedProp[] = [];
+  props: Prop[] = [];
   readonly spots: Spot[] = [];
   readonly doors: Door[] = [];
   readonly elevator?: Elevator;
@@ -115,6 +112,9 @@ export class Room {
   private readonly blocked: Rect[] = [];
   private grid!: NavGrid;
   private openCells: number[] = [];
+  private occupied = false;
+  /** Seconds since the last person left the room. */
+  private emptyFor = 0;
 
   constructor(data: RoomData) {
     this.id = data.id;
@@ -151,13 +151,14 @@ export class Room {
 
   /**
    * Places the room's props and works out their seats and the floor they block.
-   * Also used by the debug prop editor to apply changes live.
+   * Also used by the debug prop editor to apply changes live; props that are already
+   * Prop objects keep their current state.
    */
   setProps(props: PlacedProp[]) {
-    this.props = props;
+    this.props = props.map((prop) => (prop instanceof Prop ? prop : new Prop(prop)));
     this.spots.length = 0;
     this.blocked.length = 0;
-    props.forEach((prop, propIndex) => {
+    this.props.forEach((prop, propIndex) => {
       const type = PROP_TYPES[prop.type];
       if (type?.blocks) {
         const rect = prop.flip ? mirror(type.blocks, prop.w) : type.blocks;
@@ -167,6 +168,7 @@ export class Room {
         this.spots.push({
           id: `${prop.type}-${propIndex}-${seatIndex}`,
           kind: prop.type,
+          prop,
           x: prop.x + (prop.flip ? prop.w - 1 - seat.x : seat.x),
           y: prop.y + seat.y,
           facing: prop.flip ? FLIPPED[seat.facing] : seat.facing,
@@ -181,6 +183,30 @@ export class Room {
   /** Floor areas under props that people walk around. */
   get blockedAreas(): readonly Rect[] {
     return this.blocked;
+  }
+
+  /** Props that can be switched on and off, like lights. */
+  get switchables(): Prop[] {
+    return this.props.filter((prop) => prop.switchable);
+  }
+
+  /**
+   * Motion-sensor lighting, called every tick: the lights come on as soon as someone is in
+   * the room, and switch off once it has been empty for LIGHTS_OFF_SECONDS.
+   */
+  updateLights(occupied: boolean, dt: number) {
+    const entered = occupied && !this.occupied;
+    this.occupied = occupied;
+    if (occupied) {
+      this.emptyFor = 0;
+      if (entered) for (const prop of this.switchables) prop.setOn(true);
+      return;
+    }
+    const before = this.emptyFor;
+    this.emptyFor += Math.max(0, dt);
+    if (before < LIGHTS_OFF_SECONDS && this.emptyFor >= LIGHTS_OFF_SECONDS) {
+      for (const prop of this.switchables) prop.setOn(false);
+    }
   }
 
   /** Painted floor per row, as [start, end) pairs (see NavMapData.floor). */

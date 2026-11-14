@@ -10,7 +10,7 @@ import { Room } from '../src/lib/sim/room.ts';
 test('prop crops contain all artwork in each 96x96 cell', async () => {
   for (const [asset, sprite] of Object.entries(PROP_SPRITES)) {
     const { data, info } = await sharp(`src/sim_assets/props/${asset}.png`).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-    const frames = propFrames(asset, info);
+    const frames = [...propFrames(asset, info), ...Object.values(sprite.states ?? {}).flatMap((state) => state.frames)];
     assert.equal(info.width % 96, 0);
     assert.equal(info.height % 96, 0);
     for (const frame of frames) {
@@ -26,12 +26,12 @@ test('prop crops contain all artwork in each 96x96 cell', async () => {
       }
       assert.ok(opaque > 0, `${asset}: frame contains artwork`);
     }
-    assert.equal(frames.length, sprite.frames.length);
+    assert.equal(propFrames(asset, info).length, sprite.frames.length);
   }
 });
 
 test('lights animate on simulation time while furniture remains still', () => {
-  const image = { width: 192, height: 96 };
+  const image = { width: 192, height: 192 };
   assert.equal(propFrame('light', image, 0), PROP_SPRITES.light.frames[0]);
   assert.equal(propFrame('light', image, 0.59), PROP_SPRITES.light.frames[0]);
   assert.equal(propFrame('light', image, 0.6), PROP_SPRITES.light.frames[1]);
@@ -44,7 +44,8 @@ test('invalid sheet bounds and animation time are reported', () => {
   assert.throws(() => propFrame('light', { width: 96, height: 96 }), /outside its 96x96 sheet/);
   assert.throws(() => propFrame('chair', { width: 27, height: 38 }), /outside/);
   assert.throws(() => propFrame('plant', { width: 0, height: 0 }), /outside/);
-  assert.throws(() => propFrame('light', { width: 192, height: 96 }, -1), /finite and non-negative/);
+  assert.throws(() => propFrame('light', { width: 192, height: 96 }), /outside its 192x96 sheet/);
+  assert.throws(() => propFrame('light', { width: 192, height: 192 }, -1), /finite and non-negative/);
 });
 
 test('room loading preserves cropped furniture sizes, seats, and floor geometry', async () => {
@@ -77,7 +78,7 @@ test('prop drawing crops and mirrors the current frame, not the whole sheet', ()
     translate(...args) { calls.push(['translate', ...args]); },
     scale(...args) { calls.push(['scale', ...args]); },
   };
-  const image = { width: 192, height: 96 };
+  const image = { width: 192, height: 192 };
   drawPropSprite(ctx, image, 'light', 10, 20, false, 0);
   assert.deepEqual(calls, [['draw', image, 28, 39, 40, 17, 10, 20, 40, 17]]);
   calls.length = 0;
@@ -86,14 +87,26 @@ test('prop drawing crops and mirrors the current frame, not the whole sheet', ()
     ['save'], ['translate', 50, 20], ['scale', -1, 1],
     ['draw', image, 124, 39, 40, 17, 0, 0, 40, 17], ['restore'],
   ]);
+  calls.length = 0;
+  drawPropSprite(ctx, image, 'light', 10, 20, false, 0.6, 'off');
+  assert.deepEqual(calls, [['draw', image, 28, 135, 40, 17, 10, 20, 40, 17]]);
+});
+
+test('switched-off lights use the off row; looks without artwork fall back', () => {
+  const image = { width: 192, height: 192 };
+  assert.deepEqual(propFrame('light', image, 0, 'off'), { x: 28, y: 135, w: 40, h: 17 });
+  assert.deepEqual(propFrame('light', image, 5, 'off'), { x: 28, y: 135, w: 40, h: 17 });
+  // No broken artwork yet: the normal look is used.
+  assert.equal(propFrame('chair', { width: 96, height: 96 }, 0, 'broken'), PROP_SPRITES.chair.frames[0]);
 });
 
 test('editor placement uses one cropped frame as its footprint', async () => {
   const room = new Room(await loadRoom('level-1-offices'));
-  const editor = new PropEditor({ light: { width: 192, height: 96 }, chair: { width: 96, height: 96 } }, room, () => {});
+  const editor = new PropEditor({ light: { width: 192, height: 192 }, chair: { width: 96, height: 96 } }, room, () => {});
   editor.add('light');
   editor.pointerDown({ x: 100, y: 100 }, 0.6);
-  assert.deepEqual(editor.selected, { type: 'light', asset: 'light', flip: false, x: 80, y: 83, w: 40, h: 17 });
+  assert.deepEqual(editor.selected.toData(), { type: 'light', asset: 'light', flip: false, x: 80, y: 83, w: 40, h: 17 });
+  assert.ok(room.props.includes(editor.selected));
   editor.add('chair');
   editor.pointerDown({ x: 200, y: 160 });
   assert.deepEqual([editor.selected.w, editor.selected.h, editor.selected.x, editor.selected.y], [27, 38, 187, 122]);

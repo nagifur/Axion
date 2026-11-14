@@ -76,10 +76,18 @@ export const WALK_STRIDE = 8;
 /** Seconds before switching to the next idle frame. */
 export const IDLE_FRAME_SECONDS = 0.6;
 
-export interface PropSprite {
+export interface PropAnimation {
   /** Matching artwork-sized crops inside the sheet's 96x96 cells. */
   frames: readonly Rect[];
   frameSeconds?: number;
+}
+
+/** Looks a prop can have besides its normal one. See Prop.look in prop.ts. */
+export type PropLook = 'off' | 'broken';
+
+export interface PropSprite extends PropAnimation {
+  /** Frames for other looks, cropped to the same size and alignment as `frames`. */
+  states?: Partial<Record<PropLook, PropAnimation>>;
 }
 
 export const PROP_SPRITES: Record<string, PropSprite> = {
@@ -92,36 +100,55 @@ export const PROP_SPRITES: Record<string, PropSprite> = {
       { x: 124, y: 39, w: 40, h: 17 },
     ],
     frameSeconds: 0.6,
+    states: {
+      off: { frames: [{ x: 28, y: 135, w: 40, h: 17 }] },
+    },
   },
   elevator_door: { frames: [{ x: 36, y: 15, w: 24, h: 67 }] },
   elevator_lights: { frames: [{ x: 36, y: 44, w: 24, h: 9 }] },
 };
 
-/** Undeclared images retain their full-image, still-decoration behavior. */
-export function propFrames(asset: string, image: { width: number; height: number }): readonly Rect[] {
+/** The animation for a look, or the normal one if the sheet has no frames for it. */
+function propAnimation(asset: string, look?: PropLook): PropAnimation | undefined {
   const sprite = PROP_SPRITES[asset];
-  const frames = sprite?.frames ?? [{ x: 0, y: 0, w: image.width, h: image.height }];
-  if (!frames.length) throw new Error(`Prop sprite "${asset}": at least one frame is required.`);
-  if (sprite?.frameSeconds !== undefined && (!Number.isFinite(sprite.frameSeconds) || sprite.frameSeconds <= 0)) {
-    throw new Error(`Prop sprite "${asset}": frameSeconds must be a positive number.`);
-  }
-  for (const frame of frames) {
-    if (![frame.x, frame.y, frame.w, frame.h].every(Number.isInteger) ||
-      frame.x < 0 || frame.y < 0 || frame.w <= 0 || frame.h <= 0 ||
-      frame.x + frame.w > image.width || frame.y + frame.h > image.height) {
-      throw new Error(`Prop sprite "${asset}": frame (${frame.x}, ${frame.y}, ${frame.w}, ${frame.h}) is outside its ${image.width}x${image.height} sheet.`);
-    }
-    if (frame.w !== frames[0].w || frame.h !== frames[0].h) {
-      throw new Error(`Prop sprite "${asset}": animation frames must have matching sizes.`);
-    }
-  }
-  return frames;
+  return (look && sprite?.states?.[look]) || sprite;
 }
 
-export function propFrame(asset: string, image: { width: number; height: number }, time = 0): Rect {
+export const hasPropLook = (asset: string, look: PropLook): boolean => !!PROP_SPRITES[asset]?.states?.[look];
+
+/**
+ * Frames for `look` (the normal look if unset or not drawn yet), after checking the whole sheet.
+ * Undeclared images retain their full-image, still-decoration behavior.
+ */
+export function propFrames(asset: string, image: { width: number; height: number }, look?: PropLook): readonly Rect[] {
+  const sprite = PROP_SPRITES[asset];
+  const animations: PropAnimation[] = sprite
+    ? [sprite, ...Object.values(sprite.states ?? {})]
+    : [{ frames: [{ x: 0, y: 0, w: image.width, h: image.height }] }];
+  const size = animations[0].frames[0];
+  for (const { frames, frameSeconds } of animations) {
+    if (!frames.length) throw new Error(`Prop sprite "${asset}": at least one frame is required.`);
+    if (frameSeconds !== undefined && (!Number.isFinite(frameSeconds) || frameSeconds <= 0)) {
+      throw new Error(`Prop sprite "${asset}": frameSeconds must be a positive number.`);
+    }
+    for (const frame of frames) {
+      if (![frame.x, frame.y, frame.w, frame.h].every(Number.isInteger) ||
+        frame.x < 0 || frame.y < 0 || frame.w <= 0 || frame.h <= 0 ||
+        frame.x + frame.w > image.width || frame.y + frame.h > image.height) {
+        throw new Error(`Prop sprite "${asset}": frame (${frame.x}, ${frame.y}, ${frame.w}, ${frame.h}) is outside its ${image.width}x${image.height} sheet.`);
+      }
+      if (frame.w !== size.w || frame.h !== size.h) {
+        throw new Error(`Prop sprite "${asset}": animation frames must have matching sizes.`);
+      }
+    }
+  }
+  return propAnimation(asset, look)?.frames ?? animations[0].frames;
+}
+
+export function propFrame(asset: string, image: { width: number; height: number }, time = 0, look?: PropLook): Rect {
   if (!Number.isFinite(time) || time < 0) throw new Error(`Prop sprite "${asset}": animation time must be finite and non-negative.`);
-  const frames = propFrames(asset, image);
-  const seconds = PROP_SPRITES[asset]?.frameSeconds ?? 1;
+  const frames = propFrames(asset, image, look);
+  const seconds = propAnimation(asset, look)?.frameSeconds ?? 1;
   return frames[Math.floor(time / seconds) % frames.length];
 }
 
@@ -139,22 +166,28 @@ export interface PropType {
   seats?: Seat[];
   /** Floor area under the prop that people walk around. */
   blocks?: Rect;
+  /** Can be switched on and off. Rooms switch these off once nobody has been in them for a while. */
+  switchable?: boolean;
+  /** Can break. Nobody sits on a broken prop. */
+  breakable?: boolean;
 }
 
 /** Prop types that rooms can place in their room.json. */
 export const PROP_TYPES: Record<string, PropType> = {
-  light: { asset: 'light' },
+  light: { asset: 'light', switchable: true, breakable: true },
   bench: {
     asset: 'bench',
+    breakable: true,
     seats: [
       { x: 16, y: 36, facing: 'front' },
       { x: 36, y: 36, facing: 'front' },
       { x: 56, y: 36, facing: 'front' },
     ],
   },
-  table: { asset: 'table', blocks: { x: 22, y: 20, w: 24, h: 7 } },
+  table: { asset: 'table', breakable: true, blocks: { x: 22, y: 20, w: 24, h: 7 } },
   chair: {
     asset: 'chair',
+    breakable: true,
     seats: [{ x: 10, y: 35, facing: 'right' }],
     blocks: { x: 4, y: 30, w: 21, h: 8 },
   },

@@ -516,9 +516,16 @@ export function initMonitor(root: HTMLElement): () => void {
     editorPanel.querySelector('[data-editor-selected]')!.textContent = placing
       ? `Click the feed to place: ${placing}`
       : selected
-        ? `${selected.type} · x ${selected.x}, y ${selected.y}${selected.flip ? ' · flipped' : ''}`
+        ? `${selected.type} · x ${selected.x}, y ${selected.y}${selected.flip ? ' · flipped' : ''}` +
+          `${selected.start?.broken ? ' · broken' : ''}${selected.start?.on === false ? ' · starts off' : ''}`
         : 'Nothing selected';
     editorPanel.querySelector<HTMLButtonElement>('[data-editor-flip]')!.disabled = !selected;
+    const broken = editorPanel.querySelector<HTMLButtonElement>('[data-editor-broken]')!;
+    broken.disabled = !selected?.breakable;
+    broken.setAttribute('aria-pressed', String(!!selected?.start?.broken));
+    const off = editorPanel.querySelector<HTMLButtonElement>('[data-editor-off]')!;
+    off.disabled = !selected?.switchable;
+    off.setAttribute('aria-pressed', String(selected?.start?.on === false));
     editorPanel.querySelector<HTMLButtonElement>('[data-editor-delete]')!.disabled = !selected;
     for (const button of editorPanel.querySelectorAll<HTMLElement>('[data-editor-add]')) {
       button.setAttribute('aria-pressed', String(button.dataset.editorAdd === placing));
@@ -542,6 +549,8 @@ export function initMonitor(root: HTMLElement): () => void {
     if (!target) return;
     if (target.dataset.editorAdd) editor.add(target.dataset.editorAdd);
     else if (target.hasAttribute('data-editor-flip')) editor.flip();
+    else if (target.hasAttribute('data-editor-broken')) editor.toggleBroken();
+    else if (target.hasAttribute('data-editor-off')) editor.toggleOff();
     else if (target.hasAttribute('data-editor-delete')) editor.remove();
     else if (target.hasAttribute('data-editor-reset')) editor.reset();
     else if (target.hasAttribute('data-editor-copy') && editorSnippet) {
