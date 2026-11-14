@@ -8,8 +8,17 @@
     "east-2": "level-0-Lookout"
   },
   "props": [
-  { "type": "light", "x": 148, "y": 270 },
-  { "type": "light", "x": 903, "y": 279 }
+  { "type": "light", "x": 148, "y": 279 },
+  { "type": "light", "x": 903, "y": 279 },
+  { "type": "glass", "x": 874, "y": 194 },
+  { "type": "glass", "x": 120, "y": 194 },
+  { "type": "glassAngle", "x": 809, "y": 178 },
+  { "type": "glassAngle", "x": 186, "y": 178, "flip": true },
+  { "type": "glassHalf", "x": 545, "y": 156 },
+  { "type": "glassHalf", "x": 499, "y": 156 },
+  { "type": "glassHalf", "x": 453, "y": 156 },
+  { "type": "glass", "x": 384, "y": 156 },
+  { "type": "glass", "x": 613, "y": 156 }
 ]
  
 }
