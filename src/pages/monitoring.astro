@@ -6,7 +6,7 @@ import { getCollection } from 'astro:content';
 import type { ImageMetadata } from 'astro';
 import { toSimCharacter, toSimImpostor, type SimCharacter, type SimImpostor } from '../lib/sim/roster';
 import type { MonitorConfig } from '../lib/sim/monitor';
-import { listPropTypes, loadFacility } from '../lib/sim/roomLoader';
+import { listPropTypes, loadFacility, propPreview } from '../lib/sim/roomLoader';
 import { propTypeOf } from '../lib/sim/sprites';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
 
@@ -90,7 +90,9 @@ const impostors = (await Promise.all(entities.map(async (entry) => {
 
 const propSources = Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src]));
 // Prop palette for the debug prop editor.
-const propTypes = (await listPropTypes()).map((type) => ({ type, src: propSources[propTypeOf(type).asset] }));
+const propTypes = await Promise.all((await listPropTypes()).map(async (type) => ({
+  type, src: await propPreview(propTypeOf(type).asset),
+})));
 
 const config: MonitorConfig = {
   roster,

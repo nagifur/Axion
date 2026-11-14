@@ -1,8 +1,8 @@
 // Debug-only tool for placing props in a room by hand and copying the result into room.json.
 
-import type { Assets } from './render.ts';
+import { drawPropSprite, type Assets } from './render.ts';
 import type { PlacedProp, Point, Room } from './room.ts';
-import { propTypeOf } from './sprites.ts';
+import { propFrame, propTypeOf } from './sprites.ts';
 
 interface Mask {
   alpha: Uint8ClampedArray;
@@ -110,19 +110,17 @@ export class PropEditor {
     this.commit();
   }
 
-  pointerDown(point: Point) {
+  pointerDown(point: Point, time = 0) {
     if (this.placing) {
       // Same whole-pixel position as the preview that followed the cursor.
       const prop = this.ghost(this.placing, { x: Math.floor(point.x), y: Math.floor(point.y) });
-      if (prop) {
-        this.room.props = [...this.room.props, prop];
-        this.selected = prop;
-      }
+      this.room.props = [...this.room.props, prop];
+      this.selected = prop;
       this.placing = null;
       this.commit();
       return;
     }
-    const prop = this.propAt(point);
+    const prop = this.propAt(point, time);
     this.selected = prop;
     this.drag = prop ? { prop, offset: { x: point.x - prop.x, y: point.y - prop.y }, moved: false } : null;
     this.onChange();
@@ -175,39 +173,41 @@ export class PropEditor {
   }
 
   /** A new prop of `type` centred on the cursor, standing on it. */
-  private ghost(type: string, at: Point): PlacedProp | null {
+  private ghost(type: string, at: Point): PlacedProp {
     const { asset } = propTypeOf(type);
     const image = this.assets[asset];
-    if (!image) return null;
+    if (!image) throw new Error(`Missing prop asset "${asset}".`);
+    const frame = propFrame(asset, image);
     return {
-      type, asset, flip: false, w: image.width, h: image.height,
-      x: Math.round(at.x - image.width / 2), y: Math.round(at.y - image.height),
+      type, asset, flip: false, w: frame.w, h: frame.h,
+      x: Math.round(at.x - frame.w / 2), y: Math.round(at.y - frame.h),
     };
   }
 
-  private mask(asset: string): Mask | null {
-    const cached = this.masks.get(asset);
-    if (cached) return cached;
+  private mask(asset: string, time: number): Mask {
     const image = this.assets[asset];
-    if (!image) return null;
+    if (!image) throw new Error(`Missing prop asset "${asset}".`);
+    const frame = propFrame(asset, image, time);
+    const key = `${asset}:${frame.x}:${frame.y}`;
+    const cached = this.masks.get(key);
+    if (cached) return cached;
     const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
+    canvas.width = frame.w;
+    canvas.height = frame.h;
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    ctx.drawImage(image, 0, 0);
-    const mask = { alpha: ctx.getImageData(0, 0, image.width, image.height).data, w: image.width, h: image.height };
-    this.masks.set(asset, mask);
+    ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+    const mask = { alpha: ctx.getImageData(0, 0, frame.w, frame.h).data, w: frame.w, h: frame.h };
+    this.masks.set(key, mask);
     return mask;
   }
 
   /** The frontmost prop under the point, preferring its visible pixels over its box. */
-  propAt(point: Point): PlacedProp | null {
-    const front = [...this.room.props].sort((a, b) => b.y + b.h - (a.y + a.h));
+  propAt(point: Point, time = 0): PlacedProp | null {
+    const front = [...this.room.props].reverse().sort((a, b) => b.y + b.h - (a.y + a.h));
     const inBox = front.filter((prop) =>
       point.x >= prop.x && point.x < prop.x + prop.w && point.y >= prop.y && point.y < prop.y + prop.h);
     const solid = inBox.find((prop) => {
-      const mask = this.mask(prop.asset);
-      if (!mask) return false;
+      const mask = this.mask(prop.asset, time);
       let lx = Math.floor(point.x - prop.x);
       const ly = Math.floor(point.y - prop.y);
       if (prop.flip) lx = prop.w - 1 - lx;
@@ -217,7 +217,7 @@ export class PropEditor {
   }
 
   /** Floor, blocked areas, seats and prop outlines, drawn over the room in room pixels. */
-  draw(ctx: CanvasRenderingContext2D, scale: number) {
+  draw(ctx: CanvasRenderingContext2D, scale: number, time = 0) {
     const { room } = this;
     const line = 1 / scale;
     ctx.save();
@@ -244,7 +244,7 @@ export class PropEditor {
     const ghost = this.placing && this.cursor ? this.ghost(this.placing, this.cursor) : null;
     if (ghost) {
       ctx.globalAlpha = 0.65;
-      ctx.drawImage(this.assets[ghost.asset], ghost.x, ghost.y);
+      drawPropSprite(ctx, this.assets[ghost.asset], ghost.asset, ghost.x, ghost.y, ghost.flip, time);
       ctx.globalAlpha = 1;
       this.outline(ctx, ghost, COLORS.ghost, scale);
     }

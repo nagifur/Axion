@@ -71,7 +71,7 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
       },
     },
   });
-  const chair = { width: 27, height: 38 };
+  const chair = { width: 96, height: 96 };
   const backdrop = {};
   const room = {
     id: 'room', width: 400, height: 200,

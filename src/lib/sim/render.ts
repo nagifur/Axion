@@ -1,6 +1,6 @@
 import type { Agent } from './agent.ts';
 import type { Room } from './room.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, type Frame, type FrameName } from './sprites.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, propFrame, propFrames, type Frame, type FrameName } from './sprites.ts';
 import type { World } from './world.ts';
 
 /** Loaded images by name: "room:<room id>", "character", and every prop file name (e.g. "bench"). */
@@ -10,11 +10,35 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
   const entries = Object.entries(urls).map(([name, url]) => new Promise<[string, HTMLImageElement]>((resolve, reject) => {
     const image = new Image();
     image.decoding = 'async';
-    image.onload = () => resolve([name, image]);
+    image.onload = () => {
+      try {
+        if (name !== 'character' && !name.startsWith('room:')) propFrames(name, image);
+        resolve([name, image]);
+      } catch (error) {
+        reject(error);
+      }
+    };
     image.onerror = () => reject(new Error(`Failed to load sim asset "${name}"`));
     image.src = url;
   }));
   return Promise.all(entries).then((loaded) => Object.fromEntries(loaded));
+}
+
+/** Draws one artwork-sized prop frame, with mirroring around that frame rather than the sheet. */
+export function drawPropSprite(
+  ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
+  asset: string, x: number, y: number, flip = false, time = 0,
+) {
+  const frame = propFrame(asset, image, time);
+  if (!flip) {
+    ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, x, y, frame.w, frame.h);
+    return;
+  }
+  ctx.save();
+  ctx.translate(x + frame.w, y);
+  ctx.scale(-1, 1);
+  ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+  ctx.restore();
 }
 
 type Canvas = HTMLCanvasElement;
@@ -57,7 +81,7 @@ interface ScaledSheet {
 
 const EYE_WHITE = [255, 255, 255];
 const EYE_RED = [255, 40, 64];
-const LIGHT_OFF = [66, 43, 28];
+const LIGHT_OFF = [70, 42, 25];
 const LIGHT_ON = [255, 177, 91];
 
 function agentDepth(agent: Agent) {
@@ -262,24 +286,22 @@ export class Renderer {
 
     if (door) {
       // The room art is drawn on top afterwards, hiding the parts of the doors that slide into the wall.
-      const slide = Math.round(elevator.open * door.width);
-      ctx.drawImage(door, opening.x - slide, opening.y);
-      ctx.save();
-      ctx.translate(opening.x + opening.w + slide, opening.y);
-      ctx.scale(-1, 1);
-      ctx.drawImage(door, 0, 0);
-      ctx.restore();
+      const frame = propFrame(ELEVATOR_SPRITES.door, door, world.time);
+      const slide = Math.round(elevator.open * frame.w);
+      drawPropSprite(ctx, door, ELEVATOR_SPRITES.door, opening.x - slide, opening.y, false, world.time);
+      drawPropSprite(ctx, door, ELEVATOR_SPRITES.door, opening.x + opening.w + slide - frame.w, opening.y, true, world.time);
     }
 
     if (lights && this.litArrows) {
-      const x = Math.round(opening.x + (opening.w - lights.width) / 2);
-      const y = opening.y - ELEVATOR_SPRITES.lightsGap - lights.height;
-      ctx.drawImage(lights, x, y);
+      const frame = propFrame(ELEVATOR_SPRITES.lights, lights, world.time);
+      const x = Math.round(opening.x + (opening.w - frame.w) / 2);
+      const y = opening.y - ELEVATOR_SPRITES.lightsGap - frame.h;
+      drawPropSprite(ctx, lights, ELEVATOR_SPRITES.lights, x, y, false, world.time);
       if (elevator.light && Math.floor(world.time * 3) % 2 === 0) {
         const { upWidth, downX } = ELEVATOR_SPRITES;
         const sx = elevator.light === 'up' ? 0 : downX;
-        const sw = elevator.light === 'up' ? upWidth : lights.width - downX;
-        ctx.drawImage(this.litArrows, sx, 0, sw, lights.height, x + sx, y, sw, lights.height);
+        const sw = elevator.light === 'up' ? upWidth : frame.w - downX;
+        ctx.drawImage(this.litArrows, frame.x + sx, frame.y, sw, frame.h, x + sx, y, sw, frame.h);
       }
     }
   }
@@ -302,13 +324,8 @@ export class Renderer {
       return {
         depth: prop.y + prop.h - 0.5,
         draw: () => {
-          if (!image) return;
-          if (!prop.flip) return ctx.drawImage(image, prop.x, prop.y);
-          ctx.save();
-          ctx.translate(prop.x + image.width, prop.y);
-          ctx.scale(-1, 1);
-          ctx.drawImage(image, 0, 0);
-          ctx.restore();
+          if (!image) throw new Error(`Missing prop asset "${prop.asset}".`);
+          drawPropSprite(ctx, image, prop.asset, prop.x, prop.y, prop.flip, world.time);
         },
       };
     });

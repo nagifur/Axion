@@ -227,7 +227,8 @@ type in `sprites.ts` brings its own seats and blocked floor area:
 }
 ```
 
-Prop `x`/`y` is the sprite's top-left corner in room pixels. Everything painted in
+Prop `x`/`y` is the cropped artwork's top-left corner in room pixels, not the padded
+sheet cell's corner. Everything painted in
 `room.png` is drawn behind characters; anything that should cover people walking past
 (a railing near the camera, a foreground pillar) must be a prop instead.
 
@@ -235,6 +236,35 @@ Any image in [`src/sim_assets/props/`](../src/sim_assets/props/) can be placed b
 file name (`plant.png` → `"type": "plant"`) as plain decoration. To give a prop seats
 or floor that people walk around, add it to `PROP_TYPES` in
 [`sprites.ts`](../src/lib/sim/sprites.ts).
+
+#### Prop Sprite Sheets
+
+The shared props use **96 × 96 pixel cells**, with frames running left to right.
+`PROP_SPRITES` in [`sprites.ts`](../src/lib/sim/sprites.ts) declares the artwork-sized
+source rectangles inside those cells. Keep every animation frame's crop the same
+size and alignment, including room for glow or other effects. This keeps placements,
+mirroring, seats, and blocked floor independent of transparent sheet padding.
+
+A single rectangle is a still prop. Multiple rectangles form a looping animation;
+`frameSeconds` controls the duration of each frame (defaults to one second).
+The light currently alternates its two frames every 0.6 simulation seconds:
+
+```ts
+light: {
+  frames: [
+    { x: 28, y: 39, w: 40, h: 17 },
+    { x: 124, y: 39, w: 40, h: 17 },
+  ],
+  frameSeconds: 0.6,
+},
+```
+
+Frames can also come from other rows; include the row offset in `y`. Elevator door
+and arrow sprites have their own crops in the same registry. The editor palette uses
+the first frame, while placement previews and pixel picking use the current frame.
+Animations share simulation time, so pausing the feed freezes them too.
+Images without `PROP_SPRITES` metadata retain the full-image, still-decoration behavior.
+Add metadata for any new grid sheet so its padding and extra cells are not rendered.
 
 #### Placing Props With the Editor
 

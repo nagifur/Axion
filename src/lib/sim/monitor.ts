@@ -440,7 +440,7 @@ export function initMonitor(root: HTMLElement): () => void {
   const onPointerDown = (event: PointerEvent) => {
     if (!editor?.active || event.button !== 0) return;
     canvas.setPointerCapture(event.pointerId);
-    editor.pointerDown(toRoom(event));
+    editor.pointerDown(toRoom(event), world.time);
   };
   const onPointerUp = () => editor?.pointerUp();
   const onKeyDown = (event: KeyboardEvent) => {
@@ -602,7 +602,7 @@ export function initMonitor(root: HTMLElement): () => void {
     if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
     if (hovered) highlights.set(hovered, '#ffffff');
     renderer.draw(world, highlights);
-    if (editor?.active) editor.draw(renderer.context, renderer.scale);
+    if (editor?.active) editor.draw(renderer.context, renderer.scale, world.time);
     syncTags();
     renderFile(selected);
     raf = requestAnimationFrame(frame);

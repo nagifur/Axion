@@ -76,6 +76,55 @@ export const WALK_STRIDE = 8;
 /** Seconds before switching to the next idle frame. */
 export const IDLE_FRAME_SECONDS = 0.6;
 
+export interface PropSprite {
+  /** Matching artwork-sized crops inside the sheet's 96x96 cells. */
+  frames: readonly Rect[];
+  frameSeconds?: number;
+}
+
+export const PROP_SPRITES: Record<string, PropSprite> = {
+  bench: { frames: [{ x: 13, y: 43, w: 71, h: 33 }] },
+  chair: { frames: [{ x: 34, y: 43, w: 27, h: 38 }] },
+  table: { frames: [{ x: 13, y: 44, w: 68, h: 27 }] },
+  light: {
+    frames: [
+      { x: 28, y: 39, w: 40, h: 17 },
+      { x: 124, y: 39, w: 40, h: 17 },
+    ],
+    frameSeconds: 0.6,
+  },
+  elevator_door: { frames: [{ x: 36, y: 15, w: 24, h: 67 }] },
+  elevator_lights: { frames: [{ x: 36, y: 44, w: 24, h: 9 }] },
+};
+
+/** Undeclared images retain their full-image, still-decoration behavior. */
+export function propFrames(asset: string, image: { width: number; height: number }): readonly Rect[] {
+  const sprite = PROP_SPRITES[asset];
+  const frames = sprite?.frames ?? [{ x: 0, y: 0, w: image.width, h: image.height }];
+  if (!frames.length) throw new Error(`Prop sprite "${asset}": at least one frame is required.`);
+  if (sprite?.frameSeconds !== undefined && (!Number.isFinite(sprite.frameSeconds) || sprite.frameSeconds <= 0)) {
+    throw new Error(`Prop sprite "${asset}": frameSeconds must be a positive number.`);
+  }
+  for (const frame of frames) {
+    if (![frame.x, frame.y, frame.w, frame.h].every(Number.isInteger) ||
+      frame.x < 0 || frame.y < 0 || frame.w <= 0 || frame.h <= 0 ||
+      frame.x + frame.w > image.width || frame.y + frame.h > image.height) {
+      throw new Error(`Prop sprite "${asset}": frame (${frame.x}, ${frame.y}, ${frame.w}, ${frame.h}) is outside its ${image.width}x${image.height} sheet.`);
+    }
+    if (frame.w !== frames[0].w || frame.h !== frames[0].h) {
+      throw new Error(`Prop sprite "${asset}": animation frames must have matching sizes.`);
+    }
+  }
+  return frames;
+}
+
+export function propFrame(asset: string, image: { width: number; height: number }, time = 0): Rect {
+  if (!Number.isFinite(time) || time < 0) throw new Error(`Prop sprite "${asset}": animation time must be finite and non-negative.`);
+  const frames = propFrames(asset, image);
+  const seconds = PROP_SPRITES[asset]?.frameSeconds ?? 1;
+  return frames[Math.floor(time / seconds) % frames.length];
+}
+
 export interface Seat {
   /** Where the feet go. */
   x: number;

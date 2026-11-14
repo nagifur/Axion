@@ -7,7 +7,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
-import { placeablePropTypes, propTypeOf } from './sprites.ts';
+import { placeablePropTypes, propFrame, propTypeOf } from './sprites.ts';
 
 export const SIM_ASSETS_DIR = path.resolve('src/sim_assets');
 
@@ -37,6 +37,14 @@ async function imageSize(file: string) {
   const { width, height } = await sharp(file).metadata();
   if (!width || !height) throw new NavMapError(`${file}: could not read image size.`);
   return { width, height };
+}
+
+/** First-frame thumbnail for the editor palette, never the entire sprite sheet. */
+export async function propPreview(asset: string, assetsDir = SIM_ASSETS_DIR): Promise<string> {
+  const file = path.join(assetsDir, 'props', `${asset}.png`);
+  const frame = propFrame(asset, await imageSize(file));
+  const png = await sharp(file).extract({ left: frame.x, top: frame.y, width: frame.w, height: frame.h }).png().toBuffer();
+  return `data:image/png;base64,${png.toString('base64')}`;
 }
 
 /** Every prop type a room can place (see placeablePropTypes). */
@@ -113,8 +121,8 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
       throw new NavMapError(`${label}/room.json: prop ${index + 1} (${type}) needs whole-number "x" and "y".`);
     }
     const { asset } = propTypeOf(type);
-    const size = await imageSize(path.join(assetsDir, 'props', `${asset}.png`));
-    props.push({ type, asset, x, y, w: size.width, h: size.height, flip: flip === true });
+    const frame = propFrame(asset, await imageSize(path.join(assetsDir, 'props', `${asset}.png`)));
+    props.push({ type, asset, x, y, w: frame.w, h: frame.h, flip: flip === true });
   }
 
   return {
