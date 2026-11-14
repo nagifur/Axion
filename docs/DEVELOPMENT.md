@@ -16,6 +16,12 @@ npm run dev
 The development server is usually available at [http://localhost:4321](http://localhost:4321).
 Astro reports the exact URL in the terminal.
 
+Keep the direct `sharp` dependency compatible with Astro's `sharp` dependency
+so npm installs a single version. Loading different native versions in the same
+process can break image processing on Windows with
+`colourspace: parameter space not set`. After dependency changes, restart the
+development server so it loads the updated native libraries.
+
 | Command | Description |
 | --- | --- |
 | `npm run dev` | Start the local development server with hot reload. |
