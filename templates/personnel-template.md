@@ -1,6 +1,6 @@
 ---
 title: Full Name
-employeeID: 0000
+employeeID: "0000"
 position: Job Title (e.g. Researcher, Caretaker, Guard)
 species: Species
 gender: Male / Female / Other

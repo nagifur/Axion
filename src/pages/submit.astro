@@ -366,6 +366,7 @@ const articleCategories = Array.from(new Set(
 
   // Derive the file slug from the title — it always matches, so no separate field is needed.
   const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const submissionSlug = () => slugify(field('title').trim() || 'Untitled') || 'slug';
 
   // Strip "{{visible|tooltip}}" hover syntax down to the visible text for the preview.
   const plainText = (value: string) => value.replace(/\{\{([^|{}]*)\|[^{}]*\}\}/g, '$1');
@@ -1036,6 +1037,14 @@ const articleCategories = Array.from(new Set(
       `;
     }
 
+    const profileIdHtml = type === 'entity'
+      ? `<span class="profile-id" title="Derived from the entity number">ID <span data-entity-id>${escapeHtml(submissionSlug())}</span></span>`
+      : `<label class="profile-id profile-id-editor">
+          <span aria-hidden="true">${type === 'synthetic' ? 'SID' : 'ID'}</span>
+          <span class="sr-only">${type === 'synthetic' ? 'Synthetic ID' : 'Employee ID'}</span>
+          ${type === 'synthetic' ? inlineInput('syntheticID', 'e.g. 0001') : inlineInput('employeeID', 'e.g. 5538')}
+        </label>`;
+
     previewContentEl.innerHTML = `
       <div class="card" role="article">
         <div class="profile-header">
@@ -1046,11 +1055,11 @@ const articleCategories = Array.from(new Set(
         <div class="profile">
           <div class="profile-media">
             <div class="profile-crop-target"></div>
+            ${profileIdHtml}
             <div class="profile-image-actions">
               <span class="profile-image-label">Profile Image</span>
               <button type="button" id="profile-image-upload" class="btn secondary profile-image-upload">Upload Image</button>
             </div>
-           
           </div>
           <div class="stat-grid">${statsHtml}</div>
         </div>
@@ -1070,7 +1079,6 @@ const articleCategories = Array.from(new Set(
     if (profileSourceImage) {
       const target = previewEl.querySelector('.profile-crop-target');
       if (target) {
-        target.classList.toggle('is-animated', profileImageIsGif);
         if (profileImageIsGif) {
           target.append(profileSourceImage);
         } else {
@@ -1088,6 +1096,10 @@ const articleCategories = Array.from(new Set(
     const source = form.elements.namedItem(fieldName) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
     if (!source) return;
     source.value = (control as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value;
+    if (fieldName === 'title' && currentType() === 'entity') {
+      const entityId = previewEl.querySelector<HTMLElement>('[data-entity-id]')!;
+      entityId.textContent = submissionSlug();
+    }
     updateExport();
   });
 
@@ -1169,7 +1181,7 @@ const articleCategories = Array.from(new Set(
   function buildFileText() {
     const type = currentType();
     const title = field('title').trim() || 'Untitled';
-    const slug = slugify(title) || 'slug';
+    const slug = submissionSlug();
     const bio = field('bio').trim();
     const author = field('author').trim();
     // JSON strings are valid YAML double-quoted scalars, so user text (quotes, colons, #) can't break the frontmatter.
@@ -1194,7 +1206,7 @@ const articleCategories = Array.from(new Set(
       frontmatter = [
         `title: ${yamlString(title)}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
-        `employeeID: ${yamlScalar(field('employeeID') || 'None')}`,
+        `employeeID: ${yamlString(field('employeeID') || 'None')}`,
         `position: ${yamlString(field('position') || 'None')}`,
         `species: ${yamlString(field('species') || 'None')}`,
         `gender: ${yamlString(field('gender') || 'None')}`,
@@ -1216,7 +1228,7 @@ const articleCategories = Array.from(new Set(
         `title: ${yamlString(title)}`,
         ...(author ? [`author: ${JSON.stringify(author)}`] : []),
         `nickname: ${yamlString(field('nickname') || 'None')}`,
-        `syntheticID: ${yamlScalar(field('syntheticID') || 'None')}`,
+        `syntheticID: ${yamlString(field('syntheticID') || 'None')}`,
         `position: ${yamlString(field('position') || 'None')}`,
         `type: ${yamlString(field('syntheticType') || 'None')}`,
         `gender: ${yamlString(field('gender') || 'None')}`,
