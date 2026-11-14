@@ -1,4 +1,4 @@
-import type { SimCharacter, SimImpostor } from './roster.ts';
+import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
 import { directionTo, type Door, type Facing, type Point, type Room, type Spot } from './room.ts';
 import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
@@ -531,8 +531,12 @@ export function planNext(agent: Agent, world: World): Task[] {
   const benchSpot = world.freeSpot(room, 'bench');
   const chairSpot = world.freeSpot(room, 'chair');
   const partner = world.findChatPartner(agent);
-  const linked = room.linkedDoors;
-  const floors = world.elevatorStops(room);
+  const canVisit = (destination: Room) => !!agent.impostor || canVisitLevel(agent.character, destination.level);
+  const linked = room.linkedDoors.filter((door) => {
+    const destination = world.room(door.to!.room);
+    return destination && canVisit(destination);
+  });
+  const floors = world.elevatorStops(room).filter(canVisit);
 
   const options: Option[] = [
     {

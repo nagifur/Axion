@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EventDirector } from '../src/lib/sim/events.ts';
-import { exitThroughDoor, rideElevatorOut } from '../src/lib/sim/agent.ts';
+import { exitThroughDoor, leaveFacility, planNext, rideElevatorOut } from '../src/lib/sim/agent.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { checkShafts, linkRooms, loadFacility, orderRooms } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
@@ -81,7 +81,7 @@ const facility = async () => (await loadFacility()).map((data) => new Room(data)
 
 const character = (id, behavior = {}) => ({
   id, name: id, href: `/Personnel/${id}`, tint: '#fff', scale: 1, position: 'Test', species: 'Test',
-  accessLevel: '1', employeeID: id, traits: [], weight: 1,
+  accessLevel: '5', employeeID: id, traits: [], weight: 1,
   behavior: { speed: 1, napChance: 0, clumsy: false, social: 0.4, ghost: false, ...behavior },
 });
 const roster = Array.from({ length: 14 }, (_, i) => character(`staff-${i}`));
@@ -126,6 +126,108 @@ test('people walk between rooms and come and go', async () => {
   for (const room of rooms) {
     assert.ok([...visited.values()].some((roomIds) => roomIds.has(room.id)), `someone visited ${room.id}`);
   }
+});
+
+test('population and arrivals stay within clearance, including ghosts', async (t) => {
+  const rooms = await facility();
+  const staff = Array.from({ length: 14 }, (_, i) => ({ ...character(`limited-${i}`), accessLevel: '3' }));
+  const world = new World({ roster: staff, rooms, now: noon });
+  t.mock.method(Math, 'random', () => 0.99);
+  world.populate();
+  assert.ok(world.agents.length > 0);
+  assert.ok(world.agents.every((agent) => agent.room.level <= 3));
+
+  const doorArrival = world.arrive(staff[0]);
+  assert.ok(doorArrival.room.level <= 3);
+  assert.equal(doorArrival.alpha, 0, 'arrives through a door');
+
+  Math.random.mock.mockImplementation(() => 0);
+  const elevatorArrival = world.arrive(staff[0]);
+  assert.ok(elevatorArrival.room.level <= 3);
+  assert.equal(elevatorArrival.layer, 'inside');
+
+  const ghost = { ...staff[0], behavior: { ...staff[0].behavior, ghost: true } };
+  const wallArrival = world.arrive(ghost);
+  assert.ok(wallArrival.room.level <= 3);
+  assert.equal(wallArrival.alpha, 0, 'ghost phases through a wall');
+
+  const isolated = new World({ roster: staff, rooms: [world.room('level-1-recRoom')], now: noon });
+  assert.equal(isolated.arrive(staff[0]).room.level, 1, 'no-entrance fallback stays within clearance');
+
+  Math.random.mock.mockImplementation(() => 0.99);
+  const impostor = world.arrive(staff[0], { id: 'fake', name: 'Fake', nickname: '', href: '', weight: 1 });
+  assert.equal(impostor.room.level, 5, 'impostors ignore their disguise clearance');
+});
+
+test('reports when no room is within clearance instead of spawning on a restricted floor', async () => {
+  const rooms = (await facility()).filter((room) => room.level > 3);
+  const staff = { ...character('limited'), accessLevel: '3' };
+  const world = new World({ roster: [staff], rooms, now: noon });
+  const warnings = [];
+  world.hooks.log = (text, tone) => warnings.push({ text, tone });
+  world.populate();
+  assert.equal(world.arrive(staff), undefined);
+  assert.equal(world.agents.length, 0);
+  assert.equal(warnings.length, 2);
+  assert.ok(warnings.every(({ text, tone }) => tone === 'warn' && text.includes('clearance')));
+});
+
+test('voluntary door and elevator plans respect clearance, but impostors do not', async (t) => {
+  const rooms = await facility();
+  const world = new World({ roster: [], rooms, now: noon });
+  const offices = world.room('level-1-offices');
+  const gallery = world.room('level-4-gallery');
+  offices.doors.push({ ...offices.linkedDoors[0], id: 'restricted', to: { room: gallery.id, door: 'north' } });
+  const agent = world.spawn({ ...character('limited'), accessLevel: '3' }, offices, offices.randomFloorPoint());
+  world.time = agent.arrivedAt = 30;
+  t.mock.method(world, 'freeSpot', () => undefined);
+  t.mock.method(world, 'findChatPartner', () => undefined);
+  t.mock.method(offices, 'route', () => []);
+  const destinations = [];
+  t.mock.method(world.elevatorFor(offices), 'request', (_type, _agent, options) => {
+    destinations.push(options.destination.level);
+    return { board: false };
+  });
+  const random = t.mock.method(Math, 'random', () => 0);
+  for (const choice of [0, 0.5, 0.99]) {
+    let calls = 0;
+    random.mock.mockImplementation(() => calls++ === 0 ? 0.99 : choice);
+    const [elevator] = planNext(agent, world);
+    assert.equal(elevator.activity, 'Heading to the elevator');
+    elevator.start(agent, world);
+    elevator.update(agent, world, 0.1);
+
+    calls = 0;
+    random.mock.mockImplementation(() => calls++ === 0 ? 0.8 : choice);
+    const [door] = planNext(agent, world);
+    const allowed = offices.linkedDoors.filter((door) => world.room(door.to.room).level <= 3);
+    assert.ok(allowed.some((exit) => door.activity === `Heading to the ${world.room(exit.to.room).name}`), door.activity);
+  }
+  assert.ok(destinations.every((level) => level <= 3));
+  assert.ok(destinations.includes(3), 'own-clearance floor is available');
+  assert.ok(destinations.some((level) => level < 3), 'lower floors are available');
+
+  const impostor = world.spawn(agent.character, offices, agent, { id: 'fake', name: 'Fake', nickname: '', href: '', weight: 1 });
+  impostor.arrivedAt = 30;
+  impostor.enteredRoomAt = 0;
+  random.mock.mockImplementation(() => 0.99);
+  const [elevator] = planNext(impostor, world);
+  elevator.start(impostor, world);
+  elevator.update(impostor, world, 0.1);
+  assert.equal(destinations.at(-1), 5);
+  let calls = 0;
+  random.mock.mockImplementation(() => calls++ === 0 ? 0.8 : 0.99);
+  assert.equal(planNext(impostor, world)[0].activity, `Heading to the ${gallery.name}`);
+});
+
+test('clearance preferences do not block escape routes', async () => {
+  const rooms = await facility();
+  const world = new World({ roster: [], rooms, now: noon });
+  const trophy = world.room('level-4-trophyRoom');
+  const gallery = world.room('level-4-gallery');
+  const agent = world.spawn({ ...character('limited'), accessLevel: '3' }, trophy, trophy.randomFloorPoint());
+  assert.equal(leaveFacility(agent, world, true)[0].activity, `Heading to the ${gallery.name}`);
+  assert.equal(agent.leaving, true);
 });
 
 test('an unmasked impostor escapes through another room if needed', async () => {

@@ -1,5 +1,5 @@
 import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './agent.ts';
-import type { SimCharacter, SimImpostor } from './roster.ts';
+import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
 import { directionTo, type Direction, type Door, type Room, type Spot } from './room.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
@@ -268,7 +268,12 @@ export class World {
     for (let i = 0; i < count; i++) {
       const character = this.pickArrival();
       if (!character) break;
-      const room = pick(this.rooms);
+      const rooms = this.rooms.filter((room) => canVisitLevel(character, room.level));
+      if (!rooms.length) {
+        this.log(`No rooms within ${character.name}'s clearance are available.`, 'warn');
+        break;
+      }
+      const room = pick(rooms);
       this.spawn(character, room, room.randomFloorPoint());
     }
   }
@@ -317,8 +322,13 @@ export class World {
   arrive(character = this.pickArrival(), impostor?: SimImpostor) {
     if (!character) return undefined;
     const ghost = character.behavior.ghost && !impostor;
+    const rooms = this.rooms.filter((room) => impostor || canVisitLevel(character, room.level));
+    if (!rooms.length) {
+      this.log(`No rooms within ${character.name}'s clearance are available.`, 'warn');
+      return undefined;
+    }
     const entrances: Entrance[] = [];
-    for (const room of this.rooms) {
+    for (const room of rooms) {
       // Don't stack arrivals on an elevator that is already busy.
       const elevator = this.elevatorFor(room);
       if (elevator) entrances.push({ kind: 'elevator', room, weight: elevator.busy ? 0.15 : 1.5 });
@@ -326,7 +336,7 @@ export class World {
     }
 
     const entrance = weightedPick(entrances);
-    if (!entrance || (ghost && Math.random() < 0.4)) return this.arriveThroughWall(character, entrance?.room ?? pick(this.rooms));
+    if (!entrance || (ghost && Math.random() < 0.4)) return this.arriveThroughWall(character, entrance?.room ?? pick(rooms));
     if (entrance.kind === 'elevator') return this.arriveByElevator(character, entrance.room, impostor);
     return this.arriveByDoor(character, entrance.room, entrance.door, impostor);
   }

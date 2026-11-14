@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   behaviorFromTraits,
+  canVisitLevel,
   heightToScale,
   parseHeightMeters,
   toSimCharacter,
@@ -69,6 +70,23 @@ test('builds characters and skips wanted or excluded staff', () => {
   assert.equal(toSimCharacter(personnel('canvas.md', { wanted: { status: 'Wanted' } })), null);
   assert.equal(toSimCharacter(personnel('mellisa.md')), null);
   assert.equal(toSimCharacter(personnel('sypher.md')).weight, 0.15);
+});
+
+test('floor preferences follow numeric clearance, with admin and unknown handling', () => {
+  for (const clearance of [0, 1, 2, 3, 4, 5]) {
+    const character = toSimCharacter(personnel('test', { accessLevel: clearance }));
+    for (let level = 0; level <= 5; level++) {
+      assert.equal(canVisitLevel(character, level), level <= clearance);
+    }
+  }
+  for (const accessLevel of ['Admin', ' admin ']) {
+    assert.equal(canVisitLevel(toSimCharacter(personnel('test', { accessLevel })), 5), true);
+  }
+  for (const accessLevel of ['█████', '', 'None', '-1', '3.5']) {
+    const character = toSimCharacter(personnel('test', { accessLevel }));
+    assert.equal(canVisitLevel(character, 1), true);
+    assert.equal(canVisitLevel(character, 2), false);
+  }
 });
 
 test('only shapeshifting entities can pose as staff', () => {

@@ -42,6 +42,14 @@ export interface SimImpostor {
   weight: number;
 }
 
+/** Staff keep to their clearance and below; unknown clearances use level 1. */
+export function canVisitLevel(character: SimCharacter, level: number): boolean {
+  const clearance = character.accessLevel.trim();
+  if (/^admin$/i.test(clearance)) return true;
+  const maximum = /^\d+$/.test(clearance) ? Number(clearance) : 1;
+  return level <= maximum;
+}
+
 export interface SimOverride {
   exclude?: boolean;
   weight?: number;

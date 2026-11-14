@@ -145,6 +145,12 @@ height sets sprite size, `colorTint` colours the name tag, and traits such as *S
 Wanted characters are left out. Entities with a *Shapeshifting* ability can sneak in
 disguised as staff.
 
+Staff start, arrive, and choose rooms only on floors at or below their profile's
+`accessLevel`. `Admin` can visit every floor; unknown or redacted clearances use
+level 1. This applies to connected doors, elevators, and ghost arrivals.
+Impostors ignore clearance limits, and emergency exit routes remain unrestricted.
+Explicit scripted moves are not blocked by this planning preference.
+
 | File | Purpose |
 | --- | --- |
 | [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |
