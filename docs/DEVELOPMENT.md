@@ -174,11 +174,18 @@ uses untrimmed **96 × 96 pixel cells**, with one animation per row, top to bott
 | 4 | Idle right | 2 |
 | 5 | Idle front | 2 |
 | 6 | Idle back | 2 |
+| 7 | Sitting right | 2 |
+| 8 | Sitting front | 2 |
+| 9 | Talking right | 2 |
 
 Frames run left to right; unused cells remain transparent. Keep the ground baseline
 at the cell's bottom and the body centered on x = 48. Left-facing animations mirror
 the right-facing rows. Walking uses the dominant movement direction and advances
-every 4.5 room pixels traveled; idle frames alternate every 0.6 simulation seconds.
+every 8 room pixels traveled; idle, sitting, and talking frames alternate every
+0.6 simulation seconds. Characters sit only while using a reserved chair or bench,
+including while napping there; the speaker in a conversation uses the talking pose.
+Seated characters are drawn in front of their seat's prop.
+There is no sitting-back or talking-front/back artwork, so those facings use idle frames.
 Frame coordinates and timing are defined in [`sprites.ts`](../src/lib/sim/sprites.ts).
 The renderer crops each frame before scaling it, so neighboring animation rows cannot
 bleed into characters or their highlight outlines at fractional sizes.

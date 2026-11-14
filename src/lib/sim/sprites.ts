@@ -16,7 +16,7 @@ export interface Frame {
 
 export type FrameName =
   | `${'walkFront' | 'walkBack' | 'walkRight'}${1 | 2 | 3 | 4}`
-  | `${'idleRight' | 'idleFront' | 'idleBack'}${1 | 2}`;
+  | `${'idleRight' | 'idleFront' | 'idleBack' | 'sitRight' | 'sitFront' | 'talkRight'}${1 | 2}`;
 
 const gridFrame = (column: number, row: number): Frame => ({
   x: column * 96, y: row * 96, w: 96, h: 96, anchorX: 48,
@@ -42,6 +42,12 @@ export const CHARACTER_FRAMES: Record<FrameName, Frame> = {
   idleFront2: gridFrame(1, 4),
   idleBack1: gridFrame(0, 5),
   idleBack2: gridFrame(1, 5),
+  sitRight1: gridFrame(0, 6),
+  sitRight2: gridFrame(1, 6),
+  sitFront1: gridFrame(0, 7),
+  sitFront2: gridFrame(1, 7),
+  talkRight1: gridFrame(0, 8),
+  talkRight2: gridFrame(1, 8),
 };
 const WALK_RIGHT: FrameName[] = ['walkRight1', 'walkRight2', 'walkRight3', 'walkRight4'];
 const IDLE_RIGHT: FrameName[] = ['idleRight1', 'idleRight2'];
@@ -57,6 +63,14 @@ export const IDLE_CYCLES: Record<Facing, readonly FrameName[]> = {
   right: IDLE_RIGHT,
   left: IDLE_RIGHT,
 };
+const SIT_RIGHT: FrameName[] = ['sitRight1', 'sitRight2'];
+export const SIT_CYCLES: Record<Facing, readonly FrameName[]> = {
+  front: ['sitFront1', 'sitFront2'],
+  back: IDLE_CYCLES.back,
+  right: SIT_RIGHT,
+  left: SIT_RIGHT,
+};
+export const TALK_RIGHT_CYCLE: readonly FrameName[] = ['talkRight1', 'talkRight2'];
 /** Pixels walked before switching to the next walk frame. */
 export const WALK_STRIDE = 8;
 /** Seconds before switching to the next idle frame. */

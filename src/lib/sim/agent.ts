@@ -1,6 +1,6 @@
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import { directionTo, type Door, type Facing, type Point, type Room, type Spot } from './room.ts';
-import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
+import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
@@ -10,6 +10,8 @@ export interface Task {
   activity: string;
   /** Whether a coworker can pull the agent into a conversation mid-task. */
   interruptible: boolean;
+  /** This task takes place while seated at a reserved spot. */
+  sitting?: boolean;
   start?(agent: Agent, world: World): void;
   /** Returns true when the task is finished. */
   update(agent: Agent, world: World, dt: number): boolean;
@@ -70,8 +72,16 @@ export class Agent {
     return !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
   }
 
+  get sitting() {
+    return !!this.task?.sitting && !this.moving;
+  }
+
   get frame(): { name: FrameName; flip: boolean } {
-    const cycle = (this.moving ? WALK_CYCLES : IDLE_CYCLES)[this.facing];
+    const speaking = this.conversation && isSpeaking(this.conversation, this);
+    const cycle = this.moving ? WALK_CYCLES[this.facing]
+      : this.sitting ? SIT_CYCLES[this.facing]
+      : speaking && (this.facing === 'left' || this.facing === 'right') ? TALK_RIGHT_CYCLE
+      : IDLE_CYCLES[this.facing];
     const phase = this.moving ? this.walkDistance / WALK_STRIDE : this.idleElapsed / IDLE_FRAME_SECONDS;
     return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
   }
@@ -242,10 +252,13 @@ export interface Conversation {
   elapsed: number;
 }
 
-function chatBubble(conversation: Conversation, agent: Agent) {
+function isSpeaking(conversation: Conversation, agent: Agent) {
   const turn = Math.floor(conversation.elapsed / 1.6) % 2;
-  const speaking = (turn === 0) === (agent === conversation.initiator);
-  agent.bubble = conversation.started && speaking ? '…' : null;
+  return conversation.started && !conversation.ended && ((turn === 0) === (agent === conversation.initiator));
+}
+
+function chatBubble(conversation: Conversation, agent: Agent) {
+  agent.bubble = isSpeaking(conversation, agent) ? '…' : null;
 }
 
 function meow(agent: Agent, world: World) {
@@ -470,11 +483,11 @@ interface Option {
 
 function rest(agent: Agent, spot: Spot, world: World): Task {
   const nightOwl = world.isNight() ? 1.4 : 1;
-  if (Math.random() < agent.character.behavior.napChance * nightOwl) return nap(range(25, 50), spot.facing);
+  if (Math.random() < agent.character.behavior.napChance * nightOwl) return { ...nap(range(25, 50), spot.facing), sitting: true };
   const hour = world.now().getHours();
   const onChair = spot.kind === 'chair';
   const activity = onChair ? (hour >= 11 && hour < 14 ? 'Having lunch' : 'Working at the table') : 'Taking a break';
-  return wait(range(8, 18), activity, spot.facing);
+  return { ...wait(range(8, 18), activity, spot.facing), sitting: true };
 }
 
 /** Tasks that take the agent out of the facility: through this room's way out, or towards the nearest room with one. */

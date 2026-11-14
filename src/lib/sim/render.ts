@@ -60,6 +60,10 @@ const EYE_RED = [255, 40, 64];
 const LIGHT_OFF = [66, 43, 28];
 const LIGHT_ON = [255, 177, 91];
 
+function agentDepth(agent: Agent) {
+  return agent.sitting && agent.spot ? Math.max(agent.y, agent.spot.propDepth) : agent.y;
+}
+
 export class Renderer {
   private readonly canvas: Canvas;
   private readonly ctx: CanvasRenderingContext2D;
@@ -175,7 +179,7 @@ export class Renderer {
 
   /** Pixel-accurate picking, with a small tolerance so thin limbs are still easy to click. */
   hitTest(world: World, px: number, py: number): Agent | null {
-    const ordered = [...world.agents].filter((agent) => this.isVisible(agent, world)).sort((a, b) => b.y - a.y);
+    const ordered = [...world.agents].reverse().filter((agent) => this.isVisible(agent, world)).sort((a, b) => agentDepth(b) - agentDepth(a));
     for (const agent of ordered) {
       const { sheet, frame, flip, x, y } = this.placement(agent);
       for (let oy = -2; oy <= 2; oy++) {
@@ -310,7 +314,7 @@ export class Renderer {
     });
     for (const agent of world.agentsIn(room)) {
       if (agent.layer !== 'room') continue;
-      drawables.push({ depth: agent.y, draw: () => this.drawAgent(agent, highlights.get(agent)) });
+      drawables.push({ depth: agentDepth(agent), draw: () => this.drawAgent(agent, highlights.get(agent)) });
     }
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());
   }

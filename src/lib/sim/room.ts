@@ -47,6 +47,8 @@ export interface Spot extends Point {
   /** Prop type the spot belongs to, e.g. "bench" or "chair". */
   kind: string;
   facing: Facing;
+  /** Bottom edge of the seat's prop, used to draw an occupant in front of it. */
+  propDepth: number;
 }
 
 export interface Door {
@@ -168,6 +170,7 @@ export class Room {
           x: prop.x + (prop.flip ? prop.w - 1 - seat.x : seat.x),
           y: prop.y + seat.y,
           facing: prop.flip ? FLIPPED[seat.facing] : seat.facing,
+          propDepth: prop.y + prop.h,
         });
       });
     });
