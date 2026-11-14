@@ -58,7 +58,7 @@ const articleCategories = Array.from(new Set(
 
         <div class="form-field profile-inline-source report-preview-source span-2">
           <label for="f-author">Author / Owner credit</label>
-          <input id="f-author" name="author" type="text" placeholder="Optional — e.g. Your name or handle" />
+          <input id="f-author" name="author" type="text" placeholder="e.g. Your name or handle" required />
         </div>
 
         <div class="form-field field-article report-preview-source span-2">
@@ -197,6 +197,8 @@ const articleCategories = Array.from(new Set(
 
       <section class="submit-preview-section" aria-labelledby="preview-title">
         <h2 id="preview-title" class="db-title-cyan">Build Your File</h2>
+        <p id="submit-required-hint" class="field-hint"></p>
+        <p id="preview-validation-message" class="submit-validation-message" hidden></p>
         
         <div id="submit-preview">
           <div id="submit-preview-content"></div>
@@ -245,6 +247,7 @@ const articleCategories = Array.from(new Set(
           </div>
           <p class="discord-user-info" style="display: none; margin-top: 0.5rem;"></p>
       </div>
+      <p id="export-validation-message" class="submit-validation-message" role="alert" hidden></p>
       <div class="cta">
         <button type="button" id="export-send-discord" class="btn" disabled>Submit</button>
         <button type="button" id="export-download-zip" class="btn secondary">Download .zip</button>
@@ -261,6 +264,7 @@ const articleCategories = Array.from(new Set(
 <script>
   import JSZip from 'jszip';
   import katex from 'katex';
+  import { getMissingRequiredFields, type SubmissionType } from '../lib/submissionValidation';
 
   type GalleryRow = { file: File | null; url: string | null; caption: string; filename: string };
   type ArticleImageAlignment = 'full' | 'center' | 'left' | 'right';
@@ -283,7 +287,12 @@ const articleCategories = Array.from(new Set(
   const articleImageRowsEl = document.getElementById('article-image-rows')!;
   const exportOutput = document.getElementById('export-output')!;
   const exportImageList = document.getElementById('export-image-list')!;
+  const requiredHint = document.getElementById('submit-required-hint')!;
+  const previewValidationMessage = document.getElementById('preview-validation-message')!;
+  const exportValidationMessage = document.getElementById('export-validation-message')!;
   const profileImageInput = document.getElementById('f-profile-image') as HTMLInputElement;
+  const employeeIDInput = document.getElementById('f-employeeID') as HTMLInputElement;
+  const syntheticIDInput = document.getElementById('f-syntheticID') as HTMLInputElement;
   const profileCropCanvas = document.createElement('canvas');
   profileCropCanvas.id = 'profile-crop-canvas';
   profileCropCanvas.width = 640;
@@ -336,8 +345,13 @@ const articleCategories = Array.from(new Set(
   const galleryRows: GalleryRow[] = [];
   const articleImages: ArticleImageRow[] = [];
   let nextArticleImageNumber = 1;
+  let validationAttempted = false;
 
-  const currentType = () => typeRadios.find((radio) => radio.checked)?.value ?? 'personnel';
+  const currentType = (): SubmissionType => {
+    const type = typeRadios.find((radio) => radio.checked)?.value;
+    if (type === 'personnel' || type === 'synthetic' || type === 'entity' || type === 'article') return type;
+    throw new Error('No valid submission type is selected.');
+  };
 
   const field = (name: string) => (form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null)?.value ?? '';
 
@@ -356,6 +370,13 @@ const articleCategories = Array.from(new Set(
     document.querySelectorAll<HTMLElement>('.report-preview-source').forEach((el) => { el.hidden = type === 'article'; });
 
     const isArticle = type === 'article';
+    employeeIDInput.required = type === 'personnel';
+    syntheticIDInput.required = type === 'synthetic';
+    requiredHint.textContent = type === 'article'
+      ? 'Required: report title and author / owner credit.'
+      : type === 'entity'
+        ? 'Required: entity number and author / owner credit. The entity number determines its ID.'
+        : `Required: name, ${type === 'synthetic' ? 'synthetic ID' : 'employee ID'}, and author / owner credit.`;
     titleLabel.textContent = isArticle ? 'Report Title' : type === 'entity' ? 'Entity Number' : 'Name';
     titleInput.placeholder = isArticle ? 'e.g. World info' : type === 'entity' ? 'e.g. M-031' : type === 'synthetic' ? 'e.g. Synt-01 or Nagi' : 'e.g. Nagi';
     bodyLabel.textContent = isArticle ? 'Report Body' : 'Bio';
@@ -498,7 +519,9 @@ const articleCategories = Array.from(new Set(
   const inlineInput = (name: string, placeholder = '') => {
     const value = escapeAttribute(field(name));
     const editingClass = value.trim() && collapsedPreviewFields.has(name) ? '' : ' is-editing';
-    return `<input class="preview-inline-input${editingClass}" data-preview-field="${name}" value="${value}" placeholder="${escapeAttribute(placeholder)}" />`;
+    const source = form.elements.namedItem(name);
+    const required = source instanceof HTMLInputElement && source.required ? ' required' : '';
+    return `<input class="preview-inline-input${editingClass}" data-preview-field="${name}" value="${value}" placeholder="${escapeAttribute(placeholder)}"${required} />`;
   };
 
   const inlineSelect = (name: string) => {
@@ -1101,6 +1124,7 @@ const articleCategories = Array.from(new Set(
       entityId.textContent = submissionSlug();
     }
     updateExport();
+    if (validationAttempted) updateValidationFeedback();
   });
 
   previewEl.addEventListener('focusin', (event) => {
@@ -1283,16 +1307,57 @@ const articleCategories = Array.from(new Set(
       : '<strong>No images included.</strong>';
   }
 
+  function updateValidationFeedback() {
+    const missing = getMissingRequiredFields(currentType(), {
+      title: field('title'),
+      author: field('author'),
+      employeeID: field('employeeID'),
+      syntheticID: field('syntheticID'),
+    });
+    const message = missing.length
+      ? `Please complete the required fields: ${missing.map(({ label }) => label).join(', ')}.`
+      : '';
+    for (const element of [previewValidationMessage, exportValidationMessage]) {
+      if (element.textContent !== message) element.textContent = message;
+      element.hidden = missing.length === 0;
+    }
+    previewEl.querySelectorAll<HTMLInputElement>('input[data-preview-field]').forEach((input) => {
+      const invalid = missing.some(({ field: name }) => name === input.dataset.previewField);
+      if (invalid) {
+        input.setAttribute('aria-invalid', 'true');
+        input.setAttribute('aria-describedby', 'preview-validation-message');
+      } else {
+        input.removeAttribute('aria-invalid');
+        if (input.getAttribute('aria-describedby') === 'preview-validation-message') input.removeAttribute('aria-describedby');
+      }
+    });
+    if (!missing.length) validationAttempted = false;
+    return missing;
+  }
+
+  function validateSubmission() {
+    validationAttempted = true;
+    const missing = updateValidationFeedback();
+    if (!missing.length) return true;
+    const input = previewEl.querySelector<HTMLInputElement>(`input[data-preview-field="${missing[0].field}"]`);
+    if (!input) throw new Error(`Missing preview input for required field: ${missing[0].field}`);
+    input.focus();
+    return false;
+  }
+
   function updatePreview() {
     renderPreview();
     updateExport();
+    if (validationAttempted) updateValidationFeedback();
   }
 
   document.getElementById('export-copy')!.addEventListener('click', async () => {
+    if (!validateSubmission()) return;
     await navigator.clipboard.writeText(exportOutput.textContent ?? '');
   });
 
   document.getElementById('export-download')!.addEventListener('click', () => {
+    if (!validateSubmission()) return;
     const { slug, fileText } = buildFileText();
     const blob = new Blob([fileText], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
@@ -1305,6 +1370,7 @@ const articleCategories = Array.from(new Set(
 
   // Bundle the generated .md alongside the actual uploaded images, already named/placed as the site expects.
   document.getElementById('export-download-zip')!.addEventListener('click', async () => {
+    if (!validateSubmission()) return;
     const { slug, fileText } = buildFileText();
     const type = currentType();
     const folder = slug || 'submission';
@@ -1589,16 +1655,12 @@ document.getElementById('export-send-discord')?.addEventListener('click', async 
     alert('Please connect your Discord account first.');
     return;
   }
+  if (!validateSubmission()) return;
 
   const sendBtn = document.getElementById('export-send-discord') as HTMLButtonElement;
   const { slug, fileText } = buildFileText();
   const type = currentType();
-  const title = field('title').trim() || 'Untitled';
-
-  if (!title) {
-    alert('Please enter a Title / Entity name before submitting.');
-    return;
-  }
+  const title = field('title').trim();
 
   sendBtn.disabled = true;
   sendBtn.textContent = 'Sending...';
