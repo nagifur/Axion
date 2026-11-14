@@ -1,0 +1,7 @@
+{
+  "name": "Lookout",
+  "level": 0,
+  "camera": "CAM 0-01",
+  "elevators": { "elevator": "main" }
+  
+}
