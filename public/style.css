@@ -1613,6 +1613,10 @@
     .form-field textarea{ resize:vertical }
     .form-field input:focus, .form-field select:focus, .form-field textarea:focus{ outline:2px solid var(--line); outline-offset:1px }
     .field-hint{ color:var(--muted); font-size:0.8rem; margin:10px 0 0 }
+    .submit-validation-message{
+      margin:12px 0; padding:10px 12px; border:1px solid var(--neon-red); border-radius:var(--radius);
+      color:var(--neon-red); background:color-mix(in srgb, var(--neon-red) 8%, transparent); font-size:0.8rem;
+    }
     .profile-crop-target{ position:relative; width:100%; aspect-ratio:3/4; border:1px solid var(--window-border); border-radius:var(--radius); background:var(--bg-deep) }
     .profile-crop-target:has(#profile-crop-canvas){ margin-bottom:52px }
     #profile-gif-preview{ display:block; width:100%; height:100%; border-radius:inherit; object-fit:cover; image-rendering:pixelated }
@@ -1636,6 +1640,7 @@
       border-radius:var(--radius-sm); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--neon-cyan) 5%, transparent);
     }
     .preview-inline-input.is-editing::placeholder{ color:var(--muted); opacity:0.8 }
+    #submit-preview .preview-inline-input[aria-invalid="true"]{ outline:2px solid var(--neon-red); outline-offset:1px }
     .preview-inline-select.is-editing{ padding-right:22px }
     .preview-inline-input:not(.is-editing):not(:hover):not(:focus),
     .preview-inline-select:not(.is-editing):not(:hover):not(:focus){ cursor:text }
