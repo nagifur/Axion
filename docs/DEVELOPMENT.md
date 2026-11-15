@@ -156,8 +156,16 @@ repositions them, on a free chair or bench seat starts the usual seated activity
 and on another agent starts a conversation. Lights can be toggled; other unseated
 props are inspected. The held agent pauses while the rest of the facility continues.
 Broken or occupied props, walls, and drops outside the feed are rejected without
-changing the original task or position. Esc, pointer cancellation, losing focus,
-or switching cameras cancels a pickup. Doorway and elevator transitions cannot be
+changing the original task or position. Hold over a floor or camera button for
+450ms to switch feeds while carrying an agent, then drop into the new room.
+Floor buttons use the same remembered-camera/elevator-shaft selection as normal
+clicks. The agent stays in their original room until a valid drop, which transfers
+them and releases their old seat/conversation. Player transfers can cross floors
+regardless of clearance, like other explicit scripted moves. A carrying label
+follows the cursor outside the feed. Physical transfers update motion-sensor
+lighting immediately, even while paused. Esc, pointer cancellation, or losing focus
+cancels a pickup and leaves the agent in their original room.
+Doorway and elevator transitions cannot be
 picked up. Paused feeds accept drops, with tasks starting when the feed resumes.
 Player drops do not trigger the file-selection ping (or reveal disguised entities);
 ordinary clicks still do. Drop resolution lives in

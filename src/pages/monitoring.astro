@@ -223,9 +223,10 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <button type="button" class="btn danger" data-debug="reset">Reset progress</button>
         </div>
         <p class="monitor-drag-help" data-monitor-drag-status role="status">
-          Drag an agent to open floor, a prop, or another agent. Esc cancels.
+          Drag an agent to open floor, a prop, or another agent. Hold over a floor or camera to switch. Esc cancels.
         </p>
       </div>
+      <p class="monitor-carry" data-monitor-carry aria-hidden="true" hidden></p>
 
       <div class="monitor-editor" data-monitor-editor hidden>
         <div class="monitor-editor-head">
@@ -436,6 +437,14 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
 
   .monitor-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
   .monitor-drag-help{ margin:0; color:var(--muted); font-size:0.75rem }
+  .monitor-carry{
+    position:fixed; z-index:100; margin:0; padding:5px 8px; pointer-events:none;
+    max-width:calc(100vw - 16px); overflow:hidden; white-space:nowrap;
+    border:1px solid var(--neon-cyan); border-radius:var(--radius-sm);
+    background:#05080d; color:var(--text); font-size:0.75rem;
+  }
+  .monitor-carry[hidden]{ display:none }
+  :is(.monitor-floor, .monitor-map-room).is-drag-hover{ outline:2px solid var(--neon-yellow); outline-offset:1px }
   .monitor-page.is-dragging .monitor-stage{ cursor:grabbing; user-select:none }
   .monitor-debug{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto }
   .monitor-debug[hidden]{ display:none }

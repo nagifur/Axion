@@ -30,6 +30,8 @@ interface Progress {
 const STORAGE_KEY = 'axion-monitor';
 const MAX_LOG_LINES = 40;
 const SWITCH_STATIC_MS = 220;
+const DRAG_CAMERA_HOVER_MS = 450;
+const DRAG_HELP = 'Drag an agent to open floor, a prop, or another agent. Hold over a floor or camera to switch. Esc cancels.';
 
 function loadProgress(): Progress {
   try {
@@ -89,6 +91,7 @@ export function initMonitor(root: HTMLElement): () => void {
   const screen = root.querySelector<HTMLElement>('[data-monitor-screen]');
   const stage = root.querySelector<HTMLElement>('[data-monitor-stage]');
   const dragStatus = root.querySelector<HTMLElement>('[data-monitor-drag-status]');
+  const carry = root.querySelector<HTMLElement>('[data-monitor-carry]');
   const inputSurface = stage ?? canvas;
   const camTitle = root.querySelector<HTMLElement>('[data-monitor-cam-title]');
   const cameraButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-camera]')];
@@ -118,8 +121,11 @@ export function initMonitor(root: HTMLElement): () => void {
   let propPicker: PropPicker | null = null;
   let drag: {
     agent: Agent; pointerId: number; start: Point; client: Point; offset: Point;
-    point: Point; head: Point; active: boolean;
+    point: Point; head: Point; origin: Room; active: boolean;
   } | null = null;
+  let dragCameraHover: HTMLButtonElement | null = null;
+  let dragCameraTimer = 0;
+  let dragSwitchPoint: Point | null = null;
   let suppressClick = false;
   let toastTimer = 0;
 
@@ -177,7 +183,7 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const switchCamera = (room: Room) => {
     const changed = room !== viewed;
-    if (changed) cancelDrag();
+    if (changed && !drag?.active) cancelDrag();
     viewed = room;
     // Same pixel scale on every camera, so characters don't change size between rooms.
     if (stage) stage.style.width = `${(room.width / maxRoomWidth) * 100}%`;
@@ -216,6 +222,11 @@ export function initMonitor(root: HTMLElement): () => void {
     progress.cameras = [...camerasSeen];
     saveProgress(progress);
     if (rooms.every((other) => camerasSeen.has(other.id))) achieve('channel-surfer');
+    if (changed && drag?.active) {
+      clearDragCameraHover();
+      // A new layout can move floor buttons under a stationary pointer.
+      dragSwitchPoint = { ...drag.client };
+    }
   };
 
   const onCameraClick = (event: MouseEvent) => {
@@ -227,11 +238,13 @@ export function initMonitor(root: HTMLElement): () => void {
 
   // Changing floor shows the camera last watched there, else the one on the same elevator shaft
   // as the current camera (so "down" from the Offices lands in the room below), else the first one.
-  const onLevelClick = (event: MouseEvent) => {
-    const level = Number((event.currentTarget as HTMLElement).dataset.monitorLevel);
-    if (level === viewed.level) return;
+  const cameraOnLevel = (level: number) => {
+    if (level === viewed.level) return viewed;
     const sameShaft = world.elevatorStops(viewed).find((room) => room.level === level);
-    const target = lastRoomOnLevel.get(level) ?? sameShaft ?? rooms.find((room) => room.level === level);
+    return lastRoomOnLevel.get(level) ?? sameShaft ?? rooms.find((room) => room.level === level);
+  };
+  const onLevelClick = (event: MouseEvent) => {
+    const target = cameraOnLevel(Number((event.currentTarget as HTMLElement).dataset.monitorLevel));
     if (target) switchCamera(target);
   };
   for (const button of levelButtons) button.addEventListener('click', onLevelClick);
@@ -450,11 +463,55 @@ export function initMonitor(root: HTMLElement): () => void {
     }
     const partner = agentAt(event, pointer);
     const prop = partner ? null : propPicker?.at(viewed, pointer, world.time);
-    return dropTarget(world, drag.agent, partner || prop ? pointer : drag.point, partner, prop);
+    return dropTarget(world, drag.agent, partner || prop ? pointer : drag.point, partner, prop, viewed);
   };
 
   const setDragStatus = (text: string) => {
     if (dragStatus && dragStatus.textContent !== text) dragStatus.textContent = text;
+  };
+
+  const clearDragCameraHover = () => {
+    window.clearTimeout(dragCameraTimer);
+    dragCameraHover?.classList.remove('is-drag-hover');
+    dragCameraHover = null;
+  };
+
+  const updateDragCameraHover = (): string | null => {
+    if (!drag?.active) return null;
+    if (dragSwitchPoint && Math.hypot(drag.client.x - dragSwitchPoint.x, drag.client.y - dragSwitchPoint.y) >= 5) {
+      dragSwitchPoint = null;
+    }
+    const element = document.elementFromPoint(drag.client.x, drag.client.y);
+    const button = element?.closest<HTMLButtonElement>('[data-monitor-camera], [data-monitor-level]');
+    const room = button && root.contains(button)
+      ? button.dataset.monitorCamera
+        ? world.room(button.dataset.monitorCamera)
+        : cameraOnLevel(Number(button.dataset.monitorLevel))
+      : undefined;
+    if (!button || !room) {
+      clearDragCameraHover();
+      return null;
+    }
+    if (room === viewed || dragSwitchPoint) {
+      clearDragCameraHover();
+      return `Move into the feed to drop in ${viewed.name} (${viewed.label})`;
+    }
+    if (dragCameraHover !== button) {
+      clearDragCameraHover();
+      dragCameraHover = button;
+      button.classList.add('is-drag-hover');
+      dragCameraTimer = window.setTimeout(() => {
+        if (!drag?.active) return;
+        const current = document.elementFromPoint(drag.client.x, drag.client.y)
+          ?.closest('[data-monitor-camera], [data-monitor-level]');
+        if (current !== button) {
+          clearDragCameraHover();
+          return;
+        }
+        switchCamera(room);
+      }, DRAG_CAMERA_HOVER_MS);
+    }
+    return `Hold to switch to ${room.name} (${room.label})`;
   };
 
   const cancelDrag = () => {
@@ -462,11 +519,14 @@ export function initMonitor(root: HTMLElement): () => void {
     const { agent, pointerId } = drag;
     agent.held = false;
     drag = null;
+    clearDragCameraHover();
+    dragSwitchPoint = null;
     suppressClick = true;
     if (inputSurface.hasPointerCapture(pointerId)) inputSurface.releasePointerCapture(pointerId);
     root.classList.remove('is-dragging');
     canvas.style.cursor = '';
-    setDragStatus('Drag an agent to open floor, a prop, or another agent. Esc cancels.');
+    if (carry) carry.hidden = true;
+    setDragStatus(DRAG_HELP);
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -497,7 +557,7 @@ export function initMonitor(root: HTMLElement): () => void {
         const target = currentDrop();
         hovered = target.kind === 'agent' ? target.partner : null;
         canvas.style.cursor = target.kind === 'invalid' ? 'not-allowed' : 'grabbing';
-        setDragStatus(`${drag.agent.character.name}: ${target.label}`);
+        setDragStatus(`${drag.agent.character.name}: ${updateDragCameraHover() ?? target.label}`);
       }
       return;
     }
@@ -540,7 +600,7 @@ export function initMonitor(root: HTMLElement): () => void {
       agent, pointerId: event.pointerId, start: { x: event.clientX, y: event.clientY },
       client: { x: event.clientX, y: event.clientY },
       offset: { x: point.x - agent.x, y: point.y - agent.y }, point: { x: agent.x, y: agent.y },
-      head: renderer.headPosition(agent), active: false,
+      head: renderer.headPosition(agent), origin: agent.room, active: false,
     };
     inputSurface.setPointerCapture(event.pointerId);
   };
@@ -559,6 +619,7 @@ export function initMonitor(root: HTMLElement): () => void {
       const target = currentDrop();
       agent.held = false;
       placeAgent(world, agent, target);
+      updateCameraCounts();
     }
     cancelDrag();
     if (!active) {
@@ -777,18 +838,27 @@ export function initMonitor(root: HTMLElement): () => void {
       world.update(dt);
       director.update(world, dt);
     }
-    if (drag && (drag.agent.room !== viewed || (drag.active && drag.agent.leaving))) {
+    if (drag && (drag.agent.room !== drag.origin || (drag.active && drag.agent.leaving))) {
       log(`Pickup cancelled: ${drag.agent.character.name} is leaving the camera.`, 'muted');
       cancelDrag();
     }
+    const navigationHint = updateDragCameraHover();
     const highlights = new Map<Agent, string>();
     if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
     if (hovered) highlights.set(hovered, '#ffffff');
     renderer.draw(world, highlights);
     if (drag?.active) {
+      const pointer = toRoom({ clientX: drag.client.x, clientY: drag.client.y });
+      drag.point = { x: pointer.x - drag.offset.x, y: pointer.y - drag.offset.y };
       const target = currentDrop();
       renderer.drawHeld(drag.agent, drag.point, target.kind !== 'invalid');
-      setDragStatus(`${drag.agent.character.name}: ${target.label}`);
+      setDragStatus(`${drag.agent.character.name}: ${navigationHint ?? target.label}`);
+      if (carry) {
+        carry.hidden = pointer.x >= 0 && pointer.y >= 0 && pointer.x < viewed.width && pointer.y < viewed.height;
+        carry.textContent = `Carrying ${drag.agent.character.name}`;
+        carry.style.left = `${Math.max(8, Math.min(drag.client.x + 12, window.innerWidth - carry.offsetWidth - 8))}px`;
+        carry.style.top = `${Math.max(8, Math.min(drag.client.y + 12, window.innerHeight - carry.offsetHeight - 8))}px`;
+      }
     }
     if (editor?.active) editor.draw(renderer.context, renderer.scale, world.time);
     syncTags();
