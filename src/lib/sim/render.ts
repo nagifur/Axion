@@ -1,10 +1,11 @@
 import type { Agent } from './agent.ts';
 import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, propFrame, propFrames, type Frame, type FrameName, type PropLook } from './sprites.ts';
+import { Item, type PlacedItem } from './item.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, ITEM_HAND_ANCHORS, itemFrame, propFrame, propFrames, type Frame, type FrameName, type PropLook } from './sprites.ts';
 import type { World } from './world.ts';
 
-/** Loaded images by name: "room:<room id>", "character", and every prop file name (e.g. "bench"). */
+/** Images by name: "room:<id>", "character", prop file names, and "item:<type>". */
 export type Assets = Record<string, HTMLImageElement>;
 
 export function loadAssets(urls: Record<string, string>): Promise<Assets> {
@@ -13,7 +14,8 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
     image.decoding = 'async';
     image.onload = () => {
       try {
-        if (name !== 'character' && !name.startsWith('room:')) propFrames(name, image);
+        if (name.startsWith('item:')) itemFrame(name.slice(5), image);
+        else if (name !== 'character' && !name.startsWith('room:')) propFrames(name, image);
         resolve([name, image]);
       } catch (error) {
         reject(error);
@@ -44,6 +46,20 @@ export function drawPropSprite(
 
 type Canvas = HTMLCanvasElement;
 
+export function drawItemSprite(
+  ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
+  item: PlacedItem, x = item.x, y = item.y, scale = 1, flip = item.flip,
+) {
+  const frame = itemFrame(item.type, image);
+  const w = Math.max(1, Math.round(frame.w * scale));
+  const h = Math.max(1, Math.round(frame.h * scale));
+  ctx.save();
+  ctx.translate(Math.round(x) + (flip ? w : 0), Math.round(y));
+  if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
+  ctx.restore();
+}
+
 function makeCanvas(width: number, height: number): Canvas {
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, width);
@@ -67,13 +83,21 @@ export class PropPicker {
   }
 
   at(room: Room, point: Point, time = 0): Prop | null {
-    const front = [...room.props].reverse().sort((a, b) => b.y + b.h - (a.y + a.h));
+    return this.pick(room.props, point, time);
+  }
+
+  atLayout(room: Room, point: Point, time = 0): Prop | Item | null {
+    return this.pick([...room.props, ...room.items], point, time);
+  }
+
+  private pick<T extends Prop | Item>(objects: readonly T[], point: Point, time: number): T | null {
+    const front = [...objects].reverse().sort((a, b) => b.y + b.h - (a.y + a.h));
     const inBox = front.filter((prop) =>
       point.x >= prop.x && point.x < prop.x + prop.w && point.y >= prop.y && point.y < prop.y + prop.h);
     const solid = inBox.find((prop) => {
       const image = this.assets[prop.asset];
-      if (!image) throw new Error(`Missing prop asset "${prop.asset}".`);
-      const frame = propFrame(prop.asset, image, time, prop.look);
+      if (!image) throw new Error(`Missing sim asset "${prop.asset}".`);
+      const frame = prop instanceof Item ? itemFrame(prop.type, image) : propFrame(prop.asset, image, time, prop.look);
       const key = `${prop.asset}:${frame.x}:${frame.y}`;
       let mask = this.masks.get(key);
       if (!mask) {
@@ -298,7 +322,24 @@ export class Renderer {
       }
     }
 
+    const hand = ITEM_HAND_ANCHORS[agent.facing];
+    const drawCarried = () => {
+      const item = agent.item;
+      if (!item) return;
+      const itemImage = this.assets[item.asset];
+      if (!itemImage) throw new Error(`Missing item asset "${item.asset}".`);
+      const scale = agent.character.scale;
+      const width = Math.max(1, Math.round(item.w * scale));
+      const height = Math.max(1, Math.round(item.h * scale));
+      const feetX = x + (flip ? frame.w - frame.anchorX : frame.anchorX);
+      drawItemSprite(ctx, itemImage, item,
+        feetX + Math.round(hand.x * scale) - Math.round(width / 2),
+        y + frame.h + Math.round(hand.y * scale) - height,
+        scale, item.flip !== flip);
+    };
+    if (hand.behind) drawCarried();
     blit(ctx, image, x, y);
+    if (!hand.behind) drawCarried();
     ctx.restore();
   }
 
@@ -375,6 +416,16 @@ export class Renderer {
         },
       };
     });
+    for (const item of room.items ?? []) {
+      drawables.push({
+        depth: item.y + item.h - 0.5,
+        draw: () => {
+          const image = assets[item.asset];
+          if (!image) throw new Error(`Missing item asset "${item.asset}".`);
+          drawItemSprite(ctx, image, item);
+        },
+      });
+    }
     for (const agent of world.agentsIn(room)) {
       if (agent.held || agent.layer !== 'room') continue;
       drawables.push({ depth: agentDepth(agent), draw: () => this.drawAgent(agent, highlights.get(agent)) });

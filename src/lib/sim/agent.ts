@@ -3,6 +3,7 @@ import { directionTo, type Door, type Facing, type Point, type Room, type Spot }
 import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
 import { scheduleFor, type SchedulePeriod } from './schedule.ts';
+import type { Item } from './item.ts';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
 
@@ -59,6 +60,7 @@ export class Agent {
 
   private task?: Task;
   private plan: Task[] = [];
+  private carriedItem: Item | null = null;
 
   constructor(character: SimCharacter, room: Room, at: Point, impostor?: SimImpostor) {
     this.character = character;
@@ -70,6 +72,34 @@ export class Agent {
 
   get ghost() {
     return this.character.behavior.ghost && !this.impostor;
+  }
+
+  get item(): Item | null {
+    return this.carriedItem;
+  }
+
+  pickUpItem(item: Item) {
+    if (!this.draggable) throw new Error('Agent cannot pick up an item during transport, dragging, or departure.');
+    if (this.item) throw new Error('Agent already carries an item.');
+    if (!this.room.items.includes(item)) throw new Error('Item is not loose in this agent\'s room.');
+    if (Math.hypot(item.x + item.w / 2 - this.x, item.y + item.h - this.y) > 12) {
+      throw new Error('Item is out of pickup reach (12 room pixels).');
+    }
+    this.room.items = this.room.items.filter((other) => other !== item);
+    this.carriedItem = item;
+  }
+
+  /** Drops at the nearest open floor position in the current room. */
+  dropItem(): Item {
+    if (!this.draggable) throw new Error('Agent cannot drop an item during transport, dragging, or departure.');
+    const item = this.item;
+    if (!item) throw new Error('Agent has no item to drop.');
+    const point = this.room.nearestWalkable(this);
+    item.x = Math.round(point.x - item.w / 2);
+    item.y = Math.round(point.y - item.h);
+    this.room.items.push(item);
+    this.carriedItem = null;
+    return item;
   }
 
   get busy() {

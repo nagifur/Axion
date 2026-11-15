@@ -7,7 +7,8 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
-import { placeablePropTypes, propFrame, propTypeOf } from './sprites.ts';
+import { itemFrame, placeablePropTypes, propFrame, propTypeOf } from './sprites.ts';
+import type { PlacedItem } from './item.ts';
 
 export const SIM_ASSETS_DIR = path.resolve('src/sim_assets');
 
@@ -16,6 +17,7 @@ interface RoomJson {
   level?: unknown;
   camera?: unknown;
   props?: unknown;
+  items?: unknown;
   exits?: unknown;
   elevators?: unknown;
 }
@@ -51,6 +53,13 @@ export async function propPreview(asset: string, assetsDir = SIM_ASSETS_DIR): Pr
 export async function listPropTypes(assetsDir = SIM_ASSETS_DIR): Promise<string[]> {
   const files = await readdir(path.join(assetsDir, 'props'));
   return placeablePropTypes(files.filter((file) => file.endsWith('.png')).map((file) => file.slice(0, -4)));
+}
+
+export async function itemPreview(type: string, assetsDir = SIM_ASSETS_DIR): Promise<string> {
+  const file = path.join(assetsDir, 'items', `${type}.png`);
+  const frame = itemFrame(type, await imageSize(file));
+  const png = await sharp(file).extract({ left: frame.x, top: frame.y, width: frame.w, height: frame.h }).png().toBuffer();
+  return `data:image/png;base64,${png.toString('base64')}`;
 }
 
 function readExits(raw: unknown, id: string): Map<string, DeclaredExit> {
@@ -152,10 +161,30 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
     });
   }
 
+  const items: PlacedItem[] = [];
+  if (json.items !== undefined && !Array.isArray(json.items)) {
+    throw new NavMapError(`${label}/room.json: "items" must be an array.`);
+  }
+  if (Array.isArray(json.items) && json.items.length) {
+    const knownItems = (await readdir(path.join(assetsDir, 'items')))
+      .filter((file) => file.endsWith('.png')).map((file) => file.slice(0, -4));
+    for (const [index, entry] of json.items.entries()) {
+      const { type, x, y, flip } = entry ?? {};
+      if (typeof type !== 'string' || !knownItems.includes(type)) {
+        throw new NavMapError(`${label}/room.json: item ${index + 1} has unknown type "${type}". Known: ${knownItems.join(', ')}.`);
+      }
+      if (!Number.isInteger(x) || !Number.isInteger(y) || (flip !== undefined && typeof flip !== 'boolean')) {
+        throw new NavMapError(`${label}/room.json: item ${index + 1} needs whole-number "x"/"y" and an optional boolean "flip".`);
+      }
+      const frame = itemFrame(type, await imageSize(path.join(assetsDir, 'items', `${type}.png`)));
+      items.push({ type, asset: `item:${type}`, x, y, w: frame.w, h: frame.h, flip: flip === true });
+    }
+  }
+
   return {
     data: {
       id, name: json.name, level: json.level, camera: json.camera, width: room.width, height: room.height,
-      nav, props, links: {}, elevator: readElevator(json.elevators, id, nav),
+      nav, props, items, links: {}, elevator: readElevator(json.elevators, id, nav),
     },
     exits: readExits(json.exits, id),
   };

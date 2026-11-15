@@ -4,6 +4,7 @@
 import type { DoorSide, NavMapData, Point, Rect } from './navMap.ts';
 import { NavGrid } from './pathfinding.ts';
 import { Prop, type PlacedProp } from './prop.ts';
+import { Item, type PlacedItem } from './item.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
 
 export type { DoorSide, Point } from './navMap.ts';
@@ -26,6 +27,7 @@ export interface RoomData {
   height: number;
   nav: NavMapData;
   props: PlacedProp[];
+  items?: PlacedItem[];
   /** Doors that lead to another room, by door id. Doors not listed lead off camera. */
   links: Record<string, ExitLink>;
   /** Rooms on the same shaft are stops of one lift. */
@@ -106,6 +108,7 @@ export class Room {
   readonly width: number;
   readonly height: number;
   props: Prop[] = [];
+  items: Item[] = [];
   readonly spots: Spot[] = [];
   readonly doors: Door[] = [];
   readonly elevator?: Elevator;
@@ -126,6 +129,7 @@ export class Room {
     this.height = data.height;
     this.floor = data.nav.floor;
     this.setProps(data.props);
+    this.items = (data.items ?? []).map((item) => new Item(item));
 
     for (const exit of data.nav.exits) {
       if (exit.kind === 'door') {

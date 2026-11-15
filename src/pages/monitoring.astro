@@ -6,7 +6,7 @@ import { getCollection } from 'astro:content';
 import type { ImageMetadata } from 'astro';
 import { toSimCharacter, toSimImpostor, type SimCharacter, type SimImpostor } from '../lib/sim/roster';
 import type { MonitorConfig } from '../lib/sim/monitor';
-import { listPropTypes, loadFacility, propPreview } from '../lib/sim/roomLoader';
+import { itemPreview, listPropTypes, loadFacility, propPreview } from '../lib/sim/roomLoader';
 import { propTypeOf } from '../lib/sim/sprites';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
 
@@ -24,6 +24,7 @@ const profileImages = import.meta.glob<ImageModule>(
 );
 const roomImages = import.meta.glob<ImageModule>('../sim_assets/rooms/*/room.png', { eager: true });
 const propImages = import.meta.glob<ImageModule>('../sim_assets/props/*.png', { eager: true });
+const itemImages = import.meta.glob<ImageModule>('../sim_assets/items/*.png', { eager: true });
 
 const rooms = await loadFacility();
 const initialRoom = rooms.find((room) => room.id === INITIAL_ROOM) ?? rooms[0];
@@ -89,6 +90,10 @@ const impostors = (await Promise.all(entities.map(async (entry) => {
 }))).filter((impostor): impostor is SimImpostor => impostor !== null);
 
 const propSources = Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src]));
+const itemSources = Object.fromEntries(Object.entries(itemImages).map(([path, image]) => [`item:${fileStem(path)}`, image.default.src]));
+const itemTypes = await Promise.all(Object.keys(itemSources).map(async (asset) => ({
+  type: asset, src: await itemPreview(asset.slice(5)),
+})));
 // Prop palette for the debug prop editor.
 const propTypes = await Promise.all((await listPropTypes()).map(async (type) => ({
   type, src: await propPreview(propTypeOf(type).asset),
@@ -103,6 +108,7 @@ const config: MonitorConfig = {
     ...roomAssets,
     character: characterSheet.src,
     ...propSources,
+    ...itemSources,
   },
 };
 // Escape "<" so profile text can never close the inline JSON script.
@@ -219,7 +225,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <button type="button" class="btn" data-debug="announce">A1 message</button>
           <button type="button" class="btn" data-debug="speed">Speed ×4</button>
           <button type="button" class="btn" data-debug="time" aria-pressed="false">Time: Live</button>
-          <button type="button" class="btn" data-debug="props" aria-pressed="false">Edit props</button>
+          <button type="button" class="btn" data-debug="props" aria-pressed="false">Edit props / items</button>
           <button type="button" class="btn danger" data-debug="reset">Reset progress</button>
         </div>
         <p class="monitor-drag-help" data-monitor-drag-status role="status">
@@ -230,7 +236,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
 
       <div class="monitor-editor" data-monitor-editor hidden>
         <div class="monitor-editor-head">
-          <span class="monitor-debug-label">Prop editor</span>
+          <span class="monitor-debug-label">Prop / item editor</span>
           <span class="monitor-editor-room" data-editor-room></span>
           <span class="monitor-editor-cursor" data-editor-cursor>Cursor: –</span>
         </div>
@@ -238,6 +244,14 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           {propTypes.map(({ type, src }) => (
             <button type="button" class="monitor-editor-add" data-editor-add={type} aria-pressed="false" title={`Add ${type}`}>
               {src && <img src={src} alt="" />}
+              <span>{type}</span>
+            </button>
+          ))}
+        </div>
+        <div class="monitor-editor-palette" role="group" aria-label="Add an item">
+          {itemTypes.map(({ type, src }) => (
+            <button type="button" class="monitor-editor-add" data-editor-add={type} aria-pressed="false" title={`Add ${type}`}>
+              <img src={src} alt="" />
               <span>{type}</span>
             </button>
           ))}
@@ -250,12 +264,12 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <button type="button" class="btn danger" data-editor-delete disabled>Delete</button>
         </div>
         <p class="monitor-editor-help">
-          Pick a prop above, then click the feed to place it. Drag props to move them. Arrow keys nudge the selected
-          prop by 1px (Shift: 10px), F flips it, B breaks or repairs it, O makes a switchable prop start off, Delete removes it,
+          Pick a prop or item above, then click the feed to place it. Drag them to move them. Arrow keys nudge the selected
+          object by 1px (Shift: 10px), F flips it, B breaks or repairs props, O makes a switchable prop start off, Delete removes it,
           Esc cancels. Red is floor the prop blocks; blue dots are seats.
         </p>
         <label class="monitor-editor-label" for="monitor-editor-snippet">
-          Replace the <code>"props"</code> list in <code data-editor-file></code> with:
+          Replace the <code>"props"</code> and <code>"items"</code> lists in <code data-editor-file></code> with:
         </label>
         <textarea id="monitor-editor-snippet" class="monitor-editor-snippet" data-editor-snippet readonly spellcheck="false" rows="6"></textarea>
         <div class="monitor-editor-actions">

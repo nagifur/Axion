@@ -1,12 +1,13 @@
-// Debug-only tool for placing props in a room by hand and copying the result into room.json.
+// Debug-only tool for placing props and items, then copying them into room.json.
 
-import { drawPropSprite, PropPicker, type Assets } from './render.ts';
+import { drawItemSprite, drawPropSprite, PropPicker, type Assets } from './render.ts';
 import { Prop, type PlacedProp } from './prop.ts';
+import { Item, type PlacedItem } from './item.ts';
 import type { Point, Room } from './room.ts';
-import { propFrame, propTypeOf } from './sprites.ts';
+import { itemFrame, propFrame, propTypeOf } from './sprites.ts';
 
 interface Drag {
-  prop: Prop;
+  prop: Prop | Item;
   offset: Point;
   moved: boolean;
 }
@@ -32,17 +33,24 @@ export function propsSnippet(props: PlacedProp[]): string {
   return `"props": [\n${lines.join(',\n')}\n]`;
 }
 
+export function itemsSnippet(items: PlacedItem[]): string {
+  if (!items.length) return '"items": []';
+  return `"items": [\n${items.map((item) =>
+    `  { "type": ${JSON.stringify(item.type)}, "x": ${item.x}, "y": ${item.y}${item.flip ? ', "flip": true' : ''} }`).join(',\n')}\n]`;
+}
+
 export class PropEditor {
   active = false;
   room: Room;
-  selected: Prop | null = null;
-  /** Prop type waiting to be placed with the next click. */
+  selected: Prop | Item | null = null;
+  /** Prop type or item:<type> waiting to be placed with the next click. */
   placing: string | null = null;
   cursor: Point | null = null;
   private drag: Drag | null = null;
   private readonly picker: PropPicker;
-  /** Props each room had when the page loaded, to show what changed and to reset. */
+  /** Original room layouts, for change detection and reset. */
   private readonly original = new Map<Room, Prop[]>();
+  private readonly originalItems = new Map<Room, Item[]>();
   private readonly assets: Assets;
   private readonly onChange: () => void;
 
@@ -56,6 +64,7 @@ export class PropEditor {
 
   setRoom(room: Room) {
     if (!this.original.has(room)) this.original.set(room, clone(room.props));
+    if (!this.originalItems.has(room)) this.originalItems.set(room, room.items.map((item) => new Item(item.toData())));
     this.room = room;
     this.selected = null;
     this.placing = null;
@@ -65,11 +74,13 @@ export class PropEditor {
 
   isEdited(room = this.room) {
     const original = this.original.get(room);
-    return !!original && propsSnippet(original) !== propsSnippet(room.props);
+    const items = this.originalItems.get(room);
+    return !!original && (propsSnippet(original) !== propsSnippet(room.props) ||
+      itemsSnippet(items ?? []) !== itemsSnippet(room.items));
   }
 
   snippet() {
-    return propsSnippet(this.room.props);
+    return `${propsSnippet(this.room.props)},\n${itemsSnippet(this.room.items)}`;
   }
 
   /** Puts the room back the way room.json has it. */
@@ -77,7 +88,10 @@ export class PropEditor {
     const original = this.original.get(this.room);
     if (!original) return;
     this.room.setProps(clone(original));
+    this.room.items = (this.originalItems.get(this.room) ?? []).map((item) => new Item(item.toData()));
     this.selected = null;
+    this.placing = null;
+    this.drag = null;
     this.onChange();
   }
 
@@ -96,21 +110,22 @@ export class PropEditor {
 
   /** Whether the selected prop starts broken. */
   toggleBroken() {
-    if (!this.selected?.breakable) return;
+    if (!(this.selected instanceof Prop) || !this.selected.breakable) return;
     this.selected.setStart({ broken: !this.selected.start?.broken });
     this.commit();
   }
 
   /** Whether the selected prop starts switched off. */
   toggleOff() {
-    if (!this.selected?.switchable) return;
+    if (!(this.selected instanceof Prop) || !this.selected.switchable) return;
     this.selected.setStart({ on: this.selected.start?.on === false });
     this.commit();
   }
 
   remove() {
     if (!this.selected) return;
-    this.room.props = this.room.props.filter((prop) => prop !== this.selected);
+    if (this.selected instanceof Item) this.room.items = this.room.items.filter((item) => item !== this.selected);
+    else this.room.props = this.room.props.filter((prop) => prop !== this.selected);
     this.selected = null;
     this.commit();
   }
@@ -125,14 +140,16 @@ export class PropEditor {
   pointerDown(point: Point, time = 0) {
     if (this.placing) {
       // Same whole-pixel position as the preview that followed the cursor.
-      const prop = new Prop(this.ghost(this.placing, { x: Math.floor(point.x), y: Math.floor(point.y) }));
-      this.room.props = [...this.room.props, prop];
+      const data = this.ghost(this.placing, { x: Math.floor(point.x), y: Math.floor(point.y) });
+      const prop = this.placing.startsWith('item:') ? new Item(data) : new Prop(data);
+      if (prop instanceof Item) this.room.items.push(prop);
+      else this.room.props = [...this.room.props, prop];
       this.selected = prop;
       this.placing = null;
       this.commit();
       return;
     }
-    const prop = this.propAt(point, time);
+    const prop = this.picker.atLayout(this.room, point, time);
     this.selected = prop;
     this.drag = prop ? { prop, offset: { x: point.x - prop.x, y: point.y - prop.y }, moved: false } : null;
     this.onChange();
@@ -187,7 +204,16 @@ export class PropEditor {
   }
 
   /** A new prop of `type` centred on the cursor, standing on it. */
-  private ghost(type: string, at: Point): PlacedProp {
+  private ghost(type: string, at: Point): PlacedProp | PlacedItem {
+    if (type.startsWith('item:')) {
+      const image = this.assets[type];
+      if (!image) throw new Error(`Missing item asset "${type}".`);
+      const frame = itemFrame(type.slice(5), image);
+      return {
+        type: type.slice(5), asset: type, w: frame.w, h: frame.h, flip: false,
+        x: Math.round(at.x - frame.w / 2), y: Math.round(at.y - frame.h),
+      };
+    }
     const { asset } = propTypeOf(type);
     const image = this.assets[asset];
     if (!image) throw new Error(`Missing prop asset "${asset}".`);
@@ -223,7 +249,7 @@ export class PropEditor {
     ctx.lineWidth = line;
     ctx.setLineDash([3 * line, 2 * line]);
     ctx.strokeStyle = COLORS.outline;
-    for (const prop of room.props) {
+    for (const prop of [...room.props, ...room.items]) {
       if (prop !== this.selected) ctx.strokeRect(prop.x + line / 2, prop.y + line / 2, prop.w - line, prop.h - line);
     }
     ctx.setLineDash([]);
@@ -233,14 +259,15 @@ export class PropEditor {
     const ghost = this.placing && this.cursor ? this.ghost(this.placing, this.cursor) : null;
     if (ghost) {
       ctx.globalAlpha = 0.65;
-      drawPropSprite(ctx, this.assets[ghost.asset], ghost.asset, ghost.x, ghost.y, ghost.flip, time);
+      if (ghost.asset.startsWith('item:')) drawItemSprite(ctx, this.assets[ghost.asset], ghost);
+      else drawPropSprite(ctx, this.assets[ghost.asset], ghost.asset, ghost.x, ghost.y, ghost.flip, time);
       ctx.globalAlpha = 1;
       this.outline(ctx, ghost, COLORS.ghost, scale);
     }
     ctx.restore();
   }
 
-  private outline(ctx: CanvasRenderingContext2D, prop: PlacedProp, color: string, scale: number) {
+  private outline(ctx: CanvasRenderingContext2D, prop: PlacedProp | PlacedItem, color: string, scale: number) {
     const line = 1 / scale;
     ctx.strokeStyle = color;
     ctx.lineWidth = 2 * line;

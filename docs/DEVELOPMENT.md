@@ -386,16 +386,49 @@ than 96px uses its full size; larger axes must be multiples of 96px so cells are
 These automatic frames include cell padding. Add metadata for custom layouts,
 artwork-sized crops, different timing, animated off looks, or additional looks.
 
-#### Placing Props With the Editor
+#### Carryable Items
+
+Images in [`src/sim_assets/items/`](../src/sim_assets/items/) are separate from props.
+Place loose items in a room's `room.json`:
+
+```json
+"items": [
+  { "type": "can", "x": 200, "y": 140 }
+]
+```
+
+Coordinates are the artwork crop's top-left corner, like props. Items do not block
+walking or provide seats. `ITEM_SPRITES` in [`sprites.ts`](../src/lib/sim/sprites.ts)
+defines crops (the can uses a 6x10 crop inside its 96x96 image); unlisted images use
+the whole image as a single still frame. Item assets use `item:<type>` keys, so an
+item and a prop may share a file name.
+
+Each [`Agent`](../src/lib/sim/agent.ts) has a read-only `item` slot, initially `null`.
+`agent.pickUpItem(item)` takes a loose item from the same room within 12 room pixels
+of its bottom-center, and throws if the slot is occupied or pickup is unavailable.
+`agent.dropItem()` returns that same item to the nearest walkable floor in the
+agent's current room. Transport, player dragging, and departure disallow both actions.
+Carried items follow their agent through walking, sitting, dragging and room/elevator
+travel; they leave the facility with the agent rather than being duplicated on the floor.
+
+The renderer uses temporary facing-dependent `ITEM_HAND_ANCHORS`, scales the item
+with the character, mirrors it for left-facing poses, and draws it behind back-facing
+characters. Dedicated carry poses and item-use behaviors are not implemented yet.
+There is no automatic pickup or player pickup control in this foundation; simulation
+code calls the API explicitly. The personnel panel displays the item slot.
+
+#### Placing Props and Items With the Editor
 
 Instead of working out pixels by hand, open `/monitoring?debug`, go to the room's
-camera and press **Edit props**:
+camera and press **Edit props / items**:
 
-1. Pick a prop from the palette and click the feed to place it (it stands where you click).
+1. Pick a prop or item from its palette and click the feed to place it (it stands where you click).
 2. Drag props to move them. Arrow keys nudge the selected prop by 1px (Shift: 10px),
    **F** flips it, **B** makes it start broken, **O** makes a light start off,
    **Delete** removes it, **Esc** cancels.
-3. Press **Copy** and replace the `"props"` list in the room's `room.json` with it.
+3. Press **Copy** and replace the `"props"` and `"items"` lists in the room's `room.json` with it.
+   The editor supports moving, nudging, flipping, deleting and resetting both; power
+   and broken-state controls apply only to props.
 
 While editing, the feed shows the walkable floor (green), floor blocked by props (red),
 seats (blue dots) and the position of the selected prop. Changes apply to the running

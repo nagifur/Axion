@@ -76,6 +76,29 @@ export const WALK_STRIDE = 8;
 /** Seconds before switching to the next idle frame. */
 export const IDLE_FRAME_SECONDS = 0.6;
 
+/** Item artwork crops, independent of prop power-state sheets. */
+export const ITEM_SPRITES: Record<string, Rect> = {
+  can: { x: 45, y: 43, w: 6, h: 10 },
+};
+
+export function itemFrame(type: string, image: { width: number; height: number }): Rect {
+  const frame = ITEM_SPRITES[type] ?? { x: 0, y: 0, w: image.width, h: image.height };
+  if (![frame.x, frame.y, frame.w, frame.h].every(Number.isInteger) ||
+    frame.x < 0 || frame.y < 0 || frame.w <= 0 || frame.h <= 0 ||
+    frame.x + frame.w > image.width || frame.y + frame.h > image.height) {
+    throw new Error(`Item sprite "${type}": invalid crop for its ${image.width}x${image.height} image.`);
+  }
+  return frame;
+}
+
+/** Temporary hand positions relative to the feet, in unscaled character pixels. */
+export const ITEM_HAND_ANCHORS: Record<Facing, { x: number; y: number; behind: boolean }> = {
+  right: { x: 12, y: -25, behind: false },
+  left: { x: -12, y: -25, behind: false },
+  front: { x: -12, y: -25, behind: false },
+  back: { x: 12, y: -25, behind: true },
+};
+
 export interface PropAnimation {
   /** Matching artwork-sized crops inside the sheet's 96x96 cells. */
   frames: readonly Rect[];

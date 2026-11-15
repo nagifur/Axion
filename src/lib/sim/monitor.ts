@@ -2,6 +2,7 @@ import { nap, trip, type Agent } from './agent.ts';
 import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
 import { PropEditor } from './propEditor.ts';
+import { Prop } from './prop.ts';
 import { PropPicker, Renderer, loadAssets } from './render.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import { Room, type Point, type RoomData } from './room.ts';
@@ -15,7 +16,7 @@ export interface MonitorConfig {
   rooms: RoomData[];
   /** Room shown when nobody has picked a camera yet. */
   initialRoom: string;
-  /** Image URLs by name: "room:<room id>", "character", and every prop file name. */
+  /** Image URLs by name: "room:<id>", "character", prop names, and "item:<type>". */
   assets: Record<string, string>;
 }
 
@@ -277,7 +278,7 @@ export function initMonitor(root: HTMLElement): () => void {
     const twin = agent ? hasTwin(agent) : false;
     const onScreen = agent ? agent.room === viewed : false;
     const period = agent ? scheduleFor(agent.character, world.now()) : 'free';
-    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}` : '';
+    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}` : '';
     if (key === fileKey) {
       if (agent && activityNode) activityNode.textContent = agent.removed ? 'Off camera' : agent.activity;
       return;
@@ -325,6 +326,7 @@ export function initMonitor(root: HTMLElement): () => void {
       stat('Schedule', { work: 'Working hours', lunch: 'Lunch break', break: 'Short break', free: 'Free time' }[period]);
     }
     activityNode = stat('Status', agent.removed ? 'Off camera' : agent.activity);
+    stat('Item', agent.item?.type ?? 'Empty');
     if (!agent.removed) {
       const location = stat('Location', `${agent.room.name} · ${agent.room.camera}`);
       if (!onScreen) {
@@ -737,6 +739,7 @@ export function initMonitor(root: HTMLElement): () => void {
   const renderEditor = () => {
     if (!editor || !editorPanel) return;
     const { room, selected, placing } = editor;
+    const prop = selected instanceof Prop ? selected : null;
     const edited = editor.isEdited();
     editorPanel.querySelector('[data-editor-room]')!.textContent = `${room.camera} · ${room.name}${edited ? ' · unsaved changes' : ''}`;
     editorPanel.querySelector('[data-editor-file]')!.textContent = `src/sim_assets/rooms/${room.id}/room.json`;
@@ -744,15 +747,15 @@ export function initMonitor(root: HTMLElement): () => void {
       ? `Click the feed to place: ${placing}`
       : selected
         ? `${selected.type} · x ${selected.x}, y ${selected.y}${selected.flip ? ' · flipped' : ''}` +
-          `${selected.start?.broken ? ' · broken' : ''}${selected.start?.on === false ? ' · starts off' : ''}`
+          `${prop?.start?.broken ? ' · broken' : ''}${prop?.start?.on === false ? ' · starts off' : ''}`
         : 'Nothing selected';
     editorPanel.querySelector<HTMLButtonElement>('[data-editor-flip]')!.disabled = !selected;
     const broken = editorPanel.querySelector<HTMLButtonElement>('[data-editor-broken]')!;
-    broken.disabled = !selected?.breakable;
-    broken.setAttribute('aria-pressed', String(!!selected?.start?.broken));
+    broken.disabled = !prop?.breakable;
+    broken.setAttribute('aria-pressed', String(!!prop?.start?.broken));
     const off = editorPanel.querySelector<HTMLButtonElement>('[data-editor-off]')!;
-    off.disabled = !selected?.switchable;
-    off.setAttribute('aria-pressed', String(selected?.start?.on === false));
+    off.disabled = !prop?.switchable;
+    off.setAttribute('aria-pressed', String(prop?.start?.on === false));
     editorPanel.querySelector<HTMLButtonElement>('[data-editor-delete]')!.disabled = !selected;
     for (const button of editorPanel.querySelectorAll<HTMLElement>('[data-editor-add]')) {
       button.setAttribute('aria-pressed', String(button.dataset.editorAdd === placing));
