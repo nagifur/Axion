@@ -354,7 +354,8 @@ and a vending machine that breaks dispenses nothing. Runtime breakage lasts unti
 Particle sprites live in [`src/sim_assets/particles/`](../src/sim_assets/particles/).
 Each PNG is a whole particle image, not a sprite sheet. Add a reusable set to
 `PARTICLE_SETS` in [`particles.ts`](../src/lib/sim/particles.ts): its sprite names omit
-`.png`, and its settings control burst count, launch speeds, gravity, bounce, floor
+`.png`, and its settings control burst count, launch speeds, `spinSpeed` (radians per
+second, with a random direction), gravity, bounce, floor
 friction, lifetime, fade, and landing scatter. Link any number of prop types to that
 set in `PROP_TYPES` in [`sprites.ts`](../src/lib/sim/sprites.ts):
 
@@ -364,7 +365,7 @@ glass_cup: { asset: 'glass_cup', breakable: true, breakParticles: { set: 'glass'
 
 To mix effects, use an array: `breakParticles: { set: ['glass', 'sparks'] }`.
 Each set emits its own burst with its own count and physics. Vending machines use
-this mix: glass shards linger on the floor, while the `spark.png` particles fade
+this mix: glass shards linger on the floor, while the `spark_1`, `spark_2`, and `spark_3` particles fade
 quickly. Other breakable props can reuse either set or the same mix.
 
 By default particles originate across the whole prop. An optional `area: { x, y, w, h }`
@@ -374,8 +375,10 @@ types share the `glass` set, which uses `glass_1`, `glass_2`, and `glass_3`.
 Runtime calls to `prop.break()`, breakage during use, and toggling a prop to broken
 in the debug prop editor queue a burst for the next world update, so the editor can
 preview the effect. Props loaded already broken from `room.json` do not create a
-burst. Particles are room-specific, follow simulation time (including pause), land
-and fade, and are discarded at the end of their lifetime. The system limits the
+burst. Particles spin in midair and keep their angle after the first floor impact,
+even if they bounce or slide. Their rotated bounds stay above the landing line.
+Particles are room-specific, follow simulation time (including pause), land and
+fade, and are discarded at the end of their lifetime. The system limits the
 number of live particles across the facility; oldest particles are removed first.
 
 #### Prop Sprite Sheets

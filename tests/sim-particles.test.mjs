@@ -102,7 +102,7 @@ test('vending machine breakage emits both glass and sparks once per break', asyn
   world.update(0);
   const debris = world.particles.in(room);
   assert.equal(debris.filter((particle) => particle.set === PARTICLE_SETS.glass).length, 13);
-  assert.equal(debris.filter((particle) => particle.asset === particleAsset('spark')).length, 8);
+  assert.equal(debris.filter((particle) => particle.set === PARTICLE_SETS.sparks).length, 8);
   assert.ok(debris.every((particle) =>
     particle.x >= machine.x && particle.x <= machine.x + machine.w
     && particle.y >= machine.y && particle.y <= machine.y + machine.h
@@ -155,6 +155,40 @@ test('particles launch, bounce, settle, slow down, fade and expire', (t) => {
   assert.ok(Math.abs(particle.alpha - 0.5) < 1e-10);
   system.update(particle.set.fade);
   assert.equal(system.particles.includes(particle), false);
+});
+
+test('glass and sparks spin in either direction and freeze on first floor impact', (t) => {
+  for (const set of [PARTICLE_SETS.glass, PARTICLE_SETS.sparks]) {
+    for (const random of [0.25, 0.75]) {
+      t.mock.method(Math, 'random', () => random);
+      const system = new ParticleSystem();
+      const particle = new Particle({ width: 100 }, set, { x: 50, y: 10 }, 50);
+      system.particles = [particle];
+      const spin = particle.angularVelocity;
+      assert.equal(Math.sign(spin), random < 0.5 ? -1 : 1);
+      assert.ok(Math.abs(spin) >= set.spinSpeed[0] && Math.abs(spin) <= set.spinSpeed[1]);
+      system.update(0);
+      assert.equal(particle.angle, 0, 'pausing does not rotate particles');
+      system.update(1 / 60);
+      assert.ok(Math.abs(particle.angle - spin / 60) < 1e-10);
+
+      particle.y = particle.floor - 1;
+      particle.vy = 200;
+      system.update(1 / 60);
+      assert.equal(particle.angularVelocity, 0);
+      assert.ok(particle.vy < 0, 'rotation stops even when the impact bounces');
+      const landedAngle = particle.angle;
+      particle.step(1 / 60);
+      assert.equal(particle.angle, landedAngle, 'bouncing does not restart rotation');
+      particle.y = particle.floor - 0.01;
+      particle.vy = 0;
+      particle.step(1 / 60);
+      assert.equal(particle.resting, true);
+      particle.vx = 20;
+      particle.step(1 / 60);
+      assert.equal(particle.angle, landedAngle, 'sliding does not restart rotation');
+    }
+  }
 });
 
 test('the particle system bounds work and separates and clears rooms', (t) => {
@@ -214,6 +248,7 @@ test('particles render faded, mirrored, and in front of their emitting prop', (t
     putImageData() {}, setTransform() {}, fillRect() {}, save() { this.savedAlpha = this.globalAlpha; },
     restore() { this.globalAlpha = this.savedAlpha; },
     translate(x, y) { calls.push(['translate', x, y]); },
+    rotate(angle) { calls.push(['rotate', angle]); },
     scale(x, y) { calls.push(['scale', x, y]); },
   };
   const canvas = { getContext: () => ctx };
@@ -246,5 +281,32 @@ test('particles render faded, mirrored, and in front of their emitting prop', (t
   Object.defineProperty(flipped, 'flip', { value: true });
   calls.length = 0;
   drawParticle(ctx, image, flipped);
-  assert.deepEqual(calls.slice(0, 2), [['translate', 22, 27], ['scale', -1, 1]]);
+  assert.deepEqual(calls.slice(0, 3), [['translate', 20, 28.5], ['rotate', 0], ['scale', -1, 1]]);
+});
+
+test('rotated particles draw around their center without extending below the floor', () => {
+  const image = { width: 8, height: 3 };
+  const particle = new Particle({ width: 100 }, PARTICLE_SETS.glass, { x: 20, y: 30 }, 30);
+  for (const flip of [false, true]) {
+    Object.defineProperty(particle, 'flip', { value: flip, configurable: true });
+    for (const angle of [0, Math.PI / 2, -Math.PI / 4, Math.PI]) {
+      particle.angle = angle;
+      const calls = [];
+      const ctx = {
+        globalAlpha: 1, save() {}, restore() {},
+        translate(x, y) { calls.push(['translate', x, y]); },
+        rotate(value) { calls.push(['rotate', value]); },
+        scale(x, y) { calls.push(['scale', x, y]); },
+        drawImage(...args) { calls.push(['draw', ...args]); },
+      };
+      drawParticle(ctx, image, particle);
+      assert.deepEqual(calls[1], ['rotate', angle]);
+      assert.deepEqual(calls.at(-1), ['draw', image, -4, -1.5]);
+      assert.equal(calls.some((call) => call[0] === 'scale'), flip);
+      const centerY = calls[0][2];
+      const cornersY = [-4, 4].flatMap((x) => [-1.5, 1.5].map((y) =>
+        centerY + (flip ? -x : x) * Math.sin(angle) + y * Math.cos(angle)));
+      assert.ok(Math.abs(Math.max(...cornersY) - particle.floor) < 1e-10);
+    }
+  }
 });

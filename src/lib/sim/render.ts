@@ -56,17 +56,19 @@ export function drawPropSprite(
 
 type Canvas = HTMLCanvasElement;
 
-/** Draws a particle's whole image centered on its position, standing on it, faded by age. */
+/** Draws a spinning, mirrored particle, with its rotated bounds above its floor position. */
 export function drawParticle(ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number }, particle: Particle) {
   const alpha = particle.alpha;
   if (alpha <= 0) return;
-  const x = Math.round(particle.x - image.width / 2);
-  const y = Math.round(particle.y) - image.height;
+  const halfWidth = image.width / 2;
+  const halfHeight = image.height / 2;
+  const bottom = Math.abs(Math.sin(particle.angle)) * halfWidth + Math.abs(Math.cos(particle.angle)) * halfHeight;
   ctx.save();
   ctx.globalAlpha *= alpha;
-  ctx.translate(x + (particle.flip ? image.width : 0), y);
+  ctx.translate(Math.round(particle.x), Math.round(particle.y) - bottom);
+  ctx.rotate(particle.angle);
   if (particle.flip) ctx.scale(-1, 1);
-  ctx.drawImage(image, 0, 0);
+  ctx.drawImage(image, -halfWidth, -halfHeight);
   ctx.restore();
 }
 

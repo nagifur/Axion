@@ -14,6 +14,8 @@ export interface ParticleSet {
   spreadSpeed: number;
   /** Upward launch speed range, in room pixels per second. */
   upSpeed: readonly [number, number];
+  /** Midair angular speed magnitude, in radians per second; direction is random. */
+  spinSpeed: readonly [number, number];
   /** Downward acceleration, in room pixels per second squared. */
   gravity: number;
   /** Share of the vertical speed kept on each bounce (0 to 1). */
@@ -35,6 +37,7 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     count: [10, 16],
     spreadSpeed: 45,
     upSpeed: [15, 70],
+    spinSpeed: [3, 9],
     gravity: 420,
     bounce: 0.35,
     friction: 5,
@@ -47,6 +50,7 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     count: [6, 10],
     spreadSpeed: 65,
     upSpeed: [35, 95],
+    spinSpeed: [6, 14],
     gravity: 420,
     bounce: 0.2,
     friction: 8,
@@ -81,11 +85,13 @@ export class Particle {
   readonly set: ParticleSet;
   readonly asset: string;
   readonly flip: boolean;
-  /** Bottom-center of the sprite, in room pixels. */
+  /** Bottom-center of the rotated sprite's bounds, in room pixels. */
   x: number;
   y: number;
   vx: number;
   vy: number;
+  angle = 0;
+  angularVelocity: number;
   /** Floor line this particle lands on. */
   readonly floor: number;
   /** Depth of the landing line, independent of the sprite's current height. */
@@ -106,6 +112,7 @@ export class Particle {
     this.vx = (Math.random() * 2 - 1) * set.spreadSpeed;
     this.vy = -between(set.upSpeed);
     this.lifetime = between(set.lifetime);
+    this.angularVelocity = between(set.spinSpeed) * (Math.random() < 0.5 ? -1 : 1);
   }
 
   get expired() {
@@ -121,10 +128,12 @@ export class Particle {
   step(dt: number) {
     const { gravity, bounce, friction } = this.set;
     if (!this.resting) {
+      this.angle += this.angularVelocity * dt;
       this.vy += gravity * dt;
       this.y += this.vy * dt;
       if (this.y >= this.floor) {
         this.y = this.floor;
+        this.angularVelocity = 0;
         if (this.vy * bounce > SETTLE_SPEED) {
           this.vy = -this.vy * bounce;
         } else {
