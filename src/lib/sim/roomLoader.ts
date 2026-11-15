@@ -127,7 +127,10 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
     if (!Number.isInteger(x) || !Number.isInteger(y)) {
       throw new NavMapError(`${label}/room.json: prop ${index + 1} (${type}) needs whole-number "x" and "y".`);
     }
-    const kind = propTypeOf(type);
+    const baseKind = propTypeOf(type);
+    const image = await imageSize(path.join(assetsDir, 'props', `${baseKind.asset}.png`));
+    const frame = propFrame(baseKind.asset, image);
+    const kind = propTypeOf(type, image);
     const start: PlacedProp['start'] = {};
     if (on !== undefined) {
       if (typeof on !== 'boolean' || !kind.switchable) {
@@ -142,8 +145,11 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
       if (broken) start.broken = true;
     }
     const { asset } = kind;
-    const frame = propFrame(asset, await imageSize(path.join(assetsDir, 'props', `${asset}.png`)));
-    props.push({ type, asset, x, y, w: frame.w, h: frame.h, flip: flip === true, ...(Object.keys(start).length ? { start } : {}) });
+    props.push({
+      type, asset, x, y, w: frame.w, h: frame.h, flip: flip === true,
+      ...(kind.switchable && !baseKind.switchable ? { switchable: true } : {}),
+      ...(Object.keys(start).length ? { start } : {}),
+    });
   }
 
   return {

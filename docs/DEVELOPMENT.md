@@ -320,7 +320,7 @@ or floor that people walk around, add it to `PROP_TYPES` in
 
 While the simulation runs, every placed prop is a `Prop` object
 ([`prop.ts`](../src/lib/sim/prop.ts)) with state that can change. What a prop can do comes
-from its `PROP_TYPES` entry:
+from its `PROP_TYPES` entry, or an automatically detected power-off row:
 
 | Flag | Meaning |
 | --- | --- |
@@ -363,19 +363,25 @@ light: {
 
 `states` holds the frames for a prop's other looks: `off` (switched off) and `broken`.
 They follow the same rules as `frames` and must be cropped to the same size. Put them
-on their own row of the sheet; the light's second row is its off look. A prop whose sheet
+on their own row of the sheet: the first row is powered on and the second row is
+powered off for all prop sheets. The light follows this convention. A prop whose sheet
 has no art for a look yet keeps its normal frames, except broken lights, which use `off`.
 
-Frames can also come from other rows; include the row offset in `y`. Elevator door
-and arrow sprites have their own crops in the same registry. The editor palette uses
+Additional looks can use later rows with explicit metadata; include the row offset
+in `y`. Elevator door and arrow sprites have their own crops in the same registry. The editor palette uses
 the first frame, while placement previews and pixel picking use the current frame.
 Animations share simulation time, so pausing the feed freezes them too.
 Images without `PROP_SPRITES` metadata stay still when both dimensions are at most
-96px. If either dimension is larger, they automatically animate through 96px cells,
-left to right, then top to bottom, at the same default speed as lights. An axis smaller
+96px. If either dimension is larger, they automatically use 96px cells, animating
+left to right along the first row at the same default speed as lights.
+Only the first row runs while powered on. The first cell of a second row supplies
+a still powered-off look, like lights; unused cells do not become animation frames.
+A second row automatically makes the prop switchable, including editor controls,
+`"on": false` in `room.json`, and room power switching. Later rows are reserved for
+explicit metadata and never join the normal animation. An axis smaller
 than 96px uses its full size; larger axes must be multiples of 96px so cells are complete.
 These automatic frames include cell padding. Add metadata for custom layouts,
-artwork-sized crops, different timing, or rows reserved for alternate looks.
+artwork-sized crops, different timing, animated off looks, or additional looks.
 
 #### Placing Props With the Editor
 

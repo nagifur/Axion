@@ -112,16 +112,16 @@ export const PROP_SPRITES: Record<string, PropSprite> = {
 };
 
 /** The animation for a look, or the normal one if the sheet has no frames for it. */
-function propAnimation(asset: string, look?: PropLook): PropAnimation | undefined {
-  const sprite = PROP_SPRITES[asset];
-  return (look && sprite?.states?.[look]) || sprite;
+function propAnimation(sprite: PropSprite, look?: PropLook): PropAnimation {
+  return (look && sprite.states?.[look]) || sprite;
 }
 
-export const hasPropLook = (asset: string, look: PropLook): boolean => !!PROP_SPRITES[asset]?.states?.[look];
+export const hasPropLook = (asset: string, look: PropLook, image?: { width: number; height: number }): boolean =>
+  !!(PROP_SPRITES[asset] ?? (image && automaticPropSprite(asset, image)))?.states?.[look];
 
-function automaticPropFrames(asset: string, image: { width: number; height: number }): readonly Rect[] {
+function automaticPropSprite(asset: string, image: { width: number; height: number }): PropSprite {
   if (image.width <= 96 && image.height <= 96) {
-    return [{ x: 0, y: 0, w: image.width, h: image.height }];
+    return { frames: [{ x: 0, y: 0, w: image.width, h: image.height }] };
   }
   const w = Math.min(96, image.width);
   const h = Math.min(96, image.height);
@@ -130,20 +130,20 @@ function automaticPropFrames(asset: string, image: { width: number; height: numb
   if (![columns, rows].every((count) => Number.isInteger(count) && count > 0)) {
     throw new Error(`Prop sprite "${asset}": automatic sheets need complete ${w}x${h} cells; add PROP_SPRITES metadata for a custom layout.`);
   }
-  return Array.from({ length: columns * rows }, (_, index) => ({
-    x: (index % columns) * w, y: Math.floor(index / columns) * h, w, h,
-  }));
+  const frames = Array.from({ length: columns }, (_, column) => ({ x: column * w, y: 0, w, h }));
+  return {
+    frames,
+    ...(rows > 1 ? { states: { off: { frames: [{ ...frames[0], y: h }] } } } : {}),
+  };
 }
 
 /**
  * Frames for `look` (the normal look if unset or not drawn yet), after checking the whole sheet.
- * Undeclared images larger than 96px use grid cells, ordered left to right, then top to bottom.
+ * Undeclared sheets animate row one; the first cell of row two is the powered-off look.
  */
 export function propFrames(asset: string, image: { width: number; height: number }, look?: PropLook): readonly Rect[] {
-  const sprite = PROP_SPRITES[asset];
-  const animations: PropAnimation[] = sprite
-    ? [sprite, ...Object.values(sprite.states ?? {})]
-    : [{ frames: automaticPropFrames(asset, image) }];
+  const sprite = PROP_SPRITES[asset] ?? automaticPropSprite(asset, image);
+  const animations: PropAnimation[] = [sprite, ...Object.values(sprite.states ?? {})];
   const size = animations[0].frames[0];
   for (const { frames, frameSeconds } of animations) {
     if (!frames.length) throw new Error(`Prop sprite "${asset}": at least one frame is required.`);
@@ -161,13 +161,14 @@ export function propFrames(asset: string, image: { width: number; height: number
       }
     }
   }
-  return propAnimation(asset, look)?.frames ?? animations[0].frames;
+  return propAnimation(sprite, look).frames;
 }
 
 export function propFrame(asset: string, image: { width: number; height: number }, time = 0, look?: PropLook): Rect {
   if (!Number.isFinite(time) || time < 0) throw new Error(`Prop sprite "${asset}": animation time must be finite and non-negative.`);
   const frames = propFrames(asset, image, look);
-  const seconds = propAnimation(asset, look)?.frameSeconds ?? PROP_FRAME_SECONDS;
+  const sprite = PROP_SPRITES[asset];
+  const seconds = (sprite && propAnimation(sprite, look).frameSeconds) ?? PROP_FRAME_SECONDS;
   return frames[Math.floor(time / seconds) % frames.length];
 }
 
@@ -236,5 +237,8 @@ export function placeablePropTypes(files: Iterable<string>): string[] {
   return [...types].sort();
 }
 
-/** The type's details, or plain decoration using the image of the same name. */
-export const propTypeOf = (type: string): PropType => PROP_TYPES[type] ?? { asset: type };
+/** The type's details, including a power switch when its sheet has an off row. */
+export function propTypeOf(type: string, image?: { width: number; height: number }): PropType {
+  const kind = PROP_TYPES[type] ?? { asset: type };
+  return image && hasPropLook(kind.asset, 'off', image) ? { ...kind, switchable: true } : kind;
+}

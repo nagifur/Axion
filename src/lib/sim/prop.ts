@@ -21,6 +21,8 @@ export interface PlacedProp {
   w: number;
   h: number;
   flip: boolean;
+  /** Asset-derived power switch for sheets with an off row. Not written to room.json. */
+  switchable?: boolean;
   /** Starting state, only where it differs from DEFAULT_PROP_STATE. */
   start?: Partial<PropState>;
 }
@@ -36,6 +38,7 @@ export class Prop implements PlacedProp {
   start?: Partial<PropState>;
   on: boolean;
   broken: boolean;
+  private readonly sheetSwitchable: boolean;
 
   constructor(data: PlacedProp) {
     this.type = data.type;
@@ -45,6 +48,7 @@ export class Prop implements PlacedProp {
     this.w = data.w;
     this.h = data.h;
     this.flip = data.flip;
+    this.sheetSwitchable = data.switchable === true && !propTypeOf(data.type).switchable;
     if (data.start && Object.keys(data.start).length) this.start = { ...data.start };
     this.on = this.switchable ? data.start?.on ?? DEFAULT_PROP_STATE.on : DEFAULT_PROP_STATE.on;
     this.broken = this.breakable ? data.start?.broken ?? DEFAULT_PROP_STATE.broken : DEFAULT_PROP_STATE.broken;
@@ -55,7 +59,7 @@ export class Prop implements PlacedProp {
   }
 
   get switchable() {
-    return !!this.kind.switchable;
+    return !!this.kind.switchable || this.sheetSwitchable;
   }
 
   get breakable() {
@@ -94,7 +98,7 @@ export class Prop implements PlacedProp {
    */
   get look(): PropLook | undefined {
     if (this.broken && hasPropLook(this.asset, 'broken')) return 'broken';
-    if (this.switchable && !this.lit && hasPropLook(this.asset, 'off')) return 'off';
+    if (this.switchable && !this.lit) return 'off';
     return undefined;
   }
 
@@ -113,6 +117,10 @@ export class Prop implements PlacedProp {
   /** Placement and starting state, as room.json stores it. */
   toData(): PlacedProp {
     const { type, asset, x, y, w, h, flip } = this;
-    return this.start ? { type, asset, x, y, w, h, flip, start: { ...this.start } } : { type, asset, x, y, w, h, flip };
+    return {
+      type, asset, x, y, w, h, flip,
+      ...(this.sheetSwitchable ? { switchable: true } : {}),
+      ...(this.start ? { start: { ...this.start } } : {}),
+    };
   }
 }

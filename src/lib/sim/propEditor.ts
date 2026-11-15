@@ -101,7 +101,7 @@ export class PropEditor {
     this.commit();
   }
 
-  /** Whether the selected light starts switched off. It still comes on when someone walks in. */
+  /** Whether the selected prop starts switched off. It still comes on when someone walks in. */
   toggleOff() {
     if (!this.selected?.switchable) return;
     this.selected.setStart({ on: this.selected.start?.on === false });
@@ -192,9 +192,11 @@ export class PropEditor {
     const image = this.assets[asset];
     if (!image) throw new Error(`Missing prop asset "${asset}".`);
     const frame = propFrame(asset, image);
+    const kind = propTypeOf(type, image);
     return {
       type, asset, flip: false, w: frame.w, h: frame.h,
       x: Math.round(at.x - frame.w / 2), y: Math.round(at.y - frame.h),
+      ...(kind.switchable && !propTypeOf(type).switchable ? { switchable: true } : {}),
     };
   }
 

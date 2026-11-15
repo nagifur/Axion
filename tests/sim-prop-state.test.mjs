@@ -23,6 +23,7 @@ test('props start from room.json and only switch or break when their type allows
   assert.equal(light.setOn(false), true);
   assert.equal(light.setOn(false), false, 'no change');
   assert.equal(light.look, 'off');
+  assert.deepEqual(new Prop(light).toData(), light.toData(), 'cloning keeps registered light placement metadata unchanged');
 
   const broken = new Prop(placed('light', { broken: true }));
   assert.equal(broken.lit, false);
