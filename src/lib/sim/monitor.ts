@@ -93,7 +93,9 @@ export function initMonitor(root: HTMLElement): () => void {
   const levelRows = [...root.querySelectorAll<HTMLElement>('[data-monitor-level-row]')];
 
   const rooms = config.rooms.map((data) => new Room(data));
-  const world = new World({ roster: config.roster, rooms });
+  // Milliseconds added to the real clock by the debug time override (0 = live).
+  let clockOffset = 0;
+  const world = new World({ roster: config.roster, rooms, now: () => new Date(Date.now() + clockOffset) });
   const director = new EventDirector(config.impostors);
   const progress = loadProgress();
   const unlocked = new Set(progress.achievements);
@@ -475,7 +477,37 @@ export function initMonitor(root: HTMLElement): () => void {
     debugPanel.hidden = false;
     // Debug actions pick someone on the camera being watched.
     const randomAgent = () => world.agentsIn(viewed).filter((agent) => !agent.busy)[0];
+    const timePresets: { label: string; hour?: number; minute?: number }[] = [
+      { label: 'Live' },
+      { label: '09:00 Work', hour: 9, minute: 0 },
+      { label: '10:05 Break', hour: 10, minute: 5 },
+      { label: '12:30 Lunch', hour: 12, minute: 30 },
+      { label: '18:00 Free', hour: 18, minute: 0 },
+      { label: '02:00 Night', hour: 2, minute: 0 },
+    ];
+    let timePreset = 0;
+    const cycleTime = () => {
+      timePreset = (timePreset + 1) % timePresets.length;
+      const { label, hour, minute } = timePresets[timePreset];
+      if (hour === undefined) {
+        clockOffset = 0;
+      } else {
+        const target = new Date();
+        target.setHours(hour, minute, 0, 0);
+        clockOffset = target.getTime() - Date.now();
+      }
+      const button = debugPanel.querySelector<HTMLButtonElement>('[data-debug="time"]');
+      if (button) {
+        button.textContent = `Time: ${label}`;
+        button.setAttribute('aria-pressed', String(clockOffset !== 0));
+      }
+      // Idle staff pick their next task under the new clock right away.
+      for (const agent of world.agents) if (!agent.busy && !agent.removed) agent.setPlan(world, []);
+      log(clockOffset ? `Debug: clock set to ${label}.` : 'Debug: clock back to live time.', 'muted');
+      tick();
+    };
     const actions: Record<string, () => void> = {
+      time: cycleTime,
       impostor: () => { if (!director.triggerImpostor(world)) log('Debug: no impostor possible right now.', 'muted'); },
       arrive: () => { if (!world.arrive()) log('Debug: everyone is already on the floor.', 'muted'); },
       nap: () => randomAgent()?.setPlan(world, [nap(20, 'front')]),
@@ -575,7 +607,7 @@ export function initMonitor(root: HTMLElement): () => void {
   const tick = () => {
     const now = world.now();
     if (clockNode) clockNode.textContent = clock(now, true);
-    if (now.getHours() < 5) achieve('night-shift');
+    if (!clockOffset && now.getHours() < 5) achieve('night-shift');
     if (alertNode) {
       const duplicate = world.everyone().some((agent) => agent.impostor && !agent.revealed);
       alertNode.textContent = duplicate ? 'Duplicate badge' : 'All clear';

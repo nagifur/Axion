@@ -189,6 +189,12 @@ interrupting doorways, elevator rides, or conversations. Darkness and emergency
 exits still take priority; impostors are not compelled to follow staff work floors.
 Schedules do not change the existing time-based population targets.
 
+With `?debug`, the **Time** button cycles the clock through Live, 09:00 work,
+10:05 break, 12:30 lunch, 18:00 free time, and 02:00 night. The overridden
+clock keeps running from the chosen time and affects schedules, population, and
+the on-screen clock. Idle staff re-plan immediately. Overridden time does not
+unlock the night-shift directive.
+
 Rooms expose a live `darkness` value: 0 on Level 0 or with at least one working,
 switched-on light, otherwise 1. Unlit underground cameras are dimmed by 55%,
 including props and people. Darkness adds a 1.2% trip chance per walking second
