@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import sharp from 'sharp';
+import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { PROP_SPRITES, propFrame, propFrames } from '../src/lib/sim/sprites.ts';
 import { loadRoom, propPreview } from '../src/lib/sim/roomLoader.ts';
 import { drawPropSprite, loadAssets, Renderer } from '../src/lib/sim/render.ts';
@@ -38,6 +41,73 @@ test('lights animate on simulation time while furniture remains still', () => {
   assert.equal(propFrame('light', image, 1.2), PROP_SPRITES.light.frames[0]);
   assert.equal(propFrame('chair', { width: 96, height: 96 }, 100), PROP_SPRITES.chair.frames[0]);
   assert.deepEqual(propFrame('plant', { width: 20, height: 30 }, 100), { x: 0, y: 0, w: 20, h: 30 });
+});
+
+test('undeclared props over 96px animate through cells at the light speed', () => {
+  const first = { x: 0, y: 0, w: 96, h: 96 };
+  const second = { x: 96, y: 0, w: 96, h: 96 };
+  const image = { width: 192, height: 96 };
+  assert.deepEqual(propFrames('animated_decoration', image), [first, second]);
+  for (const [time, expected] of [[0, first], [0.59, first], [0.6, second], [1.2, first]]) {
+    assert.deepEqual(propFrame('animated_decoration', image, time), expected);
+  }
+  assert.deepEqual(propFrame('animated_decoration', image, 0.6, 'broken'), second);
+  assert.deepEqual(propFrames('animated_decoration', { width: 96, height: 192 }), [
+    first, { x: 0, y: 96, w: 96, h: 96 },
+  ]);
+  assert.deepEqual(propFrames('animated_decoration', { width: 192, height: 192 }), [
+    first, second, { x: 0, y: 96, w: 96, h: 96 }, { x: 96, y: 96, w: 96, h: 96 },
+  ]);
+  assert.deepEqual(propFrame('animated_decoration', { width: 192, height: 192 }, 1.8), {
+    x: 96, y: 96, w: 96, h: 96,
+  });
+  assert.deepEqual(propFrame('decoration', { width: 96, height: 96 }, 100), first);
+  assert.deepEqual(propFrames('animated_decoration', { width: 192, height: 40 }), [
+    { x: 0, y: 0, w: 96, h: 40 }, { x: 96, y: 0, w: 96, h: 40 },
+  ]);
+  assert.deepEqual(propFrames('animated_decoration', { width: 40, height: 192 }), [
+    { x: 0, y: 0, w: 40, h: 96 }, { x: 0, y: 96, w: 40, h: 96 },
+  ]);
+});
+
+test('automatic sheets report incomplete cells instead of clipping artwork', () => {
+  for (const image of [
+    { width: 97, height: 96 }, { width: 96, height: 97 }, { width: 192, height: 193 },
+    { width: Infinity, height: 96 },
+  ]) {
+    assert.throws(() => propFrames('animated_decoration', image), /automatic sheets need complete.*PROP_SPRITES/);
+  }
+});
+
+test('automatic sheets use one frame for room loading, palette previews, placement, and drawing', async (t) => {
+  const assetsDir = await mkdtemp(path.join(tmpdir(), 'axion-prop-sheet-'));
+  t.after(() => rm(assetsDir, { recursive: true, force: true }));
+  const roomDir = path.join(assetsDir, 'rooms', 'test-room');
+  await mkdir(roomDir, { recursive: true });
+  await mkdir(path.join(assetsDir, 'props'));
+  const originalRoom = 'src/sim_assets/rooms/level-1-offices';
+  const json = JSON.parse(await readFile(path.join(originalRoom, 'room.json'), 'utf8'));
+  json.props = [{ type: 'animated_decoration', x: 100, y: 50 }];
+  await Promise.all([
+    copyFile(path.join(originalRoom, 'room.png'), path.join(roomDir, 'room.png')),
+    copyFile(path.join(originalRoom, 'navMap.png'), path.join(roomDir, 'navMap.png')),
+    writeFile(path.join(roomDir, 'room.json'), JSON.stringify(json)),
+    sharp({ create: { width: 192, height: 96, channels: 4, background: '#ff0000' } })
+      .png().toFile(path.join(assetsDir, 'props', 'animated_decoration.png')),
+  ]);
+  const room = new Room(await loadRoom('test-room', assetsDir));
+  assert.deepEqual([room.props[0].w, room.props[0].h], [96, 96]);
+  const preview = await propPreview('animated_decoration', assetsDir);
+  const size = await sharp(Buffer.from(preview.split(',')[1], 'base64')).metadata();
+  assert.deepEqual([size.width, size.height], [96, 96]);
+  const image = { width: 192, height: 96 };
+  const editor = new PropEditor({ animated_decoration: image }, room, () => {});
+  editor.add('animated_decoration');
+  editor.pointerDown({ x: 200, y: 160 }, 0.6);
+  assert.deepEqual([editor.selected.w, editor.selected.h, editor.selected.x, editor.selected.y], [96, 96, 152, 64]);
+  const calls = [];
+  drawPropSprite({ drawImage(...args) { calls.push(args); } }, image, 'animated_decoration', 100, 50, false, 0.6);
+  assert.deepEqual(calls, [[image, 96, 0, 96, 96, 100, 50, 96, 96]]);
 });
 
 test('invalid sheet bounds and animation time are reported', () => {

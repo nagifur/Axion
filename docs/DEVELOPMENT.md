@@ -345,7 +345,7 @@ size and alignment, including room for glow or other effects. This keeps placeme
 mirroring, seats, and blocked floor independent of transparent sheet padding.
 
 A single rectangle is a still prop. Multiple rectangles form a looping animation;
-`frameSeconds` controls the duration of each frame (defaults to one second).
+`frameSeconds` controls the duration of each frame (defaults to 0.6 simulation seconds).
 The light currently alternates its two frames every 0.6 simulation seconds:
 
 ```ts
@@ -370,8 +370,12 @@ Frames can also come from other rows; include the row offset in `y`. Elevator do
 and arrow sprites have their own crops in the same registry. The editor palette uses
 the first frame, while placement previews and pixel picking use the current frame.
 Animations share simulation time, so pausing the feed freezes them too.
-Images without `PROP_SPRITES` metadata retain the full-image, still-decoration behavior.
-Add metadata for any new grid sheet so its padding and extra cells are not rendered.
+Images without `PROP_SPRITES` metadata stay still when both dimensions are at most
+96px. If either dimension is larger, they automatically animate through 96px cells,
+left to right, then top to bottom, at the same default speed as lights. An axis smaller
+than 96px uses its full size; larger axes must be multiples of 96px so cells are complete.
+These automatic frames include cell padding. Add metadata for custom layouts,
+artwork-sized crops, different timing, or rows reserved for alternate looks.
 
 #### Placing Props With the Editor
 

@@ -90,6 +90,8 @@ export interface PropSprite extends PropAnimation {
   states?: Partial<Record<PropLook, PropAnimation>>;
 }
 
+export const PROP_FRAME_SECONDS = 0.6;
+
 export const PROP_SPRITES: Record<string, PropSprite> = {
   bench: { frames: [{ x: 13, y: 43, w: 71, h: 33 }] },
   chair: { frames: [{ x: 34, y: 43, w: 27, h: 38 }] },
@@ -99,7 +101,7 @@ export const PROP_SPRITES: Record<string, PropSprite> = {
       { x: 28, y: 39, w: 40, h: 17 },
       { x: 124, y: 39, w: 40, h: 17 },
     ],
-    frameSeconds: 0.6,
+    frameSeconds: PROP_FRAME_SECONDS,
     states: {
       off: { frames: [{ x: 28, y: 135, w: 40, h: 17 }] },
     },
@@ -117,15 +119,31 @@ function propAnimation(asset: string, look?: PropLook): PropAnimation | undefine
 
 export const hasPropLook = (asset: string, look: PropLook): boolean => !!PROP_SPRITES[asset]?.states?.[look];
 
+function automaticPropFrames(asset: string, image: { width: number; height: number }): readonly Rect[] {
+  if (image.width <= 96 && image.height <= 96) {
+    return [{ x: 0, y: 0, w: image.width, h: image.height }];
+  }
+  const w = Math.min(96, image.width);
+  const h = Math.min(96, image.height);
+  const columns = image.width / w;
+  const rows = image.height / h;
+  if (![columns, rows].every((count) => Number.isInteger(count) && count > 0)) {
+    throw new Error(`Prop sprite "${asset}": automatic sheets need complete ${w}x${h} cells; add PROP_SPRITES metadata for a custom layout.`);
+  }
+  return Array.from({ length: columns * rows }, (_, index) => ({
+    x: (index % columns) * w, y: Math.floor(index / columns) * h, w, h,
+  }));
+}
+
 /**
  * Frames for `look` (the normal look if unset or not drawn yet), after checking the whole sheet.
- * Undeclared images retain their full-image, still-decoration behavior.
+ * Undeclared images larger than 96px use grid cells, ordered left to right, then top to bottom.
  */
 export function propFrames(asset: string, image: { width: number; height: number }, look?: PropLook): readonly Rect[] {
   const sprite = PROP_SPRITES[asset];
   const animations: PropAnimation[] = sprite
     ? [sprite, ...Object.values(sprite.states ?? {})]
-    : [{ frames: [{ x: 0, y: 0, w: image.width, h: image.height }] }];
+    : [{ frames: automaticPropFrames(asset, image) }];
   const size = animations[0].frames[0];
   for (const { frames, frameSeconds } of animations) {
     if (!frames.length) throw new Error(`Prop sprite "${asset}": at least one frame is required.`);
@@ -149,7 +167,7 @@ export function propFrames(asset: string, image: { width: number; height: number
 export function propFrame(asset: string, image: { width: number; height: number }, time = 0, look?: PropLook): Rect {
   if (!Number.isFinite(time) || time < 0) throw new Error(`Prop sprite "${asset}": animation time must be finite and non-negative.`);
   const frames = propFrames(asset, image, look);
-  const seconds = propAnimation(asset, look)?.frameSeconds ?? 1;
+  const seconds = propAnimation(asset, look)?.frameSeconds ?? PROP_FRAME_SECONDS;
   return frames[Math.floor(time / seconds) % frames.length];
 }
 
