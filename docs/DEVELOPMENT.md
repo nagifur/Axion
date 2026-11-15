@@ -328,7 +328,7 @@ from its `PROP_TYPES` entry, or automatically detected power-off and broken artw
 | `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for `LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
 | `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
 | `dispenses` | Item type agents can get from the prop while it works and, if switchable, is on (see [Dispensers](#dispensers-vending-machines)). |
-| `breakParticles` | Particle set and optional artwork-relative emission area to use when the prop breaks (see [Breakage Particles](#breakage-particles)). |
+| `breakParticles` | One or more particle sets and optional artwork-relative emission area to use when the prop breaks (see [Breakage Particles](#breakage-particles)). |
 
 `room.json` can set how a prop starts. Only props whose type allows it may use these:
 
@@ -361,6 +361,11 @@ set in `PROP_TYPES` in [`sprites.ts`](../src/lib/sim/sprites.ts):
 ```ts
 glass_cup: { asset: 'glass_cup', breakable: true, breakParticles: { set: 'glass' } },
 ```
+
+To mix effects, use an array: `breakParticles: { set: ['glass', 'sparks'] }`.
+Each set emits its own burst with its own count and physics. Vending machines use
+this mix: glass shards linger on the floor, while the `spark.png` particles fade
+quickly. Other breakable props can reuse either set or the same mix.
 
 By default particles originate across the whole prop. An optional `area: { x, y, w, h }`
 in `breakParticles` restricts the burst to a rectangle relative to its displayed

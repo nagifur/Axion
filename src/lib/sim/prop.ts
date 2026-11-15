@@ -89,8 +89,8 @@ export class Prop implements PlacedProp {
     return type && !this.broken && (!this.switchable || this.on) ? type : null;
   }
 
-  /** Particle set thrown when it breaks, and the room area it comes from (null if none). */
-  get breakParticles(): { set: string; area: Rect; depth: number } | null {
+  /** Particle sets thrown when it breaks, and the room area they come from (null if none). */
+  get breakParticles(): { set: string | readonly string[]; area: Rect; depth: number } | null {
     const debris = this.kind.breakParticles;
     if (!debris) return null;
     const area = debris.area ?? { x: 0, y: 0, w: this.w, h: this.h };

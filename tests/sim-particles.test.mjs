@@ -87,6 +87,51 @@ test('emission areas mirror with flipped props and default to the whole prop', (
   }
 });
 
+test('vending machine breakage emits both glass and sparks once per break', async (t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const world = new World({ roster: [], rooms: [room] });
+  world.arrive = () => undefined;
+  const machine = new Prop(placed('vending_machine'));
+  room.setProps([machine]);
+
+  world.update(0);
+  assert.equal(world.particles.particles.length, 0);
+  assert.equal(machine.break(), true);
+  assert.equal(machine.break(), false);
+  world.update(0);
+  const debris = world.particles.in(room);
+  assert.equal(debris.filter((particle) => particle.set === PARTICLE_SETS.glass).length, 13);
+  assert.equal(debris.filter((particle) => particle.asset === particleAsset('spark')).length, 8);
+  assert.ok(debris.every((particle) =>
+    particle.x >= machine.x && particle.x <= machine.x + machine.w
+    && particle.y >= machine.y && particle.y <= machine.y + machine.h
+    && particle.depth >= machine.y + machine.h));
+  world.update(0);
+  assert.equal(world.particles.in(room).length, 21, 'events are consumed');
+  world.update(0.9);
+  assert.equal(world.particles.in(room).length, 13, 'sparks expire before glass');
+  machine.repair();
+  machine.break();
+  world.update(0);
+  assert.equal(world.particles.in(room).length, 34, 'repair allows another mixed burst');
+});
+
+test('mixed bursts honor each set count and reject unknown sets before emitting', (t) => {
+  const system = new ParticleSystem();
+  const room = { width: 300 };
+  const area = { x: 10, y: 10, w: 10, h: 10 };
+  for (const [random, glass, sparks] of [[0, 10, 6], [0.5, 13, 8], [0.999, 16, 10]]) {
+    t.mock.method(Math, 'random', () => random);
+    const added = system.burst(room, ['glass', 'sparks'], area);
+    assert.equal(added.filter((particle) => particle.set === PARTICLE_SETS.glass).length, glass);
+    assert.equal(added.filter((particle) => particle.set === PARTICLE_SETS.sparks).length, sparks);
+    system.clear();
+  }
+  assert.throws(() => system.burst(room, ['glass', 'missing'], area), /Unknown particle set "missing"/);
+  assert.equal(system.particles.length, 0);
+});
+
 test('particles launch, bounce, settle, slow down, fade and expire', (t) => {
   t.mock.method(Math, 'random', () => 0.5);
   const room = { width: 100 };

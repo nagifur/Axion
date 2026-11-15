@@ -42,6 +42,18 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     fade: 0.8,
     scatter: 5,
   },
+  sparks: {
+    sprites: ['spark_1', 'spark_2', 'spark_3'],
+    count: [6, 10],
+    spreadSpeed: 65,
+    upSpeed: [35, 95],
+    gravity: 420,
+    bounce: 0.2,
+    friction: 8,
+    lifetime: [0.4, 0.8],
+    fade: 0.3,
+    scatter: 5,
+  },
 };
 
 /** Live particles across all rooms; the oldest are dropped first beyond this. */
@@ -134,19 +146,21 @@ export class ParticleSystem {
   particles: Particle[] = [];
 
   /**
-   * Throws a set's particles from anywhere inside `area` (room pixels). They land between the
+   * Throws one or more sets' particles from anywhere inside `area` (room pixels). They land between the
    * bottom of the area and `scatter` pixels below it. `depth` puts debris in front of the
    * emitting object even when the sprite sheet has transparent padding below its artwork.
    */
-  burst(room: Room, setName: string, area: Rect, depth = area.y + area.h): Particle[] {
-    const set = particleSet(setName);
-    const count = Math.floor(set.count[0] + Math.random() * (set.count[1] - set.count[0] + 1));
+  burst(room: Room, setName: string | readonly string[], area: Rect, depth = area.y + area.h): Particle[] {
+    const sets = (typeof setName === 'string' ? [setName] : setName).map(particleSet);
     const bottom = area.y + area.h;
     const added: Particle[] = [];
-    for (let i = 0; i < count; i++) {
-      const at = { x: area.x + Math.random() * area.w, y: area.y + Math.random() * area.h };
-      const scatter = Math.random() * set.scatter;
-      added.push(new Particle(room, set, at, bottom + scatter, depth + scatter));
+    for (const set of sets) {
+      const count = Math.floor(set.count[0] + Math.random() * (set.count[1] - set.count[0] + 1));
+      for (let i = 0; i < count; i++) {
+        const at = { x: area.x + Math.random() * area.w, y: area.y + Math.random() * area.h };
+        const scatter = Math.random() * set.scatter;
+        added.push(new Particle(room, set, at, bottom + scatter, depth + scatter));
+      }
     }
     this.particles.push(...added);
     if (this.particles.length > MAX_PARTICLES) this.particles.splice(0, this.particles.length - MAX_PARTICLES);

@@ -274,8 +274,8 @@ export interface PropType {
 }
 
 export interface BreakParticles {
-  /** Name in PARTICLE_SETS (particles.ts); different prop types can share a set. */
-  set: string;
+  /** One or more names in PARTICLE_SETS (particles.ts); each set emits its own burst. */
+  set: string | readonly string[];
   /** Part of the artwork the particles come from, relative to the prop. Defaults to the whole prop. */
   area?: Rect;
 }
@@ -303,7 +303,10 @@ export const PROP_TYPES: Record<string, PropType> = {
     blocks: { x: 24, y: 47, w: 21, h: 8 },
   },
   // Its power switch comes from the sheet's off row; it keeps its power state when the room empties.
-  vending_machine: { asset: 'vending_machine', breakable: true, dispenses: 'can' },
+  vending_machine: {
+    asset: 'vending_machine', breakable: true, dispenses: 'can',
+    breakParticles: { set: ['glass', 'sparks'] },
+  },
   // Breakable through the broken row of their sheets.
   glass: { asset: 'glass', breakParticles: glassPane({ x: 3, y: 30, w: 91, h: 37 }) },
   glassHalf: { asset: 'glassHalf', breakParticles: glassPane({ x: 25, y: 30, w: 46, h: 37 }) },
