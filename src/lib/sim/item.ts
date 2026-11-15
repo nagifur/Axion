@@ -1,3 +1,5 @@
+import { ITEM_SPRITES } from './sprites.ts';
+
 /** Something an agent can do with the item in their hand. */
 export interface ItemAction {
   id: string;
@@ -53,5 +55,12 @@ export class Item implements PlacedItem {
   toData(): PlacedItem {
     const { type, asset, x, y, w, h, flip } = this;
     return { type, asset, x, y, w, h, flip };
+  }
+
+  /** A brand-new item (e.g. from a vending machine); needs an ITEM_SPRITES crop for its size. */
+  static create(type: string): Item {
+    const frame = ITEM_SPRITES[type];
+    if (!frame) throw new Error(`Item "${type}" needs an ITEM_SPRITES entry before it can be created.`);
+    return new Item({ type, asset: `item:${type}`, x: 0, y: 0, w: frame.w, h: frame.h, flip: false });
   }
 }

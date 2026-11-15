@@ -215,6 +215,8 @@ export interface PropType {
   automaticPowerOff?: boolean;
   /** Can break. Nobody sits on a broken prop. */
   breakable?: boolean;
+  /** Item type (src/sim_assets/items/) agents can get from it while it is working and on. */
+  dispenses?: string;
 }
 
 /** Prop types that rooms can place in their room.json. */
@@ -236,6 +238,8 @@ export const PROP_TYPES: Record<string, PropType> = {
     seats: [{ x: 10, y: 35, facing: 'right' }],
     blocks: { x: 4, y: 30, w: 21, h: 8 },
   },
+  // Its power switch comes from the sheet's off row; it keeps its power state when the room empties.
+  vending_machine: { asset: 'vending_machine', dispenses: 'can' },
 };
 
 // The elevator is found from the nav map; its sprites are drawn to fit the opening.

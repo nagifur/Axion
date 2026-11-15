@@ -1,4 +1,4 @@
-import { conversationPoint, rest, startConversation, wait, type Agent } from './agent.ts';
+import { conversationPoint, getFromDispenser, rest, startConversation, wait, type Agent } from './agent.ts';
 import type { Prop } from './prop.ts';
 import type { Point, Room, Spot } from './room.ts';
 import { scheduleFor } from './schedule.ts';
@@ -36,9 +36,15 @@ export function dropTarget(
         ? { kind: 'seat', room, point: free[0], label: `Use ${prop.type}` }
         : { kind: 'invalid', label: `The ${prop.type} is occupied` };
     }
-    const stand = room.nearestWalkable({ x: prop.x + prop.w / 2, y: prop.y + prop.h + 4 });
+    const stand = prop.standPoint(room);
     if (!room.isWalkable(stand)) {
       return { kind: 'invalid', label: `Cannot reach the ${prop.type}` };
+    }
+    const dispensed = prop.dispensing;
+    if (dispensed) {
+      return agent.item
+        ? { kind: 'invalid', label: `${agent.character.name}'s hand is already full` }
+        : { kind: 'prop', room, point: stand, prop, label: `Get a ${dispensed} from the ${prop.type}` };
     }
     return { kind: 'prop', room, point: stand, prop, label: prop.switchable ? `Switch ${prop.type} ${prop.on ? 'off' : 'on'}` : `Inspect ${prop.type}` };
   }
@@ -75,6 +81,8 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
   } else if (target.kind === 'agent') {
     const tasks = startConversation(agent, target.partner, world, true);
     if (!tasks) throw new Error('Validated conversation drop has no meeting point');
+  } else if (target.kind === 'prop' && target.prop.dispensing) {
+    agent.setPlan(world, [getFromDispenser(target.prop)]);
   } else if (target.kind === 'prop') {
     agent.facing = 'back';
     agent.face({ x: target.prop.x + target.prop.w / 2, y: target.prop.y });

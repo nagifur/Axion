@@ -327,6 +327,7 @@ from its `PROP_TYPES` entry, or an automatically detected power-off row:
 | `switchable` | Can be switched on or off manually, including through the editor. |
 | `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for a minute (`LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts)). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
 | `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
+| `dispenses` | Item type agents can get from the prop while it works and, if switchable, is on (see [Dispensers](#dispensers-vending-machines)). |
 
 `room.json` can set how a prop starts. Only props whose type allows it may use these:
 
@@ -430,6 +431,31 @@ The action runs as an uninterruptible `useItem` task for `seconds`. With
 slot and the item is destroyed rather than dropped. `done` adds a log line
 ("Ana finished a can in the Offices."). If the item leaves the agent's hand before
 the action finishes, the action stops without using it up.
+
+##### Dispensers (vending machines)
+
+A prop type with `dispenses` in `PROP_TYPES` hands out new items. The vending machine
+dispenses cans:
+
+```ts
+vending_machine: { asset: 'vending_machine', dispenses: 'can' },
+```
+
+Its power switch comes from the sheet's off row, and it keeps its power state when the
+room empties. `prop.dispensing` is the item type while the prop is not broken and (if
+switchable) is on, otherwise `null`.
+
+- **Planner:** agents with an empty hand in a room with a working dispenser sometimes walk
+  to its stand point (`prop.standPoint(room)`, just below the artwork), face it and run
+  the `getFromDispenser` task (2.5 s). It puts a fresh `Item.create(type)` straight into
+  their hand and logs "Ana got a can from the vending machine in the Lobby." Drinking is
+  then a normal item action. If the hand filled up or the machine broke or went off
+  meanwhile, they show `?` and get nothing.
+- **Dragging:** dropping an agent on a working dispenser gets an item ("Get a can from the
+  vending_machine"); it is invalid while their hand is full. Dropping them on a switched-off
+  machine switches it on, like any switchable prop.
+
+`Item.create` needs an `ITEM_SPRITES` crop for the item type to size it.
 
 #### Placing Props and Items With the Editor
 

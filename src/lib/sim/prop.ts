@@ -2,6 +2,7 @@
 // (lights switching on and off, furniture breaking). room.json only stores how it starts.
 
 import { hasPropLook, propTypeOf, type PropLook, type PropType } from './sprites.ts';
+import type { Point, Room } from './room.ts';
 
 export interface PropState {
   /** Switched on. Only used by switchable props. */
@@ -73,6 +74,17 @@ export class Prop implements PlacedProp {
   /** Switched on and working. */
   get lit() {
     return this.switchable && this.on && !this.broken;
+  }
+
+  /** Item type this prop hands out right now, or null when it has none or is broken or switched off. */
+  get dispensing(): string | null {
+    const type = this.kind.dispenses;
+    return type && !this.broken && (!this.switchable || this.on) ? type : null;
+  }
+
+  /** Where someone stands to use the prop from the front. */
+  standPoint(room: Room): Point {
+    return room.nearestWalkable({ x: this.x + this.w / 2, y: this.y + this.h + 4 });
   }
 
   /** Returns whether anything changed. */

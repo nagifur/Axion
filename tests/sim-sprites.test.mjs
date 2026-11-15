@@ -122,6 +122,7 @@ function activityAgent(x = 0, napChance = 0) {
     name: 'Test room',
     darkness: 0,
     linkedDoors: [],
+    props: [],
     route(_agent, target) { return [target]; },
     isWalkable() { return true; },
   };

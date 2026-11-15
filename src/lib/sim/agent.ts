@@ -3,7 +3,8 @@ import { directionTo, type Door, type Facing, type Point, type Room, type Spot }
 import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
 import { scheduleFor, type SchedulePeriod } from './schedule.ts';
-import { itemActions, type Item, type ItemAction } from './item.ts';
+import { Item, itemActions, type ItemAction } from './item.ts';
+import type { Prop } from './prop.ts';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
 
@@ -100,6 +101,13 @@ export class Agent {
     this.room.items.push(item);
     this.carriedItem = null;
     return item;
+  }
+
+  /** Puts a brand-new item (not one lying in the room) into the empty hand. */
+  receiveItem(item: Item) {
+    if (this.item) throw new Error('Agent already carries an item.');
+    if (this.room.items.includes(item)) throw new Error('Loose items are picked up with pickUpItem.');
+    this.carriedItem = item;
   }
 
   /** Destroys the carried item (used up); it does not go back on the floor. */
@@ -322,6 +330,36 @@ export function useItem(action: ItemAction): Task {
       if (left > 0) return false;
       if (action.consumes) agent.consumeItem();
       if (action.done) world.log(`${agent.character.name} ${action.done} in the ${agent.room.name}.`, 'muted');
+      return true;
+    },
+  };
+}
+
+/**
+ * Uses a dispenser prop (e.g. a vending machine) the agent stands in front of, and puts the new
+ * item in their hand. Nothing comes out if the hand is full or the prop broke or went off meanwhile.
+ */
+export function getFromDispenser(prop: Prop, seconds = 2.5): Task {
+  let left = seconds;
+  const type = prop.kind.dispenses;
+  if (!type) throw new Error(`The ${prop.type} does not dispense anything.`);
+  return {
+    activity: `Using the ${prop.type.replaceAll('_', ' ')}`,
+    interruptible: false,
+    start(agent) {
+      agent.facing = 'back';
+    },
+    update(agent, world, dt) {
+      left -= dt;
+      if (left > 0) return false;
+      const name = prop.type.replaceAll('_', ' ');
+      if (agent.item || prop.dispensing !== type || !agent.room.props.includes(prop)) {
+        agent.say('?', 2);
+        world.log(`${agent.character.name} couldn't get a ${type} from the ${name} in the ${agent.room.name}.`, 'muted');
+        return true;
+      }
+      agent.receiveItem(Item.create(type));
+      world.log(`${agent.character.name} got a ${type} from the ${name} in the ${agent.room.name}.`, 'muted');
       return true;
     },
   };
@@ -642,6 +680,10 @@ export function planNext(agent: Agent, world: World): Task[] {
     return destination && canVisit(destination);
   });
   const floors = world.elevatorStops(room).filter(canVisit);
+  const dispensers = agent.item ? [] : room.props
+    .filter((prop) => prop.dispensing)
+    .map((prop) => ({ prop, stand: prop.standPoint(room) }))
+    .filter(({ stand }) => room.isWalkable(stand));
 
   const options: Option[] = [
     {
@@ -710,6 +752,14 @@ export function planNext(agent: Agent, world: World): Task[] {
       weight: action.weight,
       build: () => [useItem(action)],
     })),
+    {
+      // Grab something from a vending machine; drinking it is then one of the item's actions.
+      weight: dispensers.length ? (working ? 0.2 : 1.2) : 0,
+      build: () => {
+        const { prop, stand } = pick(dispensers);
+        return [walkTo(stand, `Heading to the ${prop.type.replaceAll('_', ' ')}`), getFromDispenser(prop)];
+      },
+    },
     {
       // Impostors stay until the event director sends them off.
       weight: !agent.impostor && (stayed > 35 || darkness > 0)
