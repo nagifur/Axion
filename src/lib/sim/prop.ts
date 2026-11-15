@@ -12,6 +12,7 @@ export interface PropState {
 
 /** How a prop starts unless room.json says otherwise. */
 export const DEFAULT_PROP_STATE: Readonly<PropState> = { on: true, broken: false };
+export const PROP_BREAK_CHANCE = 0.01;
 
 /** A prop as room.json places it. */
 export interface PlacedProp {
@@ -99,6 +100,10 @@ export class Prop implements PlacedProp {
     if (!this.breakable || this.broken) return false;
     this.broken = true;
     return true;
+  }
+
+  breakOnUse(): boolean {
+    return this.breakable && !this.broken && Math.random() < PROP_BREAK_CHANCE && this.break();
   }
 
   /** Returns whether anything changed. */

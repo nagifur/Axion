@@ -239,7 +239,7 @@ export const PROP_TYPES: Record<string, PropType> = {
     blocks: { x: 4, y: 30, w: 21, h: 8 },
   },
   // Its power switch comes from the sheet's off row; it keeps its power state when the room empties.
-  vending_machine: { asset: 'vending_machine', dispenses: 'can' },
+  vending_machine: { asset: 'vending_machine', breakable: true, dispenses: 'can' },
 };
 
 // The elevator is found from the nav map; its sprites are drawn to fit the opening.

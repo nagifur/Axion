@@ -3,6 +3,7 @@ import test from 'node:test';
 import sharp from 'sharp';
 import { Agent, enterThroughDoor, nap, trip, wait } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE } from '../src/lib/sim/sprites.ts';
+import { Prop } from '../src/lib/sim/prop.ts';
 
 function agentAt(x = 0, y = 0) {
   return new Agent({ scale: 1, behavior: { speed: 1 } }, {}, { x, y });
@@ -137,7 +138,8 @@ test('bench and mirrored chair rests sit only after reaching their reserved spot
     ['chair', 'right', 'sitRight1', false],
     ['chair', 'left', 'sitRight1', true],
   ]) {
-    const spot = { id: kind, kind, facing, x: 28, y: 0, propDepth: 3 };
+    const prop = new Prop({ type: kind, asset: kind, x: 0, y: 0, w: 10, h: 10, flip: false });
+    const spot = { id: kind, kind, facing, x: 28, y: 0, propDepth: 3, prop };
     const world = activityWorld(spot);
     const agent = activityAgent();
     agent.update(world, 0.5);
@@ -161,7 +163,8 @@ test('bench and mirrored chair rests sit only after reaching their reserved spot
 
 test('naps at seats use sitting poses but debug naps away from seats do not', (t) => {
   t.mock.method(Math, 'random', () => 0.75);
-  const spot = { id: 'bench', kind: 'bench', facing: 'front', x: 28, y: 0, propDepth: 3 };
+  const prop = new Prop({ type: 'bench', asset: 'bench', x: 0, y: 0, w: 10, h: 10, flip: false });
+  const spot = { id: 'bench', kind: 'bench', facing: 'front', x: 28, y: 0, propDepth: 3, prop };
   const world = activityWorld(spot);
   const agent = activityAgent(0, 1);
   agent.update(world, 1);

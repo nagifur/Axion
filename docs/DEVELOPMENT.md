@@ -338,6 +338,15 @@ from its `PROP_TYPES` entry, or an automatically detected power-off row:
 
 Code changes state with `prop.setOn()`, `prop.break()` and `prop.repair()`.
 
+Breakable props have a 1% chance to break per use (`PROP_BREAK_CHANCE` in
+[`prop.ts`](../src/lib/sim/prop.ts)), shared by autonomous and drag-and-drop interactions.
+The roll happens when seated use starts, when a valid dispenser attempt finishes,
+or when a manual switch/inspection starts, never on every simulation tick or preview.
+Chairs, benches, tables, lights, and vending machines are breakable; plain decorations
+are not. Breakage logs a warning and shows an exclamation bubble. Seated use stops,
+and a vending machine that breaks dispenses nothing. Runtime breakage lasts until
+`prop.repair()` is called and does not change the exported starting state.
+
 #### Prop Sprite Sheets
 
 The shared props use **96 × 96 pixel cells**, with frames running left to right.

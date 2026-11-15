@@ -1,4 +1,4 @@
-import { conversationPoint, getFromDispenser, rest, startConversation, wait, type Agent } from './agent.ts';
+import { breakPropOnUse, conversationPoint, getFromDispenser, rest, startConversation, wait, type Agent } from './agent.ts';
 import type { Prop } from './prop.ts';
 import type { Point, Room, Spot } from './room.ts';
 import { scheduleFor } from './schedule.ts';
@@ -84,11 +84,15 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
   } else if (target.kind === 'prop' && target.prop.dispensing) {
     agent.setPlan(world, [getFromDispenser(target.prop)]);
   } else if (target.kind === 'prop') {
+    let attempted = false;
     agent.facing = 'back';
     agent.face({ x: target.prop.x + target.prop.w / 2, y: target.prop.y });
     agent.setPlan(world, [{
       ...wait(3, target.label),
       start() {
+        if (attempted) return;
+        attempted = true;
+        if (target.prop.broken || breakPropOnUse(agent, world, target.prop)) return;
         if (target.prop.switchable) target.prop.setOn(switchOn);
         else agent.say('?', 2);
       },

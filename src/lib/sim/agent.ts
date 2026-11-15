@@ -415,11 +415,19 @@ export function getFromDispenser(prop: Prop, seconds = 2.5): Task {
         world.log(`${agent.character.name} couldn't get a ${type} from the ${name} in the ${agent.room.name}.`, 'muted');
         return true;
       }
+      if (breakPropOnUse(agent, world, prop)) return true;
       agent.receiveItem(Item.create(type));
       world.log(`${agent.character.name} got a ${type} from the ${name} in the ${agent.room.name}.`, 'muted');
       return true;
     },
   };
+}
+
+export function breakPropOnUse(agent: Agent, world: World, prop: Prop): boolean {
+  if (!prop.breakOnUse()) return false;
+  agent.say('!', 1.5);
+  world.log(`${agent.character.name}'s ${prop.type.replaceAll('_', ' ')} broke in the ${agent.room.name}.`, 'warn');
+  return true;
 }
 
 export interface Conversation {
@@ -674,14 +682,36 @@ interface Option {
 
 export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePeriod): Task {
   const nightOwl = world.isNight() ? 1.4 : 1;
-  if (Math.random() < agent.character.behavior.napChance * nightOwl * (period === 'work' ? 0.15 : 1)) {
-    return { ...nap(range(25, 50), spot.facing), sitting: true };
-  }
+  const sleeping = Math.random() < agent.character.behavior.napChance * nightOwl * (period === 'work' ? 0.15 : 1);
   const onChair = spot.kind === 'chair';
   const activity = period === 'lunch' ? 'Having lunch'
     : period === 'work' && onChair ? 'Working at the table'
     : period === 'free' && onChair ? 'Relaxing at the table' : 'Taking a break';
-  return { ...wait(period === 'work' ? range(30, 60) : range(8, 18), activity, spot.facing), sitting: true };
+  const task = sleeping ? nap(range(25, 50), spot.facing)
+    : wait(period === 'work' ? range(30, 60) : range(8, 18), activity, spot.facing);
+  let attempted = false;
+  let started = false;
+  return {
+    ...task,
+    sitting: true,
+    start(agent, world) {
+      if (!attempted) {
+        attempted = true;
+        if (!spot.prop.broken) breakPropOnUse(agent, world, spot.prop);
+      }
+      if (!spot.prop.broken) {
+        started = true;
+        task.start?.(agent, world);
+      }
+    },
+    update(agent, world, dt) {
+      return spot.prop.broken || task.update(agent, world, dt);
+    },
+    end(agent, world) {
+      if (started) task.end?.(agent, world);
+      if (spot.prop.broken && agent.spot === spot) agent.spot = undefined;
+    },
+  };
 }
 
 /** Tasks that take the agent out of the facility: through this room's way out, or towards the nearest room with one. */

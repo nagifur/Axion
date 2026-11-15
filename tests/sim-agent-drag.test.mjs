@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import { dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
 import { enterThroughDoor, nap, startConversation, wait } from '../src/lib/sim/agent.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { LIGHTS_OFF_SECONDS, Room } from '../src/lib/sim/room.ts';
 import { World } from '../src/lib/sim/world.ts';
+import { Prop } from '../src/lib/sim/prop.ts';
+
+beforeEach((t) => t.mock.method(Prop.prototype, 'breakOnUse', () => false));
 
 const character = (id) => ({
   id, name: id, href: `/Personnel/${id}`, tint: '#fff', scale: 1, position: 'Test', species: 'Test',
