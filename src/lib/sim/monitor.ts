@@ -1,9 +1,10 @@
 import { nap, trip, type Agent } from './agent.ts';
+import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
 import { PropEditor } from './propEditor.ts';
-import { Renderer, loadAssets } from './render.ts';
+import { PropPicker, Renderer, loadAssets } from './render.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
-import { Room, type RoomData } from './room.ts';
+import { Room, type Point, type RoomData } from './room.ts';
 import { World, type LogTone } from './world.ts';
 import { scheduleFor } from './schedule.ts';
 
@@ -87,6 +88,8 @@ export function initMonitor(root: HTMLElement): () => void {
   const debugPanel = root.querySelector<HTMLElement>('[data-monitor-debug]');
   const screen = root.querySelector<HTMLElement>('[data-monitor-screen]');
   const stage = root.querySelector<HTMLElement>('[data-monitor-stage]');
+  const dragStatus = root.querySelector<HTMLElement>('[data-monitor-drag-status]');
+  const inputSurface = stage ?? canvas;
   const camTitle = root.querySelector<HTMLElement>('[data-monitor-cam-title]');
   const cameraButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-camera]')];
   const levelButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-level]')];
@@ -112,6 +115,12 @@ export function initMonitor(root: HTMLElement): () => void {
   let hovered: Agent | null = null;
   let selected: Agent | null = null;
   let renderer: Renderer | null = null;
+  let propPicker: PropPicker | null = null;
+  let drag: {
+    agent: Agent; pointerId: number; start: Point; client: Point; offset: Point;
+    point: Point; head: Point; active: boolean;
+  } | null = null;
+  let suppressClick = false;
   let toastTimer = 0;
 
   // --- Log & achievements -------------------------------------------------
@@ -168,6 +177,7 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const switchCamera = (room: Room) => {
     const changed = room !== viewed;
+    if (changed) cancelDrag();
     viewed = room;
     // Same pixel scale on every camera, so characters don't change size between rooms.
     if (stage) stage.style.width = `${(room.width / maxRoomWidth) * 100}%`;
@@ -379,11 +389,15 @@ export function initMonitor(root: HTMLElement): () => void {
       const bubble = agent.bubble ?? '';
       if (tag.bubble.textContent !== bubble) tag.bubble.textContent = bubble;
 
-      const visible = renderer.isVisible(agent, world);
+      const visible = renderer.isVisible(agent, world) || (agent.held && agent.room === viewed);
       tag.button.hidden = !visible;
+      tag.button.classList.toggle('is-held', agent.held);
       tag.button.classList.toggle('is-quiet', !showAllTags && agent !== hovered && agent !== selected);
       tag.button.classList.toggle('is-active', agent === hovered || agent === selected);
-      if (visible) visibleTags.push({ agent, button: tag.button, head: renderer.headPosition(agent) });
+      if (visible) visibleTags.push({
+        agent, button: tag.button,
+        head: agent.held && drag?.agent === agent ? drag.head : renderer.headPosition(agent),
+      });
     }
 
     // Place tags front to back; any tag that would overlap one already placed moves up.
@@ -411,12 +425,48 @@ export function initMonitor(root: HTMLElement): () => void {
 
   // --- Input ---------------------------------------------------------------
 
-  const toRoom = (event: PointerEvent | MouseEvent) => {
+  const toRoom = (event: { clientX: number; clientY: number }) => {
     const rect = canvas.getBoundingClientRect();
     return {
       x: ((event.clientX - rect.left) / rect.width) * viewed.width,
       y: ((event.clientY - rect.top) / rect.height) * viewed.height,
     };
+  };
+
+  const agentAt = (event: { clientX: number; clientY: number }, point: Point) => {
+    const element = document.elementFromPoint(event.clientX, event.clientY);
+    for (const [agent, tag] of tags) {
+      if (!agent.held && !tag.button.hidden && element && tag.button.contains(element)) return agent;
+    }
+    return renderer?.hitTest(world, point.x, point.y) ?? null;
+  };
+
+  const currentDrop = (): DropTarget => {
+    if (!drag) return { kind: 'invalid', label: 'No agent picked up' };
+    const event = { clientX: drag.client.x, clientY: drag.client.y };
+    const pointer = toRoom(event);
+    if (pointer.x < 0 || pointer.y < 0 || pointer.x >= viewed.width || pointer.y >= viewed.height) {
+      return { kind: 'invalid', label: 'Drop inside the camera feed' };
+    }
+    const partner = agentAt(event, pointer);
+    const prop = partner ? null : propPicker?.at(viewed, pointer, world.time);
+    return dropTarget(world, drag.agent, partner || prop ? pointer : drag.point, partner, prop);
+  };
+
+  const setDragStatus = (text: string) => {
+    if (dragStatus && dragStatus.textContent !== text) dragStatus.textContent = text;
+  };
+
+  const cancelDrag = () => {
+    if (!drag) return;
+    const { agent, pointerId } = drag;
+    agent.held = false;
+    drag = null;
+    suppressClick = true;
+    if (inputSurface.hasPointerCapture(pointerId)) inputSurface.releasePointerCapture(pointerId);
+    root.classList.remove('is-dragging');
+    canvas.style.cursor = '';
+    setDragStatus('Drag an agent to open floor, a prop, or another agent. Esc cancels.');
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -427,37 +477,118 @@ export function initMonitor(root: HTMLElement): () => void {
       if (editorCursor && editor.cursor) editorCursor.textContent = `Cursor: ${editor.cursor.x}, ${editor.cursor.y}`;
       return;
     }
+    if (drag && event.pointerId === drag.pointerId) {
+      drag.client = { x: event.clientX, y: event.clientY };
+      if (!drag.active && Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) >= 5) {
+        if (!drag.agent.draggable) {
+          log(`${drag.agent.character.name} cannot be picked up during a doorway or elevator transition.`, 'warn');
+          cancelDrag();
+          suppressClick = true;
+          return;
+        }
+        drag.active = true;
+        drag.head = renderer.headPosition(drag.agent);
+        drag.agent.held = true;
+        root.classList.add('is-dragging');
+      }
+      if (drag.active) {
+        event.preventDefault();
+        drag.point = { x: point.x - drag.offset.x, y: point.y - drag.offset.y };
+        const target = currentDrop();
+        hovered = target.kind === 'agent' ? target.partner : null;
+        canvas.style.cursor = target.kind === 'invalid' ? 'not-allowed' : 'grabbing';
+        setDragStatus(`${drag.agent.character.name}: ${target.label}`);
+      }
+      return;
+    }
     hovered = renderer.hitTest(world, point.x, point.y);
-    canvas.style.cursor = hovered ? 'pointer' : '';
+    canvas.style.cursor = hovered ? (hovered.draggable ? 'grab' : 'pointer') : '';
   };
   const onPointerLeave = () => {
+    if (drag) return;
     hovered = null;
     canvas.style.cursor = '';
     editor?.pointerLeave();
     if (editorCursor) editorCursor.textContent = 'Cursor: –';
   };
   const onClick = (event: MouseEvent) => {
+    if (suppressClick && event.detail !== 0) {
+      suppressClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    suppressClick = false;
     if (!renderer || editor?.active) return;
+    if (event.target instanceof Element && event.target.closest('.monitor-tag')) return;
     const point = toRoom(event);
     const agent = renderer.hitTest(world, point.x, point.y);
     if (agent) select(agent);
   };
   const onPointerDown = (event: PointerEvent) => {
-    if (!editor?.active || event.button !== 0) return;
-    canvas.setPointerCapture(event.pointerId);
-    editor.pointerDown(toRoom(event), world.time);
+    if (!renderer || event.button !== 0 || !event.isPrimary || drag) return;
+    suppressClick = false;
+    if (editor?.active) {
+      inputSurface.setPointerCapture(event.pointerId);
+      editor.pointerDown(toRoom(event), world.time);
+      return;
+    }
+    const point = toRoom(event);
+    const agent = agentAt(event, point);
+    if (!agent) return;
+    drag = {
+      agent, pointerId: event.pointerId, start: { x: event.clientX, y: event.clientY },
+      client: { x: event.clientX, y: event.clientY },
+      offset: { x: point.x - agent.x, y: point.y - agent.y }, point: { x: agent.x, y: agent.y },
+      head: renderer.headPosition(agent), active: false,
+    };
+    inputSurface.setPointerCapture(event.pointerId);
   };
-  const onPointerUp = () => editor?.pointerUp();
+  const onPointerUp = (event: PointerEvent) => {
+    if (editor?.active) {
+      editor.pointerUp();
+      if (inputSurface.hasPointerCapture(event.pointerId)) inputSurface.releasePointerCapture(event.pointerId);
+      return;
+    }
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const { agent, active } = drag;
+    if (active) {
+      drag.client = { x: event.clientX, y: event.clientY };
+      const point = toRoom(event);
+      drag.point = { x: point.x - drag.offset.x, y: point.y - drag.offset.y };
+      const target = currentDrop();
+      agent.held = false;
+      placeAgent(world, agent, target);
+    }
+    cancelDrag();
+    if (!active) {
+      // Capture retargets tag clicks to the stage; keep ordinary selection working.
+      select(agent);
+      suppressClick = true;
+    }
+  };
+  const onPointerCancel = () => {
+    cancelDrag();
+    editor?.pointerUp();
+  };
   const onKeyDown = (event: KeyboardEvent) => {
     const target = event.target instanceof Element ? event.target : null;
+    if (event.key === 'Escape' && drag) {
+      event.preventDefault();
+      cancelDrag();
+      return;
+    }
     if (!editor?.active || target?.closest('input, textarea')) return;
     if (editor.key(event)) event.preventDefault();
   };
-  canvas.addEventListener('pointermove', onPointerMove);
-  canvas.addEventListener('pointerleave', onPointerLeave);
-  canvas.addEventListener('click', onClick);
-  canvas.addEventListener('pointerdown', onPointerDown);
-  canvas.addEventListener('pointerup', onPointerUp);
+  inputSurface.addEventListener('pointermove', onPointerMove);
+  inputSurface.addEventListener('pointerleave', onPointerLeave);
+  inputSurface.addEventListener('click', onClick, true);
+  inputSurface.addEventListener('pointerdown', onPointerDown);
+  inputSurface.addEventListener('pointerup', onPointerUp);
+  inputSurface.addEventListener('pointercancel', onPointerCancel);
+  inputSurface.addEventListener('lostpointercapture', onPointerCancel);
+  window.addEventListener('blur', onPointerCancel);
   window.addEventListener('keydown', onKeyDown);
 
   tagsToggle?.addEventListener('click', () => {
@@ -570,6 +701,7 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const toggleEditor = () => {
     if (!editor || !editorPanel) return;
+    cancelDrag();
     editor.active = !editor.active;
     editorPanel.hidden = !editor.active;
     root.classList.toggle('is-editing', editor.active);
@@ -623,7 +755,10 @@ export function initMonitor(root: HTMLElement): () => void {
   world.hooks = {
     log,
     achieve,
-    removed: (agent) => { if (hovered === agent) hovered = null; },
+    removed: (agent) => {
+      if (drag?.agent === agent) cancelDrag();
+      if (hovered === agent) hovered = null;
+    },
   };
   renderAchievements();
   renderFile(null);
@@ -642,10 +777,19 @@ export function initMonitor(root: HTMLElement): () => void {
       world.update(dt);
       director.update(world, dt);
     }
+    if (drag && (drag.agent.room !== viewed || (drag.active && drag.agent.leaving))) {
+      log(`Pickup cancelled: ${drag.agent.character.name} is leaving the camera.`, 'muted');
+      cancelDrag();
+    }
     const highlights = new Map<Agent, string>();
     if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
     if (hovered) highlights.set(hovered, '#ffffff');
     renderer.draw(world, highlights);
+    if (drag?.active) {
+      const target = currentDrop();
+      renderer.drawHeld(drag.agent, drag.point, target.kind !== 'invalid');
+      setDragStatus(`${drag.agent.character.name}: ${target.label}`);
+    }
     if (editor?.active) editor.draw(renderer.context, renderer.scale, world.time);
     syncTags();
     renderFile(selected);
@@ -655,6 +799,7 @@ export function initMonitor(root: HTMLElement): () => void {
   loadAssets(config.assets).then((assets) => {
     if (disposed) return;
     renderer = new Renderer(canvas, assets, viewed);
+    propPicker = new PropPicker(assets);
     renderer.resize();
     if (debugMode) editor = new PropEditor(assets, viewed, renderEditor);
     world.populate();
@@ -669,6 +814,7 @@ export function initMonitor(root: HTMLElement): () => void {
   });
 
   return () => {
+    cancelDrag();
     disposed = true;
     delete root.dataset.monitorActive;
     cancelAnimationFrame(raf);
@@ -677,11 +823,14 @@ export function initMonitor(root: HTMLElement): () => void {
     window.clearTimeout(staticTimer);
     window.clearTimeout(copyTimer);
     resizeObserver.disconnect();
-    canvas.removeEventListener('pointermove', onPointerMove);
-    canvas.removeEventListener('pointerleave', onPointerLeave);
-    canvas.removeEventListener('click', onClick);
-    canvas.removeEventListener('pointerdown', onPointerDown);
-    canvas.removeEventListener('pointerup', onPointerUp);
+    inputSurface.removeEventListener('pointermove', onPointerMove);
+    inputSurface.removeEventListener('pointerleave', onPointerLeave);
+    inputSurface.removeEventListener('click', onClick, true);
+    inputSurface.removeEventListener('pointerdown', onPointerDown);
+    inputSurface.removeEventListener('pointerup', onPointerUp);
+    inputSurface.removeEventListener('pointercancel', onPointerCancel);
+    inputSurface.removeEventListener('lostpointercapture', onPointerCancel);
+    window.removeEventListener('blur', onPointerCancel);
     window.removeEventListener('keydown', onKeyDown);
     for (const button of cameraButtons) button.removeEventListener('click', onCameraClick);
     for (const button of levelButtons) button.removeEventListener('click', onLevelClick);

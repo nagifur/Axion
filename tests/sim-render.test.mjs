@@ -67,6 +67,7 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
           restore() {},
           translate() {},
           scale() {},
+          clearRect() {},
         };
         return { width: 0, height: 0, draws, fills, getContext() { return ctx; } };
       },
@@ -107,4 +108,19 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
   room.darkness = 0;
   renderer.draw(world, new Map());
   assert.equal(dimming().length, 1, 'restoring light removes the dimming pass');
+
+  world.agents = [seated];
+  seated.held = true;
+  assert.equal(renderer.isVisible(seated, world), false, 'held sprites are not targets');
+  assert.equal(renderer.hitTest(world, 110, 100), null);
+  assert.equal(seated.sitting, false, 'pickup uses a standing pose');
+  const before = canvas.draws.length;
+  renderer.draw(world, new Map());
+  assert.equal(canvas.draws.length - before, 2, 'held sprite is omitted from the depth-sorted scene');
+  const position = [seated.x, seated.y];
+  renderer.drawHeld(seated, { x: 220, y: 170 }, true);
+  assert.deepEqual([seated.x, seated.y], position, 'preview does not change simulation coordinates');
+  assert.equal(canvas.draws.at(-1)[0], sheet.normal);
+  seated.held = false;
+  assert.equal(renderer.isVisible(seated, world), true, 'cancelling makes the original sprite visible again');
 });

@@ -222,6 +222,9 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <button type="button" class="btn" data-debug="props" aria-pressed="false">Edit props</button>
           <button type="button" class="btn danger" data-debug="reset">Reset progress</button>
         </div>
+        <p class="monitor-drag-help" data-monitor-drag-status role="status">
+          Drag an agent to open floor, a prop, or another agent. Esc cancels.
+        </p>
       </div>
 
       <div class="monitor-editor" data-monitor-editor hidden>
@@ -386,7 +389,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-stage{ position:relative; margin:0 auto }
   .monitor-screen canvas{
     display:block; width:100%; height:auto;
-    image-rendering:pixelated; touch-action:manipulation;
+    image-rendering:pixelated; touch-action:none;
   }
   .monitor-crt{
     position:absolute; inset:0; pointer-events:none;
@@ -413,11 +416,12 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-tag{
     position:absolute; transform:translate(-50%, -100%);
     display:flex; flex-direction:column; align-items:center; gap:2px;
-    padding:0 2px; border:0; background:none; cursor:pointer; pointer-events:auto;
+    padding:0 2px; border:0; background:none; cursor:grab; pointer-events:auto; touch-action:none; user-select:none;
     font:inherit; font-size:clamp(0.48rem, 1.05vw, 0.66rem); line-height:1.15; white-space:nowrap;
     color:var(--tag-tint, var(--neon-cyan));
   }
   .monitor-tag[hidden]{ display:none }
+  .monitor-tag.is-held{ visibility:hidden; pointer-events:none }
   .monitor-tag-name{
     padding:1px 5px; border-radius:2px; letter-spacing:0.08em; text-transform:uppercase;
     background:rgba(5, 8, 13, 0.78); border:1px solid color-mix(in srgb, var(--tag-tint, #7ef5ff) 55%, transparent);
@@ -431,6 +435,8 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-tag:focus-visible .monitor-tag-name{ opacity:1; outline:2px solid var(--neon-cyan); outline-offset:1px }
 
   .monitor-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+  .monitor-drag-help{ margin:0; color:var(--muted); font-size:0.75rem }
+  .monitor-page.is-dragging .monitor-stage{ cursor:grabbing; user-select:none }
   .monitor-debug{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-left:auto }
   .monitor-debug[hidden]{ display:none }
   .monitor-debug-label{ font-size:0.68rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--neon-yellow) }

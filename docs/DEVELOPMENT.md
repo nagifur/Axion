@@ -151,6 +151,18 @@ height sets sprite size, `colorTint` colours the name tag, and traits such as *S
 Wanted characters are left out. Entities with a *Shapeshifting* ability can sneak in
 disguised as staff.
 
+Drag a sprite or name tag to physically pick up an agent. Dropping on open floor
+repositions them, on a free chair or bench seat starts the usual seated activity,
+and on another agent starts a conversation. Lights can be toggled; other unseated
+props are inspected. The held agent pauses while the rest of the facility continues.
+Broken or occupied props, walls, and drops outside the feed are rejected without
+changing the original task or position. Esc, pointer cancellation, losing focus,
+or switching cameras cancels a pickup. Doorway and elevator transitions cannot be
+picked up. Paused feeds accept drops, with tasks starting when the feed resumes.
+Player drops do not trigger the file-selection ping (or reveal disguised entities);
+ordinary clicks still do. Drop resolution lives in
+[`agentDrag.ts`](../src/lib/sim/agentDrag.ts).
+
 Staff start, arrive, and choose rooms only on floors at or below their profile's
 `accessLevel`. `Admin` can visit every floor; unknown or redacted clearances use
 level 1. This applies to connected doors, elevators, and ghost arrivals.

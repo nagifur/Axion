@@ -1,5 +1,6 @@
 import type { Agent } from './agent.ts';
-import type { Room } from './room.ts';
+import type { Point, Room } from './room.ts';
+import type { Prop } from './prop.ts';
 import { CHARACTER_FRAMES, ELEVATOR_SPRITES, propFrame, propFrames, type Frame, type FrameName, type PropLook } from './sprites.ts';
 import type { World } from './world.ts';
 
@@ -54,6 +55,41 @@ function context(canvas: Canvas) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   ctx.imageSmoothingEnabled = false;
   return ctx;
+}
+
+/** Shared pixel-aware prop picking for player drops and the debug editor. */
+export class PropPicker {
+  private readonly masks = new Map<string, { alpha: Uint8ClampedArray; w: number }>();
+  private readonly assets: Assets;
+
+  constructor(assets: Assets) {
+    this.assets = assets;
+  }
+
+  at(room: Room, point: Point, time = 0): Prop | null {
+    const front = [...room.props].reverse().sort((a, b) => b.y + b.h - (a.y + a.h));
+    const inBox = front.filter((prop) =>
+      point.x >= prop.x && point.x < prop.x + prop.w && point.y >= prop.y && point.y < prop.y + prop.h);
+    const solid = inBox.find((prop) => {
+      const image = this.assets[prop.asset];
+      if (!image) throw new Error(`Missing prop asset "${prop.asset}".`);
+      const frame = propFrame(prop.asset, image, time, prop.look);
+      const key = `${prop.asset}:${frame.x}:${frame.y}`;
+      let mask = this.masks.get(key);
+      if (!mask) {
+        const canvas = makeCanvas(frame.w, frame.h);
+        const ctx = context(canvas);
+        ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+        mask = { alpha: ctx.getImageData(0, 0, frame.w, frame.h).data, w: frame.w };
+        this.masks.set(key, mask);
+      }
+      let lx = Math.floor(point.x - prop.x);
+      const ly = Math.floor(point.y - prop.y);
+      if (prop.flip) lx = prop.w - 1 - lx;
+      return mask.alpha[(ly * mask.w + lx) * 4 + 3] > 0;
+    });
+    return solid ?? inBox[0] ?? null;
+  }
 }
 
 /** Copy of an image with every pixel of `from` replaced by `to` (RGB). */
@@ -197,7 +233,7 @@ export class Renderer {
   }
 
   isVisible(agent: Agent, world: World) {
-    if (agent.room !== this.room || agent.alpha < 0.3) return false;
+    if (agent.held || agent.room !== this.room || agent.alpha < 0.3) return false;
     return agent.layer === 'room' || (world.elevatorFor(this.room)?.open ?? 0) > 0.4;
   }
 
@@ -266,6 +302,15 @@ export class Renderer {
     ctx.restore();
   }
 
+  /** Held sprites draw above the room without changing their simulation position. */
+  drawHeld(agent: Agent, point: Point, valid: boolean) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(Math.round(point.x - agent.x), Math.round(point.y - agent.y));
+    this.drawAgent(agent, valid ? '#33ff99' : '#ff4060');
+    ctx.restore();
+  }
+
   /** The elevator car, its sliding doors and arrow lights, drawn behind the room art. */
   private drawElevator(world: World, highlights: Map<Agent, string>) {
     const opening = this.room.elevator;
@@ -331,7 +376,7 @@ export class Renderer {
       };
     });
     for (const agent of world.agentsIn(room)) {
-      if (agent.layer !== 'room') continue;
+      if (agent.held || agent.layer !== 'room') continue;
       drawables.push({ depth: agentDepth(agent), draw: () => this.drawAgent(agent, highlights.get(agent)) });
     }
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());

@@ -551,7 +551,7 @@ export class World {
     }
 
     for (const agent of [...this.agents]) {
-      if (agent.removed) continue;
+      if (agent.removed || agent.held) continue;
       // Whoever is sitting on, or heading for, a prop that broke gives up on it.
       const seat = agent.spot?.prop;
       if (seat?.broken) {

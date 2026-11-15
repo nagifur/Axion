@@ -1,15 +1,9 @@
 // Debug-only tool for placing props in a room by hand and copying the result into room.json.
 
-import { drawPropSprite, type Assets } from './render.ts';
+import { drawPropSprite, PropPicker, type Assets } from './render.ts';
 import { Prop, type PlacedProp } from './prop.ts';
 import type { Point, Room } from './room.ts';
-import { propFrame, propTypeOf, type PropLook } from './sprites.ts';
-
-interface Mask {
-  alpha: Uint8ClampedArray;
-  w: number;
-  h: number;
-}
+import { propFrame, propTypeOf } from './sprites.ts';
 
 interface Drag {
   prop: Prop;
@@ -46,7 +40,7 @@ export class PropEditor {
   placing: string | null = null;
   cursor: Point | null = null;
   private drag: Drag | null = null;
-  private readonly masks = new Map<string, Mask>();
+  private readonly picker: PropPicker;
   /** Props each room had when the page loaded, to show what changed and to reset. */
   private readonly original = new Map<Room, Prop[]>();
   private readonly assets: Assets;
@@ -54,6 +48,7 @@ export class PropEditor {
 
   constructor(assets: Assets, room: Room, onChange: () => void) {
     this.assets = assets;
+    this.picker = new PropPicker(assets);
     this.onChange = onChange;
     this.room = room;
     this.setRoom(room);
@@ -203,36 +198,9 @@ export class PropEditor {
     };
   }
 
-  private mask(asset: string, time: number, look?: PropLook): Mask {
-    const image = this.assets[asset];
-    if (!image) throw new Error(`Missing prop asset "${asset}".`);
-    const frame = propFrame(asset, image, time, look);
-    const key = `${asset}:${frame.x}:${frame.y}`;
-    const cached = this.masks.get(key);
-    if (cached) return cached;
-    const canvas = document.createElement('canvas');
-    canvas.width = frame.w;
-    canvas.height = frame.h;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
-    const mask = { alpha: ctx.getImageData(0, 0, frame.w, frame.h).data, w: frame.w, h: frame.h };
-    this.masks.set(key, mask);
-    return mask;
-  }
-
   /** The frontmost prop under the point, preferring its visible pixels over its box. */
   propAt(point: Point, time = 0): Prop | null {
-    const front = [...this.room.props].reverse().sort((a, b) => b.y + b.h - (a.y + a.h));
-    const inBox = front.filter((prop) =>
-      point.x >= prop.x && point.x < prop.x + prop.w && point.y >= prop.y && point.y < prop.y + prop.h);
-    const solid = inBox.find((prop) => {
-      const mask = this.mask(prop.asset, time, prop.look);
-      let lx = Math.floor(point.x - prop.x);
-      const ly = Math.floor(point.y - prop.y);
-      if (prop.flip) lx = prop.w - 1 - lx;
-      return mask.alpha[(ly * mask.w + lx) * 4 + 3] > 0;
-    });
-    return solid ?? inBox[0] ?? null;
+    return this.picker.at(this.room, point, time);
   }
 
   /** Floor, blocked areas, seats and prop outlines, drawn over the room in room pixels. */

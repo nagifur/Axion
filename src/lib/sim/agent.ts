@@ -13,6 +13,8 @@ export interface Task {
   interruptible: boolean;
   /** This task takes place while seated at a reserved spot. */
   sitting?: boolean;
+  /** Door/elevator transitions cannot be picked up midway. */
+  transport?: boolean;
   start?(agent: Agent, world: World): void;
   /** Returns true when the task is finished. */
   update(agent: Agent, world: World, dt: number): boolean;
@@ -47,6 +49,7 @@ export class Agent {
   enteredRoomAt = 0;
   leaving = false;
   removed = false;
+  held = false;
   napping = false;
   spot?: Spot;
   conversation?: Conversation;
@@ -70,20 +73,24 @@ export class Agent {
   }
 
   get busy() {
-    return !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
+    return this.held || !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
+  }
+
+  get draggable() {
+    return !this.removed && !this.leaving && !this.held && this.layer === 'room' && this.alpha >= 1 && !this.task?.transport;
   }
 
   get sitting() {
-    return !!this.task?.sitting && !this.moving;
+    return !this.held && !!this.task?.sitting && !this.moving;
   }
 
   get frame(): { name: FrameName; flip: boolean } {
-    const speaking = this.conversation && isSpeaking(this.conversation, this);
-    const cycle = this.moving ? WALK_CYCLES[this.facing]
+    const speaking = !this.held && this.conversation && isSpeaking(this.conversation, this);
+    const cycle = this.moving && !this.held ? WALK_CYCLES[this.facing]
       : this.sitting ? SIT_CYCLES[this.facing]
       : speaking && (this.facing === 'left' || this.facing === 'right') ? TALK_RIGHT_CYCLE
       : IDLE_CYCLES[this.facing];
-    const phase = this.moving ? this.walkDistance / WALK_STRIDE : this.idleElapsed / IDLE_FRAME_SECONDS;
+    const phase = this.moving && !this.held ? this.walkDistance / WALK_STRIDE : this.idleElapsed / IDLE_FRAME_SECONDS;
     return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
   }
 
@@ -103,6 +110,18 @@ export class Agent {
 
   /** Replaces whatever the agent is doing. */
   setPlan(world: World, tasks: Task[]) {
+    const conversation = this.conversation;
+    if (conversation) {
+      conversation.ended = true;
+      this.conversation = undefined;
+      this.bubble = null;
+      const other = conversation.initiator === this ? conversation.partner : conversation.initiator;
+      if (other.conversation === conversation) {
+        other.conversation = undefined;
+        other.bubble = null;
+        other.setPlan(world, []);
+      }
+    }
     this.task?.end?.(this, world);
     this.task = undefined;
     this.spot = undefined;
@@ -311,17 +330,25 @@ function listen(conversation: Conversation): Task {
   };
 }
 
-function startConversation(agent: Agent, partner: Agent, world: World): Task[] | null {
+export function conversationPoint(agent: Point, partner: Agent): Point | undefined {
   const offset = agent.x < partner.x ? -24 : 24;
   const spots = [{ x: partner.x + offset, y: partner.y }, { x: partner.x - offset, y: partner.y }];
-  const meet = spots.find((spot) => agent.room.isWalkable(spot));
+  return spots.find((spot) => partner.room.isWalkable(spot));
+}
+
+export function startConversation(agent: Agent, partner: Agent, world: World, immediate = false): Task[] | null {
+  const meet = conversationPoint(agent, partner);
   if (!meet) return null;
 
   const conversation: Conversation = { initiator: agent, partner, started: false, ended: false, elapsed: 0 };
-  agent.conversation = conversation;
   partner.setPlan(world, [listen(conversation)]);
+  const tasks = immediate
+    ? [talk(conversation, range(6, 12))]
+    : [walkTo(meet, `Going to talk to ${partner.character.name}`), talk(conversation, range(6, 12))];
+  if (immediate) agent.setPlan(world, tasks);
+  agent.conversation = conversation;
   partner.conversation = conversation;
-  return [walkTo(meet, `Going to talk to ${partner.character.name}`), talk(conversation, range(6, 12))];
+  return tasks;
 }
 
 /** Walks to the elevator, waits for the car, and rides it to `destination` (another floor on camera) or off camera. */
@@ -331,6 +358,7 @@ export function rideElevatorOut(destination?: Room): Task {
   return {
     activity: 'Heading to the elevator',
     interruptible: false,
+    transport: true,
     start(agent) {
       const { front } = agent.room.elevator!;
       const waitSpot = agent.room.nearestWalkable({ x: front.x + Math.round(range(-10, 10)), y: front.y });
@@ -374,6 +402,7 @@ export function rideElevatorIn(request: ElevatorRequest): Task {
   return {
     activity: 'Arriving by elevator',
     interruptible: false,
+    transport: true,
     update(agent, world, dt) {
       if (!request.board) return false;
       const elevator = agent.room.elevator!;
@@ -405,6 +434,7 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
   return {
     activity,
     interruptible: false,
+    transport: true,
     start(agent) {
       path = agent.room.route(agent, door.inside, agent.ghost);
     },
@@ -431,6 +461,7 @@ export function enterThroughDoor(door: Door): Task {
   return {
     activity: 'Arriving',
     interruptible: false,
+    transport: true,
     update(agent, _world, dt) {
       const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.inside, dt);
@@ -456,6 +487,7 @@ export function phaseThroughWall(direction: 'in' | 'out'): Task {
   return {
     activity: direction === 'in' ? 'Phasing in' : 'Phasing through the wall',
     interruptible: false,
+    transport: true,
     start(agent, world) {
       const top = agent.room.topFloorY(agent.x) ?? agent.y;
       wallY = top - 3;
@@ -483,7 +515,7 @@ interface Option {
   build: () => Task[] | null;
 }
 
-function rest(agent: Agent, spot: Spot, world: World, period: SchedulePeriod): Task {
+export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePeriod): Task {
   const nightOwl = world.isNight() ? 1.4 : 1;
   if (Math.random() < agent.character.behavior.napChance * nightOwl * (period === 'work' ? 0.15 : 1)) {
     return { ...nap(range(25, 50), spot.facing), sitting: true };
