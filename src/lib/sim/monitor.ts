@@ -5,6 +5,7 @@ import { Renderer, loadAssets } from './render.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import { Room, type RoomData } from './room.ts';
 import { World, type LogTone } from './world.ts';
+import { scheduleFor } from './schedule.ts';
 
 export interface MonitorConfig {
   roster: SimCharacter[];
@@ -250,7 +251,8 @@ export function initMonitor(root: HTMLElement): () => void {
     if (!fileNode) return;
     const twin = agent ? hasTwin(agent) : false;
     const onScreen = agent ? agent.room === viewed : false;
-    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}` : '';
+    const period = agent ? scheduleFor(agent.character, world.now()) : 'free';
+    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}` : '';
     if (key === fileKey) {
       if (agent && activityNode) activityNode.textContent = agent.removed ? 'Off camera' : agent.activity;
       return;
@@ -295,6 +297,7 @@ export function initMonitor(root: HTMLElement): () => void {
     if (!revealed) {
       stat('Clearance', /^\d+$/.test(character.accessLevel) ? `Level ${character.accessLevel}` : character.accessLevel);
       stat('Species', character.species);
+      stat('Schedule', { work: 'Working hours', lunch: 'Lunch break', break: 'Short break', free: 'Free time' }[period]);
     }
     activityNode = stat('Status', agent.removed ? 'Off camera' : agent.activity);
     if (!agent.removed) {

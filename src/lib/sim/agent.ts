@@ -2,6 +2,7 @@ import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts'
 import { directionTo, type Door, type Facing, type Point, type Room, type Spot } from './room.ts';
 import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
+import { scheduleFor, type SchedulePeriod } from './schedule.ts';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
 
@@ -482,13 +483,16 @@ interface Option {
   build: () => Task[] | null;
 }
 
-function rest(agent: Agent, spot: Spot, world: World): Task {
+function rest(agent: Agent, spot: Spot, world: World, period: SchedulePeriod): Task {
   const nightOwl = world.isNight() ? 1.4 : 1;
-  if (Math.random() < agent.character.behavior.napChance * nightOwl) return { ...nap(range(25, 50), spot.facing), sitting: true };
-  const hour = world.now().getHours();
+  if (Math.random() < agent.character.behavior.napChance * nightOwl * (period === 'work' ? 0.15 : 1)) {
+    return { ...nap(range(25, 50), spot.facing), sitting: true };
+  }
   const onChair = spot.kind === 'chair';
-  const activity = onChair ? (hour >= 11 && hour < 14 ? 'Having lunch' : 'Working at the table') : 'Taking a break';
-  return { ...wait(range(8, 18), activity, spot.facing), sitting: true };
+  const activity = period === 'lunch' ? 'Having lunch'
+    : period === 'work' && onChair ? 'Working at the table'
+    : period === 'free' && onChair ? 'Relaxing at the table' : 'Taking a break';
+  return { ...wait(period === 'work' ? range(30, 60) : range(8, 18), activity, spot.facing), sitting: true };
 }
 
 /** Tasks that take the agent out of the facility: through this room's way out, or towards the nearest room with one. */
@@ -529,6 +533,11 @@ export function planNext(agent: Agent, world: World): Task[] {
   const stayed = world.time - agent.arrivedAt;
   const inRoom = world.time - agent.enteredRoomAt;
   const crowded = world.presentCount() - world.targetPopulation();
+  const period = scheduleFor(agent.character, world.now());
+  const working = period === 'work' && !agent.impostor;
+  const workRooms = working ? new Set(world.workRooms(agent.character)) : new Set<Room>();
+  const workStep = working ? world.stepTowardWork(agent.character, room) : undefined;
+  const wandering = working ? 0.15 : period === 'free' ? 2 : 1;
 
   const benchSpot = world.freeSpot(room, 'bench');
   const chairSpot = world.freeSpot(room, 'chair');
@@ -542,18 +551,31 @@ export function planNext(agent: Agent, world: World): Task[] {
 
   const options: Option[] = [
     {
-      weight: 3,
+      weight: workStep && !darkness ? 12 : 0,
+      build: () => {
+        if (!workStep) return null;
+        return 'inside' in workStep
+          ? [exitThroughDoor(workStep, 1, `Heading to the ${world.room(workStep.to!.room)?.name ?? 'next room'}`)]
+          : [rideElevatorOut(workStep)];
+      },
+    },
+    {
+      weight: working ? 1 : 3,
       build: () => [
-        walkTo(room.randomFloorPoint()),
-        wait(range(2, 6), 'Looking around', pick<Facing>(['front', 'left', 'right'])),
+        walkTo(room.randomFloorPoint(), working ? 'Checking the work area' : 'Walking'),
+        wait(range(2, 6), working ? 'Checking the work area' : 'Looking around', pick<Facing>(['front', 'left', 'right'])),
       ],
     },
-    { weight: 1, build: () => [wait(range(3, 6), 'Standing around', 'front')] },
     {
-      weight: benchSpot ? 2 : 0,
+      weight: working ? (workStep ? 1 : 10) : 1,
+      build: () => [wait(working ? range(30, 60) : range(3, 6),
+        working ? 'Working' : period === 'break' ? 'Taking a break' : period === 'lunch' ? 'Having lunch' : 'Standing around', 'front')],
+    },
+    {
+      weight: benchSpot ? (working ? 0.5 : 2) : 0,
       build: () => {
         agent.spot = benchSpot!;
-        return [walkTo(benchSpot!, 'Heading to the bench'), rest(agent, benchSpot!, world)];
+        return [walkTo(benchSpot!, 'Heading to the bench'), rest(agent, benchSpot!, world, period)];
       },
     },
     {
@@ -564,19 +586,19 @@ export function planNext(agent: Agent, world: World): Task[] {
       },
     },
     {
-      weight: chairSpot ? 2 : 0,
+      weight: chairSpot ? (working ? (workStep ? 1 : 8) : 2) : 0,
       build: () => {
         agent.spot = chairSpot!;
-        return [walkTo(chairSpot!, 'Grabbing a chair'), rest(agent, chairSpot!, world)];
+        return [walkTo(chairSpot!, 'Grabbing a chair'), rest(agent, chairSpot!, world, period)];
       },
     },
     {
-      weight: partner ? behavior.social * 3 : 0,
+      weight: partner ? behavior.social * (working ? 0.6 : 3) : 0,
       build: () => (partner ? startConversation(agent, partner, world) : null),
     },
     {
       // Wander over to a neighbouring room on camera.
-      weight: linked.length && (inRoom > 25 || darkness > 0) ? 1.2 + darkness * 4 : 0,
+      weight: linked.length && (inRoom > 25 || darkness > 0) ? 1.2 * wandering + darkness * 4 : 0,
       build: () => {
         const door = pick(linked);
         return [exitThroughDoor(door, 1, `Heading to the ${world.room(door.to!.room)?.name ?? 'next room'}`)];
@@ -584,13 +606,16 @@ export function planNext(agent: Agent, world: World): Task[] {
     },
     {
       // Take the elevator to another floor on camera.
-      weight: floors.length && (inRoom > 25 || darkness > 0) ? 0.8 + darkness * 3 : 0,
-      build: () => [rideElevatorOut(pick(floors))],
+      weight: floors.length && (inRoom > 25 || darkness > 0) ? 0.8 * wandering + darkness * 3 : 0,
+      build: () => {
+        const preferred = floors.filter((floor) => workRooms.has(floor));
+        return [rideElevatorOut(pick(working && preferred.length && !darkness ? preferred : floors))];
+      },
     },
     {
       // Impostors stay until the event director sends them off.
       weight: !agent.impostor && (stayed > 35 || darkness > 0)
-        ? 0.5 + Math.max(0, crowded) * 2 + darkness * 2 : 0,
+        ? (working ? 0.05 : 0.5) + Math.max(0, crowded) * 2 + darkness * 2 : 0,
       build: () => leaveFacility(agent, world),
     },
   ];

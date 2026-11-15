@@ -157,6 +157,38 @@ level 1. This applies to connected doors, elevators, and ghost arrivals.
 Impostors ignore clearance limits, and emergency exit routes remain unrestricted.
 Explicit scripted moves are not blocked by this planning preference.
 
+Staff follow the viewer's local clock (simulation speed does not speed up the day).
+Edit [`schedule.ts`](../src/lib/sim/schedule.ts) to change `DEFAULT_SCHEDULE`:
+work is 08:00-17:00, lunch 12:00-13:00, and short breaks 10:00-10:15 and
+15:00-15:15. Unmatched times are free time. The first matching block wins,
+so keep lunch and breaks before the work block. Times use `HH:MM`, starts
+are inclusive, ends exclusive, and a block can cross midnight. Invalid
+times or zero-duration blocks throw an error.
+
+`SCHEDULE_OVERRIDES` uses personnel filename slugs and replaces the entire
+default routine for that character. For example, to give Sypher a night shift:
+
+```ts
+export const SCHEDULE_OVERRIDES: Record<string, readonly ScheduleBlock[]> = {
+  sypher: [
+    { start: '02:00', end: '02:15', period: 'break' },
+    { start: '22:00', end: '06:00', period: 'work' },
+  ],
+};
+```
+
+During work, staff mostly stay on their highest accessible floor with rooms;
+Admin can work anywhere. Initial placement and arrivals favor those floors,
+and staff elsewhere prefer clearance-safe door/elevator routes back to work.
+They spend longer working at chairs or standing in the work area until dedicated
+workstation props are added. Lunch and breaks favor resting/socializing; free
+time allows more wandering. Traits still apply, including occasional naps.
+The personnel panel shows the current schedule period separately from the
+current activity. New periods take effect as plans finish, rather than
+interrupting doorways, elevator rides, or conversations. Darkness and emergency
+exits still take priority; impostors are not compelled to follow staff work floors.
+Schedules do not change the existing time-based population targets.
+
 Rooms expose a live `darkness` value: 0 on Level 0 or with at least one working,
 switched-on light, otherwise 1. Unlit underground cameras are dimmed by 55%,
 including props and people. Darkness adds a 1.2% trip chance per walking second
@@ -173,6 +205,7 @@ minimum stay. Clearance rules and motion-sensor lighting are unchanged.
 | [`src/lib/sim/roomLoader.ts`](../src/lib/sim/roomLoader.ts) | Loads every room folder at build time and connects their doors. |
 | [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
 | [`src/lib/sim/roster.ts`](../src/lib/sim/roster.ts) | Profile → character conversion, trait rules, and per-character overrides. |
+| [`src/lib/sim/schedule.ts`](../src/lib/sim/schedule.ts) | Editable daily routine, breaks, and per-character schedule overrides. |
 | [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | Character tasks (walk, nap, chat, doors, elevator) and decision making. |
 | [`src/lib/sim/world.ts`](../src/lib/sim/world.ts) | All rooms and people: arrivals, moving between rooms, elevators. |
 | [`src/lib/sim/events.ts`](../src/lib/sim/events.ts) | Random events, A1 announcements, and achievements. |

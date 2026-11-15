@@ -1,6 +1,7 @@
 import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './agent.ts';
 import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
 import { directionTo, type Direction, type Door, type Point, type Room, type Spot } from './room.ts';
+import { scheduleFor } from './schedule.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -238,6 +239,41 @@ export class World {
     return this.rooms.filter((other) => other !== room && other.elevator?.shaft === shaft).sort((a, b) => a.level - b.level);
   }
 
+  /** Numeric staff work on their highest available floor; Admin has no floor preference. */
+  workRooms(character: SimCharacter): Room[] {
+    const allowed = this.rooms.filter((room) => canVisitLevel(character, room.level));
+    if (/^admin$/i.test(character.accessLevel.trim())) return allowed;
+    const level = Math.max(...allowed.map((room) => room.level));
+    return allowed.filter((room) => room.level === level);
+  }
+
+  /** First door or elevator stop on a clearance-safe route to a work floor. */
+  stepTowardWork(character: SimCharacter, room: Room): Door | Room | undefined {
+    const targets = new Set(this.workRooms(character));
+    if (targets.has(room)) return undefined;
+    const firstStep = new Map<Room, Door | Room>();
+    const queue = [room];
+    const seen = new Set(queue);
+    while (queue.length) {
+      const current = queue.shift()!;
+      const steps: { next: Room; step: Door | Room }[] = [];
+      for (const door of current.linkedDoors) {
+        const next = this.room(door.to!.room);
+        if (next) steps.push({ next, step: door });
+      }
+      for (const next of this.elevatorStops(current)) steps.push({ next, step: next });
+      for (const { next, step } of steps) {
+        if (seen.has(next) || !canVisitLevel(character, next.level)) continue;
+        seen.add(next);
+        const first = firstStep.get(current) ?? step;
+        if (targets.has(next)) return first;
+        firstStep.set(next, first);
+        queue.push(next);
+      }
+    }
+    return undefined;
+  }
+
   /** Everyone in the facility, including people riding the elevator between floors. */
   everyone(): Agent[] {
     return [...this.agents, ...this.rides.map((ride) => ride.agent)];
@@ -319,7 +355,8 @@ export class World {
         this.log(`No rooms within ${character.name}'s clearance are available.`, 'warn');
         break;
       }
-      const room = pick(rooms);
+      const working = scheduleFor(character, this.now()) === 'work';
+      const room = pick(working && Math.random() < 0.85 ? this.workRooms(character) : rooms);
       this.spawn(character, room, room.randomFloorPoint());
     }
   }
@@ -374,15 +411,20 @@ export class World {
       return undefined;
     }
     const entrances: Entrance[] = [];
+    const workRooms = new Set(!impostor && scheduleFor(character, this.now()) === 'work' ? this.workRooms(character) : []);
     for (const room of rooms) {
+      const preference = workRooms.has(room) ? 8 : 1;
       // Don't stack arrivals on an elevator that is already busy.
       const elevator = this.elevatorFor(room);
-      if (elevator) entrances.push({ kind: 'elevator', room, weight: elevator.busy ? 0.15 : 1.5 });
-      for (const door of room.outerDoors) entrances.push({ kind: 'door', room, door, weight: 1 });
+      if (elevator) entrances.push({ kind: 'elevator', room, weight: (elevator.busy ? 0.15 : 1.5) * preference });
+      for (const door of room.outerDoors) entrances.push({ kind: 'door', room, door, weight: preference });
     }
 
     const entrance = weightedPick(entrances);
-    if (!entrance || (ghost && Math.random() < 0.4)) return this.arriveThroughWall(character, entrance?.room ?? pick(rooms));
+    if (!entrance || (ghost && Math.random() < 0.4)) {
+      const preferred = [...workRooms];
+      return this.arriveThroughWall(character, entrance?.room ?? pick(preferred.length ? preferred : rooms));
+    }
     if (entrance.kind === 'elevator') return this.arriveByElevator(character, entrance.room, impostor);
     return this.arriveByDoor(character, entrance.room, entrance.door, impostor);
   }
