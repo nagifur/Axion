@@ -2,6 +2,7 @@
 // Coordinates are pixels relative to the sprite's top-left corner, as drawn facing its default way.
 
 import type { Rect } from './navMap.ts';
+import { isPassageDoorAsset } from './door.ts';
 
 export type Facing = 'left' | 'right' | 'front' | 'back';
 
@@ -333,7 +334,7 @@ export const ELEVATOR_SPRITES = {
 export function placeablePropTypes(files: Iterable<string>): string[] {
   const reserved = new Set([ELEVATOR_SPRITES.door, ELEVATOR_SPRITES.bigDoor, ELEVATOR_SPRITES.lights]);
   const types = new Set(Object.keys(PROP_TYPES));
-  for (const file of files) if (!reserved.has(file)) types.add(file);
+  for (const file of files) if (!reserved.has(file) && !isPassageDoorAsset(file)) types.add(file);
   return [...types].sort();
 }
 

@@ -3,6 +3,12 @@
   "level": 0,
   "camera": "CAM 0-01",
   "elevators": { "shaft": "main", "big": true },
+  "doors": {
+    "west-1": { "clearance": 0 },
+    "west-2": { "clearance": 0 },
+    "east-1": { "clearance": 0 },
+    "east-2": { "clearance": 0 }
+  },
   "exits": {
   
     "east-2": "level-0-Lookout"

@@ -174,8 +174,10 @@ ordinary clicks still do. Drop resolution lives in
 Staff start, arrive, and choose rooms only on floors at or below their profile's
 `accessLevel`. `Admin` can visit every floor; unknown or redacted clearances use
 level 1. This applies to connected doors, elevators, and ghost arrivals.
-Impostors ignore clearance limits, and emergency exit routes remain unrestricted.
-Explicit scripted moves are not blocked by this planning preference.
+Physical passage doors also check their own clearance before opening or allowing a
+crossing, including arrivals and work routes. Impostors ignore clearance limits,
+and people leaving can always use exit routes. Explicit player transfers remain
+unrestricted.
 
 Staff follow the viewer's local clock (simulation speed does not speed up the day).
 Edit [`schedule.ts`](../src/lib/sim/schedule.ts) to change `DEFAULT_SCHEDULE`:
@@ -287,7 +289,7 @@ it as PNG. Keep it as a layer in the same art file as the room so it stays align
 | Colour | Hex | Meaning |
 | --- | --- | --- |
 | Green | `#05FF00` | Floor: where feet can stand (not where bodies are). |
-| Blue | `#0074FF` | Door. Must touch the floor; named by the wall it's in (see below). |
+| Blue | `#0074FF` | Passage, with or without a physical door. Must touch the floor; named by its wall (see below). |
 | Pink | `#FF00E7` | Elevator opening (at most one per room). Must touch the floor. |
 | Red or transparent | `#FF0000` | Blocked. |
 
@@ -311,10 +313,10 @@ sheet cell's corner. Everything painted in
 `room.png` is drawn behind characters; anything that should cover people walking past
 (a railing near the camera, a foreground pillar) must be a prop instead.
 
-Any image in [`src/sim_assets/props/`](../src/sim_assets/props/) can be placed by its
-file name (`plant.png` → `"type": "plant"`) as plain decoration. To give a prop seats
-or floor that people walk around, add it to `PROP_TYPES` in
-[`sprites.ts`](../src/lib/sim/sprites.ts).
+Images in [`src/sim_assets/props/`](../src/sim_assets/props/) can be placed by file
+name (`plant.png` → `"type": "plant"`) as plain decoration, except for the reserved
+elevator and passage-door artwork. To give a prop seats or floor that people walk
+around, add it to `PROP_TYPES` in [`sprites.ts`](../src/lib/sim/sprites.ts).
 
 #### Prop State
 
@@ -571,6 +573,52 @@ still arrive and leave through them (as they do through elevators).
 People step into north doors facing away from the camera and walk out of the picture
 through south doors facing it, using the back and front walking animations.
 
+#### Adding Physical Doors
+
+Keep the nav-map passage blue. A passage is doorless unless `room.json` attaches a
+door to its id:
+
+```json
+"doors": {
+  "west": { "clearance": 1 },
+  "east": {
+    "clearance": 1,
+    "offset": { "x": 0, "y": 0 },
+    "panelOffset": { "x": 2, "y": -3 }
+  }
+}
+```
+
+`clearance` is a non-negative whole number and selects both the access requirement
+and the numbered door artwork. The door and panel are positioned from the nav-map
+opening; the optional whole-pixel `offset` moves both, while `panelOffset` moves only
+the panel. Side-wall sprites are mirrored automatically on east walls. The debug
+prop editor does not edit these passage assemblies.
+
+For connected rooms, configuring either side creates a matching door on the other
+camera and both views share one lock and animation. If both rooms configure it,
+their clearance must match, but their offsets can differ. Remove the entries on both
+sides to make the connected passage doorless again. Off-camera passages may also
+have doors. The current Level 0 and 1 passages are configured; higher levels are
+still doorless.
+
+A nearby authorized agent (within 40 room pixels of the passage threshold) turns
+the panel green and opens the door upward in 0.7 simulation seconds. Agents wait
+until it is fully open. Once no authorized agent is nearby, it holds for 1.5 seconds,
+then closes and the panel returns to red. An unauthorized agent cannot cross even
+when another agent has opened it. The panel glow remains visible in dark rooms.
+
+The artwork is in `src/sim_assets/props/`, but is reserved for passage assemblies,
+not ordinary props. For clearance `N`, use `door_levelN.png` for north/south walls
+and `door_angle_levelN.png` for west/east walls. The first cell contains the closed
+door; it slides inside its silhouette rather than looping sheet frames. Straight
+door artwork occupies `(26, 14, 46, 69)` within the 96px cell, and angled artwork
+occupies `(35, 0, 26, 96)`. `door_panel.png` and `door_panel_angle.png` use two red
+frames in the first row and two green frames in the fourth row. Their off and broken
+rows are not used by passage doors yet. Add the numbered door sheets for another
+clearance before configuring it; missing or incomplete artwork is reported at build
+time.
+
 #### Connecting Floors With Elevators
 
 An elevator connects many floors, so instead of linking pairs of rooms, each room
@@ -607,4 +655,5 @@ first camera shown is `INITIAL_ROOM` in [`monitoring.astro`](../src/pages/monito
 The build stops with the file and pixel position if a nav map uses an unknown colour,
 has floor patches that can't be reached, has an exit that doesn't touch the floor, or
 doesn't match the size of `room.png`, and names the problem if an exit points to a
-door or room that doesn't exist, or an elevator or shaft is set up wrong.
+door or room that doesn't exist, passage-door artwork or configuration is invalid,
+or an elevator or shaft is set up wrong.

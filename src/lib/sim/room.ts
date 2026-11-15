@@ -6,6 +6,7 @@ import { NavGrid } from './pathfinding.ts';
 import { Prop, type PlacedProp } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
+import { doorAppearance, type DoorAppearance, type DoorConfig } from './door.ts';
 
 export type { DoorSide, Point } from './navMap.ts';
 export type { PlacedProp } from './prop.ts';
@@ -30,6 +31,8 @@ export interface RoomData {
   items?: PlacedItem[];
   /** Doors that lead to another room, by door id. Doors not listed lead off camera. */
   links: Record<string, ExitLink>;
+  /** Physical doors on passages, keyed by their nav-map ids. Unlisted passages stay open. */
+  doors?: Record<string, DoorConfig>;
   /** Rooms on the same shaft are stops of one lift. */
   elevator?: { shaft?: string; big: boolean };
   /** Position on its level's camera map (north is row 0). Set when the whole facility is loaded. */
@@ -57,6 +60,8 @@ export interface Door {
   outside: Point;
   /** Set when the door leads to another room on camera; otherwise it leads off camera. */
   to?: ExitLink;
+  /** Optional door and panel artwork for this view of the passage. */
+  appearance?: DoorAppearance;
 }
 
 export interface Elevator extends Rect {
@@ -135,7 +140,11 @@ export class Room {
       if (exit.kind === 'door') {
         const side = exit.side ?? 'west';
         const inside = this.nearestWalkable(exit.threshold);
-        this.doors.push({ id: exit.id, side, inside, outside: doorwayPoint(side, inside, exit.base), to: data.links?.[exit.id] });
+        const config = data.doors?.[exit.id];
+        this.doors.push({
+          id: exit.id, side, inside, outside: doorwayPoint(side, inside, exit.base), to: data.links?.[exit.id],
+          ...(config ? { appearance: doorAppearance(side, exit.bounds, config) } : {}),
+        });
         continue;
       }
       const { x, y, w, h } = exit.bounds;

@@ -5,6 +5,8 @@ import { Item, type PlacedItem } from './item.ts';
 import type { Particle } from './particles.ts';
 import { CHARACTER_FRAMES, ELEVATOR_SPRITES, ITEM_HAND_ANCHORS, itemFrame, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { World } from './world.ts';
+import type { Rect } from './navMap.ts';
+import { isPassageDoorAsset, passageDoorFrame, passagePanelFrame } from './door.ts';
 
 /** Images by name: "room:<id>", "character", prop file names, "item:<type>", and "particle:<file>". */
 export type Assets = Record<string, HTMLImageElement>;
@@ -16,7 +18,7 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
     image.onload = () => {
       try {
         if (name.startsWith('item:')) itemFrame(name.slice(5), image);
-        else if (name !== 'character' && !name.startsWith('room:') && !name.startsWith('particle:')) {
+        else if (name !== 'character' && !name.startsWith('room:') && !name.startsWith('particle:') && !isPassageDoorAsset(name)) {
           if (needsPropCellOccupancy(name, image)) {
             const canvas = makeCanvas(image.width, image.height);
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -37,12 +39,7 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
   return Promise.all(entries).then((loaded) => Object.fromEntries(loaded));
 }
 
-/** Draws one artwork-sized prop frame, with mirroring around that frame rather than the sheet. */
-export function drawPropSprite(
-  ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
-  asset: string, x: number, y: number, flip = false, time = 0, look?: PropLook,
-) {
-  const frame = propFrame(asset, image, time, look);
+function drawSpriteFrame(ctx: CanvasRenderingContext2D, image: CanvasImageSource, frame: Rect, x: number, y: number, flip: boolean) {
   if (!flip) {
     ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, x, y, frame.w, frame.h);
     return;
@@ -52,6 +49,14 @@ export function drawPropSprite(
   ctx.scale(-1, 1);
   ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
   ctx.restore();
+}
+
+/** Draws one artwork-sized prop frame, with mirroring around that frame rather than the sheet. */
+export function drawPropSprite(
+  ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
+  asset: string, x: number, y: number, flip = false, time = 0, look?: PropLook,
+) {
+  drawSpriteFrame(ctx, image, propFrame(asset, image, time, look), x, y, flip);
 }
 
 type Canvas = HTMLCanvasElement;
@@ -183,6 +188,7 @@ export class Renderer {
   private readonly litArrows?: Canvas;
   private readonly sheets = new Map<number, ScaledSheet>();
   private readonly outline = makeCanvas(160, 160);
+  private readonly passageDoorCanvas = makeCanvas(96, 96);
   private pixelScale = 1;
 
   constructor(canvas: Canvas, assets: Assets, room: Room) {
@@ -419,6 +425,52 @@ export class Renderer {
     }
   }
 
+  private drawPassageDoors(world: World) {
+    const ctx = this.ctx;
+    const mask = context(this.passageDoorCanvas);
+    for (const door of this.room.doors ?? []) {
+      const art = door.appearance;
+      if (!art) continue;
+      const state = world.passageDoorFor(door);
+      const image = this.assets[art.asset];
+      const panel = this.assets[art.panelAsset];
+      if (!state || !image || !panel) throw new Error(`Missing door state or artwork for ${this.room.id}/${door.id}.`);
+      const frame = passageDoorFrame(door.side);
+      const slide = Math.round(state.open * frame.h);
+      mask.globalCompositeOperation = 'source-over';
+      mask.clearRect(0, 0, this.passageDoorCanvas.width, this.passageDoorCanvas.height);
+      mask.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, -slide, frame.w, frame.h);
+      mask.globalCompositeOperation = 'destination-in';
+      mask.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+      mask.globalCompositeOperation = 'source-over';
+      drawSpriteFrame(ctx, this.passageDoorCanvas, { x: 0, y: 0, w: frame.w, h: frame.h }, art.x, art.y, art.flip);
+      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.unlocked, world.time), art.panel.x, art.panel.y, art.flip);
+    }
+  }
+
+  private drawDoorGlows(world: World) {
+    const ctx = this.ctx;
+    for (const door of this.room.doors ?? []) {
+      const art = door.appearance;
+      if (!art) continue;
+      const state = world.passageDoorFor(door);
+      if (!state) throw new Error(`Missing door state for ${this.room.id}/${door.id}.`);
+      const sideWall = door.side === 'west' || door.side === 'east';
+      const panel = passagePanelFrame(door.side, state.unlocked, world.time);
+      const indicatorX = sideWall ? 8 : 9.5;
+      const x = art.panel.x + (art.flip ? panel.w - indicatorX : indicatorX);
+      const y = art.panel.y + (sideWall ? 17 : 9.5);
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, 12);
+      glow.addColorStop(0, state.unlocked ? 'rgba(40, 255, 115, 0.3)' : 'rgba(255, 35, 65, 0.3)');
+      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = glow;
+      ctx.fillRect(x - 12, y - 12, 24, 24);
+      ctx.restore();
+    }
+  }
+
   draw(world: World, highlights: Map<Agent, string>) {
     const ctx = this.ctx;
     const { assets, room } = this;
@@ -430,6 +482,7 @@ export class Renderer {
     // Everything visible through openings in the room art is drawn first, then the room covers it.
     this.drawElevator(world, highlights);
     ctx.drawImage(assets[`room:${room.id}`], 0, 0);
+    this.drawPassageDoors(world);
 
     // Props and people share one depth-sorted pass, ordered by where they touch the floor.
     const drawables: { depth: number; draw: () => void }[] = room.props.map((prop) => {
@@ -472,5 +525,6 @@ export class Renderer {
       ctx.fillStyle = `rgba(0, 0, 0, ${room.darkness * 0.55})`;
       ctx.fillRect(0, 0, room.width, room.height);
     }
+    this.drawDoorGlows(world);
   }
 }

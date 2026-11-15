@@ -161,6 +161,7 @@ test('item room data and palette previews use the artwork crop, with explicit va
   await mkdir(path.join(assetsDir, 'items'));
   const original = 'src/sim_assets/rooms/level-1-offices';
   const json = JSON.parse(await readFile(`${original}/room.json`, 'utf8'));
+  delete json.doors;
   json.props = [];
   json.items = [{ type: 'can', x: 197, y: 130, flip: true }];
   await Promise.all([

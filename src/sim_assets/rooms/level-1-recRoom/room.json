@@ -2,6 +2,9 @@
   "name": "Rec Room",
   "level": 1,
   "camera": "CAM 1-02",
+  "doors": {
+    "west": { "clearance": 1 }
+  },
   "exits": {
     "west": "level-1-offices"
   },

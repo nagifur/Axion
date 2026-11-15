@@ -21,6 +21,8 @@ export interface Task {
   /** Returns true when the task is finished. */
   update(agent: Agent, world: World, dt: number): boolean;
   end?(agent: Agent, world: World): void;
+  /** Release resources reserved by a task that was replaced before it started. */
+  cancel?(agent: Agent, world: World): void;
 }
 
 const BASE_SPEED = 28;
@@ -173,6 +175,7 @@ export class Agent {
       }
     }
     this.task?.end?.(this, world);
+    for (const queued of this.plan) queued.cancel?.(this, world);
     this.task = undefined;
     this.spot = undefined;
     this.curiousAbout = undefined;
@@ -589,6 +592,10 @@ export function rideElevatorIn(request: ElevatorRequest): Task {
         agent.layer = 'room';
       }
     },
+    cancel(agent) {
+      request.cancelled = true;
+      agent.layer = 'room';
+    },
   };
 }
 
@@ -605,10 +612,20 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
     },
     update(agent, world, dt) {
       if (!fading) {
-        if (agent.moveToward(path[0], dt, speedMul)) path.shift();
+        if (path.length && agent.moveToward(path[0], dt, speedMul)) path.shift();
         fading = path.length === 0;
         return false;
       }
+      const physical = world.passageDoorFor(door);
+      if (physical && !world.canAgentUsePassage(agent, door)) {
+        agent.x = door.inside.x;
+        agent.y = door.inside.y;
+        agent.alpha = 1;
+        agent.say('?', 1.5);
+        world.log(`Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
+        return true;
+      }
+      if (physical && physical.open < 1) return false;
       const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.outside, dt, speedMul);
       poseInDoorway(agent, door, 'out');
@@ -627,7 +644,14 @@ export function enterThroughDoor(door: Door): Task {
     activity: 'Arriving',
     interruptible: false,
     transport: true,
-    update(agent, _world, dt) {
+    update(agent, world, dt) {
+      const physical = door.appearance || door.to ? world.passageDoorFor(door) : undefined;
+      if (physical && !world.canAgentUsePassage(agent, door)) {
+        world.log(`Access denied: ${agent.character.name} cannot enter through the ${door.id} door in ${agent.room.name}.`, 'warn');
+        if (agent.alpha < 1) world.remove(agent, door.id);
+        return true;
+      }
+      if (physical && physical.open < 1) return false;
       const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.inside, dt);
       poseInDoorway(agent, door, 'in');
@@ -765,7 +789,7 @@ export function planNext(agent: Agent, world: World): Task[] {
   const canVisit = (destination: Room) => !!agent.impostor || canVisitLevel(agent.character, destination.level);
   const linked = room.linkedDoors.filter((door) => {
     const destination = world.room(door.to!.room);
-    return destination && canVisit(destination);
+    return destination && canVisit(destination) && world.canAgentUsePassage(agent, door);
   });
   const floors = world.elevatorStops(room).filter(canVisit);
   const dispensers = agent.item ? [] : room.props

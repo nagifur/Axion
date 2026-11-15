@@ -9,6 +9,7 @@ import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
 import { itemFrame, placeablePropTypes, propCellOccupancy, propFrame, propSheetFeatures, propTypeOf, type PropSheetImage } from './sprites.ts';
 import type { PlacedItem } from './item.ts';
+import { passageDoorAsset, passagePanelAsset, type DoorConfig } from './door.ts';
 
 export const SIM_ASSETS_DIR = path.resolve('src/sim_assets');
 
@@ -20,6 +21,7 @@ interface RoomJson {
   items?: unknown;
   exits?: unknown;
   elevators?: unknown;
+  doors?: unknown;
 }
 
 /** An exit as written in room.json; the door on the other side may be left for us to work out. */
@@ -83,6 +85,79 @@ function readExits(raw: unknown, id: string): Map<string, DeclaredExit> {
     }
   }
   return exits;
+}
+
+function readDoors(raw: unknown, id: string, nav: RoomData['nav']): Record<string, DoorConfig> {
+  const doors: Record<string, DoorConfig> = {};
+  if (raw === undefined) return doors;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new NavMapError(`${jsonLabel(id)}: "doors" must be an object keyed by passage id.`);
+  }
+  for (const [door, value] of Object.entries(raw)) {
+    if (!nav.exits.some((exit) => exit.kind === 'door' && exit.id === door)) {
+      const available = nav.exits.filter((exit) => exit.kind === 'door').map((exit) => exit.id);
+      throw new NavMapError(`${jsonLabel(id)}: "doors" mentions passage "${door}", but navMap.png has: ${listOr(available, 'no doors')}.`);
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+      throw new NavMapError(`${jsonLabel(id)}: door "${door}" needs { "clearance": 0 }.`);
+    }
+    for (const key of Object.keys(value)) {
+      if (key !== 'clearance' && key !== 'offset' && key !== 'panelOffset') {
+        throw new NavMapError(`${jsonLabel(id)}: door "${door}" has unknown property "${key}".`);
+      }
+    }
+    const clearance = 'clearance' in value ? value.clearance : undefined;
+    if (typeof clearance !== 'number' || !Number.isSafeInteger(clearance) || clearance < 0) {
+      throw new NavMapError(`${jsonLabel(id)}: door "${door}" needs a non-negative whole-number "clearance".`);
+    }
+    const offset = (key: 'offset' | 'panelOffset') => {
+      const point = key in value ? value[key] : undefined;
+      if (point === undefined) return undefined;
+      if (!point || typeof point !== 'object' || Array.isArray(point) ||
+        !('x' in point) || !('y' in point) || typeof point.x !== 'number' || typeof point.y !== 'number' ||
+        !Number.isSafeInteger(point.x) || !Number.isSafeInteger(point.y) ||
+        Object.keys(point).some((name) => name !== 'x' && name !== 'y')) {
+        throw new NavMapError(`${jsonLabel(id)}: door "${door}" "${key}" needs whole-number "x" and "y".`);
+      }
+      return { x: point.x, y: point.y };
+    };
+    const doorOffset = offset('offset');
+    const panelOffset = offset('panelOffset');
+    doors[door] = {
+      clearance,
+      ...(doorOffset ? { offset: doorOffset } : {}),
+      ...(panelOffset ? { panelOffset } : {}),
+    };
+  }
+  return doors;
+}
+
+async function checkDoorAssets(rooms: RoomData[], assetsDir: string) {
+  const required = new Map<string, { room: string; door: string; panel: boolean }>();
+  for (const room of rooms) {
+    for (const [id, config] of Object.entries(room.doors ?? {})) {
+      const exit = room.nav.exits.find((candidate) => candidate.kind === 'door' && candidate.id === id)!;
+      const side = exit.side ?? 'west';
+      required.set(passageDoorAsset(config.clearance, side), { room: room.id, door: id, panel: false });
+      required.set(passagePanelAsset(side), { room: room.id, door: id, panel: true });
+    }
+  }
+  if (!required.size) return;
+  const folder = path.join(assetsDir, 'props');
+  const files = new Set(await readdir(folder));
+  for (const [asset, source] of required) {
+    const label = `${jsonLabel(source.room)}: door "${source.door}"`;
+    if (!files.has(`${asset}.png`)) throw new NavMapError(`${label} needs sim_assets/props/${asset}.png.`);
+    const image = await propImage(path.join(folder, `${asset}.png`));
+    const cells = image.propCells;
+    const validSize = image.width % 96 === 0 && image.height % 96 === 0;
+    const validFrames = source.panel
+      ? cells?.[0]?.[0] && cells?.[0]?.[1] && cells?.[3]?.[0] && cells?.[3]?.[1]
+      : cells?.[0]?.[0];
+    if (!validSize || !validFrames) {
+      throw new NavMapError(`${label}: ${asset}.png needs complete 96px cells and ${source.panel ? 'two red and two green panel frames' : 'a closed door frame'}.`);
+    }
+  }
 }
 
 /** "elevators": { "shaft": "main", "big": true }. */
@@ -195,7 +270,7 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   return {
     data: {
       id, name: json.name, level: json.level, camera: json.camera, width: room.width, height: room.height,
-      nav, props, items, links: {}, elevator: readElevator(json.elevators, id, nav),
+      nav, props, items, links: {}, doors: readDoors(json.doors, id, nav), elevator: readElevator(json.elevators, id, nav),
     },
     exits: readExits(json.exits, id),
   };
@@ -203,7 +278,9 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
 
 /** Loads a single room on its own, without connecting its doors to other rooms. */
 export async function loadRoom(id: string, assetsDir = SIM_ASSETS_DIR): Promise<RoomData> {
-  return (await readRoom(id, assetsDir)).data;
+  const { data } = await readRoom(id, assetsDir);
+  await checkDoorAssets([data], assetsDir);
+  return data;
 }
 
 const doorIds = (room: RoomData) => room.nav.exits.filter((exit) => exit.kind === 'door').map((exit) => exit.id);
@@ -256,6 +333,23 @@ export function linkRooms(rooms: LoadedRoom[]) {
       }
       connect(room, door, { room: other.id, door: otherDoor }, room.id);
       connect(other, otherDoor, { room: room.id, door }, room.id);
+    }
+  }
+
+  for (const { data: room } of rooms) {
+    for (const [door, target] of Object.entries(room.links)) {
+      const other = byId.get(target.room)!;
+      const local = room.doors?.[door];
+      const opposite = other.doors?.[target.door];
+      if (local && opposite && local.clearance !== opposite.clearance) {
+        throw new NavMapError(
+          `${jsonLabel(room.id)}: door "${door}" and ${other.id}'s "${target.door}" need the same clearance.`,
+        );
+      }
+      if (!local && opposite) {
+        room.doors ??= {};
+        room.doors[door] = { clearance: opposite.clearance };
+      }
     }
   }
 }
@@ -329,6 +423,7 @@ export async function loadFacility(assetsDir = SIM_ASSETS_DIR): Promise<RoomData
   const ids = folders.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   const rooms = await Promise.all(ids.map((id) => readRoom(id, assetsDir)));
   linkRooms(rooms);
+  await checkDoorAssets(rooms.map((room) => room.data), assetsDir);
   checkShafts(rooms.map((room) => room.data));
   return orderRooms(rooms.map((room) => room.data));
 }

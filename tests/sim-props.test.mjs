@@ -165,6 +165,7 @@ test('automatic sheets use one frame for room loading, palette previews, placeme
   await mkdir(path.join(assetsDir, 'props'));
   const originalRoom = 'src/sim_assets/rooms/level-1-offices';
   const json = JSON.parse(await readFile(path.join(originalRoom, 'room.json'), 'utf8'));
+  delete json.doors;
   json.props = [{ type: 'animated_decoration', x: 100, y: 50, on: false }];
   await Promise.all([
     copyFile(path.join(originalRoom, 'room.png'), path.join(roomDir, 'room.png')),
@@ -223,6 +224,7 @@ test('broken-only sheets work through room loading, editing, cloning, and drawin
   await mkdir(path.join(assetsDir, 'props'));
   const originalRoom = 'src/sim_assets/rooms/level-1-offices';
   const json = JSON.parse(await readFile(path.join(originalRoom, 'room.json'), 'utf8'));
+  delete json.doors;
   const roomJson = path.join(roomDir, 'room.json');
   json.props = [{ type: 'glass', x: 100, y: 50, broken: true }];
   await Promise.all([

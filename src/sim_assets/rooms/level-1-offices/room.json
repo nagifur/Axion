@@ -3,6 +3,10 @@
   "level": 1,
   "camera": "CAM 1-01",
   "elevators": { "shaft": "side" },
+  "doors": {
+    "west": { "clearance": 1 },
+    "east": { "clearance": 1 }
+  },
   "exits": {
     "west": "level-1-pipeRoom",
     "east": "level-1-recRoom"

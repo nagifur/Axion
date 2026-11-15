@@ -3,6 +3,7 @@ import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts'
 import { directionTo, type Direction, type Door, type Point, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
 import { scheduleFor } from './schedule.ts';
+import { PASSAGE_DOOR_RANGE, PassageDoor } from './door.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -204,6 +205,8 @@ export class World {
   hooks: WorldHooks = {};
   readonly particles = new ParticleSystem();
   private readonly elevators = new Map<Room, Elevator>();
+  private readonly passageDoors = new Map<Door, PassageDoor>();
+  private readonly passageEndpoints = new Map<PassageDoor, { room: Room; door: Door }[]>();
   private rides: Ride[] = [];
   /** Earliest time each off-camera character may come back. */
   private returnAt = new Map<string, number>();
@@ -215,6 +218,28 @@ export class World {
     this.now = options.now ?? (() => new Date());
     for (const room of this.rooms) {
       if (room.elevator) this.elevators.set(room, new Elevator(room.elevator.big ? 10 : 1));
+    }
+    for (const room of this.rooms) {
+      for (const door of room.doors) {
+        if (!door.appearance) continue;
+        const otherRoom = door.to && this.room(door.to.room);
+        const otherDoor = otherRoom?.doors.find((candidate) => candidate.id === door.to?.door);
+        const state = this.passageDoors.get(door) ?? new PassageDoor(door.appearance.clearance);
+        if (state.clearance !== door.appearance.clearance) {
+          throw new Error(`Linked passage doors in ${room.id} must have the same clearance.`);
+        }
+        this.passageDoors.set(door, state);
+        if (otherDoor) this.passageDoors.set(otherDoor, state);
+      }
+    }
+    for (const room of this.rooms) {
+      for (const door of room.doors) {
+        const state = this.passageDoors.get(door);
+        if (!state) continue;
+        const endpoints = this.passageEndpoints.get(state) ?? [];
+        endpoints.push({ room, door });
+        this.passageEndpoints.set(state, endpoints);
+      }
     }
   }
 
@@ -232,6 +257,29 @@ export class World {
 
   elevatorFor(room: Room): Elevator | undefined {
     return this.elevators.get(room);
+  }
+
+  passageDoorFor(door: Door): PassageDoor | undefined {
+    return this.passageDoors.get(door);
+  }
+
+  canUsePassage(character: SimCharacter, door: Door): boolean {
+    const state = this.passageDoorFor(door);
+    return !state || canVisitLevel(character, state.clearance);
+  }
+
+  canAgentUsePassage(agent: Agent, door: Door): boolean {
+    return agent.leaving || !!agent.impostor || this.canUsePassage(agent.character, door);
+  }
+
+  private updatePassageDoors(dt: number) {
+    for (const [state, endpoints] of this.passageEndpoints) {
+      const nearby = endpoints.some(({ room, door }) => this.agents.some((agent) =>
+        agent.room === room && !agent.removed && !agent.held && agent.layer === 'room' &&
+        this.canAgentUsePassage(agent, door) &&
+        Math.hypot(agent.x - door.inside.x, agent.y - door.inside.y) <= PASSAGE_DOOR_RANGE));
+      state.update(nearby, dt);
+    }
   }
 
   /** Other rooms on camera that `room`'s elevator stops at, ordered by level. */
@@ -261,7 +309,7 @@ export class World {
       const steps: { next: Room; step: Door | Room }[] = [];
       for (const door of current.linkedDoors) {
         const next = this.room(door.to!.room);
-        if (next) steps.push({ next, step: door });
+        if (next && this.canUsePassage(character, door)) steps.push({ next, step: door });
       }
       for (const next of this.elevatorStops(current)) steps.push({ next, step: next });
       for (const { next, step } of steps) {
@@ -387,6 +435,9 @@ export class World {
   }
 
   arriveByDoor(character: SimCharacter, room: Room, door: Door, impostor?: SimImpostor) {
+    if (!impostor && !this.canUsePassage(character, door)) {
+      throw new Error(`${character.name} cannot enter ${room.name} through ${door.id}: insufficient clearance.`);
+    }
     const agent = this.spawn(character, room, door.outside, impostor);
     agent.alpha = 0;
     agent.setPlan(this, [enterThroughDoor(door)]);
@@ -413,16 +464,24 @@ export class World {
       return undefined;
     }
     const entrances: Entrance[] = [];
+    let deniedDoor = false;
     const workRooms = new Set(!impostor && scheduleFor(character, this.now()) === 'work' ? this.workRooms(character) : []);
     for (const room of rooms) {
       const preference = workRooms.has(room) ? 8 : 1;
       // Don't stack arrivals on an elevator that is already busy.
       const elevator = this.elevatorFor(room);
       if (elevator) entrances.push({ kind: 'elevator', room, weight: (elevator.busy ? 0.15 : 1.5) * preference });
-      for (const door of room.outerDoors) entrances.push({ kind: 'door', room, door, weight: preference });
+      for (const door of room.outerDoors) {
+        if (impostor || this.canUsePassage(character, door)) entrances.push({ kind: 'door', room, door, weight: preference });
+        else deniedDoor = true;
+      }
     }
 
     const entrance = weightedPick(entrances);
+    if (!entrance && deniedDoor && !ghost) {
+      this.log(`No entrances within ${character.name}'s clearance are available.`, 'warn');
+      return undefined;
+    }
     if (!entrance || (ghost && Math.random() < 0.4)) {
       const preferred = [...workRooms];
       return this.arriveThroughWall(character, entrance?.room ?? pick(preferred.length ? preferred : rooms));
@@ -433,6 +492,14 @@ export class World {
 
   /** Moves an agent through a door that leads to another room on camera. */
   transfer(agent: Agent, door: Door) {
+    if (!this.canAgentUsePassage(agent, door)) {
+      this.log(`Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
+      agent.x = door.inside.x;
+      agent.y = door.inside.y;
+      agent.alpha = 1;
+      agent.setPlan(this, []);
+      return;
+    }
     const room = door.to && this.room(door.to.room);
     const arrival = room?.doors.find((other) => other.id === door.to!.door);
     if (!room || !arrival) {
@@ -540,6 +607,7 @@ export class World {
     this.particles.update(dt);
     this.time += dt;
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
+    this.updatePassageDoors(dt);
 
     const arrived = this.rides.filter((ride) => ride.arrivesAt <= this.time);
     if (arrived.length) {

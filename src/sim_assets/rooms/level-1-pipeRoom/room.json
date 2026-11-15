@@ -2,6 +2,10 @@
   "name": "Pipe Room",
   "level": 1,
   "camera": "CAM 1-03",
+  "doors": {
+    "west": { "clearance": 1 },
+    "east": { "clearance": 1 }
+  },
   "exits": {
     "east": "level-1-offices"
   },

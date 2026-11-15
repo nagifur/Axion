@@ -2,6 +2,9 @@
   "name": "Lookout",
   "level": 0,
   "camera": "CAM 0-02",
-"elevators": { "shaft": "side" }
+  "elevators": { "shaft": "side" },
+  "doors": {
+    "west": { "clearance": 0 }
+  }
   
 }
