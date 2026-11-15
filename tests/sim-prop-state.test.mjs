@@ -28,12 +28,12 @@ test('props start from room.json and only switch or break when their type allows
 
   const broken = new Prop(placed('light', { broken: true }));
   assert.equal(broken.lit, false);
-  assert.equal(broken.look, 'off', 'broken lights go dark until there is broken artwork');
+  assert.equal(broken.look, 'broken');
 
   const chair = new Prop(placed('chair'));
   assert.equal(chair.setOn(false), false, 'chairs have no switch');
   assert.equal(chair.break(), true);
-  assert.equal(chair.look, undefined, 'no broken chair artwork yet');
+  assert.equal(chair.look, 'broken');
   assert.equal(chair.repair(), true);
 
   const plant = new Prop(placed('plant', { broken: true }));

@@ -25,6 +25,8 @@ export interface PlacedProp {
   flip: boolean;
   /** Asset-derived power switch for sheets with an off row. Not written to room.json. */
   switchable?: boolean;
+  /** Asset-derived broken artwork, including for types without their own entry. */
+  brokenLook?: boolean;
   /** Starting state, only where it differs from DEFAULT_PROP_STATE. */
   start?: Partial<PropState>;
 }
@@ -40,6 +42,7 @@ export class Prop implements PlacedProp {
   start?: Partial<PropState>;
   on: boolean;
   broken: boolean;
+  readonly brokenLook?: boolean;
   private readonly sheetSwitchable: boolean;
 
   constructor(data: PlacedProp) {
@@ -51,6 +54,7 @@ export class Prop implements PlacedProp {
     this.h = data.h;
     this.flip = data.flip;
     this.sheetSwitchable = data.switchable === true && !propTypeOf(data.type).switchable;
+    if (data.brokenLook === true) this.brokenLook = true;
     if (data.start && Object.keys(data.start).length) this.start = { ...data.start };
     this.on = this.switchable ? data.start?.on ?? DEFAULT_PROP_STATE.on : DEFAULT_PROP_STATE.on;
     this.broken = this.breakable ? data.start?.broken ?? DEFAULT_PROP_STATE.broken : DEFAULT_PROP_STATE.broken;
@@ -69,7 +73,7 @@ export class Prop implements PlacedProp {
   }
 
   get breakable() {
-    return !!this.kind.breakable;
+    return !!this.kind.breakable || this.brokenLook === true;
   }
 
   /** Switched on and working. */
@@ -118,7 +122,7 @@ export class Prop implements PlacedProp {
    * they can: a broken light goes dark, anything else keeps its normal look.
    */
   get look(): PropLook | undefined {
-    if (this.broken && hasPropLook(this.asset, 'broken')) return 'broken';
+    if (this.broken && (this.brokenLook || hasPropLook(this.asset, 'broken'))) return 'broken';
     if (this.switchable && !this.lit) return 'off';
     return undefined;
   }
@@ -141,6 +145,7 @@ export class Prop implements PlacedProp {
     return {
       type, asset, x, y, w, h, flip,
       ...(this.sheetSwitchable ? { switchable: true } : {}),
+      ...(this.brokenLook ? { brokenLook: true } : {}),
       ...(this.start ? { start: { ...this.start } } : {}),
     };
   }

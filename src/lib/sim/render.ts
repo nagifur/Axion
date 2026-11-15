@@ -2,7 +2,7 @@ import type { Agent } from './agent.ts';
 import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, ITEM_HAND_ANCHORS, itemFrame, propFrame, propFrames, type Frame, type FrameName, type PropLook } from './sprites.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, ITEM_HAND_ANCHORS, itemFrame, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { World } from './world.ts';
 
 /** Images by name: "room:<id>", "character", prop file names, and "item:<type>". */
@@ -10,12 +10,21 @@ export type Assets = Record<string, HTMLImageElement>;
 
 export function loadAssets(urls: Record<string, string>): Promise<Assets> {
   const entries = Object.entries(urls).map(([name, url]) => new Promise<[string, HTMLImageElement]>((resolve, reject) => {
-    const image = new Image();
+    const image: HTMLImageElement & PropSheetImage = new Image();
     image.decoding = 'async';
     image.onload = () => {
       try {
         if (name.startsWith('item:')) itemFrame(name.slice(5), image);
-        else if (name !== 'character' && !name.startsWith('room:')) propFrames(name, image);
+        else if (name !== 'character' && !name.startsWith('room:')) {
+          if (needsPropCellOccupancy(name, image)) {
+            const canvas = makeCanvas(image.width, image.height);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) throw new Error(`Prop sprite "${name}": cannot inspect image pixels.`);
+            ctx.drawImage(image, 0, 0);
+            image.propCells = propCellOccupancy(image, ctx.getImageData(0, 0, image.width, image.height).data);
+          }
+          propFrames(name, image);
+        }
         resolve([name, image]);
       } catch (error) {
         reject(error);

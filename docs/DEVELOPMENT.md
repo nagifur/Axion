@@ -300,8 +300,8 @@ type in `sprites.ts` brings its own seats and blocked floor area:
   "level": 1,
   "camera": "CAM 1-01",
   "props": [
-    { "type": "bench", "x": 62, "y": 118 },
-    { "type": "chair", "x": 415, "y": 122, "flip": true }
+    { "type": "bench", "x": 62, "y": 114 },
+    { "type": "chair", "x": 403, "y": 105, "flip": true }
   ]
 }
 ```
@@ -320,12 +320,12 @@ or floor that people walk around, add it to `PROP_TYPES` in
 
 While the simulation runs, every placed prop is a `Prop` object
 ([`prop.ts`](../src/lib/sim/prop.ts)) with state that can change. What a prop can do comes
-from its `PROP_TYPES` entry, or an automatically detected power-off row:
+from its `PROP_TYPES` entry, or automatically detected power-off and broken artwork:
 
 | Flag | Meaning |
 | --- | --- |
 | `switchable` | Can be switched on or off manually, including through the editor. |
-| `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for a minute (`LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts)). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
+| `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for `LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
 | `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
 | `dispenses` | Item type agents can get from the prop while it works and, if switchable, is on (see [Dispensers](#dispensers-vending-machines)). |
 
@@ -333,7 +333,7 @@ from its `PROP_TYPES` entry, or an automatically detected power-off row:
 
 ```json
 { "type": "light", "x": 83, "y": 34, "on": false },
-{ "type": "chair", "x": 317, "y": 122, "broken": true }
+{ "type": "chair", "x": 297, "y": 105, "broken": true }
 ```
 
 Code changes state with `prop.setOn()`, `prop.break()` and `prop.repair()`.
@@ -342,8 +342,9 @@ Breakable props have a 1% chance to break per use (`PROP_BREAK_CHANCE` in
 [`prop.ts`](../src/lib/sim/prop.ts)), shared by autonomous and drag-and-drop interactions.
 The roll happens when seated use starts, when a valid dispenser attempt finishes,
 or when a manual switch/inspection starts, never on every simulation tick or preview.
-Chairs, benches, tables, lights, and vending machines are breakable; plain decorations
-are not. Breakage logs a warning and shows an exclamation bubble. Seated use stops,
+Chairs, benches, tables, lights, vending machines, and props with broken artwork
+(such as glass panes) are breakable; decorations without it are not unless their type
+opts in. Breakage logs a warning and shows an exclamation bubble. Seated use stops,
 and a vending machine that breaks dispenses nothing. Runtime breakage lasts until
 `prop.repair()` is called and does not change the exported starting state.
 
@@ -368,33 +369,38 @@ light: {
   frameSeconds: 0.6,
   states: {
     off: { frames: [{ x: 28, y: 135, w: 40, h: 17 }] },
+    broken: { frames: [{ x: 28, y: 231, w: 40, h: 17 }] },
   },
 },
 ```
 
 `states` holds the frames for a prop's other looks: `off` (switched off) and `broken`.
 They follow the same rules as `frames` and must be cropped to the same size. Put them
-on their own row of the sheet: the first row is powered on and the second row is
-powered off for all prop sheets. The light follows this convention. A prop whose sheet
-has no art for a look yet keeps its normal frames, except broken lights, which use `off`.
+on their own row of the sheet: the first row is normal or powered on, the second is
+powered off, and the third is broken. Broken artwork takes precedence over power;
+repairing the prop restores its previous on/off state. A prop whose sheet has no art
+for a look keeps its normal frames; a broken switchable prop without broken artwork
+uses its off look instead.
 
-Additional looks can use later rows with explicit metadata; include the row offset
-in `y`. Elevator door and arrow sprites have their own crops in the same registry. The editor palette uses
+Include the row offset in `y` for explicit metadata. Elevator door and arrow sprites
+have their own crops in the same registry. The editor palette uses
 the first frame, while placement previews and pixel picking use the current frame.
 Animations share simulation time, so pausing the feed freezes them too.
 Images without `PROP_SPRITES` metadata stay still when both dimensions are at most
 96px. If either dimension is larger, they automatically use 96px cells, animating
-left to right along the first row at the same default speed as lights.
-Only the first row runs while powered on. The first cell of a second row supplies
-a still powered-off look, like lights; unused cells do not become animation frames.
-A second row automatically makes the prop switchable, including editor controls
-and `"on": false` in `room.json`. This does not enable automatic power switching:
-vending machines and other props keep their power state when people enter or leave.
-Only types with `automaticPowerOff: true` follow room occupancy. Later rows are reserved for
-explicit metadata and never join the normal animation. An axis smaller
-than 96px uses its full size; larger axes must be multiples of 96px so cells are complete.
-These automatic frames include cell padding. Add metadata for custom layouts,
-artwork-sized crops, different timing, animated off looks, or additional looks.
+left to right along the first row at the same default speed as lights. The first
+populated cell in row two supplies a still off look; populated cells in row three
+animate as the broken look. Fully transparent cells are skipped, so an empty second
+row does not make a prop switchable and blank columns do not cause flickering.
+An off look enables manual/editor power controls and `"on": false` in `room.json`;
+a broken look enables breakage, the editor's broken control, and `"broken": true`.
+An off look does not enable automatic power switching: vending machines and other
+props keep their power state when people enter or leave. Only types with
+`automaticPowerOff: true` follow room occupancy. Rows after the third never join
+the normal animation. An axis smaller than 96px uses its full size; larger axes must
+be multiples of 96px so cells are complete. These automatic frames include cell padding.
+Add metadata for custom layouts, artwork-sized crops, different timing, or animated
+off looks.
 
 #### Carryable Items
 

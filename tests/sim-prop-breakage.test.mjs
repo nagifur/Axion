@@ -29,8 +29,8 @@ test('exactly 1% of use rolls break each breakable type, without changing starti
   assert.equal(PROP_BREAK_CHANCE, 0.01);
   let roll = 0;
   t.mock.method(Math, 'random', () => roll);
-  for (const type of ['chair', 'bench', 'table', 'light', 'vending_machine']) {
-    const prop = new Prop(placed(type));
+  for (const type of ['chair', 'bench', 'table', 'light', 'vending_machine', 'glass']) {
+    const prop = new Prop({ ...placed(type), ...(type === 'glass' ? { brokenLook: true } : {}) });
     let breaks = 0;
     for (let i = 0; i < 10000; i++) {
       roll = i / 10000;
@@ -183,4 +183,25 @@ test('dragging onto a working vending machine shares the failed-use behavior', a
   assert.equal(machine.broken, true);
   assert.equal(agent.item, null);
   assert.equal(agent.bubble, '!');
+});
+
+test('inspecting a glass pane can break it without introducing a power switch', async (t) => {
+  const { world, room, agent, logs } = await setup('level-0-mainEntrance');
+  const pane = room.props.find((prop) => prop.type === 'glass');
+  assert.deepEqual([pane.breakable, pane.switchable, pane.broken], [true, false, false]);
+  t.mock.method(Math, 'random', () => 0);
+  const point = { x: pane.x + pane.w / 2, y: pane.y + pane.h / 2 };
+  const target = dropTarget(world, agent, point, null, pane);
+  assert.equal(target.kind, 'prop');
+  assert.equal(target.label, 'Inspect glass');
+  placeAgent(world, agent, target);
+  assert.equal(pane.broken, false, 'placement alone does not roll');
+  agent.update(world, 0);
+  assert.deepEqual([pane.broken, pane.look, pane.on], [true, 'broken', true]);
+  assert.equal(agent.bubble, '!');
+  assert.ok(logs.some((entry) => entry.tone === 'warn' && entry.text.includes('glass')));
+  assert.equal(dropTarget(world, agent, point, null, pane).kind, 'invalid');
+  pane.repair();
+  assert.equal(pane.setOn(false), false);
+  assert.deepEqual([pane.broken, pane.look, pane.on], [false, undefined, true]);
 });

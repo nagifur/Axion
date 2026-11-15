@@ -4,7 +4,7 @@ import { drawItemSprite, drawPropSprite, PropPicker, type Assets } from './rende
 import { Prop, type PlacedProp } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import type { Point, Room } from './room.ts';
-import { itemFrame, propFrame, propTypeOf } from './sprites.ts';
+import { itemFrame, propFrame, propSheetFeatures, propTypeOf } from './sprites.ts';
 
 interface Drag {
   prop: Prop | Item;
@@ -218,11 +218,10 @@ export class PropEditor {
     const image = this.assets[asset];
     if (!image) throw new Error(`Missing prop asset "${asset}".`);
     const frame = propFrame(asset, image);
-    const kind = propTypeOf(type, image);
     return {
       type, asset, flip: false, w: frame.w, h: frame.h,
       x: Math.round(at.x - frame.w / 2), y: Math.round(at.y - frame.h),
-      ...(kind.switchable && !propTypeOf(type).switchable ? { switchable: true } : {}),
+      ...propSheetFeatures(type, image),
     };
   }
 

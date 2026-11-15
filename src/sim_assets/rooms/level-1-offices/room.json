@@ -10,9 +10,9 @@
   "props": [
     { "type": "light", "x": 83, "y": 34 },
     { "type": "light", "x": 370, "y": 34 },
-    { "type": "bench", "x": 62, "y": 118 },
+    { "type": "bench", "x": 62, "y": 114 },
     { "type": "table", "x": 347, "y": 127 },
-    { "type": "chair", "x": 317, "y": 122 },
-    { "type": "chair", "x": 415, "y": 122, "flip": true }
+    { "type": "chair", "x": 297, "y": 105 },
+    { "type": "chair", "x": 403, "y": 105, "flip": true }
   ]
 }

@@ -7,7 +7,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
-import { itemFrame, placeablePropTypes, propFrame, propTypeOf } from './sprites.ts';
+import { itemFrame, placeablePropTypes, propCellOccupancy, propFrame, propSheetFeatures, propTypeOf, type PropSheetImage } from './sprites.ts';
 import type { PlacedItem } from './item.ts';
 
 export const SIM_ASSETS_DIR = path.resolve('src/sim_assets');
@@ -41,10 +41,16 @@ async function imageSize(file: string) {
   return { width, height };
 }
 
+async function propImage(file: string): Promise<PropSheetImage> {
+  const { data, info } = await sharp(file).toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const image = { width: info.width, height: info.height };
+  return { ...image, propCells: propCellOccupancy(image, data) };
+}
+
 /** First-frame thumbnail for the editor palette, never the entire sprite sheet. */
 export async function propPreview(asset: string, assetsDir = SIM_ASSETS_DIR): Promise<string> {
   const file = path.join(assetsDir, 'props', `${asset}.png`);
-  const frame = propFrame(asset, await imageSize(file));
+  const frame = propFrame(asset, await propImage(file));
   const png = await sharp(file).extract({ left: frame.x, top: frame.y, width: frame.w, height: frame.h }).png().toBuffer();
   return `data:image/png;base64,${png.toString('base64')}`;
 }
@@ -125,6 +131,7 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   const props: PlacedProp[] = [];
   const entries = Array.isArray(json.props) ? json.props : [];
   const known = entries.length ? await listPropTypes(assetsDir) : [];
+  const propImages = new Map<string, PropSheetImage>();
   for (const [index, entry] of entries.entries()) {
     const { type, x, y, flip, on, broken } = entry ?? {};
     if (typeof type !== 'string' || !known.includes(type)) {
@@ -137,7 +144,11 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
       throw new NavMapError(`${label}/room.json: prop ${index + 1} (${type}) needs whole-number "x" and "y".`);
     }
     const baseKind = propTypeOf(type);
-    const image = await imageSize(path.join(assetsDir, 'props', `${baseKind.asset}.png`));
+    let image = propImages.get(baseKind.asset);
+    if (!image) {
+      image = await propImage(path.join(assetsDir, 'props', `${baseKind.asset}.png`));
+      propImages.set(baseKind.asset, image);
+    }
     const frame = propFrame(baseKind.asset, image);
     const kind = propTypeOf(type, image);
     const start: PlacedProp['start'] = {};
@@ -156,7 +167,7 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
     const { asset } = kind;
     props.push({
       type, asset, x, y, w: frame.w, h: frame.h, flip: flip === true,
-      ...(kind.switchable && !baseKind.switchable ? { switchable: true } : {}),
+      ...propSheetFeatures(type, image),
       ...(Object.keys(start).length ? { start } : {}),
     });
   }
