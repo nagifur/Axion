@@ -19,7 +19,7 @@ test('main entrance uses the large car and links to the lookout', async () => {
   const world = new World({ rooms, roster: [] });
   const entrance = world.room('level-0-mainEntrance');
   const lookout = world.room('level-0-Lookout');
-  assert.equal(entrance.elevator.shaft, 'big');
+  assert.equal(entrance.elevator.shaft, 'main');
   assert.equal(entrance.elevator.big, true);
   assert.equal(world.elevatorFor(entrance).capacity, 10);
   assert.equal(world.elevatorFor(lookout).capacity, 1);
