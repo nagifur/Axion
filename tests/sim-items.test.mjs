@@ -12,7 +12,7 @@ import { Room } from '../src/lib/sim/room.ts';
 import { itemPreview, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { ITEM_HAND_ANCHORS, itemFrame } from '../src/lib/sim/sprites.ts';
 import { World } from '../src/lib/sim/world.ts';
-import { planNext, useItem } from '../src/lib/sim/agent.ts';
+import { ITEM_REACH, itemPickupPoint, pickUp, planNext, useItem } from '../src/lib/sim/agent.ts';
 import { ITEM_ACTIONS, itemActions } from '../src/lib/sim/item.ts';
 
 const drink = ITEM_ACTIONS.can.find((action) => action.id === 'drink');
@@ -349,4 +349,88 @@ test('asset loading validates items separately from prop power sheets', async (t
   });
   assert.ok((await loadAssets({ 'item:can': 'valid' }))['item:can']);
   await assert.rejects(loadAssets({ 'item:can': 'invalid' }), /Item sprite.*invalid crop/);
+});
+
+const person = (id) => ({
+  id, name: id, href: `/Personnel/${id}`, tint: '#fff', scale: 1, position: 'Test', species: 'Human',
+  accessLevel: '1', employeeID: id, traits: [], weight: 1,
+  behavior: { speed: 1, napChance: 0, clumsy: false, social: 0, ghost: false },
+});
+
+async function curiousSetup(t) {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const world = new World({ rooms: [room], roster: [], now: () => new Date(2026, 0, 1, 18) });
+  world.arrive = () => undefined;
+  const logs = [];
+  world.hooks.log = (text) => logs.push(text);
+  t.mock.method(world, 'freeSpot', () => undefined);
+  t.mock.method(world, 'findChatPartner', () => undefined);
+  const random = t.mock.method(Math, 'random', () => 0);
+  const curious = (agent) => {
+    const plans = [];
+    for (let i = 0; i < 200; i++) {
+      random.mock.mockImplementation(() => (i + 0.5) / 200);
+      const plan = planNext(agent, world);
+      if (plan[1]?.activity === 'Picking up a can') plans.push(plan);
+      agent.curiousAbout = undefined;
+    }
+    random.mock.mockImplementation(() => 0);
+    return plans;
+  };
+  return { room, world, logs, curious, random };
+}
+
+test('agents get curious about loose items, walk over and pick them up', async (t) => {
+  const { room, world, logs, curious } = await curiousSetup(t);
+  const agent = world.spawn(person('a'), room, { x: 300, y: 170 });
+  assert.equal(curious(agent).length, 0, 'nothing on the floor');
+  const item = can(297, 170);
+  room.items.push(item);
+  const plans = curious(agent);
+  assert.ok(plans.length > 0);
+  const [walk] = plans[0];
+  assert.equal(walk.activity, 'Checking out a can');
+  const stand = itemPickupPoint(room, item);
+  assert.ok(stand && Math.hypot(item.x + item.w / 2 - stand.x, item.y + item.h - stand.y) <= ITEM_REACH);
+
+  agent.setPlan(world, plans[0]);
+  agent.curiousAbout = item;
+  for (let s = 0; s < 60 && !agent.item; s += 0.1) agent.update(world, 0.1);
+  assert.equal(agent.item, item);
+  assert.deepEqual(room.items, []);
+  assert.equal(agent.curiousAbout, undefined);
+  assert.ok(logs.includes(`a picked up a can in the ${room.name}.`));
+  assert.equal(curious(agent).length, 0, 'full hands are not curious');
+});
+
+test('only one agent goes for each item, and late arrivals find nothing', async (t) => {
+  const { room, world, curious } = await curiousSetup(t);
+  const a = world.spawn(person('a'), room, { x: 300, y: 170 });
+  const b = world.spawn(person('b'), room, { x: 320, y: 170 });
+  const item = can(297, 170);
+  room.items.push(item);
+  a.curiousAbout = item;
+  assert.equal(curious(b).length, 0, 'claimed by someone else');
+  a.setPlan(world, []);
+  assert.ok(curious(b).length > 0, 'setPlan releases the claim');
+
+  const stand = itemPickupPoint(room, item);
+  b.x = stand.x; b.y = stand.y;
+  b.setPlan(world, [pickUp(item)]);
+  b.update(world, 0);
+  room.items = [];
+  b.update(world, 1.1);
+  assert.equal(b.item, null);
+  assert.equal(b.bubble, '?');
+});
+
+test('impostors and unreachable items do not trigger curiosity', async (t) => {
+  const { room, world, curious } = await curiousSetup(t);
+  room.items.push(can(5, 2));
+  assert.equal(itemPickupPoint(room, room.items[0]), undefined);
+  const agent = world.spawn(person('a'), room, { x: 300, y: 170 });
+  assert.equal(curious(agent).length, 0);
+  room.items = [can(297, 170)];
+  const impostor = world.spawn(person('a'), room, { x: 300, y: 170 }, { id: 'fake', name: 'Fake', nickname: '', href: '', weight: 1 });
+  assert.equal(curious(impostor).length, 0);
 });

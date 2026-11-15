@@ -123,6 +123,7 @@ function activityAgent(x = 0, napChance = 0) {
     darkness: 0,
     linkedDoors: [],
     props: [],
+    items: [],
     route(_agent, target) { return [target]; },
     isWalkable() { return true; },
   };

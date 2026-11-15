@@ -24,6 +24,8 @@ export interface Task {
 }
 
 const BASE_SPEED = 28;
+/** How far from their feet, in room pixels, an agent can pick up a loose item. */
+export const ITEM_REACH = 12;
 let nextUid = 1;
 
 export class Agent {
@@ -54,6 +56,8 @@ export class Agent {
   held = false;
   napping = false;
   spot?: Spot;
+  /** Loose item this agent is on their way to pick up, so others leave it to them. */
+  curiousAbout?: Item;
   conversation?: Conversation;
   shake = 0;
   eyeFlash = 0;
@@ -83,8 +87,8 @@ export class Agent {
     if (!this.draggable) throw new Error('Agent cannot pick up an item during transport, dragging, or departure.');
     if (this.item) throw new Error('Agent already carries an item.');
     if (!this.room.items.includes(item)) throw new Error('Item is not loose in this agent\'s room.');
-    if (Math.hypot(item.x + item.w / 2 - this.x, item.y + item.h - this.y) > 12) {
-      throw new Error('Item is out of pickup reach (12 room pixels).');
+    if (Math.hypot(item.x + item.w / 2 - this.x, item.y + item.h - this.y) > ITEM_REACH) {
+      throw new Error(`Item is out of pickup reach (${ITEM_REACH} room pixels).`);
     }
     this.room.items = this.room.items.filter((other) => other !== item);
     this.carriedItem = item;
@@ -171,6 +175,7 @@ export class Agent {
     this.task?.end?.(this, world);
     this.task = undefined;
     this.spot = undefined;
+    this.curiousAbout = undefined;
     this.plan = tasks;
   }
 
@@ -330,6 +335,43 @@ export function useItem(action: ItemAction): Task {
       if (left > 0) return false;
       if (action.consumes) agent.consumeItem();
       if (action.done) world.log(`${agent.character.name} ${action.done} in the ${agent.room.name}.`, 'muted');
+      return true;
+    },
+  };
+}
+
+/** Where the agent stands to pick up a loose item, or undefined if it can't be reached from open floor. */
+export function itemPickupPoint(room: Room, item: Item): Point | undefined {
+  const foot = { x: item.x + item.w / 2, y: item.y + item.h };
+  const stand = room.nearestWalkable(foot);
+  return room.isWalkable(stand) && distance(stand, foot) <= ITEM_REACH ? stand : undefined;
+}
+
+/**
+ * Bends down for a loose item next to the agent and takes it. Nothing happens if their hand
+ * filled up or someone else took the item first.
+ */
+export function pickUp(item: Item, seconds = 1): Task {
+  let left = seconds;
+  const name = item.type.replaceAll('_', ' ');
+  return {
+    activity: `Picking up a ${name}`,
+    interruptible: false,
+    start(agent) {
+      agent.facing = 'front';
+      agent.face({ x: item.x + item.w / 2, y: item.y + item.h });
+    },
+    update(agent, world, dt) {
+      left -= dt;
+      if (left > 0) return false;
+      agent.curiousAbout = undefined;
+      const reachable = Math.hypot(item.x + item.w / 2 - agent.x, item.y + item.h - agent.y) <= ITEM_REACH;
+      if (agent.item || !agent.room.items.includes(item) || !reachable) {
+        agent.say('?', 2);
+        return true;
+      }
+      agent.pickUpItem(item);
+      world.log(`${agent.character.name} picked up a ${name} in the ${agent.room.name}.`, 'muted');
       return true;
     },
   };
@@ -659,6 +701,7 @@ export function leaveFacility(agent: Agent, world: World, hurry = false): Task[]
 /** Picks the next thing an agent does once their plan runs out. */
 export function planNext(agent: Agent, world: World): Task[] {
   agent.spot = undefined;
+  agent.curiousAbout = undefined;
   const { behavior } = agent.character;
   const { room } = agent;
   const { darkness } = room;
@@ -684,6 +727,12 @@ export function planNext(agent: Agent, world: World): Task[] {
     .filter((prop) => prop.dispensing)
     .map((prop) => ({ prop, stand: prop.standPoint(room) }))
     .filter(({ stand }) => room.isWalkable(stand));
+  // Loose items nobody else is already heading for.
+  const claimed = new Set(room.items.length ? world.agentsIn(room).map((other) => other.curiousAbout) : []);
+  const looseItems = agent.item || agent.impostor ? [] : room.items
+    .filter((item) => !claimed.has(item))
+    .map((item) => ({ item, stand: itemPickupPoint(room, item) }))
+    .filter((found): found is { item: Item; stand: Point } => !!found.stand);
 
   const options: Option[] = [
     {
@@ -752,6 +801,16 @@ export function planNext(agent: Agent, world: World): Task[] {
       weight: action.weight,
       build: () => [useItem(action)],
     })),
+    {
+      // Curious about something lying on the floor: go over and pick it up.
+      weight: looseItems.length ? (working ? 1.5 : 4) : 0,
+      build: () => {
+        const { item, stand } = pick(looseItems);
+        agent.curiousAbout = item;
+        agent.say('?', 1.5);
+        return [walkTo(stand, `Checking out a ${item.type.replaceAll('_', ' ')}`), pickUp(item)];
+      },
+    },
     {
       // Grab something from a vending machine; drinking it is then one of the item's actions.
       weight: dispensers.length ? (working ? 0.2 : 1.2) : 0,

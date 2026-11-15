@@ -415,8 +415,14 @@ travel; they leave the facility with the agent rather than being duplicated on t
 The renderer uses temporary facing-dependent `ITEM_HAND_ANCHORS`, scales the item
 with the character, mirrors it for left-facing poses, and draws it behind back-facing
 characters. Dedicated carry poses are not implemented yet.
-There is no automatic pickup or player pickup control yet; simulation
-code calls the API explicitly. The personnel panel displays the item slot.
+There is no player pickup control yet. Agents with an empty hand get curious about loose
+items on the floor: the planner sometimes sends them over (weight 4, or 1.5 while
+working) with a `?` bubble, and `pickUp(item)` takes it after a second ("Ana picked up a
+can in the Offices."). An agent heading for an item claims it with `agent.curiousAbout`,
+so nobody else goes for it; `setPlan` releases the claim. If the item is gone or their
+hand is full when they arrive, they show `?` instead. Impostors ignore items, and items
+with no open floor within `ITEM_REACH` (12 px) of their base are skipped. Simulation code
+can still call the API directly. The personnel panel displays the item slot.
 
 A carried item can unlock extra things to do. `ITEM_ACTIONS` in
 [`item.ts`](../src/lib/sim/item.ts) lists them per item type; while an agent holds a
