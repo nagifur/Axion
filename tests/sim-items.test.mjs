@@ -12,7 +12,7 @@ import { Room } from '../src/lib/sim/room.ts';
 import { itemPreview, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { ITEM_HAND_ANCHORS, itemFrame } from '../src/lib/sim/sprites.ts';
 import { World } from '../src/lib/sim/world.ts';
-import { ITEM_REACH, itemPickupPoint, pickUp, planNext, useItem } from '../src/lib/sim/agent.ts';
+import { ITEM_REACH, itemPickupPoint, pickUp, planNext, setDownItem, useItem, walkTo } from '../src/lib/sim/agent.ts';
 import { ITEM_ACTIONS, itemActions } from '../src/lib/sim/item.ts';
 
 const drink = ITEM_ACTIONS.can.find((action) => action.id === 'drink');
@@ -433,4 +433,31 @@ test('impostors and unreachable items do not trigger curiosity', async (t) => {
   room.items = [can(297, 170)];
   const impostor = world.spawn(person('a'), room, { x: 300, y: 170 }, { id: 'fake', name: 'Fake', nickname: '', href: '', weight: 1 });
   assert.equal(curious(impostor).length, 0);
+});
+
+test('agents occasionally carry an item somewhere and set it down', async (t) => {
+  const { room, world, logs, random } = await curiousSetup(t);
+  const agent = world.spawn(person('a'), room, { x: 300, y: 170 });
+  const item = can();
+  agent.receiveItem(item);
+
+  let setDownPlans = 0;
+  for (let i = 0; i < 200; i++) {
+    random.mock.mockImplementation(() => (i + 0.5) / 200);
+    const plan = planNext(agent, world);
+    if (plan.length === 2 && plan[1]?.activity === 'Putting down a can') {
+      setDownPlans++;
+      assert.equal(plan[0].activity, 'Finding a place for the can');
+    }
+  }
+  assert.ok(setDownPlans > 0, 'the low-weight set-down option is sometimes selected');
+
+  const destination = { x: 410, y: 170 };
+  room.randomFloorPoint = () => destination;
+  agent.setPlan(world, [walkTo(destination), setDownItem(item)]);
+  for (let s = 0; s < 20 && agent.item; s += 0.1) agent.update(world, 0.1);
+  assert.equal(agent.item, null);
+  assert.deepEqual(room.items, [item]);
+  assert.ok(Math.hypot(item.x + item.w / 2 - destination.x, item.y + item.h - destination.y) <= 1);
+  assert.ok(logs.includes(`a set down a can in the ${room.name}.`));
 });

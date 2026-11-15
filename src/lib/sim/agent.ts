@@ -377,6 +377,21 @@ export function pickUp(item: Item, seconds = 1): Task {
   };
 }
 
+/** Sets the carried item down at the agent's current position. */
+export function setDownItem(item: Item): Task {
+  const name = item.type.replaceAll('_', ' ');
+  return {
+    activity: `Putting down a ${name}`,
+    interruptible: false,
+    update(agent, world) {
+      if (agent.item !== item) return true;
+      agent.dropItem();
+      world.log(`${agent.character.name} set down a ${name} in the ${agent.room.name}.`, 'muted');
+      return true;
+    },
+  };
+}
+
 /**
  * Uses a dispenser prop (e.g. a vending machine) the agent stands in front of, and puts the new
  * item in their hand. Nothing comes out if the hand is full or the prop broke or went off meanwhile.
@@ -801,6 +816,17 @@ export function planNext(agent: Agent, world: World): Task[] {
       weight: action.weight,
       build: () => [useItem(action)],
     })),
+    {
+      // Occasionally set down a carried item somewhere on the room's open floor.
+      weight: agent.item && !agent.leaving ? 0.25 : 0,
+      build: () => {
+        const item = agent.item!;
+        return [
+          walkTo(room.randomFloorPoint(), `Finding a place for the ${item.type.replaceAll('_', ' ')}`),
+          setDownItem(item),
+        ];
+      },
+    },
     {
       // Curious about something lying on the floor: go over and pick it up.
       weight: looseItems.length ? (working ? 1.5 : 4) : 0,

@@ -423,6 +423,9 @@ so nobody else goes for it; `setPlan` releases the claim. If the item is gone or
 hand is full when they arrive, they show `?` instead. Impostors ignore items, and items
 with no open floor within `ITEM_REACH` (12 px) of their base are skipped. Simulation code
 can still call the API directly. The personnel panel displays the item slot.
+Agents occasionally set a carried item down as well (planner weight `0.25`): they walk
+to a random open floor point and call `setDownItem(item)`, which drops the same item
+instance there. Other agents may later get curious and pick it up.
 
 A carried item can unlock extra things to do. `ITEM_ACTIONS` in
 [`item.ts`](../src/lib/sim/item.ts) lists them per item type; while an agent holds a
