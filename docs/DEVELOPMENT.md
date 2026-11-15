@@ -377,6 +377,11 @@ in the debug prop editor queue a burst for the next world update, so the editor 
 preview the effect. Props loaded already broken from `room.json` do not create a
 burst. Particles spin in midair and keep their angle after the first floor impact,
 even if they bounce or slide. Their rotated bounds stay above the landing line.
+Landing requires a green nav-map pixel at or below the emission area's bottom plus
+the set's random `scatter` distance. Debris over walls keeps falling until it reaches
+green floor along its path; sliding off green floor makes it fall again. Particles
+use the painted floor directly, without character clearance margins or furniture
+blocking. If there is no floor below, they fall out of the room and are removed.
 Particles are room-specific, follow simulation time (including pause), land and
 fade, and are discarded at the end of their lifetime. The system limits the
 number of live particles across the facility; oldest particles are removed first.

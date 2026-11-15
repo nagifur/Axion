@@ -13,6 +13,12 @@ const placed = (type, options = {}) => ({
   type, asset: type, x: 100, y: 50, w: 96, h: 96, flip: false, brokenLook: true, ...options,
 });
 
+const particleRoom = (width = 100, height = 200, spans = () => [0, width]) => new Room({
+  id: 'particle-test', name: 'Particle test', level: 0, camera: 'test', width, height,
+  nav: { width, height, floor: Array.from({ length: height }, (_, y) => spans(y)), exits: [] },
+  props: [], links: {},
+});
+
 test('all registered particle images exist and glass prop types share one set', async () => {
   for (const [name, set] of Object.entries(PARTICLE_SETS)) {
     assert.ok(set.sprites.length, `${name} must have sprites`);
@@ -119,7 +125,7 @@ test('vending machine breakage emits both glass and sparks once per break', asyn
 
 test('mixed bursts honor each set count and reject unknown sets before emitting', (t) => {
   const system = new ParticleSystem();
-  const room = { width: 300 };
+  const room = particleRoom(300);
   const area = { x: 10, y: 10, w: 10, h: 10 };
   for (const [random, glass, sparks] of [[0, 10, 6], [0.5, 13, 8], [0.999, 16, 10]]) {
     t.mock.method(Math, 'random', () => random);
@@ -134,7 +140,7 @@ test('mixed bursts honor each set count and reject unknown sets before emitting'
 
 test('particles launch, bounce, settle, slow down, fade and expire', (t) => {
   t.mock.method(Math, 'random', () => 0.5);
-  const room = { width: 100 };
+  const room = particleRoom();
   const system = new ParticleSystem();
   const [particle] = system.burst(room, 'glass', { x: 40, y: 5, w: 10, h: 10 });
   const initialY = particle.y;
@@ -162,7 +168,7 @@ test('glass and sparks spin in either direction and freeze on first floor impact
     for (const random of [0.25, 0.75]) {
       t.mock.method(Math, 'random', () => random);
       const system = new ParticleSystem();
-      const particle = new Particle({ width: 100 }, set, { x: 50, y: 10 }, 50);
+      const particle = new Particle(particleRoom(), set, { x: 50, y: 10 }, 50);
       system.particles = [particle];
       const spin = particle.angularVelocity;
       assert.equal(Math.sign(spin), random < 0.5 ? -1 : 1);
@@ -193,8 +199,8 @@ test('glass and sparks spin in either direction and freeze on first floor impact
 
 test('the particle system bounds work and separates and clears rooms', (t) => {
   t.mock.method(Math, 'random', () => 0.5);
-  const room = { width: 100 };
-  const other = { width: 100 };
+  const room = particleRoom();
+  const other = particleRoom();
   const system = new ParticleSystem();
   const area = { x: 10, y: 10, w: 10, h: 10 };
   for (let i = 0; i < 30; i++) system.burst(room, 'glass', area);
@@ -219,6 +225,74 @@ test('the particle system bounds work and separates and clears rooms', (t) => {
   assert.equal(system.in(other).length, 13);
   system.clear();
   assert.equal(system.particles.length, 0);
+});
+
+test('particles pass walls and land only on the green floor below their current path', (t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+  const room = particleRoom(100, 100, (y) => y >= 70 ? [0, 100] : y >= 40 ? [0, 50] : []);
+  const particle = new Particle(room, { ...PARTICLE_SETS.glass, bounce: 0 }, { x: 45, y: 30 }, 40, 45);
+  particle.vx = 600;
+  particle.vy = 600;
+  const spin = particle.angularVelocity;
+  particle.step(1 / 60);
+  assert.ok(particle.y > 40, 'crossing into a wall does not hit the old floor line');
+  assert.equal(particle.resting, false);
+  assert.equal(particle.angularVelocity, spin, 'walls do not stop rotation');
+  particle.vx = 0;
+  for (let i = 0; i < 60 && !particle.resting; i++) particle.step(1 / 60);
+  assert.equal(particle.resting, true);
+  assert.ok(room.isFloor(particle.x, particle.y));
+  assert.equal(Math.round(particle.y), 70);
+  assert.equal(particle.floor, particle.y);
+  assert.equal(particle.depth, particle.y, 'depth follows the lower floor');
+  assert.equal(particle.angularVelocity, 0);
+});
+
+test('fast falling particles cannot skip a single green row', (t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+  const room = particleRoom(100, 100, (y) => y === 60 ? [0, 100] : []);
+  const particle = new Particle(room, { ...PARTICLE_SETS.glass, bounce: 0 }, { x: 50, y: 35 }, 40);
+  particle.vy = 2000;
+  particle.step(1 / 60);
+  assert.equal(particle.resting, true);
+  assert.ok(room.isFloor(particle.x, particle.y));
+  assert.equal(Math.round(particle.y), 60);
+});
+
+test('debris sliding off green floor resumes falling to the next green floor', (t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+  const room = particleRoom(100, 100, (y) => y >= 80 ? [0, 100] : y >= 40 ? [0, 50] : []);
+  const particle = new Particle(room, { ...PARTICLE_SETS.glass, bounce: 0 }, { x: 49, y: 40 }, 40);
+  particle.resting = true;
+  particle.vy = 0;
+  particle.vx = 120;
+  particle.angularVelocity = 0;
+  particle.angle = 1;
+  particle.step(1 / 60);
+  assert.ok(particle.x > 50);
+  assert.equal(particle.resting, false);
+  assert.ok(particle.y > 40);
+  particle.vx = 0;
+  for (let i = 0; i < 60 && !particle.resting; i++) particle.step(1 / 60);
+  assert.equal(particle.resting, true);
+  assert.equal(Math.round(particle.y), 80);
+  assert.ok(room.isFloor(particle.x, particle.y));
+  assert.equal(particle.angle, 1, 'falling again preserves the stopped rotation');
+});
+
+test('particles with no green floor below fall offscreen and are removed', (t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+  const room = particleRoom(100, 100, (y) => y >= 40 ? [0, 30] : []);
+  const system = new ParticleSystem();
+  const particle = new Particle(room, { ...PARTICLE_SETS.glass, lifetime: [10, 10] }, { x: 75, y: 20 }, 40);
+  system.particles = [particle];
+  particle.vy = 100;
+  for (let i = 0; i < 120 && system.particles.length; i++) system.update(1 / 60);
+  assert.equal(system.particles.length, 0);
+  assert.ok(particle.y > room.height);
+  assert.ok(particle.age < particle.lifetime, 'offscreen removal does not wait for lifetime');
+  assert.equal(particle.resting, false);
+  assert.notEqual(particle.angularVelocity, 0, 'no false floor impact');
 });
 
 test('particle images load independently of prop sheet validation', async (t) => {

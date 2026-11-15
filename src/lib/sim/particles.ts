@@ -1,5 +1,5 @@
 // Short-lived sprites thrown into a room (glass shards when a pane breaks). They fall, bounce on the
-// floor line they were thrown from, settle, then fade out. Pure simulation: render.ts draws them.
+// nav-map floor below their emission area, settle, then fade out. Pure simulation: render.ts draws them.
 
 import type { Rect } from './navMap.ts';
 import type { Room } from './room.ts';
@@ -26,7 +26,7 @@ export interface ParticleSet {
   lifetime: readonly [number, number];
   /** Seconds at the end of the lifetime spent fading out. */
   fade: number;
-  /** Extra distance below the emitting area where particles can land, in room pixels. */
+  /** Minimum extra distance below the emitting area before particles can land, in room pixels. */
   scatter: number;
 }
 
@@ -92,10 +92,9 @@ export class Particle {
   vy: number;
   angle = 0;
   angularVelocity: number;
-  /** Floor line this particle lands on. */
-  readonly floor: number;
-  /** Depth of the landing line, independent of the sprite's current height. */
-  readonly depth: number;
+  /** Earliest landing line, updated to the actual green floor on impact. */
+  floor: number;
+  private readonly emissionDepth: number;
   readonly lifetime: number;
   age = 0;
   resting = false;
@@ -108,7 +107,7 @@ export class Particle {
     this.x = at.x;
     this.y = Math.min(at.y, floor);
     this.floor = floor;
-    this.depth = depth;
+    this.emissionDepth = depth;
     this.vx = (Math.random() * 2 - 1) * set.spreadSpeed;
     this.vy = -between(set.upSpeed);
     this.lifetime = between(set.lifetime);
@@ -116,7 +115,12 @@ export class Particle {
   }
 
   get expired() {
-    return this.age >= this.lifetime;
+    return this.age >= this.lifetime || this.y > this.room.height;
+  }
+
+  /** Keep debris in front of its emitter while following any lower landing floor. */
+  get depth() {
+    return Math.max(this.emissionDepth, this.floor, this.y);
   }
 
   /** 1 while fully visible, falling to 0 over the set's fade time. */
@@ -127,26 +131,46 @@ export class Particle {
 
   step(dt: number) {
     const { gravity, bounce, friction } = this.set;
-    if (!this.resting) {
-      this.angle += this.angularVelocity * dt;
-      this.vy += gravity * dt;
-      this.y += this.vy * dt;
-      if (this.y >= this.floor) {
-        this.y = this.floor;
-        this.angularVelocity = 0;
-        if (this.vy * bounce > SETTLE_SPEED) {
-          this.vy = -this.vy * bounce;
-        } else {
-          this.vy = 0;
-          this.resting = true;
-        }
-      }
-    }
+    let previousX = this.x;
+    const previousY = this.y;
     if (this.resting) this.vx *= Math.max(0, 1 - friction * dt);
     this.x += this.vx * dt;
     if (this.x < 0 || this.x > this.room.width) {
       this.x = Math.max(0, Math.min(this.room.width, this.x));
       this.vx = -this.vx * bounce;
+    }
+    if (this.resting && !this.room.isFloor(this.x, this.y)) {
+      this.resting = false;
+      previousX = this.x;
+    }
+    if (!this.resting) {
+      this.angle += this.angularVelocity * dt;
+      this.vy += gravity * dt;
+      this.y += this.vy * dt;
+      if (this.vy > 0 && this.y >= this.floor) {
+        const dx = this.x - previousX;
+        const dy = this.y - previousY;
+        const start = Math.max(0, (this.floor - previousY) / dy);
+        const end = Math.min(1, (this.room.height - 1 - previousY) / dy);
+        // Sample the swept path at pixel resolution so fast debris cannot skip thin floor.
+        const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), dy) * (end - start)));
+        for (let i = 0; i <= steps && end >= start; i++) {
+          const t = start + (end - start) * i / steps;
+          const x = previousX + dx * t;
+          const y = previousY + dy * t;
+          if (!this.room.isFloor(x, y)) continue;
+          this.x = x;
+          this.y = this.floor = y;
+          this.angularVelocity = 0;
+          if (this.vy * bounce > SETTLE_SPEED) {
+            this.vy = -this.vy * bounce;
+          } else {
+            this.vy = 0;
+            this.resting = true;
+          }
+          break;
+        }
+      }
     }
   }
 }
@@ -156,7 +180,7 @@ export class ParticleSystem {
 
   /**
    * Throws one or more sets' particles from anywhere inside `area` (room pixels). They land between the
-   * bottom of the area and `scatter` pixels below it. `depth` puts debris in front of the
+   * green nav-map floor at or below the area's bottom plus `scatter`. `depth` puts debris in front of the
    * emitting object even when the sprite sheet has transparent padding below its artwork.
    */
   burst(room: Room, setName: string | readonly string[], area: Rect, depth = area.y + area.h): Particle[] {
