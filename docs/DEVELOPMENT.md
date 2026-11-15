@@ -324,7 +324,8 @@ from its `PROP_TYPES` entry, or an automatically detected power-off row:
 
 | Flag | Meaning |
 | --- | --- |
-| `switchable` | Can be on or off (lights). A room's switchable props come on as soon as someone is in it, and go off once it has been empty for a minute (`LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts)). |
+| `switchable` | Can be switched on or off manually, including through the editor. |
+| `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for a minute (`LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts)). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
 | `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
 
 `room.json` can set how a prop starts. Only props whose type allows it may use these:
@@ -376,8 +377,10 @@ Images without `PROP_SPRITES` metadata stay still when both dimensions are at mo
 left to right along the first row at the same default speed as lights.
 Only the first row runs while powered on. The first cell of a second row supplies
 a still powered-off look, like lights; unused cells do not become animation frames.
-A second row automatically makes the prop switchable, including editor controls,
-`"on": false` in `room.json`, and room power switching. Later rows are reserved for
+A second row automatically makes the prop switchable, including editor controls
+and `"on": false` in `room.json`. This does not enable automatic power switching:
+vending machines and other props keep their power state when people enter or leave.
+Only types with `automaticPowerOff: true` follow room occupancy. Later rows are reserved for
 explicit metadata and never join the normal animation. An axis smaller
 than 96px uses its full size; larger axes must be multiples of 96px so cells are complete.
 These automatic frames include cell padding. Add metadata for custom layouts,

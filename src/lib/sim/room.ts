@@ -198,21 +198,22 @@ export class Room {
   }
 
   /**
-   * Motion-sensor lighting, called every tick: the lights come on as soon as someone is in
-   * the room, and switch off once it has been empty for LIGHTS_OFF_SECONDS.
+   * Occupancy-controlled power for opted-in props (only lights by default).
    */
   updateLights(occupied: boolean, dt: number) {
     const entered = occupied && !this.occupied;
     this.occupied = occupied;
     if (occupied) {
       this.emptyFor = 0;
-      if (entered) for (const prop of this.switchables) prop.setOn(true);
+      if (entered) {
+        for (const prop of this.switchables) if (prop.automaticPowerOff) prop.setOn(true);
+      }
       return;
     }
     const before = this.emptyFor;
     this.emptyFor += Math.max(0, dt);
     if (before < LIGHTS_OFF_SECONDS && this.emptyFor >= LIGHTS_OFF_SECONDS) {
-      for (const prop of this.switchables) prop.setOn(false);
+      for (const prop of this.switchables) if (prop.automaticPowerOff) prop.setOn(false);
     }
   }
 

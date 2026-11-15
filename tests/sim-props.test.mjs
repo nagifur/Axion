@@ -126,9 +126,14 @@ test('automatic sheets use one frame for room loading, palette previews, placeme
   assert.equal(prop.look, 'off');
   assert.equal(new Prop(prop.toData()).switchable, true, 'cloning preserves the sheet power switch');
   room.updateLights(true, 0);
-  assert.equal(prop.look, undefined);
+  assert.equal(prop.look, 'off', 'entering does not power on an ordinary switchable prop');
   room.updateLights(false, LIGHTS_OFF_SECONDS);
   assert.equal(prop.look, 'off');
+  prop.setOn(true);
+  room.updateLights(true, 0);
+  room.updateLights(false, LIGHTS_OFF_SECONDS);
+  assert.equal(prop.look, undefined, 'leaving does not power off an ordinary switchable prop');
+  prop.setOn(false);
   const preview = await propPreview('animated_decoration', assetsDir);
   const size = await sharp(Buffer.from(preview.split(',')[1], 'base64')).metadata();
   assert.deepEqual([size.width, size.height], [96, 96]);

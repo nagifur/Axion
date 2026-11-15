@@ -62,6 +62,10 @@ export class Prop implements PlacedProp {
     return !!this.kind.switchable || this.sheetSwitchable;
   }
 
+  get automaticPowerOff() {
+    return this.switchable && this.kind.automaticPowerOff === true;
+  }
+
   get breakable() {
     return !!this.kind.breakable;
   }

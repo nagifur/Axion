@@ -186,15 +186,17 @@ export interface PropType {
   seats?: Seat[];
   /** Floor area under the prop that people walk around. */
   blocks?: Rect;
-  /** Can be switched on and off. Rooms switch these off once nobody has been in them for a while. */
+  /** Can be switched on and off. */
   switchable?: boolean;
+  /** Occupancy turns power on when someone enters and off after the room has been empty. */
+  automaticPowerOff?: boolean;
   /** Can break. Nobody sits on a broken prop. */
   breakable?: boolean;
 }
 
 /** Prop types that rooms can place in their room.json. */
 export const PROP_TYPES: Record<string, PropType> = {
-  light: { asset: 'light', switchable: true, breakable: true },
+  light: { asset: 'light', switchable: true, automaticPowerOff: true, breakable: true },
   bench: {
     asset: 'bench',
     breakable: true,

@@ -8,6 +8,7 @@ import { propsSnippet } from '../src/lib/sim/propEditor.ts';
 import { LIGHTS_OFF_SECONDS, Room } from '../src/lib/sim/room.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
+import { PROP_TYPES } from '../src/lib/sim/sprites.ts';
 
 const placed = (type, start) => ({ type, asset: type, x: 0, y: 0, w: 10, h: 10, flip: false, ...(start ? { start } : {}) });
 const character = (id) => ({
@@ -120,6 +121,48 @@ test('the world runs the lights from who is in each room', async () => {
   world.spawn(character('a'), room, room.randomFloorPoint());
   world.update(0.1);
   assert.ok(room.switchables.every((light) => light.on));
+});
+
+test('occupancy changes only opted-in power, preserving manually switched device states', async (t) => {
+  PROP_TYPES.occupancy_controlled = {
+    asset: 'occupancy_controlled', switchable: true, automaticPowerOff: true,
+  };
+  PROP_TYPES.unswitchable_automatic = { asset: 'unswitchable_automatic', automaticPowerOff: true };
+  t.after(() => {
+    delete PROP_TYPES.occupancy_controlled;
+    delete PROP_TYPES.unswitchable_automatic;
+  });
+  const room = new Room(await loadRoom('level-1-offices'));
+  const vending = new Prop({ ...placed('vending_machine'), switchable: true });
+  const computer = new Prop({ ...placed('computer', { on: false }), switchable: true });
+  const automatic = new Prop(placed('occupancy_controlled', { on: false }));
+  const decoration = new Prop(placed('unswitchable_automatic'));
+  room.setProps([...room.props, vending, computer, automatic, decoration]);
+  assert.equal(vending.automaticPowerOff, false);
+  assert.equal(computer.automaticPowerOff, false);
+  assert.equal(automatic.automaticPowerOff, true);
+  assert.equal(decoration.automaticPowerOff, false, 'a power switch is still required');
+  const lights = room.props.filter((prop) => prop.type === 'light');
+  assert.ok(lights.every((light) => light.automaticPowerOff));
+
+  room.updateLights(true, 0);
+  assert.deepEqual([vending.on, computer.on, automatic.on], [true, false, true]);
+  room.updateLights(false, LIGHTS_OFF_SECONDS - 1);
+  assert.ok(lights.every((light) => light.on));
+  assert.equal(automatic.on, true);
+  room.updateLights(false, 1);
+  assert.ok(lights.every((light) => !light.on));
+  assert.deepEqual([vending.on, computer.on, automatic.on], [true, false, false]);
+  room.updateLights(false, 120);
+  room.updateLights(true, 0);
+  assert.ok(lights.every((light) => light.on));
+  assert.deepEqual([vending.on, computer.on, automatic.on], [true, false, true]);
+
+  assert.equal(vending.setOn(false), true);
+  assert.equal(computer.setOn(true), true);
+  room.updateLights(false, LIGHTS_OFF_SECONDS);
+  room.updateLights(true, 0);
+  assert.deepEqual([vending.on, computer.on], [false, true], 'manual states survive later occupancy cycles');
 });
 
 test('nobody picks a seat on a broken prop, and whoever sits on one gets up', async () => {

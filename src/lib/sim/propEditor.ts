@@ -101,7 +101,7 @@ export class PropEditor {
     this.commit();
   }
 
-  /** Whether the selected prop starts switched off. It still comes on when someone walks in. */
+  /** Whether the selected prop starts switched off. */
   toggleOff() {
     if (!this.selected?.switchable) return;
     this.selected.setStart({ on: this.selected.start?.on === false });
