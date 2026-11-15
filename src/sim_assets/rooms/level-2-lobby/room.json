@@ -4,9 +4,10 @@
   "camera": "CAM 2-01",
   "elevators": { "shaft": "side" },
   "props": [
-    { "type": "light", "x": 83, "y": 34 },
-    { "type": "light", "x": 370, "y": 34 },
-    { "type": "bench", "x": 62, "y": 118 }
-   
-  ]
+  { "type": "light", "x": 83, "y": 34 },
+  { "type": "light", "x": 370, "y": 34 },
+  { "type": "bench", "x": 62, "y": 118 },
+  { "type": "vending_machine", "x": 440, "y": 59 }
+],
+"items": []
 }

@@ -3,7 +3,7 @@ import { directionTo, type Door, type Facing, type Point, type Room, type Spot }
 import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { ElevatorRequest, World } from './world.ts';
 import { scheduleFor, type SchedulePeriod } from './schedule.ts';
-import type { Item } from './item.ts';
+import { itemActions, type Item, type ItemAction } from './item.ts';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
 
@@ -98,6 +98,14 @@ export class Agent {
     item.x = Math.round(point.x - item.w / 2);
     item.y = Math.round(point.y - item.h);
     this.room.items.push(item);
+    this.carriedItem = null;
+    return item;
+  }
+
+  /** Destroys the carried item (used up); it does not go back on the floor. */
+  consumeItem(): Item {
+    const item = this.item;
+    if (!item) throw new Error('Agent has no item to use up.');
     this.carriedItem = null;
     return item;
   }
@@ -291,6 +299,30 @@ export function trip(): Task {
     update(_agent, _world, dt) {
       left -= dt;
       return left <= 0;
+    },
+  };
+}
+
+/** Does one of the carried item's actions; consuming actions destroy the item once finished. */
+export function useItem(action: ItemAction): Task {
+  let left = action.seconds;
+  let item: Item | null = null;
+  return {
+    activity: action.activity,
+    interruptible: false,
+    start(agent) {
+      item = agent.item;
+      if (!itemActions(item).includes(action)) throw new Error(`Agent cannot "${action.id}" without a matching item.`);
+      agent.facing = 'front';
+    },
+    update(agent, world, dt) {
+      // The item may have been dropped meanwhile; then there is nothing left to do.
+      if (agent.item !== item) return true;
+      left -= dt;
+      if (left > 0) return false;
+      if (action.consumes) agent.consumeItem();
+      if (action.done) world.log(`${agent.character.name} ${action.done} in the ${agent.room.name}.`, 'muted');
+      return true;
     },
   };
 }
@@ -674,6 +706,10 @@ export function planNext(agent: Agent, world: World): Task[] {
         return [rideElevatorOut(pick(working && preferred.length && !darkness ? preferred : floors))];
       },
     },
+    ...itemActions(agent.item).map((action): Option => ({
+      weight: action.weight,
+      build: () => [useItem(action)],
+    })),
     {
       // Impostors stay until the event director sends them off.
       weight: !agent.impostor && (stayed > 35 || darkness > 0)

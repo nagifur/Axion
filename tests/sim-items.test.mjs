@@ -12,6 +12,74 @@ import { Room } from '../src/lib/sim/room.ts';
 import { itemPreview, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { ITEM_HAND_ANCHORS, itemFrame } from '../src/lib/sim/sprites.ts';
 import { World } from '../src/lib/sim/world.ts';
+import { planNext, useItem } from '../src/lib/sim/agent.ts';
+import { ITEM_ACTIONS, itemActions } from '../src/lib/sim/item.ts';
+
+const drink = ITEM_ACTIONS.can.find((action) => action.id === 'drink');
+const logWorld = () => ({ lines: [], log(text) { this.lines.push(text); }, achieve() {} });
+
+test('a carried can unlocks drinking, which uses it up and destroys it', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const item = can();
+  room.items.push(item);
+  const agent = new Agent({ ...character, name: 'Tester' }, room, { x: 200, y: 140 });
+  assert.deepEqual(itemActions(agent.item), [], 'empty hands unlock nothing');
+  agent.pickUpItem(item);
+  assert.deepEqual(itemActions(agent.item), [drink]);
+  const world = logWorld();
+  agent.setPlan(world, [useItem(drink)]);
+  agent.update(world, 0);
+  assert.equal(agent.activity, 'Drinking a can');
+  assert.equal(agent.busy, true, 'drinking cannot be interrupted by chats');
+  agent.update(world, drink.seconds - 0.5);
+  assert.equal(agent.item, item, 'the can lasts until the drink finishes');
+  agent.update(world, 0.5);
+  assert.equal(agent.item, null);
+  assert.equal(room.items.includes(item), false, 'a used-up item is not dropped on the floor');
+  assert.deepEqual(world.lines, [`Tester finished a can in the ${room.name}.`]);
+  assert.throws(() => agent.consumeItem(), /no item/);
+});
+
+test('item actions refuse to start without the item and stop if it is dropped', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const agent = new Agent(character, room, { x: 200, y: 140 });
+  const world = logWorld();
+  assert.throws(() => { agent.setPlan(world, [useItem(drink)]); agent.update(world, 0); }, /cannot "drink"/);
+  const item = can();
+  room.items.push(item);
+  agent.setPlan(world, []);
+  agent.pickUpItem(item);
+  agent.setPlan(world, [useItem(drink)]);
+  agent.update(world, 1);
+  agent.dropItem();
+  agent.update(world, drink.seconds);
+  assert.deepEqual(room.items, [item], 'a dropped can is not consumed');
+  assert.deepEqual(world.lines, []);
+});
+
+test('the planner only offers item actions while carrying a matching item', async (t) => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const world = new World({ rooms: [room], roster: [], now: () => new Date(2026, 0, 1, 18) });
+  t.mock.method(world, 'freeSpot', () => undefined);
+  t.mock.method(world, 'findChatPartner', () => undefined);
+  const random = t.mock.method(Math, 'random', () => 0);
+  const agent = new Agent({ ...character, id: 'a', name: 'A', species: 'Human', accessLevel: '1' }, room, { x: 200, y: 140 });
+  const drinks = () => {
+    let count = 0;
+    for (let i = 0; i < 200; i++) {
+      random.mock.mockImplementation(() => (i + 0.5) / 200);
+      if (planNext(agent, world)[0].activity === drink.activity) count++;
+    }
+    return count;
+  };
+  assert.equal(drinks(), 0);
+  const item = can();
+  room.items.push(item);
+  agent.pickUpItem(item);
+  assert.ok(drinks() > 0);
+  agent.consumeItem();
+  assert.equal(drinks(), 0);
+});
 
 const character = { scale: 1, behavior: { speed: 1 } };
 const can = (x = 197, y = 130) => new Item({ type: 'can', asset: 'item:can', x, y, w: 6, h: 10, flip: false });

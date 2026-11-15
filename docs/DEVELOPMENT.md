@@ -413,9 +413,23 @@ travel; they leave the facility with the agent rather than being duplicated on t
 
 The renderer uses temporary facing-dependent `ITEM_HAND_ANCHORS`, scales the item
 with the character, mirrors it for left-facing poses, and draws it behind back-facing
-characters. Dedicated carry poses and item-use behaviors are not implemented yet.
-There is no automatic pickup or player pickup control in this foundation; simulation
+characters. Dedicated carry poses are not implemented yet.
+There is no automatic pickup or player pickup control yet; simulation
 code calls the API explicitly. The personnel panel displays the item slot.
+
+A carried item can unlock extra things to do. `ITEM_ACTIONS` in
+[`item.ts`](../src/lib/sim/item.ts) lists them per item type; while an agent holds a
+matching item, the planner adds each action as an option with its `weight`:
+
+```ts
+can: [{ id: 'drink', activity: 'Drinking a can', seconds: 4, weight: 2, consumes: true, done: 'finished a can' }],
+```
+
+The action runs as an uninterruptible `useItem` task for `seconds`. With
+`consumes: true` the item is used up when it finishes: `agent.consumeItem()` empties the
+slot and the item is destroyed rather than dropped. `done` adds a log line
+("Ana finished a can in the Offices."). If the item leaves the agent's hand before
+the action finishes, the action stops without using it up.
 
 #### Placing Props and Items With the Editor
 

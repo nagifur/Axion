@@ -1,3 +1,25 @@
+/** Something an agent can do with the item in their hand. */
+export interface ItemAction {
+  id: string;
+  /** Shown as the agent's activity while doing it. */
+  activity: string;
+  seconds: number;
+  /** How likely the planner picks it, compared with other options (looking around is 1–3). */
+  weight: number;
+  /** The item is used up and destroyed when the action finishes. */
+  consumes?: boolean;
+  /** Log line ending, after the agent's name, e.g. "finished a can". */
+  done?: string;
+}
+
+/** Actions each item type unlocks while carried. Types not listed are only carried around. */
+export const ITEM_ACTIONS: Record<string, readonly ItemAction[]> = {
+  can: [{ id: 'drink', activity: 'Drinking a can', seconds: 4, weight: 2, consumes: true, done: 'finished a can' }],
+};
+
+export const itemActions = (item: { type: string } | null | undefined): readonly ItemAction[] =>
+  (item && ITEM_ACTIONS[item.type]) || [];
+
 export interface PlacedItem {
   type: string;
   asset: string;
