@@ -154,7 +154,7 @@ export class Prop implements PlacedProp {
     }
     this.start = Object.keys(start).length ? start : undefined;
     if (state.on !== undefined) this.setOn(state.on);
-    if (state.broken === true && this.breakable) this.broken = true;
+    if (state.broken === true) this.break();
     if (state.broken === false) this.repair();
   }
 

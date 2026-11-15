@@ -46,7 +46,8 @@ test('runtime breakage emits once per break in the correct room, including share
   prebroken.setStart({ broken: false });
   prebroken.setStart({ broken: true });
   world.update(0);
-  assert.equal(world.particles.particles.length, 0, 'editing starting state is not runtime breakage');
+  assert.equal(world.particles.in(room).length, 13, 'breaking in the editor previews the particles');
+  world.particles.clear();
   assert.equal(pane.break(), true);
   assert.equal(pane.break(), false);
   assert.equal(cup.break(), true);

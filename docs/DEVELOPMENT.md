@@ -366,8 +366,9 @@ By default particles originate across the whole prop. An optional `area: { x, y,
 in `breakParticles` restricts the burst to a rectangle relative to its displayed
 artwork; it is mirrored automatically when the prop is flipped. The three glass pane
 types share the `glass` set, which uses `glass_1`, `glass_2`, and `glass_3`.
-Runtime calls to `prop.break()` and breakage during use queue a burst for the next
-world update. Initial broken state and editor starting-state changes do not create a
+Runtime calls to `prop.break()`, breakage during use, and toggling a prop to broken
+in the debug prop editor queue a burst for the next world update, so the editor can
+preview the effect. Props loaded already broken from `room.json` do not create a
 burst. Particles are room-specific, follow simulation time (including pause), land
 and fade, and are discarded at the end of their lifetime. The system limits the
 number of live particles across the facility; oldest particles are removed first.
