@@ -162,15 +162,15 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const achieve = (id: string, room?: Room) => {
     const achievement = ACHIEVEMENTS.find((item) => item.id === id);
-    // Some directives only count when they happen on the camera being watched.
+    // Some achievements only count when they happen on the camera being watched.
     if (!achievement || unlocked.has(id) || (room && room !== viewed)) return;
     unlocked.add(id);
     progress.achievements = [...unlocked];
     saveProgress(progress);
     renderAchievements();
-    log(`Directive complete: ${achievement.title}`, 'ok');
+    log(`Achievement complete: ${achievement.title}`, 'ok');
     if (toast) {
-      toast.textContent = `Directive complete: ${achievement.title}`;
+      toast.textContent = `Achievement complete: ${achievement.title}`;
       toast.hidden = false;
       window.clearTimeout(toastTimer);
       toastTimer = window.setTimeout(() => { toast.hidden = true; }, 4000);
