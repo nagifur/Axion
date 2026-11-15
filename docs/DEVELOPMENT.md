@@ -328,6 +328,7 @@ from its `PROP_TYPES` entry, or automatically detected power-off and broken artw
 | `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for `LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
 | `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
 | `dispenses` | Item type agents can get from the prop while it works and, if switchable, is on (see [Dispensers](#dispensers-vending-machines)). |
+| `breakParticles` | Particle set and optional artwork-relative emission area to use when the prop breaks (see [Breakage Particles](#breakage-particles)). |
 
 `room.json` can set how a prop starts. Only props whose type allows it may use these:
 
@@ -347,6 +348,29 @@ Chairs, benches, tables, lights, vending machines, and props with broken artwork
 opts in. Breakage logs a warning and shows an exclamation bubble. Seated use stops,
 and a vending machine that breaks dispenses nothing. Runtime breakage lasts until
 `prop.repair()` is called and does not change the exported starting state.
+
+#### Breakage Particles
+
+Particle sprites live in [`src/sim_assets/particles/`](../src/sim_assets/particles/).
+Each PNG is a whole particle image, not a sprite sheet. Add a reusable set to
+`PARTICLE_SETS` in [`particles.ts`](../src/lib/sim/particles.ts): its sprite names omit
+`.png`, and its settings control burst count, launch speeds, gravity, bounce, floor
+friction, lifetime, fade, and landing scatter. Link any number of prop types to that
+set in `PROP_TYPES` in [`sprites.ts`](../src/lib/sim/sprites.ts):
+
+```ts
+glass_cup: { asset: 'glass_cup', breakable: true, breakParticles: { set: 'glass' } },
+```
+
+By default particles originate across the whole prop. An optional `area: { x, y, w, h }`
+in `breakParticles` restricts the burst to a rectangle relative to its displayed
+artwork; it is mirrored automatically when the prop is flipped. The three glass pane
+types share the `glass` set, which uses `glass_1`, `glass_2`, and `glass_3`.
+Runtime calls to `prop.break()` and breakage during use queue a burst for the next
+world update. Initial broken state and editor starting-state changes do not create a
+burst. Particles are room-specific, follow simulation time (including pause), land
+and fade, and are discarded at the end of their lifetime. The system limits the
+number of live particles across the facility; oldest particles are removed first.
 
 #### Prop Sprite Sheets
 

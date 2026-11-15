@@ -16,7 +16,7 @@ export interface MonitorConfig {
   rooms: RoomData[];
   /** Room shown when nobody has picked a camera yet. */
   initialRoom: string;
-  /** Image URLs by name: "room:<id>", "character", prop names, and "item:<type>". */
+  /** Image URLs by name: "room:<id>", "character", prop names, "item:<type>", and "particle:<file>". */
   assets: Record<string, string>;
 }
 

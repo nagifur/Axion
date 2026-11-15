@@ -7,6 +7,7 @@ import type { ImageMetadata } from 'astro';
 import { toSimCharacter, toSimImpostor, type SimCharacter, type SimImpostor } from '../lib/sim/roster';
 import type { MonitorConfig } from '../lib/sim/monitor';
 import { itemPreview, listPropTypes, loadFacility, propPreview } from '../lib/sim/roomLoader';
+import { particleAsset } from '../lib/sim/particles';
 import { propTypeOf } from '../lib/sim/sprites';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
 
@@ -25,6 +26,7 @@ const profileImages = import.meta.glob<ImageModule>(
 const roomImages = import.meta.glob<ImageModule>('../sim_assets/rooms/*/room.png', { eager: true });
 const propImages = import.meta.glob<ImageModule>('../sim_assets/props/*.png', { eager: true });
 const itemImages = import.meta.glob<ImageModule>('../sim_assets/items/*.png', { eager: true });
+const particleImages = import.meta.glob<ImageModule>('../sim_assets/particles/*.png', { eager: true });
 
 const rooms = await loadFacility();
 const initialRoom = rooms.find((room) => room.id === INITIAL_ROOM) ?? rooms[0];
@@ -91,6 +93,7 @@ const impostors = (await Promise.all(entities.map(async (entry) => {
 
 const propSources = Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src]));
 const itemSources = Object.fromEntries(Object.entries(itemImages).map(([path, image]) => [`item:${fileStem(path)}`, image.default.src]));
+const particleSources = Object.fromEntries(Object.entries(particleImages).map(([path, image]) => [particleAsset(fileStem(path)), image.default.src]));
 const itemTypes = await Promise.all(Object.keys(itemSources).map(async (asset) => ({
   type: asset, src: await itemPreview(asset.slice(5)),
 })));
@@ -109,6 +112,7 @@ const config: MonitorConfig = {
     character: characterSheet.src,
     ...propSources,
     ...itemSources,
+    ...particleSources,
   },
 };
 // Escape "<" so profile text can never close the inline JSON script.

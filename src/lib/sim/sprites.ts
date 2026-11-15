@@ -269,7 +269,19 @@ export interface PropType {
   breakable?: boolean;
   /** Item type (src/sim_assets/items/) agents can get from it while it is working and on. */
   dispenses?: string;
+  /** Particles thrown when it breaks at runtime. */
+  breakParticles?: BreakParticles;
 }
+
+export interface BreakParticles {
+  /** Name in PARTICLE_SETS (particles.ts); different prop types can share a set. */
+  set: string;
+  /** Part of the artwork the particles come from, relative to the prop. Defaults to the whole prop. */
+  area?: Rect;
+}
+
+// Glass panes share one particle set; areas match each sheet's pane artwork.
+const glassPane = (area: Rect): BreakParticles => ({ set: 'glass', area });
 
 /** Prop types that rooms can place in their room.json. */
 export const PROP_TYPES: Record<string, PropType> = {
@@ -292,6 +304,10 @@ export const PROP_TYPES: Record<string, PropType> = {
   },
   // Its power switch comes from the sheet's off row; it keeps its power state when the room empties.
   vending_machine: { asset: 'vending_machine', breakable: true, dispenses: 'can' },
+  // Breakable through the broken row of their sheets.
+  glass: { asset: 'glass', breakParticles: glassPane({ x: 3, y: 30, w: 91, h: 37 }) },
+  glassHalf: { asset: 'glassHalf', breakParticles: glassPane({ x: 25, y: 30, w: 46, h: 37 }) },
+  glassAngle: { asset: 'glassAngle', breakParticles: glassPane({ x: 28, y: 12, w: 40, h: 74 }) },
 };
 
 // The elevator is found from the nav map; its sprites are drawn to fit the opening.

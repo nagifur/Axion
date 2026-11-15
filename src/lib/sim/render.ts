@@ -2,10 +2,11 @@ import type { Agent } from './agent.ts';
 import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
+import type { Particle } from './particles.ts';
 import { CHARACTER_FRAMES, ELEVATOR_SPRITES, ITEM_HAND_ANCHORS, itemFrame, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { World } from './world.ts';
 
-/** Images by name: "room:<id>", "character", prop file names, and "item:<type>". */
+/** Images by name: "room:<id>", "character", prop file names, "item:<type>", and "particle:<file>". */
 export type Assets = Record<string, HTMLImageElement>;
 
 export function loadAssets(urls: Record<string, string>): Promise<Assets> {
@@ -15,7 +16,7 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
     image.onload = () => {
       try {
         if (name.startsWith('item:')) itemFrame(name.slice(5), image);
-        else if (name !== 'character' && !name.startsWith('room:')) {
+        else if (name !== 'character' && !name.startsWith('room:') && !name.startsWith('particle:')) {
           if (needsPropCellOccupancy(name, image)) {
             const canvas = makeCanvas(image.width, image.height);
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -54,6 +55,20 @@ export function drawPropSprite(
 }
 
 type Canvas = HTMLCanvasElement;
+
+/** Draws a particle's whole image centered on its position, standing on it, faded by age. */
+export function drawParticle(ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number }, particle: Particle) {
+  const alpha = particle.alpha;
+  if (alpha <= 0) return;
+  const x = Math.round(particle.x - image.width / 2);
+  const y = Math.round(particle.y) - image.height;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  ctx.translate(x + (particle.flip ? image.width : 0), y);
+  if (particle.flip) ctx.scale(-1, 1);
+  ctx.drawImage(image, 0, 0);
+  ctx.restore();
+}
 
 export function drawItemSprite(
   ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
@@ -432,6 +447,16 @@ export class Renderer {
           const image = assets[item.asset];
           if (!image) throw new Error(`Missing item asset "${item.asset}".`);
           drawItemSprite(ctx, image, item);
+        },
+      });
+    }
+    for (const particle of world.particles.in(room)) {
+      drawables.push({
+        depth: particle.depth,
+        draw: () => {
+          const image = assets[particle.asset];
+          if (!image) throw new Error(`Missing particle asset "${particle.asset}".`);
+          drawParticle(ctx, image, particle);
         },
       });
     }

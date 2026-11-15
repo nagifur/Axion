@@ -1,6 +1,7 @@
 import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './agent.ts';
 import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
 import { directionTo, type Direction, type Door, type Point, type Room, type Spot } from './room.ts';
+import { ParticleSystem } from './particles.ts';
 import { scheduleFor } from './schedule.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
@@ -201,6 +202,7 @@ export class World {
   readonly rooms: Room[];
   readonly now: () => Date;
   hooks: WorldHooks = {};
+  readonly particles = new ParticleSystem();
   private readonly elevators = new Map<Room, Elevator>();
   private rides: Ride[] = [];
   /** Earliest time each off-camera character may come back. */
@@ -535,6 +537,7 @@ export class World {
   }
 
   update(dt: number) {
+    this.particles.update(dt);
     this.time += dt;
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
 
@@ -564,6 +567,16 @@ export class World {
       agent.update(this, dt);
     }
 
-    for (const room of this.rooms) room.updateLights(this.agentsIn(room).length > 0, dt);
+    for (const room of this.rooms) {
+      room.updateLights(this.agentsIn(room).length > 0, dt);
+      for (const prop of room.props) {
+        const breaks = prop.takeBreaks();
+        if (!breaks) continue;
+        const debris = prop.breakParticles;
+        if (debris) {
+          for (let i = 0; i < breaks; i++) this.particles.burst(room, debris.set, debris.area, debris.depth);
+        }
+      }
+    }
   }
 }

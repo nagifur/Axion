@@ -88,7 +88,7 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
   seated.spot = { id: 'chair', kind: 'chair', x: 110, y: 135, facing: 'right', propDepth: 138 };
   seated.update({}, 0);
   const standing = new Agent(character, room, { x: 110, y: 136 });
-  const world = { agents: [seated, standing], agentsIn() { return this.agents; }, elevatorFor() {} };
+  const world = { agents: [seated, standing], agentsIn() { return this.agents; }, elevatorFor() {}, particles: { in() { return []; } } };
   renderer.draw(world, new Map());
   const images = canvas.draws.map((draw) => draw[0]);
   const sheet = renderer.sheet(1);

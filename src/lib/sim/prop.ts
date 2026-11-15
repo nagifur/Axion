@@ -3,6 +3,7 @@
 
 import { hasPropLook, propTypeOf, type PropLook, type PropType } from './sprites.ts';
 import type { Point, Room } from './room.ts';
+import type { Rect } from './navMap.ts';
 
 export interface PropState {
   /** Switched on. Only used by switchable props. */
@@ -44,6 +45,7 @@ export class Prop implements PlacedProp {
   broken: boolean;
   readonly brokenLook?: boolean;
   private readonly sheetSwitchable: boolean;
+  private pendingBreaks = 0;
 
   constructor(data: PlacedProp) {
     this.type = data.type;
@@ -87,6 +89,15 @@ export class Prop implements PlacedProp {
     return type && !this.broken && (!this.switchable || this.on) ? type : null;
   }
 
+  /** Particle set thrown when it breaks, and the room area it comes from (null if none). */
+  get breakParticles(): { set: string; area: Rect; depth: number } | null {
+    const debris = this.kind.breakParticles;
+    if (!debris) return null;
+    const area = debris.area ?? { x: 0, y: 0, w: this.w, h: this.h };
+    const x = this.flip ? this.w - area.x - area.w : area.x;
+    return { set: debris.set, area: { x: this.x + x, y: this.y + area.y, w: area.w, h: area.h }, depth: this.y + this.h };
+  }
+
   /** Where someone stands to use the prop from the front. */
   standPoint(room: Room): Point {
     return room.nearestWalkable({ x: this.x + this.w / 2, y: this.y + this.h + 4 });
@@ -103,7 +114,15 @@ export class Prop implements PlacedProp {
   break(): boolean {
     if (!this.breakable || this.broken) return false;
     this.broken = true;
+    this.pendingBreaks++;
     return true;
+  }
+
+  /** Runtime break events since the last simulation update. */
+  takeBreaks(): number {
+    const count = this.pendingBreaks;
+    this.pendingBreaks = 0;
+    return count;
   }
 
   breakOnUse(): boolean {
@@ -135,7 +154,7 @@ export class Prop implements PlacedProp {
     }
     this.start = Object.keys(start).length ? start : undefined;
     if (state.on !== undefined) this.setOn(state.on);
-    if (state.broken === true) this.break();
+    if (state.broken === true && this.breakable) this.broken = true;
     if (state.broken === false) this.repair();
   }
 

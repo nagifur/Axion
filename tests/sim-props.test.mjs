@@ -126,7 +126,7 @@ test('the real glass and vending sheets detect their populated frames', async ()
   for (const asset of ['glass', 'glassAngle', 'glassHalf']) {
     const image = await inspectedImage(`src/sim_assets/props/${asset}.png`);
     assert.deepEqual(image.propCells, [[true, false], [false, false], [true, false]]);
-    assert.deepEqual(propTypeOf(asset, image), { asset, breakable: true });
+    assert.deepEqual(propTypeOf(asset, image), { ...PROP_TYPES[asset], breakable: true });
     assert.deepEqual(propFrames(asset, image), [{ x: 0, y: 0, w: 96, h: 96 }]);
     assert.deepEqual(propFrames(asset, image, 'broken'), [{ x: 0, y: 192, w: 96, h: 96 }]);
   }
@@ -530,7 +530,7 @@ test('browser asset loading detects transparent cells and reports pixel-read err
   });
   const assets = await loadAssets({ glass: '/glass.png' });
   assert.deepEqual(assets.glass.propCells, [[true, false], [false, false], [true, false]]);
-  assert.deepEqual(propTypeOf('glass', assets.glass), { asset: 'glass', breakable: true });
+  assert.deepEqual(propTypeOf('glass', assets.glass), { ...PROP_TYPES.glass, breakable: true });
   assert.equal(propFrame('glass', assets.glass, 1, 'broken').y, 192);
   pixelError = true;
   await assert.rejects(loadAssets({ glass: '/glass.png' }), /pixel read failed/);
