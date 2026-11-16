@@ -67,7 +67,7 @@ export const SIM_OVERRIDES: Record<string, SimOverride> = {
 };
 
 export const DEFAULT_TINT = '#7ef5ff';
-const BASE_HEIGHT_M = 1.75;
+const BASE_HEIGHT_M = 1.90;
 const MIN_SCALE = 0.75;
 const MAX_SCALE = 1.2;
 

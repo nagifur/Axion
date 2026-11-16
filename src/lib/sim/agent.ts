@@ -828,13 +828,14 @@ export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePer
 /** Tasks that take the agent out of the facility: through this room's way out, or towards the nearest room with one. */
 export function leaveFacility(agent: Agent, world: World, hurry = false): Task[] {
   const { room } = agent;
-  const doors = room.outerDoors;
+  const doors = room.outerDoors.filter((door) => !world.passageDoorFor(door)?.blocked);
+  const hasExit = !!room.elevator || doors.length > 0;
   const speed = hurry ? 2.2 : 1;
   agent.leaving = true;
 
   const towards = (door: Door) => exitThroughDoor(door, speed, `Heading to the ${world.room(door.to!.room)?.name ?? 'next room'}`);
 
-  if (agent.ghost && (Math.random() < 0.5 || !room.hasOuterExit)) {
+  if (agent.ghost && (Math.random() < 0.5 || !hasExit)) {
     return [walkTo(room.randomFloorPoint()), phaseThroughWall('out')];
   }
   if (hurry) {
@@ -846,9 +847,9 @@ export function leaveFacility(agent: Agent, world: World, hurry = false): Task[]
     const step = world.doorTowardExit(room, true);
     if (step) return [towards(step)];
   }
-  if (!room.hasOuterExit) {
+  if (!hasExit) {
     const step = world.doorTowardExit(room);
-    return step ? [towards(step)] : [phaseThroughWall('out')];
+    return step ? [towards(step)] : [wait(2, 'Waiting for an exit')];
   }
   if (room.elevator && (!doors.length || Math.random() < 0.65)) return [rideElevatorOut()];
   return [exitThroughDoor(pick(doors), speed)];
@@ -876,7 +877,8 @@ export function planNext(agent: Agent, world: World): Task[] {
   const canVisit = (destination: Room) => !!agent.impostor || canVisitLevel(agent.character, destination.level);
   const linked = room.linkedDoors.filter((door) => {
     const destination = world.room(door.to!.room);
-    return destination && canVisit(destination) && world.canAgentUsePassage(agent, door);
+    return destination && (canVisit(destination) || world.passageDoorFor(door)?.stuckOpen) &&
+      world.canAgentUsePassage(agent, door);
   });
   const floors = world.elevatorStops(room).filter(canVisit);
   const dispensers = agent.item ? [] : room.props

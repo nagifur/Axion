@@ -154,8 +154,8 @@ async function checkDoorAssets(rooms: RoomData[], assetsDir: string) {
     const validFrames = source.panel
       ? cells?.[0]?.[0] && cells?.[0]?.[1] && cells?.[3]?.[0] && cells?.[3]?.[1]
       : cells?.[0]?.[0];
-    if (!validSize || !validFrames) {
-      throw new NavMapError(`${label}: ${asset}.png needs complete 96px cells and ${source.panel ? 'two red and two green panel frames' : 'a closed door frame'}.`);
+    if (!validSize || !validFrames || !cells?.[2]?.[0]) {
+      throw new NavMapError(`${label}: ${asset}.png needs complete 96px cells and ${source.panel ? 'two red and two green panel frames' : 'a closed door frame'}, plus a broken frame in the third row.`);
     }
   }
 }

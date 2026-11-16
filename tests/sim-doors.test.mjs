@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
-import { enterThroughDoor, exitThroughDoor, wait } from '../src/lib/sim/agent.ts';
+import { enterThroughDoor, exitThroughDoor, leaveFacility, planNext, wait } from '../src/lib/sim/agent.ts';
 import {
   DOOR_PANEL_FRAME_SECONDS, PASSAGE_DOOR_HOLD_SECONDS, PASSAGE_DOOR_RANGE, PASSAGE_DOOR_SECONDS,
   PassageDoor, doorAppearance, passageDoorFrame, passagePanelFrame,
@@ -13,6 +13,10 @@ import { Renderer } from '../src/lib/sim/render.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { linkRooms, listPropTypes, loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
+
+beforeEach((t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+});
 
 const staff = (accessLevel = '1', id = 'staff', behavior = {}) => ({
   id, name: id, href: '', tint: '#fff', scale: 1, position: 'Test', species: 'Human',
@@ -124,8 +128,13 @@ test('door configuration and missing or incomplete artwork report useful errors'
   await assert.rejects(load({ west: { clearance: 1, offset: { x: 2, y: 3, z: 4 } } }), /"offset".*whole-number/);
   await assert.rejects(load({ west: { clearance: 1, colour: 'red' } }), /unknown property "colour"/);
   await assert.rejects(load({ west: { clearance: 99 } }), /needs sim_assets\/props\/door_angle_level99.png/);
+  const panelFile = path.join(assets, 'props', 'door_panel_angle.png');
+  const panelPixels = await sharp(panelFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  panelPixels.data.fill(0, 192 * panelPixels.info.width * 4, 288 * panelPixels.info.width * 4);
+  await sharp(panelPixels.data, { raw: panelPixels.info }).png().toFile(panelFile);
+  await assert.rejects(load({ west: { clearance: 1 } }), /broken frame in the third row/);
   await sharp({ create: { width: 96, height: 96, channels: 4, background: '#ff0000' } })
-    .png().toFile(path.join(assets, 'props', 'door_panel_angle.png'));
+    .png().toFile(panelFile);
   await assert.rejects(load({ west: { clearance: 1 } }), /two red and two green panel frames/);
 });
 
@@ -380,6 +389,17 @@ test('renderer slides the door within its silhouette and selects the panel state
   assert.equal(mask.draws[2][6], -48, 'half-open door slides upward');
   assert.deepEqual(canvas.draws.filter((draw) => draw[0] === panel).at(-1).slice(1, 5), [135, 288, 17, 84]);
   assert.ok(canvas.gradients.at(-1)[0][1].includes('40, 255, 115'), 'unlocked panel glows green');
+
+  state.breakPanel();
+  const glows = canvas.gradients.length;
+  renderer.draw(world, new Map());
+  assert.deepEqual(canvas.draws.filter((draw) => draw[0] === panel).at(-1).slice(1, 5), [39, 192, 17, 84]);
+  assert.equal(canvas.gradients.length, glows, 'a broken panel does not emit a working indicator glow');
+  assert.equal(mask.draws.at(-2)[6], -48, 'panel damage preserves the door position');
+
+  state.break();
+  renderer.draw(world, new Map());
+  assert.deepEqual(mask.draws.at(-2), [image, 35, 192, 26, 96, 0, -0, 26, 96]);
 });
 
 test('door hold time is independent of update step size', () => {
@@ -388,4 +408,177 @@ test('door hold time is independent of update step size', () => {
   state.update(false, PASSAGE_DOOR_HOLD_SECONDS + PASSAGE_DOOR_SECONDS / 2);
   assert.equal(state.unlocked, false);
   assert.ok(Math.abs(state.open - 0.5) < 1e-9);
+});
+
+test('doors and panels each have an independent, exclusive 1% break-on-use chance', (t) => {
+  const state = new PassageDoor(1);
+  let roll = 0;
+  t.mock.method(Math, 'random', () => roll);
+  const counts = { door: 0, panel: 0 };
+  for (let i = 0; i < 10000; i++) {
+    roll = i / 10000;
+    for (const component of state.breakOnUse()) counts[component]++;
+    state.repair();
+    state.repairPanel();
+  }
+  assert.deepEqual(counts, { door: 100, panel: 100 });
+  roll = 0.01;
+  assert.deepEqual(state.breakOnUse(), []);
+  roll = 0;
+  assert.deepEqual(state.breakOnUse(), ['panel', 'door']);
+  const random = t.mock.method(Math, 'random', () => assert.fail('broken assemblies do not roll'));
+  assert.deepEqual(state.breakOnUse(), []);
+  assert.equal(random.mock.callCount(), 0);
+});
+
+test('broken panels freeze the exact door position and door damage always forces it closed', () => {
+  for (const open of [0, 0.5, 1]) {
+    const state = new PassageDoor(1);
+    state.update(true, open * PASSAGE_DOOR_SECONDS);
+    assert.equal(state.breakPanel(), true);
+    assert.equal(state.breakPanel(), false);
+    for (const nearby of [true, false]) state.update(nearby, 100);
+    assert.equal(state.open, open);
+    assert.equal(state.unlocked, false);
+    assert.equal(state.blocked, open < 1);
+    assert.equal(state.stuckOpen, open === 1);
+    assert.equal(state.break(), true);
+    assert.equal(state.open, 0);
+    state.update(true, 100);
+    assert.equal(state.open, 0);
+    assert.equal(state.stuckOpen, false);
+    state.repairPanel();
+    state.update(true, 100);
+    assert.equal(state.open, 0, 'panel repair does not repair the door');
+    state.breakPanel();
+    state.repair();
+    state.update(true, 100);
+    assert.equal(state.open, 0, 'door repair does not repair the panel');
+    state.repairPanel();
+    state.update(true, PASSAGE_DOOR_SECONDS);
+    assert.equal(state.open, 1);
+  }
+});
+
+test('each authorized approach rolls once, not every tick or on crossing between cameras', (t) => {
+  const { world, a, b, east, west } = connectedRooms();
+  const state = world.passageDoorFor(east);
+  const use = t.mock.method(state, 'breakOnUse', () => []);
+  const agent = stay(world, staff('2'), a, east.inside);
+  for (let i = 0; i < 10; i++) world.update(0.1);
+  assert.equal(use.mock.callCount(), 1);
+  agent.room = b;
+  agent.x = west.inside.x;
+  agent.y = west.inside.y;
+  world.update(0.1);
+  assert.equal(use.mock.callCount(), 1);
+  agent.x += PASSAGE_DOOR_RANGE + 1;
+  world.update(0.1);
+  agent.x = west.inside.x;
+  world.update(0.1);
+  assert.equal(use.mock.callCount(), 2);
+  stay(world, staff('0', 'denied'), a, east.inside);
+  world.update(0.1);
+  assert.equal(use.mock.callCount(), 2, 'unauthorized approaches do not use the panel');
+});
+
+test('an approaching agent can break an open panel, allowing unauthorized crossing in either direction', (t) => {
+  const { world, a, b, east, west } = connectedRooms();
+  stay(world, staff('2', 'high'), a, east.inside);
+  world.update(PASSAGE_DOOR_SECONDS);
+  const state = world.passageDoorFor(east);
+  assert.equal(state.open, 1);
+  const logs = [];
+  world.hooks.log = (text, tone) => logs.push({ text, tone });
+  let roll = 0;
+  t.mock.method(Math, 'random', () => roll++ === 0 ? 0 : 0.5);
+  const other = stay(world, staff('2', 'other'), b, west.inside);
+  world.update(0.1);
+  assert.equal(state.panelBroken, true);
+  assert.equal(state.broken, false);
+  assert.equal(state.open, 1);
+  assert.equal(other.bubble, '!');
+  assert.ok(logs.some(({ text, tone }) => tone === 'warn' && text.includes('panel')));
+  const low = world.spawn(staff('0', 'low'), a, east.inside);
+  assert.equal(world.canAgentUsePassage(low, east), true);
+  assert.equal(world.canUsePassage(low.character, west), true);
+  for (const [door, destination] of [[east, b], [west, a]]) {
+    low.setPlan(world, [exitThroughDoor(door)]);
+    for (let i = 0; i < 50 && low.room !== destination; i++) world.update(0.1);
+    assert.equal(low.room, destination);
+    for (let i = 0; i < 20 && low.alpha < 1; i++) world.update(0.1);
+    assert.equal(low.alpha, 1);
+  }
+});
+
+test('broken doors block transfer, routing, arrivals, and clearance bypasses in both views', () => {
+  const { world, a, b, east, west } = connectedRooms();
+  const state = world.passageDoorFor(east);
+  state.update(true, PASSAGE_DOOR_SECONDS);
+  state.break();
+  assert.equal(world.passageDoorFor(west).broken, true);
+  const agent = world.spawn(staff('Admin'), a, east.inside, { id: 'fake' });
+  agent.leaving = true;
+  assert.equal(world.canAgentUsePassage(agent, east), false);
+  assert.equal(world.canUsePassage(agent.character, west), false);
+  world.transfer(agent, east);
+  assert.equal(agent.room, a);
+  assert.equal(world.stepTowardWork(staff('2'), a), undefined);
+  assert.throws(() => world.arriveByDoor(staff('Admin'), b, west, { id: 'fake' }), /blocked/);
+  agent.setPlan(world, [exitThroughDoor(east)]);
+  for (let i = 0; i < 20; i++) world.update(0.1);
+  assert.equal(agent.room, a);
+  assert.equal(agent.alpha, 1);
+  assert.equal(state.open, 0);
+});
+
+test('voluntary plans allow unauthorized wandering through a panel stuck open', (t) => {
+  const { world, a, east } = connectedRooms();
+  const agent = stay(world, staff('0'), a, east.inside);
+  const state = world.passageDoorFor(east);
+  world.time = 30;
+  const random = t.mock.method(Math, 'random', () => 0.5);
+  const canChooseCrossing = () => {
+    for (let i = 0; i < 100; i++) {
+      random.mock.mockImplementation(() => (i + 0.5) / 100);
+      if (planNext(agent, world).some((task) => task.transport)) return true;
+    }
+    return false;
+  };
+  assert.equal(canChooseCrossing(), false);
+  state.update(true, PASSAGE_DOOR_SECONDS);
+  state.breakPanel();
+  assert.equal(canChooseCrossing(), true, 'the destination floor check does not override the failed panel');
+  state.break();
+  assert.equal(canChooseCrossing(), false);
+});
+
+test('blocked outer exits are avoided without allowing staff to escape through walls', () => {
+  const room = new Room(roomData('entry', 0, 'west', 2));
+  const world = new World({ rooms: [room], roster: [] });
+  const door = room.doors[0];
+  world.passageDoorFor(door).break();
+  const agent = stay(world, staff('2'), room, door.inside);
+  const plan = leaveFacility(agent, world);
+  assert.equal(plan[0].activity, 'Waiting for an exit');
+  agent.setPlan(world, plan);
+  world.update(0.1);
+  assert.equal(agent.removed, false);
+  assert.equal(agent.alpha, 1);
+  assert.equal(world.doorTowardExit(room), null);
+});
+
+test('broken artwork uses third-row crops and only populated panel columns', async () => {
+  for (const [side, asset] of [['west', 'door_panel_angle'], ['north', 'door_panel']]) {
+    const { propCellOccupancy } = await import('../src/lib/sim/sprites.ts');
+    const { data, info } = await sharp(`src/sim_assets/props/${asset}.png`).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const image = { ...info, propCells: propCellOccupancy(info, data) };
+    for (let i = 0; i < 4; i++) {
+      const frame = passagePanelFrame(side, true, i * DOOR_PANEL_FRAME_SECONDS, true, image);
+      assert.equal(Math.floor(frame.y / 96), 2);
+      assert.equal(image.propCells[2][Math.floor(frame.x / 96)], true);
+      assert.equal(Math.floor(frame.x / 96), side === 'west' ? i % 2 : 0);
+    }
+    assert.equal(Math.floor(passageDoorFrame(side, true).y / 96), 2);
+  }
 });

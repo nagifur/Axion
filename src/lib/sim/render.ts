@@ -18,7 +18,7 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
     image.onload = () => {
       try {
         if (name.startsWith('item:')) itemFrame(name.slice(5), image);
-        else if (name !== 'character' && !name.startsWith('room:') && !name.startsWith('particle:') && !isPassageDoorAsset(name)) {
+        else if (name !== 'character' && !name.startsWith('room:') && !name.startsWith('particle:')) {
           if (needsPropCellOccupancy(name, image)) {
             const canvas = makeCanvas(image.width, image.height);
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -26,7 +26,7 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
             ctx.drawImage(image, 0, 0);
             image.propCells = propCellOccupancy(image, ctx.getImageData(0, 0, image.width, image.height).data);
           }
-          propFrames(name, image);
+          if (!isPassageDoorAsset(name)) propFrames(name, image);
         }
         resolve([name, image]);
       } catch (error) {
@@ -435,7 +435,7 @@ export class Renderer {
       const image = this.assets[art.asset];
       const panel = this.assets[art.panelAsset];
       if (!state || !image || !panel) throw new Error(`Missing door state or artwork for ${this.room.id}/${door.id}.`);
-      const frame = passageDoorFrame(door.side);
+      const frame = passageDoorFrame(door.side, state.broken);
       const slide = Math.round(state.open * frame.h);
       mask.globalCompositeOperation = 'source-over';
       mask.clearRect(0, 0, this.passageDoorCanvas.width, this.passageDoorCanvas.height);
@@ -444,7 +444,7 @@ export class Renderer {
       mask.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
       mask.globalCompositeOperation = 'source-over';
       drawSpriteFrame(ctx, this.passageDoorCanvas, { x: 0, y: 0, w: frame.w, h: frame.h }, art.x, art.y, art.flip);
-      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.unlocked, world.time), art.panel.x, art.panel.y, art.flip);
+      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.unlocked, world.time, state.panelBroken, panel), art.panel.x, art.panel.y, art.flip);
     }
   }
 
@@ -455,6 +455,7 @@ export class Renderer {
       if (!art) continue;
       const state = world.passageDoorFor(door);
       if (!state) throw new Error(`Missing door state for ${this.room.id}/${door.id}.`);
+      if (state.panelBroken) continue;
       const sideWall = door.side === 'west' || door.side === 'east';
       const panel = passagePanelFrame(door.side, state.unlocked, world.time);
       const indicatorX = sideWall ? 8 : 9.5;

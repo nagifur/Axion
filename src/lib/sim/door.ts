@@ -1,4 +1,6 @@
 import type { DoorSide, Point, Rect } from './navMap.ts';
+import { PROP_BREAK_CHANCE } from './prop.ts';
+import type { PropSheetImage } from './sprites.ts';
 
 /** An optional physical door attached to a painted passage. */
 export interface DoorConfig {
@@ -29,15 +31,18 @@ export const passageDoorAsset = (clearance: number, side: DoorSide) =>
 export const passagePanelAsset = (side: DoorSide) => `door_panel${angled(side) ? '_angle' : ''}`;
 
 /** These sheets use 96px cells; the crops keep the same alignment across their states. */
-export const passageDoorFrame = (side: DoorSide): Rect => angled(side)
-  ? { x: 35, y: 0, w: 26, h: 96 }
-  : { x: 26, y: 14, w: 46, h: 69 };
+export const passageDoorFrame = (side: DoorSide, broken = false): Rect => angled(side)
+  ? { x: 35, y: broken ? 192 : 0, w: 26, h: 96 }
+  : { x: 26, y: (broken ? 192 : 0) + 14, w: 46, h: 69 };
 
-export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: number): Rect {
-  const column = Math.floor(time / DOOR_PANEL_FRAME_SECONDS) % 2;
+export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: number, broken = false, image?: PropSheetImage): Rect {
+  const columns = broken ? image?.propCells?.[2]?.flatMap((populated, column) => populated ? [column] : []) ?? [0] : [0, 1];
+  if (!columns.length) throw new Error('Passage panel is missing broken artwork.');
+  const column = columns[Math.floor(time / DOOR_PANEL_FRAME_SECONDS) % columns.length];
+  const row = broken ? 2 : unlocked ? 3 : 0;
   return angled(side)
-    ? { x: 39 + column * 96, y: unlocked ? 288 : 0, w: 17, h: 84 }
-    : { x: 39 + column * 96, y: (unlocked ? 288 : 0) + 14, w: 20, h: 69 };
+    ? { x: 39 + column * 96, y: row * 96, w: 17, h: 84 }
+    : { x: 39 + column * 96, y: row * 96 + 14, w: 20, h: 69 };
 }
 
 export function isPassageDoorAsset(asset: string): boolean {
@@ -69,13 +74,62 @@ export class PassageDoor {
   /** 0 = closed, 1 = fully open. */
   open = 0;
   unlocked = false;
+  broken = false;
+  panelBroken = false;
   private hold = 0;
 
   constructor(clearance: number) {
     this.clearance = clearance;
   }
 
+  get blocked(): boolean {
+    return this.broken || (this.panelBroken && this.open < 1);
+  }
+
+  get stuckOpen(): boolean {
+    return !this.broken && this.panelBroken && this.open === 1;
+  }
+
+  break(): boolean {
+    if (this.broken) return false;
+    this.broken = true;
+    this.open = 0;
+    this.unlocked = false;
+    this.hold = 0;
+    return true;
+  }
+
+  breakPanel(): boolean {
+    if (this.panelBroken) return false;
+    this.panelBroken = true;
+    this.unlocked = false;
+    return true;
+  }
+
+  repair(): boolean {
+    if (!this.broken) return false;
+    this.broken = false;
+    return true;
+  }
+
+  repairPanel(): boolean {
+    if (!this.panelBroken) return false;
+    this.panelBroken = false;
+    this.hold = 0;
+    return true;
+  }
+
+  /** One roll per working component when an authorized agent approaches. */
+  breakOnUse(): ('door' | 'panel')[] {
+    if (this.broken || this.panelBroken) return [];
+    const broken: ('door' | 'panel')[] = [];
+    if (Math.random() < PROP_BREAK_CHANCE && this.breakPanel()) broken.push('panel');
+    if (Math.random() < PROP_BREAK_CHANCE && this.break()) broken.push('door');
+    return broken;
+  }
+
   update(authorizedNearby: boolean, dt: number) {
+    if (this.broken || this.panelBroken) return;
     const elapsed = Math.max(0, dt);
     if (authorizedNearby) {
       this.hold = PASSAGE_DOOR_HOLD_SECONDS;

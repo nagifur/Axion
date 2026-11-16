@@ -207,6 +207,7 @@ export class World {
   private readonly elevators = new Map<Room, Elevator>();
   private readonly passageDoors = new Map<Door, PassageDoor>();
   private readonly passageEndpoints = new Map<PassageDoor, { room: Room; door: Door }[]>();
+  private readonly passageUsers = new Map<PassageDoor, Set<Agent>>();
   private rides: Ride[] = [];
   /** Earliest time each off-camera character may come back. */
   private returnAt = new Map<string, number>();
@@ -265,20 +266,31 @@ export class World {
 
   canUsePassage(character: SimCharacter, door: Door): boolean {
     const state = this.passageDoorFor(door);
-    return !state || canVisitLevel(character, state.clearance);
+    return !state || (!state.blocked && (state.stuckOpen || canVisitLevel(character, state.clearance)));
   }
 
   canAgentUsePassage(agent: Agent, door: Door): boolean {
-    return agent.leaving || !!agent.impostor || this.canUsePassage(agent.character, door);
+    return !this.passageDoorFor(door)?.blocked &&
+      (agent.leaving || !!agent.impostor || this.canUsePassage(agent.character, door));
   }
 
   private updatePassageDoors(dt: number) {
     for (const [state, endpoints] of this.passageEndpoints) {
-      const nearby = endpoints.some(({ room, door }) => this.agents.some((agent) =>
-        agent.room === room && !agent.removed && !agent.held && agent.layer === 'room' &&
-        this.canAgentUsePassage(agent, door) &&
-        Math.hypot(agent.x - door.inside.x, agent.y - door.inside.y) <= PASSAGE_DOOR_RANGE));
-      state.update(nearby, dt);
+      const users = new Set(this.agents.filter((agent) =>
+        !agent.removed && !agent.held && agent.layer === 'room' &&
+        endpoints.some(({ room, door }) => agent.room === room && this.canAgentUsePassage(agent, door) &&
+          Math.hypot(agent.x - door.inside.x, agent.y - door.inside.y) <= PASSAGE_DOOR_RANGE)));
+      const previous = this.passageUsers.get(state);
+      for (const agent of users) {
+        if (previous?.has(agent)) continue;
+        for (const broken of state.breakOnUse()) {
+          const endpoint = endpoints.find(({ room }) => room === agent.room)!;
+          this.log(`${agent.character.name} broke the ${endpoint.door.id} door${broken === 'panel' ? ' panel' : ''} in ${endpoint.room.name}.`, 'warn');
+          agent.say('!', 1.5);
+        }
+      }
+      this.passageUsers.set(state, users);
+      state.update(users.size > 0, dt);
     }
   }
 
@@ -375,7 +387,8 @@ export class World {
    * Null if `room` already has one. With `doorsOnly`, elevators don't count as a way out.
    */
   doorTowardExit(room: Room, doorsOnly = false): Door | null {
-    const hasExit = (candidate: Room) => (doorsOnly ? candidate.outerDoors.length > 0 : candidate.hasOuterExit);
+    const hasExit = (candidate: Room) => (!doorsOnly && !!candidate.elevator) ||
+      candidate.outerDoors.some((door) => !this.passageDoorFor(door)?.blocked);
     if (hasExit(room)) return null;
     const firstDoor = new Map<Room, Door>();
     const queue: Room[] = [room];
@@ -384,7 +397,7 @@ export class World {
       const current = queue.shift()!;
       for (const door of current.linkedDoors) {
         const next = this.room(door.to!.room);
-        if (!next || seen.has(next)) continue;
+        if (!next || seen.has(next) || this.passageDoorFor(door)?.blocked) continue;
         seen.add(next);
         firstDoor.set(next, firstDoor.get(current) ?? door);
         if (hasExit(next)) return firstDoor.get(next)!;
@@ -435,8 +448,8 @@ export class World {
   }
 
   arriveByDoor(character: SimCharacter, room: Room, door: Door, impostor?: SimImpostor) {
-    if (!impostor && !this.canUsePassage(character, door)) {
-      throw new Error(`${character.name} cannot enter ${room.name} through ${door.id}: insufficient clearance.`);
+    if (this.passageDoorFor(door)?.blocked || (!impostor && !this.canUsePassage(character, door))) {
+      throw new Error(`${character.name} cannot enter ${room.name} through ${door.id}: door blocked or insufficient clearance.`);
     }
     const agent = this.spawn(character, room, door.outside, impostor);
     agent.alpha = 0;
@@ -472,7 +485,9 @@ export class World {
       const elevator = this.elevatorFor(room);
       if (elevator) entrances.push({ kind: 'elevator', room, weight: (elevator.busy ? 0.15 : 1.5) * preference });
       for (const door of room.outerDoors) {
-        if (impostor || this.canUsePassage(character, door)) entrances.push({ kind: 'door', room, door, weight: preference });
+        if (!this.passageDoorFor(door)?.blocked && (impostor || this.canUsePassage(character, door))) {
+          entrances.push({ kind: 'door', room, door, weight: preference });
+        }
         else deniedDoor = true;
       }
     }
