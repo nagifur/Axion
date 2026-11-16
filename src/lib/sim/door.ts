@@ -52,7 +52,7 @@ export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig)
   const y = bounds.y + bounds.h - door.h + (config.offset?.y ?? 0);
   const gap = 3;
   const panelX = side === 'east' ? x - panel.w - gap : x + door.w + gap;
-  const panelY = angled(side) ? y + door.h - panel.h - door.w - gap : y + door.h - panel.h;
+  const panelY = angled(side) ? y + door.h - panel.h - door.w - gap-1 : y + door.h - panel.h;
   return {
     clearance: config.clearance,
     asset: passageDoorAsset(config.clearance, side),
