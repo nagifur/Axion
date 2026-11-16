@@ -68,6 +68,18 @@ export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig)
   };
 }
 
+export type PassagePart = 'door' | 'panel';
+
+/** Room-pixel boxes of a passage's door and panel artwork. */
+export function passagePartBounds(side: DoorSide, art: DoorAppearance): Record<PassagePart, Rect> {
+  const door = passageDoorFrame(side);
+  const panel = passagePanelFrame(side, false, 0);
+  return {
+    door: { x: art.x, y: art.y, w: door.w, h: door.h },
+    panel: { x: art.panel.x, y: art.panel.y, w: panel.w, h: panel.h },
+  };
+}
+
 /** Shared by both camera views of the same physical door. */
 export class PassageDoor {
   readonly clearance: number;
@@ -117,6 +129,16 @@ export class PassageDoor {
     this.panelBroken = false;
     this.hold = 0;
     return true;
+  }
+
+  isBroken(part: PassagePart): boolean {
+    return part === 'door' ? this.broken : this.panelBroken;
+  }
+
+  /** Breaks or repairs one component, e.g. from the debug editor. */
+  setBroken(part: PassagePart, broken: boolean): boolean {
+    if (part === 'door') return broken ? this.break() : this.repair();
+    return broken ? this.breakPanel() : this.repairPanel();
   }
 
   /** One roll per working component when an authorized agent approaches. */

@@ -7,8 +7,9 @@ import sharp from 'sharp';
 import { enterThroughDoor, exitThroughDoor, leaveFacility, planNext, wait } from '../src/lib/sim/agent.ts';
 import {
   DOOR_PANEL_FRAME_SECONDS, PASSAGE_DOOR_HOLD_SECONDS, PASSAGE_DOOR_RANGE, PASSAGE_DOOR_SECONDS,
-  PassageDoor, doorAppearance, passageDoorFrame, passagePanelFrame,
+  PassageDoor, doorAppearance, passageDoorFrame, passagePanelFrame, passagePartBounds,
 } from '../src/lib/sim/door.ts';
+import { PropEditor } from '../src/lib/sim/propEditor.ts';
 import { Renderer } from '../src/lib/sim/render.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { linkRooms, listPropTypes, loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
@@ -581,4 +582,40 @@ test('broken artwork uses third-row crops and only populated panel columns', asy
     }
     assert.equal(Math.floor(passageDoorFrame(side, true).y / 96), 2);
   }
+});
+
+test('debug editor selects passage doors and panels and breaks or repairs them live in both views', () => {
+  const { world, a, b, east, west } = connectedRooms();
+  const changes = [];
+  const editor = new PropEditor({}, a, () => changes.push(1), (door) => world.passageDoorFor(door));
+  const state = world.passageDoorFor(east);
+  const bounds = passagePartBounds(east.side, east.appearance);
+  const centre = (rect) => ({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
+
+  editor.pointerDown(centre(bounds.panel));
+  assert.equal(editor.selected, null);
+  assert.deepEqual([editor.selectedDoor?.door, editor.selectedDoor?.part], [east, 'panel']);
+  assert.equal(editor.key({ key: 'b' }), true);
+  assert.equal(state.panelBroken, true);
+  assert.equal(state.broken, false);
+  editor.toggleBroken();
+  assert.equal(state.panelBroken, false);
+
+  editor.pointerDown(centre(bounds.door));
+  assert.equal(editor.selectedDoor?.part, 'door');
+  editor.toggleBroken();
+  assert.equal(state.broken, true);
+  assert.equal(world.passageDoorFor(west).broken, true);
+  assert.equal(editor.isEdited(), false);
+  assert.match(editor.snippet(), /"props": \[\]/);
+
+  editor.setRoom(b);
+  assert.equal(editor.selectedDoor, null);
+  editor.pointerDown(centre(passagePartBounds(west.side, west.appearance).door));
+  editor.toggleBroken();
+  assert.equal(state.broken, false);
+
+  editor.pointerDown({ x: 70, y: 99 });
+  assert.equal(editor.selectedDoor, null);
+  assert.ok(changes.length > 0);
 });

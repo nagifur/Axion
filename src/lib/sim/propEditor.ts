@@ -3,8 +3,19 @@
 import { drawItemSprite, drawPropSprite, PropPicker, type Assets } from './render.ts';
 import { Prop, type PlacedProp } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
-import type { Point, Room } from './room.ts';
+import type { Door, Point, Room } from './room.ts';
+import type { Rect } from './navMap.ts';
 import { itemFrame, propFrame, propSheetFeatures, propTypeOf } from './sprites.ts';
+import { passagePartBounds, type PassageDoor, type PassagePart } from './door.ts';
+
+/** A passage door or its panel. Their damage is live only; room.json can't start them broken. */
+export interface DoorSelection {
+  door: Door;
+  part: PassagePart;
+  state: PassageDoor;
+}
+
+type Outlined = Rect & { type: string };
 
 interface Drag {
   prop: Prop | Item;
@@ -43,6 +54,7 @@ export class PropEditor {
   active = false;
   room: Room;
   selected: Prop | Item | null = null;
+  selectedDoor: DoorSelection | null = null;
   /** Prop type or item:<type> waiting to be placed with the next click. */
   placing: string | null = null;
   cursor: Point | null = null;
@@ -53,11 +65,13 @@ export class PropEditor {
   private readonly originalItems = new Map<Room, Item[]>();
   private readonly assets: Assets;
   private readonly onChange: () => void;
+  private readonly doorState: (door: Door) => PassageDoor | undefined;
 
-  constructor(assets: Assets, room: Room, onChange: () => void) {
+  constructor(assets: Assets, room: Room, onChange: () => void, doorState: (door: Door) => PassageDoor | undefined = () => undefined) {
     this.assets = assets;
     this.picker = new PropPicker(assets);
     this.onChange = onChange;
+    this.doorState = doorState;
     this.room = room;
     this.setRoom(room);
   }
@@ -67,6 +81,7 @@ export class PropEditor {
     if (!this.originalItems.has(room)) this.originalItems.set(room, room.items.map((item) => new Item(item.toData())));
     this.room = room;
     this.selected = null;
+    this.selectedDoor = null;
     this.placing = null;
     this.drag = null;
     this.onChange();
@@ -90,6 +105,7 @@ export class PropEditor {
     this.room.setProps(clone(original));
     this.room.items = (this.originalItems.get(this.room) ?? []).map((item) => new Item(item.toData()));
     this.selected = null;
+    this.selectedDoor = null;
     this.placing = null;
     this.drag = null;
     this.onChange();
@@ -99,6 +115,7 @@ export class PropEditor {
   add(type: string) {
     this.placing = this.placing === type ? null : type;
     this.selected = null;
+    this.selectedDoor = null;
     this.onChange();
   }
 
@@ -108,8 +125,14 @@ export class PropEditor {
     this.commit();
   }
 
-  /** Whether the selected prop starts broken. */
+  /** Whether the selected prop starts broken, or breaks/repairs the selected door part right away. */
   toggleBroken() {
+    if (this.selectedDoor) {
+      const { state, part } = this.selectedDoor;
+      state.setBroken(part, !state.isBroken(part));
+      this.onChange();
+      return;
+    }
     if (!(this.selected instanceof Prop) || !this.selected.breakable) return;
     this.selected.setStart({ broken: !this.selected.start?.broken });
     this.commit();
@@ -145,12 +168,15 @@ export class PropEditor {
       if (prop instanceof Item) this.room.items.push(prop);
       else this.room.props = [...this.room.props, prop];
       this.selected = prop;
+      this.selectedDoor = null;
       this.placing = null;
       this.commit();
       return;
     }
     const prop = this.picker.atLayout(this.room, point, time);
     this.selected = prop;
+    // Passage doors are drawn behind every prop.
+    this.selectedDoor = prop ? null : this.doorAt(point);
     this.drag = prop ? { prop, offset: { x: point.x - prop.x, y: point.y - prop.y }, moved: false } : null;
     this.onChange();
   }
@@ -186,12 +212,13 @@ export class PropEditor {
       case 'ArrowUp': this.nudge(0, -step); return !!this.selected;
       case 'ArrowDown': this.nudge(0, step); return !!this.selected;
       case 'f': case 'F': this.flip(); return !!this.selected;
-      case 'b': case 'B': this.toggleBroken(); return !!this.selected;
+      case 'b': case 'B': this.toggleBroken(); return !!this.selected || !!this.selectedDoor;
       case 'o': case 'O': this.toggleOff(); return !!this.selected;
       case 'Delete': case 'Backspace': this.remove(); return true;
       case 'Escape':
         this.placing = null;
         this.selected = null;
+        this.selectedDoor = null;
         this.onChange();
         return true;
       default: return false;
@@ -225,6 +252,23 @@ export class PropEditor {
     };
   }
 
+  /** Every passage door and panel in the room, with their room-pixel boxes. */
+  doorParts(): (DoorSelection & { bounds: Rect })[] {
+    return this.room.doors.flatMap((door) => {
+      const state = door.appearance && this.doorState(door);
+      if (!door.appearance || !state) return [];
+      const bounds = passagePartBounds(door.side, door.appearance);
+      return (['panel', 'door'] as const).map((part) => ({ door, part, state, bounds: bounds[part] }));
+    });
+  }
+
+  /** The door or panel under the point; panels win where they overlap their door. */
+  doorAt(point: Point): DoorSelection | null {
+    const hit = this.doorParts().find(({ bounds: b }) =>
+      point.x >= b.x && point.x < b.x + b.w && point.y >= b.y && point.y < b.y + b.h);
+    return hit ? { door: hit.door, part: hit.part, state: hit.state } : null;
+  }
+
   /** The frontmost prop under the point, preferring its visible pixels over its box. */
   propAt(point: Point, time = 0): Prop | null {
     return this.picker.at(this.room, point, time);
@@ -251,9 +295,18 @@ export class PropEditor {
     for (const prop of [...room.props, ...room.items]) {
       if (prop !== this.selected) ctx.strokeRect(prop.x + line / 2, prop.y + line / 2, prop.w - line, prop.h - line);
     }
+    let door: Outlined | null = null;
+    for (const { door: passage, part, bounds } of this.doorParts()) {
+      if (passage === this.selectedDoor?.door && part === this.selectedDoor.part) {
+        door = { ...bounds, type: `${passage.id} ${part}` };
+      } else {
+        ctx.strokeRect(bounds.x + line / 2, bounds.y + line / 2, bounds.w - line, bounds.h - line);
+      }
+    }
     ctx.setLineDash([]);
 
     if (this.selected) this.outline(ctx, this.selected, COLORS.selected, scale);
+    if (door) this.outline(ctx, door, COLORS.selected, scale, door.type);
 
     const ghost = this.placing && this.cursor ? this.ghost(this.placing, this.cursor) : null;
     if (ghost) {
@@ -266,14 +319,13 @@ export class PropEditor {
     ctx.restore();
   }
 
-  private outline(ctx: CanvasRenderingContext2D, prop: PlacedProp | PlacedItem, color: string, scale: number) {
+  private outline(ctx: CanvasRenderingContext2D, prop: Outlined, color: string, scale: number, label = `${prop.type} ${prop.x}, ${prop.y}`) {
     const line = 1 / scale;
     ctx.strokeStyle = color;
     ctx.lineWidth = 2 * line;
     ctx.strokeRect(prop.x - line, prop.y - line, prop.w + 2 * line, prop.h + 2 * line);
 
-    // Coordinates label just above the prop, at a fixed on-screen size.
-    const label = `${prop.type} ${prop.x}, ${prop.y}`;
+    // Label just above the prop, at a fixed on-screen size.
     ctx.font = `${11 * line}px ui-monospace, monospace`;
     const width = ctx.measureText(label).width + 6 * line;
     const height = 14 * line;

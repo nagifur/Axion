@@ -557,6 +557,9 @@ camera and press **Edit props / items**:
 3. Press **Copy** and replace the `"props"` and `"items"` lists in the room's `room.json` with it.
    The editor supports moving, nudging, flipping, deleting and resetting both; power
    and broken-state controls apply only to props.
+4. To test passage damage, click a door or its panel (dashed outlines) and press **B**
+   to break or repair it immediately. This changes only the running simulation, is
+   shared by both camera views, and is not part of the copied snippet or the room reset.
 
 While editing, the feed shows the walkable floor (green), floor blocked by props (red),
 seats (blue dots) and the position of the selected prop. Changes apply to the running
@@ -617,7 +620,8 @@ door to its id:
 and the numbered door artwork. The door and panel are positioned from the nav-map
 opening; the optional whole-pixel `offset` moves both, while `panelOffset` moves only
 the panel. Side-wall sprites are mirrored automatically on east walls. The debug
-prop editor does not edit these passage assemblies.
+prop editor does not edit these passage assemblies, but it can break and repair
+them live (see [Placing Props and Items With the Editor](#placing-props-and-items-with-the-editor)).
 
 For connected rooms, configuring either side creates a matching door on the other
 camera and both views share one lock and animation. If both rooms configure it,

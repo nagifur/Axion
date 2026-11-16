@@ -758,21 +758,24 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const renderEditor = () => {
     if (!editor || !editorPanel) return;
-    const { room, selected, placing } = editor;
+    const { room, selected, selectedDoor, placing } = editor;
     const prop = selected instanceof Prop ? selected : null;
     const edited = editor.isEdited();
     editorPanel.querySelector('[data-editor-room]')!.textContent = `${room.camera} · ${room.name}${edited ? ' · unsaved changes' : ''}`;
     editorPanel.querySelector('[data-editor-file]')!.textContent = `src/sim_assets/rooms/${room.id}/room.json`;
     editorPanel.querySelector('[data-editor-selected]')!.textContent = placing
       ? `Click the feed to place: ${placing}`
+      : selectedDoor
+        ? `${selectedDoor.door.id} ${selectedDoor.part} · clearance ${selectedDoor.state.clearance}` +
+          `${selectedDoor.state.isBroken(selectedDoor.part) ? ' · broken' : ''} · live only, not saved`
       : selected
         ? `${selected.type} · x ${selected.x}, y ${selected.y}${selected.flip ? ' · flipped' : ''}` +
           `${prop?.start?.broken ? ' · broken' : ''}${prop?.start?.on === false ? ' · starts off' : ''}`
         : 'Nothing selected';
     editorPanel.querySelector<HTMLButtonElement>('[data-editor-flip]')!.disabled = !selected;
     const broken = editorPanel.querySelector<HTMLButtonElement>('[data-editor-broken]')!;
-    broken.disabled = !prop?.breakable;
-    broken.setAttribute('aria-pressed', String(!!prop?.start?.broken));
+    broken.disabled = !prop?.breakable && !selectedDoor;
+    broken.setAttribute('aria-pressed', String(selectedDoor ? selectedDoor.state.isBroken(selectedDoor.part) : !!prop?.start?.broken));
     const off = editorPanel.querySelector<HTMLButtonElement>('[data-editor-off]')!;
     off.disabled = !prop?.switchable;
     off.setAttribute('aria-pressed', String(prop?.start?.on === false));
@@ -894,7 +897,7 @@ export function initMonitor(root: HTMLElement): () => void {
     renderer = new Renderer(canvas, assets, viewed);
     propPicker = new PropPicker(assets);
     renderer.resize();
-    if (debugMode) editor = new PropEditor(assets, viewed, renderEditor);
+    if (debugMode) editor = new PropEditor(assets, viewed, renderEditor, (door) => world.passageDoorFor(door));
     world.populate();
     updateCameraCounts();
     log(`A1oS camera link established: ${rooms.length} feed${rooms.length === 1 ? '' : 's'} online.`, 'ok');
