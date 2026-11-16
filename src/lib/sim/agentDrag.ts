@@ -1,4 +1,4 @@
-import { breakPropOnUse, conversationPoint, getFromDispenser, rest, startConversation, wait, type Agent } from './agent.ts';
+import { breakPropOnUse, conversationPoint, fall, getFromDispenser, rest, startConversation, wait, type Agent } from './agent.ts';
 import type { Prop } from './prop.ts';
 import type { Point, Room, Spot } from './room.ts';
 import { scheduleFor } from './schedule.ts';
@@ -7,6 +7,7 @@ import type { World } from './world.ts';
 export type DropTarget =
   | { kind: 'invalid'; label: string }
   | { kind: 'floor'; room: Room; point: Point; label: string }
+  | { kind: 'fall'; room: Room; point: Point; label: string }
   | { kind: 'seat'; room: Room; point: Spot; label: string }
   | { kind: 'agent'; room: Room; point: Point; partner: Agent; label: string }
   | { kind: 'prop'; room: Room; point: Point; prop: Prop; label: string };
@@ -48,7 +49,10 @@ export function dropTarget(
     }
     return { kind: 'prop', room, point: stand, prop, label: prop.switchable ? `Switch ${prop.type} ${prop.on ? 'off' : 'on'}` : `Inspect ${prop.type}` };
   }
-  const floor = { x: Math.round(point.x), y: Math.round(point.y) };
+  const floor = { x: Math.min(room.width - 1, Math.round(point.x)), y: Math.min(room.height - 1, Math.round(point.y)) };
+  if (!room.isFloor(floor.x, floor.y)) {
+    return { kind: 'fall', room, point: floor, label: 'Drop agent and fall to the floor' };
+  }
   return room.isWalkable(floor)
     ? { kind: 'floor', room, point: floor, label: 'Place agent here' }
     : { kind: 'invalid', label: 'Drop on open floor, a prop, or an agent' };
@@ -74,7 +78,9 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
     source.updateLights(world.agentsIn(source).length > 0, 0);
     target.room.updateLights(true, 0);
   }
-  if (target.kind === 'seat') {
+  if (target.kind === 'fall') {
+    agent.setPlan(world, [fall()]);
+  } else if (target.kind === 'seat') {
     agent.setPlan(world, [rest(agent, target.point, world, scheduleFor(agent.character, world.now()))]);
     agent.spot = target.point;
     agent.facing = target.point.facing;

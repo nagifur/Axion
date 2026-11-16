@@ -155,8 +155,12 @@ Drag a sprite or name tag to physically pick up an agent. Dropping on open floor
 repositions them, on a free chair or bench seat starts the usual seated activity,
 and on another agent starts a conversation. Lights can be toggled; other unseated
 props are inspected. The held agent pauses while the rest of the facility continues.
-Broken or occupied props, walls, and drops outside the feed are rejected without
-changing the original task or position. Hold over a floor or camera button for
+Dropping above non-green nav-map pixels makes the agent fall straight down with
+gravity until their feet touch the first green pixel, then play the usual trip
+reaction. If there is no green below, they fall fully out of view and respawn on
+nearby walkable floor. Falling agents cannot be picked up or pulled into chats.
+Broken or occupied props, blocked floor, and drops outside the feed are rejected
+without changing the original task or position. Hold over a floor or camera button for
 450ms to switch feeds while carrying an agent, then drop into the new room.
 Floor buttons use the same remembered-camera/elevator-shaft selection as normal
 clicks. The agent stays in their original room until a valid drop, which transfers

@@ -17,6 +17,7 @@ export interface Task {
   sitting?: boolean;
   /** Door/elevator transitions cannot be picked up midway. */
   transport?: boolean;
+  falling?: boolean;
   start?(agent: Agent, world: World): void;
   /** Returns true when the task is finished. */
   update(agent: Agent, world: World, dt: number): boolean;
@@ -129,7 +130,8 @@ export class Agent {
   }
 
   get draggable() {
-    return !this.removed && !this.leaving && !this.held && this.layer === 'room' && this.alpha >= 1 && !this.task?.transport;
+    return !this.removed && !this.leaving && !this.held && this.layer === 'room' && this.alpha >= 1 &&
+      !this.task?.transport && !this.task?.falling && !this.plan[0]?.falling;
   }
 
   get sitting() {
@@ -301,7 +303,42 @@ export function nap(seconds: number, facing: Facing): Task {
   };
 }
 
-export function trip(): Task {
+export function fall(): Task {
+  let velocity = 0;
+  return {
+    activity: 'Falling',
+    interruptible: false,
+    falling: true,
+    start(agent) {
+      agent.say('!', 1.3);
+    },
+    update(agent, world, dt) {
+      const seconds = Math.max(0, dt);
+      const nextY = agent.y + velocity * seconds + 0.5 * 420 * seconds * seconds;
+      velocity += 420 * seconds;
+      // Sweep every crossed pixel so even a long frame cannot skip a thin green floor.
+      for (let y = Math.round(agent.y); y <= Math.min(Math.round(nextY), agent.room.height - 1); y++) {
+        if (!agent.room.isFloor(agent.x, y)) continue;
+        agent.y = y;
+        agent.setPlan(world, []);
+        agent.interrupt(world, trip('fall'));
+        return false;
+      }
+      agent.y = nextY;
+      if (agent.y - agent.height > agent.room.height) {
+        const point = agent.room.nearestWalkable({ x: agent.x, y: agent.room.height - 1 });
+        agent.x = point.x;
+        agent.y = point.y;
+        world.log(`${agent.character.name} fell out of view and returned to nearby floor in the ${agent.room.name}.`, 'muted');
+        agent.setPlan(world, []);
+        agent.interrupt(world, trip('fall'));
+      }
+      return false;
+    },
+  };
+}
+
+export function trip(cause: 'trip' | 'fall' = 'trip'): Task {
   let left = 1.3;
   return {
     activity: 'Picking themselves up',
@@ -309,7 +346,7 @@ export function trip(): Task {
     start(agent, world) {
       agent.shake = 0.5;
       agent.say('!', 1.3);
-      world.log(`${agent.character.name} tripped over their own feet in the ${agent.room.name}.`, 'muted');
+      world.log(`${agent.character.name} ${cause === 'fall' ? 'fell and hit the floor' : 'tripped over their own feet'} in the ${agent.room.name}.`, 'muted');
       world.achieve('watch-your-step', agent.room);
     },
     update(_agent, _world, dt) {

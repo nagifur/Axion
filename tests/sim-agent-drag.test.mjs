@@ -57,13 +57,112 @@ test('invalid drops retain the original task, position, and reservation and log 
   const { world, room, agent, logs } = await setup();
   agent.spot = room.spots[0];
   const original = [agent.x, agent.y, agent.activity, agent.spot];
-  for (const point of [{ x: -1, y: 100 }, { x: 100, y: -1 }, { x: room.width, y: 100 }, { x: 10, y: 1 }]) {
+  for (const point of [{ x: -1, y: 100 }, { x: 100, y: -1 }, { x: room.width, y: 100 }, { x: 100, y: room.height }]) {
     const target = dropTarget(world, agent, point);
     assert.equal(target.kind, 'invalid');
     assert.equal(placeAgent(world, agent, target), false);
     assert.deepEqual([agent.x, agent.y, agent.activity, agent.spot], original);
   }
   assert.equal(logs.length, 4);
+});
+
+function fallingSetup(spans = (y) => y >= 100 ? [20, 180] : []) {
+  const room = new Room({
+    id: 'fall-test', name: 'Fall test', level: 0, camera: 'test', width: 200, height: 200,
+    nav: { floor: Array.from({ length: 200 }, (_, y) => spans(y)), exits: [] },
+    props: [], links: {},
+  });
+  const world = new World({ roster: [], rooms: [room] });
+  world.arrive = () => undefined;
+  const logs = [];
+  world.hooks.log = (text) => logs.push(text);
+  const agent = world.spawn(character('falling'), room, { x: 100, y: 150 });
+  agent.setPlan(world, [wait(60, 'Original task')]);
+  world.update(0);
+  return { world, room, agent, logs };
+}
+
+test('air drops fall with gravity, land on the first green pixel, and recover with a trip', () => {
+  const { world, room, agent, logs } = fallingSetup();
+  const target = dropTarget(world, agent, { x: 100, y: 10 });
+  assert.equal(target.kind, 'fall');
+  assert.deepEqual([agent.x, agent.y], [100, 150], 'preview does not move the agent');
+  assert.equal(placeAgent(world, agent, target), true);
+  assert.deepEqual([agent.x, agent.y], [100, 10], 'paused drop remains at the release point');
+  assert.equal(agent.draggable, false, 'queued falls cannot be interrupted by another drop');
+  world.update(0);
+  assert.equal(agent.activity, 'Falling');
+  assert.equal(agent.busy, true);
+  assert.equal(agent.sitting, false);
+  world.update(0.1);
+  const firstStep = agent.y - 10;
+  assert.ok(firstStep > 0 && agent.y < 100);
+  world.update(0.1);
+  assert.ok(agent.y - 10 - firstStep > firstStep, 'the fall accelerates');
+  const other = world.spawn(character('other'), room, { x: 130, y: 150 });
+  assert.equal(world.findChatPartner(other), undefined);
+  assert.equal(dropTarget(world, other, agent, agent).kind, 'invalid');
+  world.update(1);
+  assert.deepEqual([agent.x, agent.y], [100, 100]);
+  assert.equal(agent.activity, 'Picking themselves up');
+  assert.equal(agent.bubble, '!');
+  assert.equal(agent.shake, 0.5);
+  assert.ok(logs.some((text) => text.includes('fell and hit the floor')));
+  assert.equal(logs.some((text) => text.includes('tripped over their own feet')), false);
+  world.update(1.4);
+  world.update(0);
+  assert.notEqual(agent.activity, 'Picking themselves up');
+});
+
+test('fast falls cannot skip a single green pixel row or land on a lower floor first', () => {
+  const { world, agent } = fallingSetup((y) => y === 80 || y >= 120 ? [20, 180] : []);
+  placeAgent(world, agent, dropTarget(world, agent, { x: 100, y: 10 }));
+  world.update(5);
+  assert.deepEqual([agent.x, agent.y], [100, 80]);
+  assert.equal(agent.activity, 'Picking themselves up');
+});
+
+test('falls with no green below leave the whole camera before respawning on nearby floor', () => {
+  const { world, room, agent, logs } = fallingSetup();
+  placeAgent(world, agent, dropTarget(world, agent, { x: 190, y: 10 }));
+  world.update(1);
+  assert.ok(agent.y > room.height);
+  assert.ok(agent.y - agent.height <= room.height);
+  assert.equal(agent.activity, 'Falling', 'wait until the whole sprite is out of view');
+  world.update(1);
+  assert.ok(room.isWalkable(agent));
+  assert.notEqual(agent.x, 190);
+  assert.equal(agent.activity, 'Picking themselves up');
+  assert.ok(logs.some((text) => text.includes('fell out of view')));
+});
+
+test('green floor with insufficient walking clearance still rejects a direct drop', () => {
+  const { world, agent } = fallingSetup();
+  const target = dropTarget(world, agent, { x: 20, y: 150 });
+  assert.equal(target.kind, 'invalid');
+  assert.equal(placeAgent(world, agent, target), false);
+  assert.deepEqual([agent.x, agent.y], [100, 150]);
+  assert.equal(agent.activity, 'Original task');
+});
+
+test('cross-room air drops release reservations and conversations before falling in the destination', async () => {
+  const { world, room, agent } = await setup();
+  const destination = fallingSetup().room;
+  world.rooms.push(destination);
+  const partner = world.spawn(character('partner'), room, { x: 240, y: 180 });
+  startConversation(agent, partner, world, true);
+  agent.spot = room.spots[0];
+  const target = dropTarget(world, agent, { x: 100, y: 10 }, null, null, destination);
+  assert.equal(target.kind, 'fall');
+  placeAgent(world, agent, target);
+  assert.equal(agent.room, destination);
+  assert.equal(agent.spot, undefined);
+  assert.equal(agent.conversation, undefined);
+  assert.equal(partner.conversation, undefined);
+  assert.equal(agent.enteredRoomAt, world.time);
+  world.update(1);
+  assert.deepEqual([agent.x, agent.y], [100, 100]);
+  assert.equal(agent.activity, 'Picking themselves up');
 });
 
 test('seated drops use the closest free seat and release the old seat', async () => {
