@@ -57,6 +57,44 @@ function stay(world, character, room, point, impostor) {
   return agent;
 }
 
+test('broken electrical panels keep sparking in both camera views until repaired', (t) => {
+  const { world, a, b, east, west } = connectedRooms();
+  world.arrive = () => undefined;
+  const state = world.passageDoorFor(east);
+  const burst = t.mock.method(world.particles, 'burst');
+  state.break();
+  world.update(0);
+  assert.equal(burst.mock.callCount(), 0, 'a broken mechanical door alone does not spark');
+
+  state.breakPanel();
+  world.update(0);
+  assert.equal(burst.mock.callCount(), 2);
+  for (const [room, door] of [[a, east], [b, west]]) {
+    const bounds = passagePartBounds(door.side, door.appearance);
+    const particles = world.particles.in(room);
+    assert.equal(particles.length, 4);
+    assert.ok(particles.every((particle) =>
+      particle.asset.startsWith('particle:spark_')
+      && particle.x >= bounds.panel.x && particle.x <= bounds.panel.x + bounds.panel.w
+      && particle.y >= bounds.panel.y && particle.y <= bounds.panel.y + bounds.panel.h
+      && particle.depth >= bounds.door.y + bounds.door.h));
+  }
+  world.update(0);
+  assert.equal(burst.mock.callCount(), 2, 'pause does not repeat panel sparks');
+  world.update(2.11);
+  assert.equal(burst.mock.callCount(), 4, 'both camera views keep emitting');
+  state.repair();
+  world.update(2.11);
+  assert.equal(burst.mock.callCount(), 6, 'repairing the door does not repair its panel');
+  state.repairPanel();
+  world.update(0.9);
+  assert.equal(burst.mock.callCount(), 6);
+  assert.equal(world.particles.particles.length, 0, 'remaining sparks fade after panel repair');
+  state.breakPanel();
+  world.update(0);
+  assert.equal(burst.mock.callCount(), 8);
+});
+
 test('configured level 0 and 1 passages have matching doors; open exits and other levels remain doorless', async () => {
   const rooms = (await loadFacility()).map((data) => new Room(data));
   const world = new World({ rooms, roster: [] });

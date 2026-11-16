@@ -344,6 +344,7 @@ from its `PROP_TYPES` entry, or automatically detected power-off and broken artw
 | Flag | Meaning |
 | --- | --- |
 | `switchable` | Can be switched on or off manually, including through the editor. |
+| `electric` | Electrical equipment: emits recurring sparks while broken, even when switched off. Defaults to false; lights and vending machines opt in. This does not enable switching or breakage by itself. |
 | `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for `LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
 | `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
 | `impactArea` | Optional artwork-relative rectangle used to measure distance from a tripping agent; defaults to the whole frame and is mirrored for flipped props. |
@@ -389,10 +390,24 @@ set in `PROP_TYPES` in [`sprites.ts`](../src/lib/sim/sprites.ts):
 glass_cup: { asset: 'glass_cup', breakable: true, breakParticles: { set: 'glass' } },
 ```
 
-To mix effects, use an array: `breakParticles: { set: ['glass', 'sparks'] }`.
-Each set emits its own burst with its own count and physics. Vending machines use
-this mix: glass shards linger on the floor, while the `spark_1`, `spark_2`, and `spark_3` particles fade
-quickly. Other breakable props can reuse either set or the same mix.
+To mix one-shot effects, use an array: `breakParticles: { set: ['glass', 'sparks'] }`.
+Each set emits its own burst with its own count and physics. Electrical props instead
+opt into `electric: true`: while broken, they emit the `spark_1`, `spark_2`, and
+`spark_3` particles in short pulses of 3-5 sparks lasting 0.15-0.35 seconds, with a
+fresh random pause of 1.2-3 simulation seconds between pulses. The first pulse
+starts on the next world update.
+Vending machines throw glass once when they break and keep sparking, as do broken
+lights. Electrical classification is explicit, not inferred from sprite rows or
+power switches; switching a broken prop off does not repair it or stop the sparks.
+Sparks use the `breakParticles.area` rectangle when supplied, otherwise the whole
+artwork, with the same automatic mirroring as break debris.
+
+Passage door panels are also electrical and spark in each connected room's camera
+view while their shared panel state is broken. A broken door alone does not spark.
+Repairing a prop or panel stops new sparks; existing particles finish fading normally.
+Props loaded already broken also spark, but do not throw one-shot break debris.
+Paused updates do not repeat bursts. Long frames emit at most one spark burst per
+source rather than replaying a backlog.
 
 By default particles originate across the whole prop. An optional `area: { x, y, w, h }`
 in `breakParticles` restricts the burst to a rectangle relative to its displayed

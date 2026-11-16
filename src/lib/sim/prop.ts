@@ -70,6 +70,10 @@ export class Prop implements PlacedProp {
     return !!this.kind.switchable || this.sheetSwitchable;
   }
 
+  get electric() {
+    return this.kind.electric === true;
+  }
+
   get automaticPowerOff() {
     return this.switchable && this.kind.automaticPowerOff === true;
   }
@@ -105,6 +109,12 @@ export class Prop implements PlacedProp {
     if (!debris) return null;
     const area = debris.area ?? { x: 0, y: 0, w: this.w, h: this.h };
     return { set: debris.set, area: this.placeArea(area), depth: this.y + this.h };
+  }
+
+  /** Broken electrical equipment sparks from its particle area, or its whole artwork by default. */
+  get sparkArea(): Rect | null {
+    if (!this.electric || !this.broken) return null;
+    return this.placeArea(this.kind.breakParticles?.area ?? { x: 0, y: 0, w: this.w, h: this.h });
   }
 
   /** Where someone stands to use the prop from the front. */

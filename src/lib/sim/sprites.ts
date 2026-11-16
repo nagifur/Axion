@@ -264,6 +264,8 @@ export interface PropType {
   blocks?: Rect;
   /** Can be switched on and off. */
   switchable?: boolean;
+  /** Electrical equipment emits sparks while broken, independently of its power switch. */
+  electric?: boolean;
   /** Occupancy turns power on when someone enters and off after the room has been empty. */
   automaticPowerOff?: boolean;
   /** Can break. Nobody sits on a broken prop. */
@@ -291,7 +293,7 @@ const glassPane = (area: Rect): Pick<PropType, 'impactArea' | 'breakParticles'> 
 
 /** Prop types that rooms can place in their room.json. */
 export const PROP_TYPES: Record<string, PropType> = {
-  light: { asset: 'light', switchable: true, automaticPowerOff: true, breakable: true },
+  light: { asset: 'light', electric: true, switchable: true, automaticPowerOff: true, breakable: true },
   bench: {
     asset: 'bench',
     breakable: true,
@@ -311,9 +313,9 @@ export const PROP_TYPES: Record<string, PropType> = {
   },
   // Its power switch comes from the sheet's off row; it keeps its power state when the room empties.
   vending_machine: {
-    asset: 'vending_machine', breakable: true, dispenses: 'can',
+    asset: 'vending_machine', electric: true, breakable: true, dispenses: 'can',
     impactArea: { x: 14, y: 5, w: 68, h: 90 },
-    breakParticles: { set: ['glass', 'sparks'] },
+    breakParticles: { set: 'glass' },
   },
   // Breakable through the broken row of their sheets.
   glass: { asset: 'glass', ...glassPane({ x: 3, y: 30, w: 91, h: 37 }) },

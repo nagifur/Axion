@@ -47,15 +47,15 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
   },
   sparks: {
     sprites: ['spark_1', 'spark_2', 'spark_3'],
-    count: [6, 10],
+    count: [3, 5],
     spreadSpeed: 65,
     upSpeed: [35, 95],
     spinSpeed: [6, 14],
     gravity: 420,
     bounce: 0.2,
     friction: 8,
-    lifetime: [0.4, 0.8],
-    fade: 0.3,
+    lifetime: [0.15, 0.35],
+    fade: 0.15,
     scatter: 5,
   },
 };

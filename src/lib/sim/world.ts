@@ -3,7 +3,8 @@ import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts'
 import { directionTo, type Direction, type Door, type Point, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
 import { scheduleFor } from './schedule.ts';
-import { PASSAGE_DOOR_RANGE, PassageDoor } from './door.ts';
+import { PASSAGE_DOOR_RANGE, PassageDoor, passagePartBounds } from './door.ts';
+import type { Rect } from './navMap.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -27,6 +28,7 @@ export interface ElevatorRequest {
 const DOOR_SECONDS = 0.7;
 /** Seconds the car takes between floors on camera: a fixed part plus a part per level travelled. */
 const RIDE_SECONDS = { base: 2, perLevel: 2 };
+const SPARK_PAUSE_SECONDS = { min: 1.2, max: 3 };
 
 const randomDirection = (): Direction => (Math.random() < 0.5 ? 'up' : 'down');
 
@@ -204,6 +206,7 @@ export class World {
   readonly now: () => Date;
   hooks: WorldHooks = {};
   readonly particles = new ParticleSystem();
+  private readonly sparkDelays = new WeakMap<object, number>();
   private readonly elevators = new Map<Room, Elevator>();
   private readonly passageDoors = new Map<Door, PassageDoor>();
   private readonly passageEndpoints = new Map<PassageDoor, { room: Room; door: Door }[]>();
@@ -618,6 +621,23 @@ export class World {
     return null;
   }
 
+  private updateSparks(source: object, room: Room, area: Rect | null, dt: number, depth?: number) {
+    if (!area) {
+      this.sparkDelays.delete(source);
+      return;
+    }
+    if (!Number.isFinite(dt) || dt < 0) return;
+    const remaining = (this.sparkDelays.get(source) ?? 0) - dt;
+    if (remaining <= 0) {
+      this.particles.burst(room, 'sparks', area, depth);
+      // Emit at most once per update rather than replaying missed bursts after a long frame.
+      this.sparkDelays.set(source,
+        SPARK_PAUSE_SECONDS.min + Math.random() * (SPARK_PAUSE_SECONDS.max - SPARK_PAUSE_SECONDS.min));
+    } else {
+      this.sparkDelays.set(source, remaining);
+    }
+  }
+
   update(dt: number) {
     this.particles.update(dt);
     this.time += dt;
@@ -654,11 +674,20 @@ export class World {
       room.updateLights(this.agentsIn(room).length > 0, dt);
       for (const prop of room.props) {
         const breaks = prop.takeBreaks();
-        if (!breaks) continue;
-        const debris = prop.breakParticles;
-        if (debris) {
-          for (let i = 0; i < breaks; i++) this.particles.burst(room, debris.set, debris.area, debris.depth);
+        if (breaks) {
+          const debris = prop.breakParticles;
+          if (debris) {
+            for (let i = 0; i < breaks; i++) this.particles.burst(room, debris.set, debris.area, debris.depth);
+          }
         }
+        this.updateSparks(prop, room, prop.sparkArea, dt, prop.y + prop.h);
+      }
+      for (const door of room.doors) {
+        const art = door.appearance;
+        if (!art) continue;
+        const bounds = passagePartBounds(door.side, art);
+        const panel = this.passageDoorFor(door)?.panelBroken ? bounds.panel : null;
+        this.updateSparks(door, room, panel, dt, bounds.door.y + bounds.door.h);
       }
     }
   }

@@ -199,7 +199,8 @@ test('inspecting a glass pane can break it without introducing a power switch', 
   agent.update(world, 0);
   assert.deepEqual([pane.broken, pane.look, pane.on], [true, 'broken', true]);
   world.update(0);
-  assert.equal(world.particles.in(room).length, 10, 'glass breakage through agent use emits shards');
+  assert.equal(world.particles.in(room).filter((particle) => particle.asset.startsWith('particle:glass_')).length,
+    10, 'glass breakage through agent use emits shards independently of nearby electrical sparks');
   assert.equal(agent.bubble, '!');
   assert.ok(logs.some((entry) => entry.tone === 'warn' && entry.text.includes('glass')));
   assert.equal(dropTarget(world, agent, point, null, pane).kind, 'invalid');
