@@ -268,6 +268,8 @@ export interface PropType {
   automaticPowerOff?: boolean;
   /** Can break. Nobody sits on a broken prop. */
   breakable?: boolean;
+  /** Artwork-relative area that can be struck by a tripping agent; defaults to the whole frame. */
+  impactArea?: Rect;
   /** Item type (src/sim_assets/items/) agents can get from it while it is working and on. */
   dispenses?: string;
   /** Particles thrown when it breaks at runtime. */
@@ -281,8 +283,11 @@ export interface BreakParticles {
   area?: Rect;
 }
 
-// Glass panes share one particle set; areas match each sheet's pane artwork.
-const glassPane = (area: Rect): BreakParticles => ({ set: 'glass', area });
+// Glass panes share one particle set and use their visible pane as the impact area.
+const glassPane = (area: Rect): Pick<PropType, 'impactArea' | 'breakParticles'> => ({
+  impactArea: area,
+  breakParticles: { set: 'glass', area },
+});
 
 /** Prop types that rooms can place in their room.json. */
 export const PROP_TYPES: Record<string, PropType> = {
@@ -300,18 +305,20 @@ export const PROP_TYPES: Record<string, PropType> = {
   chair: {
     asset: 'chair',
     breakable: true,
+    impactArea: { x: 20, y: 0, w: 34, h: 55 },
     seats: [{ x: 30, y: 52, facing: 'right' }],
     blocks: { x: 24, y: 47, w: 21, h: 8 },
   },
   // Its power switch comes from the sheet's off row; it keeps its power state when the room empties.
   vending_machine: {
     asset: 'vending_machine', breakable: true, dispenses: 'can',
+    impactArea: { x: 14, y: 5, w: 68, h: 90 },
     breakParticles: { set: ['glass', 'sparks'] },
   },
   // Breakable through the broken row of their sheets.
-  glass: { asset: 'glass', breakParticles: glassPane({ x: 3, y: 30, w: 91, h: 37 }) },
-  glassHalf: { asset: 'glassHalf', breakParticles: glassPane({ x: 25, y: 30, w: 46, h: 37 }) },
-  glassAngle: { asset: 'glassAngle', breakParticles: glassPane({ x: 28, y: 12, w: 40, h: 74 }) },
+  glass: { asset: 'glass', ...glassPane({ x: 3, y: 30, w: 91, h: 37 }) },
+  glassHalf: { asset: 'glassHalf', ...glassPane({ x: 25, y: 30, w: 46, h: 37 }) },
+  glassAngle: { asset: 'glassAngle', ...glassPane({ x: 28, y: 12, w: 40, h: 74 }) },
 };
 
 // The elevator is found from the nav map; its sprites are drawn to fit the opening.

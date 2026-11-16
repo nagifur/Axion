@@ -333,6 +333,7 @@ from its `PROP_TYPES` entry, or automatically detected power-off and broken artw
 | `switchable` | Can be switched on or off manually, including through the editor. |
 | `automaticPowerOff` | Opts a switchable prop into occupancy-controlled power: on when someone enters, off after the room has been empty for `LIGHTS_OFF_SECONDS` in [`room.ts`](../src/lib/sim/room.ts). Defaults to false; only lights enable it currently. Set `automaticPowerOff: true` in the prop's `PROP_TYPES` entry to opt in another type. |
 | `breakable` | Can break. Nobody picks a seat on a broken prop, and anyone sitting on it or walking to it gives up. |
+| `impactArea` | Optional artwork-relative rectangle used to measure distance from a tripping agent; defaults to the whole frame and is mirrored for flipped props. |
 | `dispenses` | Item type agents can get from the prop while it works and, if switchable, is on (see [Dispensers](#dispensers-vending-machines)). |
 | `breakParticles` | One or more particle sets and optional artwork-relative emission area to use when the prop breaks (see [Breakage Particles](#breakage-particles)). |
 
@@ -349,6 +350,12 @@ Breakable props have a 1% chance to break per use (`PROP_BREAK_CHANCE` in
 [`prop.ts`](../src/lib/sim/prop.ts)), shared by autonomous and drag-and-drop interactions.
 The roll happens when seated use starts, when a valid dispenser attempt finishes,
 or when a manual switch/inspection starts, never on every simulation tick or preview.
+When an agent trips or lands after a fall, there is also a 10% chance to break the
+nearest intact breakable prop whose impact area is within 12 room pixels of their
+feet (`TRIP_PROP_BREAK_CHANCE` and `TRIP_PROP_REACH` in [`agent.ts`](../src/lib/sim/agent.ts)).
+Only one prop is considered per trip, and the roll happens once on impact, not
+while falling or on every recovery tick. Glass panes, chairs and vending machines
+use `impactArea` to exclude transparent padding.
 Chairs, benches, tables, lights, vending machines, and props with broken artwork
 (such as glass panes) are breakable; decorations without it are not unless their type
 opts in. Breakage logs a warning and shows an exclamation bubble. Seated use stops,

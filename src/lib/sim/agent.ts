@@ -18,6 +18,8 @@ export interface Task {
   /** Door/elevator transitions cannot be picked up midway. */
   transport?: boolean;
   falling?: boolean;
+  /** Finish recovering before abandoning a broken seat. */
+  tripping?: boolean;
   start?(agent: Agent, world: World): void;
   /** Returns true when the task is finished. */
   update(agent: Agent, world: World, dt: number): boolean;
@@ -29,6 +31,10 @@ export interface Task {
 const BASE_SPEED = 28;
 /** How far from their feet, in room pixels, an agent can pick up a loose item. */
 export const ITEM_REACH = 12;
+/** Radius around their feet in which a trip can hit a prop. */
+export const TRIP_PROP_REACH = 12;
+/** Chance that a trip or fall breaks the nearest eligible prop. */
+export const TRIP_PROP_BREAK_CHANCE = 0.1;
 let nextUid = 1;
 
 export class Agent {
@@ -136,6 +142,10 @@ export class Agent {
 
   get sitting() {
     return !this.held && !!this.task?.sitting && !this.moving;
+  }
+
+  get tripping() {
+    return !!this.task?.tripping;
   }
 
   get frame(): { name: FrameName; flip: boolean } {
@@ -340,20 +350,45 @@ export function fall(): Task {
 
 export function trip(cause: 'trip' | 'fall' = 'trip'): Task {
   let left = 1.3;
+  let attemptedBreak = false;
   return {
     activity: 'Picking themselves up',
     interruptible: false,
+    tripping: true,
     start(agent, world) {
       agent.shake = 0.5;
       agent.say('!', 1.3);
       world.log(`${agent.character.name} ${cause === 'fall' ? 'fell and hit the floor' : 'tripped over their own feet'} in the ${agent.room.name}.`, 'muted');
       world.achieve('watch-your-step', agent.room);
+      if (!attemptedBreak) {
+        attemptedBreak = true;
+        breakNearbyProp(agent, world, cause);
+      }
     },
     update(_agent, _world, dt) {
       left -= dt;
       return left <= 0;
     },
   };
+}
+
+function breakNearbyProp(agent: Agent, world: World, cause: 'trip' | 'fall') {
+  let nearest: Prop | undefined;
+  let nearestDistance = Infinity;
+  for (const prop of agent.room.props) {
+    if (!prop.breakable || prop.broken) continue;
+    const { x, y, w, h } = prop.impactBounds;
+    const dx = Math.max(x - agent.x, 0, agent.x - (x + w));
+    const dy = Math.max(y - agent.y, 0, agent.y - (y + h));
+    const distance = Math.hypot(dx, dy);
+    if (distance <= TRIP_PROP_REACH && distance < nearestDistance) {
+      nearest = prop;
+      nearestDistance = distance;
+    }
+  }
+  if (nearest && Math.random() < TRIP_PROP_BREAK_CHANCE && nearest.break()) {
+    reportPropBreak(agent, world, nearest, cause);
+  }
 }
 
 /** Does one of the carried item's actions; consuming actions destroy the item once finished. */
@@ -465,9 +500,17 @@ export function getFromDispenser(prop: Prop, seconds = 2.5): Task {
 
 export function breakPropOnUse(agent: Agent, world: World, prop: Prop): boolean {
   if (!prop.breakOnUse()) return false;
-  agent.say('!', 1.5);
-  world.log(`${agent.character.name}'s ${prop.type.replaceAll('_', ' ')} broke in the ${agent.room.name}.`, 'warn');
+  reportPropBreak(agent, world, prop);
   return true;
+}
+
+function reportPropBreak(agent: Agent, world: World, prop: Prop, cause?: 'trip' | 'fall') {
+  agent.say('!', 1.5);
+  const name = prop.type.replaceAll('_', ' ');
+  const message = cause
+    ? `${agent.character.name} broke the ${name} when they ${cause === 'fall' ? 'fell' : 'tripped'} in the ${agent.room.name}.`
+    : `${agent.character.name}'s ${name} broke in the ${agent.room.name}.`;
+  world.log(message, 'warn');
 }
 
 export interface Conversation {

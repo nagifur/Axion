@@ -625,7 +625,7 @@ export class World {
       if (agent.removed || agent.held) continue;
       // Whoever is sitting on, or heading for, a prop that broke gives up on it.
       const seat = agent.spot?.prop;
-      if (seat?.broken) {
+      if (seat?.broken && !agent.tripping) {
         if (agent.sitting) {
           agent.say('!', 1.5);
           this.log(`${agent.character.name}'s ${seat.type} broke in the ${agent.room.name}.`, 'warn');

@@ -89,13 +89,22 @@ export class Prop implements PlacedProp {
     return type && !this.broken && (!this.switchable || this.on) ? type : null;
   }
 
+  private placeArea(area: Rect): Rect {
+    const x = this.flip ? this.w - area.x - area.w : area.x;
+    return { x: this.x + x, y: this.y + area.y, w: area.w, h: area.h };
+  }
+
+  /** Area a tripping agent can hit, in room coordinates. */
+  get impactBounds(): Rect {
+    return this.placeArea(this.kind.impactArea ?? { x: 0, y: 0, w: this.w, h: this.h });
+  }
+
   /** Particle sets thrown when it breaks, and the room area they come from (null if none). */
   get breakParticles(): { set: string | readonly string[]; area: Rect; depth: number } | null {
     const debris = this.kind.breakParticles;
     if (!debris) return null;
     const area = debris.area ?? { x: 0, y: 0, w: this.w, h: this.h };
-    const x = this.flip ? this.w - area.x - area.w : area.x;
-    return { set: debris.set, area: { x: this.x + x, y: this.y + area.y, w: area.w, h: area.h }, depth: this.y + this.h };
+    return { set: debris.set, area: this.placeArea(area), depth: this.y + this.h };
   }
 
   /** Where someone stands to use the prop from the front. */
