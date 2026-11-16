@@ -14,6 +14,11 @@ galleryAlt: Dr. Mages drawing
 positiveTraits: [Genius Designer, Powerful mage, Optimistic]
 negativeTraits: [Naive, Pacifist]
 vorePreference: [Prey]
+stats:
+  hp: 90
+  stamina: 100
+  magic: 100
+  
 gallery:
   - file: 1.png
     caption: Reference

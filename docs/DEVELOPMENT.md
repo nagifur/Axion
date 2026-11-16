@@ -151,6 +151,19 @@ height sets sprite size, `colorTint` colours the name tag, and traits such as *S
 Wanted characters are left out. Entities with a *Shapeshifting* ability can sneak in
 disguised as staff.
 
+Character frontmatter supports optional `stats` capacity overrides; see the
+[stats authoring reference](../templates/README.md#optional-simulation-stats).
+[`stats.ts`](../src/lib/sim/stats.ts) defines the defaults: HP and stamina 100,
+magic 0 (disabled), hunger and thirst 100. Each spawned agent gets its own
+`stats` pools with `current` and `max`; HP/stamina/magic start full and needs
+start at zero. `agent.hasMagic` is true only with a positive magic capacity.
+Impostors use their entity profile's stats, not the copied staff profile's.
+The selected-agent panel updates live values without rebuilding the file.
+There is no automatic drain, recovery, damage, death, or AI behavior change yet;
+values last only for that agent instance, not across spawns or reloads.
+All three character collections validate optional stat blocks, including
+synthetics that do not yet spawn in monitoring.
+
 Drag a sprite or name tag to physically pick up an agent. Dropping on open floor
 repositions them, on a free chair or bench seat starts the usual seated activity,
 and on another agent starts a conversation. Lights can be toggled; other unseated

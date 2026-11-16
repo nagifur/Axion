@@ -8,6 +8,29 @@
 Tip: send contributors just the template + this file. They can fill in
 frontmatter and write the bio without touching any code.
 
+## Optional simulation stats
+
+Personnel, entity, and synthetic Markdown files can include a `stats` block in
+their frontmatter. All fields are optional; omitted fields use these defaults:
+
+```yaml
+stats:
+  hp: 100
+  stamina: 100
+  magic: 0
+  hunger: 100
+  thirst: 100
+```
+
+These are maximum capacities. HP, stamina, and magic start full; hunger and
+thirst start at 0 (satisfied), with their maximum meaning an urgent need.
+Magic is disabled at 0; set a positive capacity only for magic users.
+Other capacities must be positive finite numbers. Unknown stat names are rejected.
+The monitoring panel shows live values, but stats do not drain or affect behavior
+yet. Stats reset on a new agent spawn or page reload and are not saved.
+Only personnel and shapeshifting entities currently spawn in monitoring; synthetic
+stats are accepted for future use.
+
 ## Importing a submission from a zip
 
 If you want to import a zip `<slug>.zip` package.

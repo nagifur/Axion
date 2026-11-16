@@ -5,6 +5,7 @@ import type { ElevatorRequest, World } from './world.ts';
 import { scheduleFor, type SchedulePeriod } from './schedule.ts';
 import { Item, itemActions, type ItemAction } from './item.ts';
 import type { Prop } from './prop.ts';
+import { createAgentStats, type AgentStats } from './stats.ts';
 
 export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
 
@@ -41,6 +42,7 @@ export class Agent {
   readonly uid = nextUid++;
   readonly character: SimCharacter;
   readonly impostor?: SimImpostor;
+  readonly stats: AgentStats;
   revealed = false;
   /** The room this agent is currently in. */
   room: Room;
@@ -80,12 +82,17 @@ export class Agent {
     this.character = character;
     this.room = room;
     this.impostor = impostor;
+    this.stats = createAgentStats(impostor?.stats ?? character.stats);
     this.x = at.x;
     this.y = at.y;
   }
 
   get ghost() {
     return this.character.behavior.ghost && !this.impostor;
+  }
+
+  get hasMagic() {
+    return this.stats.magic.max > 0;
   }
 
   get item(): Item | null {

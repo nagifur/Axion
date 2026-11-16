@@ -10,6 +10,15 @@ const galleryItem = z.object({
   caption: z.string(),
 });
 
+const statCapacity = z.number().finite().positive();
+const stats = z.object({
+  hp: statCapacity.optional(),
+  stamina: statCapacity.optional(),
+  magic: z.number().finite().nonnegative().optional(),
+  hunger: statCapacity.optional(),
+  thirst: statCapacity.optional(),
+}).strict().optional();
+
 // Marks a character/entity as being actively hunted by Axion (fired + wanted, escaped, etc.).
 // `status` is the headline shown on the page (e.g. "Wanted", "Escaped").
 const wanted = z.object({
@@ -44,6 +53,7 @@ const pages = defineCollection({
 
 const personnel = defineCollection({
   schema: z.object({
+    stats,
     title: z.string(),
     author: z.string().optional(),
     colorTint,
@@ -69,6 +79,7 @@ const personnel = defineCollection({
 
 const entities = defineCollection({
   schema: z.object({
+    stats,
     title: z.string(),
     author: z.string().optional(),
     colorTint,
@@ -94,6 +105,7 @@ const entities = defineCollection({
 
 const synthetics = defineCollection({
   schema: z.object({
+    stats,
     title: z.string(),
     author: z.string().optional(),
     colorTint,

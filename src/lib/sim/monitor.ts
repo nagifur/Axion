@@ -8,6 +8,7 @@ import type { SimCharacter, SimImpostor } from './roster.ts';
 import { Room, type Point, type RoomData } from './room.ts';
 import { World, type LogTone } from './world.ts';
 import { scheduleFor } from './schedule.ts';
+import type { AgentStats } from './stats.ts';
 
 export interface MonitorConfig {
   roster: SimCharacter[];
@@ -267,6 +268,14 @@ export function initMonitor(root: HTMLElement): () => void {
 
   let fileKey = '';
   let activityNode: HTMLElement | null = null;
+  const statNodes = new Map<keyof AgentStats, HTMLElement>();
+
+  const updateStats = (agent: Agent) => {
+    for (const [key, node] of statNodes) {
+      const { current, max } = agent.stats[key];
+      node.textContent = key === 'magic' && !agent.hasMagic ? 'None' : `${Math.round(current)} / ${max}`;
+    }
+  };
 
   // True while the selected badge ID is shared with an undetected shapeshifter.
   const hasTwin = (agent: Agent) => world.everyone().some((other) =>
@@ -281,9 +290,11 @@ export function initMonitor(root: HTMLElement): () => void {
     const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}` : '';
     if (key === fileKey) {
       if (agent && activityNode) activityNode.textContent = agent.removed ? 'Off camera' : agent.activity;
+      if (agent) updateStats(agent);
       return;
     }
     fileKey = key;
+    statNodes.clear();
 
     if (!agent) {
       fileNode.replaceChildren(el('p', 'monitor-file-empty', 'Select someone on the feed to pull up their file.'));
@@ -327,6 +338,15 @@ export function initMonitor(root: HTMLElement): () => void {
     }
     activityNode = stat('Status', agent.removed ? 'Off camera' : agent.activity);
     stat('Item', agent.item?.type ?? 'Empty');
+    for (const [key, label] of [
+      ['hp', 'HP'], ['stamina', 'Stamina'], ['magic', 'Magic'],
+      ['hunger', 'Hunger'], ['thirst', 'Thirst'],
+    ] as const) {
+      const node = stat(label, '');
+      if (key === 'hunger' || key === 'thirst') node.title = '0 = satisfied; maximum = urgent need';
+      statNodes.set(key, node);
+    }
+    updateStats(agent);
     if (!agent.removed) {
       const location = stat('Location', `${agent.room.name} · ${agent.room.camera}`);
       if (!onScreen) {

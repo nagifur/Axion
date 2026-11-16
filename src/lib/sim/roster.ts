@@ -1,5 +1,6 @@
 // Build-time helpers that turn database profiles into simulation characters.
 // Kept free of Astro imports so it can be unit tested directly with node:test.
+import { resolveStats, type SimStats } from './stats.ts';
 
 export interface SimBehavior {
   /** Walking speed multiplier (1 = normal). */
@@ -30,6 +31,7 @@ export interface SimCharacter {
   /** Relative chance of showing up compared to other staff (1 = normal). */
   weight: number;
   behavior: SimBehavior;
+  stats: SimStats;
 }
 
 export interface SimImpostor {
@@ -40,6 +42,7 @@ export interface SimImpostor {
   image?: string;
   /** Relative chance of being picked when an impostor event triggers. */
   weight: number;
+  stats: SimStats;
 }
 
 /** Staff keep to their clearance and below; unknown clearances use level 1. */
@@ -129,6 +132,7 @@ export interface PersonnelInput {
     positiveTraits: string[];
     negativeTraits: string[];
     wanted?: unknown;
+    stats?: Partial<SimStats>;
   };
 }
 
@@ -153,6 +157,7 @@ export function toSimCharacter(entry: PersonnelInput, base = '', image?: string)
     image,
     weight: override.weight ?? 1,
     behavior: behaviorFromTraits(traits, entry.data.species),
+    stats: resolveStats(entry.data.stats),
   };
 }
 
@@ -163,6 +168,7 @@ export interface EntityInput {
     nickname: string;
     usefulAbilities: string[];
     noteableEvents: string[];
+    stats?: Partial<SimStats>;
   };
 }
 
@@ -180,5 +186,6 @@ export function toSimImpostor(entry: EntityInput, base = '', image?: string): Si
     image,
     // Repeat escapees show up far more often than one-off breaches.
     weight: has(noteableEvents, /keeps escaping/i) ? 1 : 0.15,
+    stats: resolveStats(entry.data.stats),
   };
 }

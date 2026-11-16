@@ -52,13 +52,17 @@ function stay(world, character, room, point, impostor) {
   return agent;
 }
 
-test('all level 0 and 1 passage views have the matching door; other levels remain doorless', async () => {
+test('configured level 0 and 1 passages have matching doors; open exits and other levels remain doorless', async () => {
   const rooms = (await loadFacility()).map((data) => new Room(data));
   const world = new World({ rooms, roster: [] });
   let count = 0;
   for (const room of rooms) {
     for (const door of room.doors) {
       if (room.level <= 1) {
+        if (!door.appearance) {
+          assert.equal(world.passageDoorFor(door), undefined, `${room.id}/${door.id} stays open`);
+          continue;
+        }
         count++;
         assert.equal(door.appearance.clearance, room.level, `${room.id}/${door.id}`);
         assert.equal(door.appearance.asset, `door_angle_level${room.level}`);
