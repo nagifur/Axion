@@ -2,6 +2,7 @@ import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorI
 import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
 import { directionTo, type Direction, type Door, type Point, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
+import type { Prop } from './prop.ts';
 import { scheduleFor } from './schedule.ts';
 import { PASSAGE_DOOR_RANGE, PassageDoor, passagePartBounds } from './door.ts';
 import type { Rect } from './navMap.ts';
@@ -621,7 +622,7 @@ export class World {
     return null;
   }
 
-  private updateSparks(source: object, room: Room, area: Rect | null, dt: number, depth?: number) {
+  private updateSparks(source: object, room: Room, area: Rect | null, dt: number, depth?: number, emitter?: Prop) {
     if (!area) {
       this.sparkDelays.delete(source);
       return;
@@ -629,7 +630,7 @@ export class World {
     if (!Number.isFinite(dt) || dt < 0) return;
     const remaining = (this.sparkDelays.get(source) ?? 0) - dt;
     if (remaining <= 0) {
-      this.particles.burst(room, 'sparks', area, depth);
+      this.particles.burst(room, 'sparks', area, depth, emitter, this.time);
       // Emit at most once per update rather than replaying missed bursts after a long frame.
       this.sparkDelays.set(source,
         SPARK_PAUSE_SECONDS.min + Math.random() * (SPARK_PAUSE_SECONDS.max - SPARK_PAUSE_SECONDS.min));
@@ -677,10 +678,12 @@ export class World {
         if (breaks) {
           const debris = prop.breakParticles;
           if (debris) {
-            for (let i = 0; i < breaks; i++) this.particles.burst(room, debris.set, debris.area, debris.depth);
+            for (let i = 0; i < breaks; i++) {
+              this.particles.burst(room, debris.set, debris.area, debris.depth, prop, this.time);
+            }
           }
         }
-        this.updateSparks(prop, room, prop.sparkArea, dt, prop.y + prop.h);
+        this.updateSparks(prop, room, prop.sparkArea, dt, prop.y + prop.h, prop);
       }
       for (const door of room.doors) {
         const art = door.appearance;

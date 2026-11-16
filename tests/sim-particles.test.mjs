@@ -3,7 +3,7 @@ import test from 'node:test';
 import sharp from 'sharp';
 import { Particle, ParticleSystem, PARTICLE_SETS, MAX_PARTICLES, particleAsset, particleSet } from '../src/lib/sim/particles.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
-import { drawParticle, loadAssets, Renderer } from '../src/lib/sim/render.ts';
+import { drawParticle, loadAssets, PropEmissionSampler, Renderer } from '../src/lib/sim/render.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { PROP_TYPES } from '../src/lib/sim/sprites.ts';
@@ -32,6 +32,70 @@ test('all registered particle images exist and glass prop types share one set', 
     assert.equal(PROP_TYPES[type].breakParticles.set, 'glass');
   }
   assert.throws(() => particleSet('missing'), /Unknown particle set "missing"/);
+});
+
+test('particle bursts sample opaque pixels in the current prop frame and skip transparent areas', (t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+  const originalDocument = globalThis.document;
+  globalThis.document = {
+    createElement() {
+      const canvas = {
+        width: 0,
+        height: 0,
+        getContext() {
+          let crop;
+          return {
+            drawImage(image, x, y, w, h) { crop = { image, x, y, w, h }; },
+            getImageData() {
+              const data = new Uint8ClampedArray(crop.w * crop.h * 4);
+              for (let y = 0; y < crop.h; y++) {
+                for (let x = 0; x < crop.w; x++) {
+                  const source = ((crop.y + y) * crop.image.width + crop.x + x) * 4;
+                  const target = (y * crop.w + x) * 4;
+                  data[target + 3] = crop.image.pixels[source + 3];
+                }
+              }
+              return { data };
+            },
+          };
+        },
+      };
+      return canvas;
+    },
+  };
+  t.after(() => {
+    if (originalDocument === undefined) delete globalThis.document;
+    else globalThis.document = originalDocument;
+  });
+
+  const image = {
+    width: 3, height: 2,
+    pixels: Uint8ClampedArray.from([
+      0, 0, 0, 0, 0, 0, 0, 255, 0, 0, 0, 0,
+      0, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]),
+  };
+  const prop = new Prop(placed('emitter_test', { asset: 'emitter_test', x: 10, y: 20, w: 3, h: 2 }));
+  const area = { x: 10, y: 20, w: 3, h: 2 };
+  const sampler = new PropEmissionSampler({ emitter_test: image });
+  const points = sampler.sample(prop, area, 0);
+  assert.deepEqual(points, [{ x: 11.5, y: 20.5 }, { x: 10.5, y: 21.5 }]);
+
+  const system = new ParticleSystem();
+  system.setEmissionSampler(sampler.sample);
+  const emitted = system.burst(particleRoom(), 'glass', area, 22, prop);
+  assert.equal(emitted.length, 13);
+  assert.ok(emitted.every((particle) => points.some((point) => point.x === particle.x && point.y === particle.y)));
+
+  const emptyArea = { x: 12, y: 20, w: 1, h: 2 };
+  assert.deepEqual(sampler.sample(prop, emptyArea, 0), []);
+  assert.deepEqual(system.burst(particleRoom(), 'glass', emptyArea, 22, prop), [],
+    'transparent regions do not fall back to their bounding box');
+
+  prop.flip = true;
+  assert.deepEqual(sampler.sample(prop, { x: 11, y: 20, w: 2, h: 2 }, 0), [
+    { x: 11.5, y: 20.5 }, { x: 12.5, y: 21.5 },
+  ]);
 });
 
 test('runtime breakage emits once per break in the correct room, including shared future types', async (t) => {
@@ -480,4 +544,63 @@ test('rotated particles draw around their center without extending below the flo
       assert.ok(Math.abs(Math.max(...cornersY) - particle.floor) < 1e-10);
     }
   }
+});
+
+test('optional particle glow is subtle, centered, faded, and isolated from the sprite and canvas state', () => {
+  assert.equal(PARTICLE_SETS.glass.glow, undefined, 'ordinary debris does not glow');
+  assert.deepEqual(PARTICLE_SETS.sparks.glow, { color: 'rgba(255, 190, 65, 0.35)', radius: 7 });
+  const particle = new Particle(particleRoom(), PARTICLE_SETS.sparks, { x: 20, y: 30 }, 50);
+  particle.age = particle.lifetime - particle.set.fade / 2;
+  particle.angle = Math.PI / 2;
+  Object.defineProperty(particle, 'flip', { value: true });
+  const calls = [];
+  const states = [];
+  const gradient = { addColorStop(...args) { calls.push(['stop', ...args]); } };
+  const ctx = {
+    globalAlpha: 0.8, globalCompositeOperation: 'source-over', fillStyle: '#123456',
+    save() {
+      states.push({
+        globalAlpha: this.globalAlpha, globalCompositeOperation: this.globalCompositeOperation,
+        fillStyle: this.fillStyle,
+      });
+    },
+    restore() { Object.assign(this, states.pop()); },
+    translate(...args) { calls.push(['translate', ...args]); },
+    rotate(...args) { calls.push(['rotate', ...args]); },
+    scale(...args) { calls.push(['scale', ...args]); },
+    createRadialGradient(...args) { calls.push(['gradient', ...args]); return gradient; },
+    fillRect(...args) {
+      calls.push(['halo', ...args, this.globalAlpha, this.globalCompositeOperation, this.fillStyle]);
+    },
+    drawImage(...args) {
+      calls.push(['sprite', ...args, this.globalAlpha, this.globalCompositeOperation]);
+    },
+  };
+  const image = { width: 4, height: 2 };
+  drawParticle(ctx, image, particle);
+  assert.deepEqual(calls.slice(0, 3), [
+    ['translate', 20, 28], ['rotate', Math.PI / 2], ['scale', -1, 1],
+  ]);
+  assert.deepEqual(calls.slice(3, 6), [
+    ['gradient', 0, 0, 0, 0, 0, 7],
+    ['stop', 0, 'rgba(255, 190, 65, 0.35)'],
+    ['stop', 1, 'rgba(0, 0, 0, 0)'],
+  ]);
+  const halo = calls[6];
+  assert.deepEqual(halo.slice(0, 5), ['halo', -7, -7, 14, 14]);
+  assert.ok(Math.abs(halo[5] - 0.4) < 1e-10, 'halo follows particle and caller alpha');
+  assert.deepEqual(halo.slice(6), ['screen', gradient]);
+  const sprite = calls[7];
+  assert.deepEqual(sprite.slice(0, 4), ['sprite', image, -2, -1]);
+  assert.ok(Math.abs(sprite[4] - 0.4) < 1e-10);
+  assert.equal(sprite[5], 'source-over', 'only the halo uses screen blending');
+  assert.equal(ctx.globalAlpha, 0.8);
+  assert.equal(ctx.globalCompositeOperation, 'source-over');
+  assert.equal(ctx.fillStyle, '#123456');
+  assert.equal(states.length, 0);
+
+  calls.length = 0;
+  particle.age = particle.lifetime;
+  drawParticle(ctx, image, particle);
+  assert.deepEqual(calls, [], 'expired particles draw neither a halo nor a sprite');
 });

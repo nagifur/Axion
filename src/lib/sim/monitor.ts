@@ -3,7 +3,7 @@ import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
 import { PropEditor } from './propEditor.ts';
 import { Prop } from './prop.ts';
-import { PropPicker, Renderer, loadAssets } from './render.ts';
+import { PropEmissionSampler, PropPicker, Renderer, loadAssets } from './render.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import { Room, type Point, type RoomData } from './room.ts';
 import { World, type LogTone } from './world.ts';
@@ -895,6 +895,7 @@ export function initMonitor(root: HTMLElement): () => void {
   loadAssets(config.assets).then((assets) => {
     if (disposed) return;
     renderer = new Renderer(canvas, assets, viewed);
+    world.particles.setEmissionSampler(new PropEmissionSampler(assets).sample);
     propPicker = new PropPicker(assets);
     renderer.resize();
     if (debugMode) editor = new PropEditor(assets, viewed, renderEditor, (door) => world.passageDoorFor(door));

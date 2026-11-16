@@ -2,7 +2,10 @@
 // nav-map floor below their emission area, settle, then fade out. Pure simulation: render.ts draws them.
 
 import type { Rect } from './navMap.ts';
+import type { Prop } from './prop.ts';
 import type { Room } from './room.ts';
+
+export type ParticleEmissionSampler = (prop: Prop, area: Rect, time: number) => readonly { x: number; y: number }[];
 
 /** How one kind of particle looks and moves. Several prop types can share one set. */
 export interface ParticleSet {
@@ -28,6 +31,8 @@ export interface ParticleSet {
   fade: number;
   /** Minimum extra distance below the emitting area before particles can land, in room pixels. */
   scatter: number;
+  /** Optional soft halo; color includes opacity and radius is in room pixels. */
+  glow?: { color: string; radius: number };
 }
 
 /** Particle sets that prop types can name in `breakParticles` (see PROP_TYPES in sprites.ts). */
@@ -54,9 +59,10 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     gravity: 420,
     bounce: 0.2,
     friction: 8,
-    lifetime: [0.15, 0.35],
+    lifetime: [0.15, 1.2],
     fade: 0.15,
     scatter: 5,
+    glow: { color: 'rgba(255, 190, 65, 0.35)', radius: 7 },
   },
 };
 
@@ -177,20 +183,30 @@ export class Particle {
 
 export class ParticleSystem {
   particles: Particle[] = [];
+  private emissionSampler?: ParticleEmissionSampler;
+
+  setEmissionSampler(sampler: ParticleEmissionSampler) {
+    this.emissionSampler = sampler;
+  }
 
   /**
-   * Throws one or more sets' particles from anywhere inside `area` (room pixels). They land between the
-   * green nav-map floor at or below the area's bottom plus `scatter`. `depth` puts debris in front of the
-   * emitting object even when the sprite sheet has transparent padding below its artwork.
+   * Throws one or more sets' particles from `area` (room pixels), using visible pixels when an emitter
+   * and sampler are available. They land below the area's bottom plus `scatter`.
    */
-  burst(room: Room, setName: string | readonly string[], area: Rect, depth = area.y + area.h): Particle[] {
+  burst(
+    room: Room, setName: string | readonly string[], area: Rect, depth = area.y + area.h, emitter?: Prop, time = 0,
+  ): Particle[] {
     const sets = (typeof setName === 'string' ? [setName] : setName).map(particleSet);
     const bottom = area.y + area.h;
+    const origins = emitter && this.emissionSampler ? this.emissionSampler(emitter, area, time) : undefined;
     const added: Particle[] = [];
     for (const set of sets) {
+      if (origins?.length === 0) continue;
       const count = Math.floor(set.count[0] + Math.random() * (set.count[1] - set.count[0] + 1));
       for (let i = 0; i < count; i++) {
-        const at = { x: area.x + Math.random() * area.w, y: area.y + Math.random() * area.h };
+        const at = origins
+          ? origins[Math.floor(Math.random() * origins.length)]
+          : { x: area.x + Math.random() * area.w, y: area.y + Math.random() * area.h };
         const scatter = Math.random() * set.scatter;
         added.push(new Particle(room, set, at, bottom + scatter, depth + scatter));
       }

@@ -2,7 +2,7 @@ import type { Agent } from './agent.ts';
 import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
-import type { Particle } from './particles.ts';
+import type { Particle, ParticleEmissionSampler } from './particles.ts';
 import { CHARACTER_FRAMES, ELEVATOR_SPRITES, ITEM_HAND_ANCHORS, itemFrame, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { World } from './world.ts';
 import type { Rect } from './navMap.ts';
@@ -73,6 +73,17 @@ export function drawParticle(ctx: CanvasRenderingContext2D, image: CanvasImageSo
   ctx.translate(Math.round(particle.x), Math.round(particle.y) - bottom);
   ctx.rotate(particle.angle);
   if (particle.flip) ctx.scale(-1, 1);
+  const glow = particle.set.glow;
+  if (glow) {
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glow.radius);
+    gradient.addColorStop(0, glow.color);
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.fillStyle = gradient;
+    ctx.fillRect(-glow.radius, -glow.radius, glow.radius * 2, glow.radius * 2);
+    ctx.restore();
+  }
   ctx.drawImage(image, -halfWidth, -halfHeight);
   ctx.restore();
 }
@@ -145,6 +156,46 @@ export class PropPicker {
     });
     return solid ?? inBox[0] ?? null;
   }
+}
+
+/** Samples only opaque artwork pixels inside a prop's emission rectangle. */
+export class PropEmissionSampler {
+  private readonly masks = new Map<string, { alpha: Uint8Array; w: number; h: number }>();
+  private readonly assets: Assets;
+
+  constructor(assets: Assets) {
+    this.assets = assets;
+  }
+
+  readonly sample: ParticleEmissionSampler = (prop, area, time) => {
+    const image = this.assets[prop.asset];
+    if (!image) throw new Error(`Missing prop asset "${prop.asset}".`);
+    const frame = propFrame(prop.asset, image, time, prop.look);
+    const key = `${prop.asset}:${frame.x}:${frame.y}:${frame.w}:${frame.h}`;
+    let mask = this.masks.get(key);
+    if (!mask) {
+      const canvas = makeCanvas(frame.w, frame.h);
+      const ctx = context(canvas);
+      ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+      const rgba = ctx.getImageData(0, 0, frame.w, frame.h).data;
+      const alpha = new Uint8Array(frame.w * frame.h);
+      for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3];
+      mask = { alpha, w: frame.w, h: frame.h };
+      this.masks.set(key, mask);
+    }
+
+    const points: { x: number; y: number }[] = [];
+    for (let py = 0; py < mask.h; py++) {
+      const y = prop.y + py + 0.5;
+      if (y < area.y || y >= area.y + area.h) continue;
+      for (let px = 0; px < mask.w; px++) {
+        const x = prop.x + (prop.flip ? mask.w - 1 - px : px) + 0.5;
+        if (x < area.x || x >= area.x + area.w || !mask.alpha[py * mask.w + px]) continue;
+        points.push({ x, y });
+      }
+    }
+    return points;
+  };
 }
 
 /** Copy of an image with every pixel of `from` replaced by `to` (RGB). */

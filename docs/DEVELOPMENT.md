@@ -390,6 +390,11 @@ set in `PROP_TYPES` in [`sprites.ts`](../src/lib/sim/sprites.ts):
 glass_cup: { asset: 'glass_cup', breakable: true, breakParticles: { set: 'glass' } },
 ```
 
+Sets can optionally add `glow: { color: 'rgba(255, 190, 65, 0.35)', radius: 7 }`
+for a subtle, soft halo. The color's alpha controls strength; radius is in room
+pixels. Sparks opt in by default; glass does not glow. The halo follows the sprite,
+fades with the particle, and shares its depth ordering and room dimming.
+
 To mix one-shot effects, use an array: `breakParticles: { set: ['glass', 'sparks'] }`.
 Each set emits its own burst with its own count and physics. Electrical props instead
 opt into `electric: true`: while broken, they emit the `spark_1`, `spark_2`, and
@@ -411,7 +416,9 @@ source rather than replaying a backlog.
 
 By default particles originate across the whole prop. An optional `area: { x, y, w, h }`
 in `breakParticles` restricts the burst to a rectangle relative to its displayed
-artwork; it is mirrored automatically when the prop is flipped. The three glass pane
+artwork; it is mirrored automatically when the prop is flipped. Origins are sampled
+only from opaque pixels in the prop's current frame and state, so transparent padding
+and empty parts of the rectangle do not emit particles. The three glass pane
 types share the `glass` set, which uses `glass_1`, `glass_2`, and `glass_3`.
 Runtime calls to `prop.break()`, breakage during use, and toggling a prop to broken
 in the debug prop editor queue a burst for the next world update, so the editor can
