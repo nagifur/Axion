@@ -50,7 +50,7 @@ export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig)
   const panel = passagePanelFrame(side, false, 0);
   const x = Math.round(bounds.x + (bounds.w - door.w) / 2) + (config.offset?.x ?? 0);
   const y = bounds.y + bounds.h - door.h + (config.offset?.y ?? 0);
-  const gap = 4;
+  const gap = 3;
   const panelX = side === 'east' ? x - panel.w - gap : x + door.w + gap;
   const panelY = angled(side) ? y + door.h - panel.h - door.w - gap : y + door.h - panel.h;
   return {
