@@ -115,6 +115,9 @@ test('every configured passage has matching floor-level door artwork', async () 
       const angled = door.side === 'west' || door.side === 'east';
       assert.equal(door.appearance.asset, `door_${angled ? 'angle_' : ''}level${room.level}${door.side === 'east' ? '_east' : ''}`);
       assert.equal(door.appearance.panelAsset, `door_panel${angled ? '_angle' : ''}`);
+      const { panel } = passagePartBounds(door.side, door.appearance);
+      assert.ok(panel.x >= 0 && panel.y >= 0 && panel.x + panel.w <= room.width && panel.y + panel.h <= room.height,
+        `${room.id}/${door.id} panel fits in the camera`);
       assert.ok(world.passageDoorFor(door));
       if (door.to) {
         const other = world.room(door.to.room).doors.find((candidate) => candidate.id === door.to.door);
@@ -204,6 +207,27 @@ test('door artwork aligns with openings and offsets move the door and panel inde
   assert.equal(doorAppearance('west', bounds, { clearance: 0 }).asset, 'door_angle_level0');
   assert.equal(doorAppearance('north', bounds, { clearance: 0 }).asset, 'door_level0');
   assert.equal(doorAppearance('north', bounds, { clearance: 0 }).panelAsset, 'door_panel');
+});
+
+for (const { side, door, panel, flip } of [
+  { side: 'north', door: { x: 100, y: 147 }, panel: { x: 149, y: 147 }, flip: false },
+  { side: 'south', door: { x: 100, y: 147 }, panel: { x: 77, y: 147 }, flip: false },
+  { side: 'west', door: { x: 110, y: 120 }, panel: { x: 139, y: 102 }, flip: false },
+  { side: 'east', door: { x: 110, y: 120 }, panel: { x: 139, y: 151 }, flip: true },
+]) test(`${side} door panel sits on an approaching character's right`, () => {
+  const bounds = { x: 100, y: 120, w: 46, h: 96 };
+  const art = doorAppearance(side, bounds, { clearance: 1 });
+  assert.deepEqual({ x: art.x, y: art.y }, door, `${side} door stays aligned with its opening`);
+  assert.deepEqual(art.panel, panel, `${side} panel follows the wall on the character's right`);
+  assert.equal(art.panelFlip, flip, `${side} panel keeps its wall perspective`);
+  const frame = passagePanelFrame(side, false, 0);
+  assert.deepEqual(passagePartBounds(side, art).panel, { ...panel, w: frame.w, h: frame.h });
+
+  const adjusted = doorAppearance(side, bounds, {
+    clearance: 1, offset: { x: 3, y: -4 }, panelOffset: { x: -5, y: 8 },
+  });
+  assert.deepEqual({ x: adjusted.x, y: adjusted.y }, { x: door.x + 3, y: door.y - 4 });
+  assert.deepEqual(adjusted.panel, { x: panel.x - 2, y: panel.y + 4 });
 });
 
 test('all east-facing door sheets fit the closed and broken door crops', async () => {
@@ -425,18 +449,32 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer sl
         const draws = [];
         const drawFlips = [];
         const drawAlphas = [];
+        const drawOrigins = [];
         const gradients = [];
         const gradientCenters = [];
         const stack = [];
         let flipped = false;
+        let originX = 0;
+        let originY = 0;
         const ctx = {
           globalAlpha: 1,
-          drawImage(...args) { draws.push(args); drawFlips.push(flipped); drawAlphas.push(this.globalAlpha); },
+          drawImage(...args) {
+            draws.push(args);
+            drawFlips.push(flipped);
+            drawAlphas.push(this.globalAlpha);
+            drawOrigins.push([originX, originY]);
+          },
           getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4).fill(255) }; },
           putImageData() {}, clearRect() {}, setTransform() {}, fillRect() {},
-          save() { stack.push({ flipped, alpha: this.globalAlpha }); },
-          restore() { const state = stack.pop(); flipped = state.flipped; this.globalAlpha = state.alpha; },
-          translate() {},
+          save() { stack.push({ flipped, alpha: this.globalAlpha, originX, originY }); },
+          restore() {
+            const state = stack.pop();
+            flipped = state.flipped;
+            this.globalAlpha = state.alpha;
+            originX = state.originX;
+            originY = state.originY;
+          },
+          translate(x, y) { originX += x; originY += y; },
           scale(x) { if (x < 0) flipped = !flipped; },
           createRadialGradient(x, y) {
             const stops = [];
@@ -445,7 +483,7 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer sl
             return { addColorStop(...args) { stops.push(args); } };
           },
         };
-        const canvas = { width: 0, height: 0, draws, drawFlips, drawAlphas, gradients, gradientCenters, getContext() { return ctx; } };
+        const canvas = { width: 0, height: 0, draws, drawFlips, drawAlphas, drawOrigins, gradients, gradientCenters, getContext() { return ctx; } };
         canvases.push(canvas);
         return canvas;
       },
@@ -480,7 +518,11 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer sl
   assert.equal(renderer.hitTest(world, agent.x, agent.y - 20), agent, 'characters remain selectable through foreground doors');
   assert.deepEqual(mask.draws[0], [image, frame.x, frame.y, frame.w, frame.h, 0, -0, frame.w, frame.h]);
   assert.deepEqual(mask.draws[1], [image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h], 'closed silhouette masks the moving panel');
-  assert.deepEqual(canvas.draws.find((draw) => draw[0] === panel).slice(1, 5), [panelFrame.x, panelFrame.y, panelFrame.w, panelFrame.h]);
+  assert.deepEqual(canvas.draws[panelIndex].slice(1, 5), [panelFrame.x, panelFrame.y, panelFrame.w, panelFrame.h]);
+  const panelPosition = side === 'east' ? [0, 0] : [door.appearance.panel.x, door.appearance.panel.y];
+  assert.deepEqual(canvas.draws[panelIndex].slice(5), [...panelPosition, panelFrame.w, panelFrame.h], 'panel artwork uses the configured position');
+  assert.deepEqual(canvas.drawOrigins[panelIndex], side === 'east'
+    ? [door.appearance.panel.x + panelFrame.w, door.appearance.panel.y] : [0, 0], 'the mirrored panel is anchored at the configured position');
   assert.equal(canvas.drawFlips[canvas.draws.findIndex((draw) => draw[0] === mask)], false, 'door artwork is never mirrored');
   assert.equal(canvas.drawFlips[canvas.draws.findIndex((draw) => draw[0] === panel)], side === 'east', 'only the east panel is mirrored');
   assert.deepEqual(canvas.gradientCenters[0], [

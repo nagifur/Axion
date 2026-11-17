@@ -57,8 +57,10 @@ export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig)
   const x = Math.round(bounds.x + (bounds.w - door.w) / 2) + (config.offset?.x ?? 0);
   const y = bounds.y + bounds.h - door.h + (config.offset?.y ?? 0);
   const gap = 3;
-  const panelX = side === 'east' ? x - panel.w - gap : x + door.w + gap;
-  const panelY = angled(side) ? y + door.h - panel.h - door.w - gap - 1 : y + door.h - panel.h;
+  const panelX = side === 'south' ? x - panel.w - gap : x + door.w + gap;
+  // The side walls slope in opposite directions, one pixel per horizontal pixel.
+  const wallOffsetY = side === 'west' ? -door.w - gap - 1 : side === 'east' ? panel.w + gap - 1 : 0;
+  const panelY = y + door.h - panel.h + wallOffsetY;
   return {
     clearance: config.clearance,
     asset: passageDoorAsset(config.clearance, side),

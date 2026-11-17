@@ -652,9 +652,11 @@ door to its id:
 `clearance` is a non-negative whole number and selects both the access requirement
 and the numbered door artwork. The door and panel are positioned from the nav-map
 opening; the optional whole-pixel `offset` moves both, while `panelOffset` moves only
-the panel. Side-wall sprites are mirrored automatically on east walls. The debug
-prop editor does not edit these passage assemblies, but it can break and repair
-them live (see [Placing Props and Items With the Editor](#placing-props-and-items-with-the-editor)).
+the panel. Panels sit on an approaching character's right: screen-right on north and
+side walls, and screen-left on south walls. Side-wall panels follow the wall's slope,
+and their sprites are mirrored automatically on east walls. The debug prop editor
+does not edit these passage assemblies, but it can break and repair them live
+(see [Placing Props and Items With the Editor](#placing-props-and-items-with-the-editor)).
 
 For connected rooms, configuring either side creates a matching door on the other
 camera and both views share one lock and animation. If both rooms configure it,
