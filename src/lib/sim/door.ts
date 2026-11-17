@@ -16,7 +16,7 @@ export interface DoorAppearance {
   x: number;
   y: number;
   panel: Point;
-  flip: boolean;
+  panelFlip: boolean;
 }
 
 export const PASSAGE_DOOR_SECONDS = 0.7;
@@ -27,7 +27,7 @@ export const DOOR_PANEL_FRAME_SECONDS = 0.6;
 const angled = (side: DoorSide) => side === 'west' || side === 'east';
 
 export const passageDoorAsset = (clearance: number, side: DoorSide) =>
-  `door_${angled(side) ? 'angle_' : ''}level${clearance}`;
+  `door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
 export const passagePanelAsset = (side: DoorSide) => `door_panel${angled(side) ? '_angle' : ''}`;
 
 /** These sheets use 96px cells; the crops keep the same alignment across their states. */
@@ -46,7 +46,7 @@ export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: numbe
 }
 
 export function isPassageDoorAsset(asset: string): boolean {
-  return /^door_(?:angle_)?level\d+$/.test(asset) || asset === 'door_panel' || asset === 'door_panel_angle';
+  return /^door_(?:level\d+|angle_level\d+(?:_east)?)$/.test(asset) || asset === 'door_panel' || asset === 'door_panel_angle';
 }
 
 /** Align the door with the nav opening and put its panel alongside it on the wall. */
@@ -64,7 +64,7 @@ export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig)
     panelAsset: passagePanelAsset(side),
     x, y,
     panel: { x: panelX + (config.panelOffset?.x ?? 0), y: panelY + (config.panelOffset?.y ?? 0) },
-    flip: side === 'east',
+    panelFlip: side === 'east',
   };
 }
 

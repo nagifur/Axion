@@ -657,6 +657,10 @@ the panel green and opens the door upward in 0.7 simulation seconds. Agents wait
 until it is fully open. Once no authorized agent is nearby, it holds for 1.5 seconds,
 then closes and the panel returns to red. An unauthorized agent cannot cross even
 when another agent has opened it. The panel glow remains visible in dark rooms.
+South-facing doors and their panels draw in front of the room's props and characters
+at 35% opacity, so they frame the foreground passage without hiding the room.
+Their indicator glow uses the same opacity; other door orientations remain opaque
+and behind the room's props and characters.
 
 Each authorized agent approaching a passage rolls the same 1% break chance for
 the panel and door independently, once per approach rather than per tick. Both
@@ -669,9 +673,12 @@ Damage logs a warning and shows an exclamation bubble. Runtime damage lasts unti
 independent and do not change room configuration.
 
 The artwork is in `src/sim_assets/props/`, but is reserved for passage assemblies,
-not ordinary props. For clearance `N`, use `door_levelN.png` for north/south walls
-and `door_angle_levelN.png` for west/east walls. The first cell contains the closed
-door; it slides inside its silhouette rather than looping sheet frames. Straight
+not ordinary props. For clearance `N`, use `door_levelN.png` for north/south walls,
+`door_angle_levelN.png` for west walls, and `door_angle_levelN_east.png` for east
+walls. East-facing sheets have mirrored door artwork with readable numbers and are
+drawn without flipping; the shared angled panel is still flipped on east walls.
+The first cell contains the closed door; it slides inside its silhouette rather
+than looping sheet frames. Straight
 door artwork occupies `(26, 14, 46, 69)` within the 96px cell, and angled artwork
 occupies `(35, 0, 26, 96)`. `door_panel.png` and `door_panel_angle.png` use two red
 frames in the first row and two green frames in the fourth row. Doors and panels

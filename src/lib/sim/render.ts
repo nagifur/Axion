@@ -476,10 +476,11 @@ export class Renderer {
     }
   }
 
-  private drawPassageDoors(world: World) {
+  private drawPassageDoors(world: World, foreground = false) {
     const ctx = this.ctx;
     const mask = context(this.passageDoorCanvas);
     for (const door of this.room.doors ?? []) {
+      if ((door.side === 'south') !== foreground) continue;
       const art = door.appearance;
       if (!art) continue;
       const state = world.passageDoorFor(door);
@@ -494,8 +495,11 @@ export class Renderer {
       mask.globalCompositeOperation = 'destination-in';
       mask.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
       mask.globalCompositeOperation = 'source-over';
-      drawSpriteFrame(ctx, this.passageDoorCanvas, { x: 0, y: 0, w: frame.w, h: frame.h }, art.x, art.y, art.flip);
-      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.unlocked, world.time, state.panelBroken, panel), art.panel.x, art.panel.y, art.flip);
+      ctx.save();
+      if (foreground) ctx.globalAlpha *= 0.35;
+      drawSpriteFrame(ctx, this.passageDoorCanvas, { x: 0, y: 0, w: frame.w, h: frame.h }, art.x, art.y, false);
+      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.unlocked, world.time, state.panelBroken, panel), art.panel.x, art.panel.y, art.panelFlip);
+      ctx.restore();
     }
   }
 
@@ -510,12 +514,13 @@ export class Renderer {
       const sideWall = door.side === 'west' || door.side === 'east';
       const panel = passagePanelFrame(door.side, state.unlocked, world.time);
       const indicatorX = sideWall ? 8 : 9.5;
-      const x = art.panel.x + (art.flip ? panel.w - indicatorX : indicatorX);
+      const x = art.panel.x + (art.panelFlip ? panel.w - indicatorX : indicatorX);
       const y = art.panel.y + (sideWall ? 17 : 9.5);
       const glow = ctx.createRadialGradient(x, y, 0, x, y, 12);
       glow.addColorStop(0, state.unlocked ? 'rgba(40, 255, 115, 0.3)' : 'rgba(255, 35, 65, 0.3)');
       glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.save();
+      if (door.side === 'south') ctx.globalAlpha *= 0.35;
       ctx.globalCompositeOperation = 'screen';
       ctx.fillStyle = glow;
       ctx.fillRect(x - 12, y - 12, 24, 24);
@@ -572,6 +577,7 @@ export class Renderer {
       drawables.push({ depth: agentDepth(agent), draw: () => this.drawAgent(agent, highlights.get(agent)) });
     }
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());
+    this.drawPassageDoors(world, true);
 
     if (room.darkness > 0) {
       ctx.fillStyle = `rgba(0, 0, 0, ${room.darkness * 0.55})`;
