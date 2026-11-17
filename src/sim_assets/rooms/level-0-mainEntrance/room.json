@@ -5,7 +5,7 @@
   "elevators": { "shaft": "main", "big": true },
   "doors": {
     "west-1": { "clearance": 0 },
-    "west-2": { "clearance": 0 },
+    "west-2": { "clearance": 0 }, 
     "east-1": { "clearance": 0 },
     "east-2": { "clearance": 0 }
   },

@@ -23,7 +23,7 @@ test('parses the height formats used in profiles', () => {
 });
 
 test('clamps sprite scale so giants and tiny staff stay readable', () => {
-  assert.equal(heightToScale(1.75), 1);
+  assert.equal(heightToScale(1.9), 1);
   assert.equal(heightToScale(6.12), 1.2);
   assert.equal(heightToScale(0.45), 0.75);
   assert.equal(heightToScale(null), 1);

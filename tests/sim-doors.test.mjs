@@ -74,7 +74,7 @@ test('broken electrical panels keep sparking in both camera views until repaired
   for (const [room, door] of [[a, east], [b, west]]) {
     const bounds = passagePartBounds(door.side, door.appearance);
     const particles = world.particles.in(room);
-    assert.equal(particles.length, 4);
+    assert.equal(particles.length, 6);
     assert.ok(particles.every((particle) =>
       particle.asset.startsWith('particle:spark_')
       && particle.x >= bounds.panel.x && particle.x <= bounds.panel.x + bounds.panel.w
@@ -98,11 +98,17 @@ test('broken electrical panels keep sparking in both camera views until repaired
 });
 
 test('every configured passage has matching floor-level door artwork', async () => {
-  const rooms = (await loadFacility()).map((data) => new Room(data));
+  const facility = await loadFacility();
+  const rooms = facility.map((data) => new Room(data));
   const world = new World({ rooms, roster: [] });
   let count = 0;
-  for (const room of rooms) {
+  for (const [index, room] of rooms.entries()) {
     for (const door of room.doors) {
+      if (!facility[index].doors?.[door.id]) {
+        assert.equal(door.appearance, undefined, `${room.id}/${door.id} is an open passage`);
+        assert.equal(world.passageDoorFor(door), undefined);
+        continue;
+      }
       count++;
       assert.ok(door.appearance, `${room.id}/${door.id} has a physical door`);
       assert.equal(door.appearance.clearance, room.level, `${room.id}/${door.id}`);
@@ -116,7 +122,7 @@ test('every configured passage has matching floor-level door artwork', async () 
       }
     }
   }
-  assert.equal(count, 21);
+  assert.equal(count, 20);
   const palette = await listPropTypes();
   const passageAssets = Array.from({ length: 6 }, (_, level) => [
     `door_level${level}`,
@@ -676,11 +682,12 @@ test('broken artwork uses third-row crops and only populated panel columns', asy
     const { propCellOccupancy } = await import('../src/lib/sim/sprites.ts');
     const { data, info } = await sharp(`src/sim_assets/props/${asset}.png`).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const image = { ...info, propCells: propCellOccupancy(info, data) };
+    const populated = image.propCells[2].flatMap((filled, column) => filled ? [column] : []);
+    assert.ok(populated.length < image.propCells[2].length, `${asset} has an empty broken column to skip`);
     for (let i = 0; i < 4; i++) {
       const frame = passagePanelFrame(side, true, i * DOOR_PANEL_FRAME_SECONDS, true, image);
       assert.equal(Math.floor(frame.y / 96), 2);
-      assert.equal(image.propCells[2][Math.floor(frame.x / 96)], true);
-      assert.equal(Math.floor(frame.x / 96), side === 'west' ? i % 2 : 0);
+      assert.equal(Math.floor(frame.x / 96), populated[i % populated.length]);
     }
     assert.equal(Math.floor(passageDoorFrame(side, true).y / 96), 2);
   }

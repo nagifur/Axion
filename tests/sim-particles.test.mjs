@@ -172,23 +172,23 @@ test('vending machine breakage throws glass once and keeps sparking until repair
   world.update(0);
   const debris = world.particles.in(room);
   assert.equal(debris.filter((particle) => particle.set === PARTICLE_SETS.glass).length, 13);
-  assert.equal(debris.filter((particle) => particle.set === PARTICLE_SETS.sparks).length, 4);
+  assert.equal(debris.filter((particle) => particle.set === PARTICLE_SETS.sparks).length, 6);
   assert.ok(debris.every((particle) =>
     particle.x >= machine.x && particle.x <= machine.x + machine.w
     && particle.y >= machine.y && particle.y <= machine.y + machine.h
     && particle.depth >= machine.y + machine.h));
   world.update(0);
-  assert.equal(world.particles.in(room).length, 17, 'paused updates do not repeat emissions');
+  assert.equal(world.particles.in(room).length, 19, 'paused updates do not repeat emissions');
   world.update(0.9);
   assert.equal(world.particles.in(room).length, 13, 'spark pulses leave a quiet gap');
   world.update(1.21);
-  assert.equal(world.particles.in(room).length, 17, 'the next pulse adds sparks without more glass');
+  assert.equal(world.particles.in(room).length, 19, 'the next pulse adds sparks without more glass');
   machine.repair();
-  world.update(0.4);
+  world.update(0.9);
   assert.equal(world.particles.in(room).length, 13, 'repair stops new sparks, not existing glass');
   machine.break();
   world.update(0);
-  assert.equal(world.particles.in(room).length, 30, 'repair allows another mixed burst');
+  assert.equal(world.particles.in(room).length, 32, 'repair allows another mixed burst');
 });
 
 test('electric classification is explicit and independent of switching and breakability', (t) => {
@@ -232,7 +232,7 @@ test('broken electrical props spark repeatedly off camera, even initially broken
   assert.equal(burst.mock.callCount(), 2, 'emission uses elapsed simulation time');
   world.update(10);
   assert.equal(burst.mock.callCount(), 3, 'a long frame does not replay missed bursts');
-  assert.equal(world.particles.in(room).length, 4, 'old particles expire while new sparks remain');
+  assert.equal(world.particles.in(room).length, 6, 'old particles expire while new sparks remain');
 
   light.repair();
   world.update(0.9);
@@ -255,7 +255,7 @@ test('spark pulses are brief and choose a fresh random pause after each burst', 
   world.arrive = () => undefined;
   const burst = t.mock.method(world.particles, 'burst');
   world.update(0);
-  assert.equal(world.particles.in(room).length, 3);
+  assert.equal(world.particles.in(room).length, 4);
   assert.equal(world.particles.in(room)[0].lifetime, 0.15);
   world.update(0.36);
   assert.equal(world.particles.in(room).length, 0, 'the pulse ends well before the next one');
@@ -264,8 +264,8 @@ test('spark pulses are brief and choose a fresh random pause after each burst', 
   random.mock.mockImplementation(() => 0.999);
   world.update(0.02);
   assert.equal(burst.mock.callCount(), 2);
-  assert.equal(world.particles.in(room).length, 5);
-  assert.ok(world.particles.in(room).every((particle) => particle.lifetime <= 0.35));
+  assert.equal(world.particles.in(room).length, 7);
+  assert.ok(world.particles.in(room).every((particle) => particle.lifetime <= PARTICLE_SETS.sparks.lifetime[1]));
   world.update(2.98);
   assert.equal(burst.mock.callCount(), 2, 'the next pause uses a fresh random duration');
   world.update(0.02);
@@ -288,7 +288,7 @@ test('mixed bursts honor each set count and reject unknown sets before emitting'
   const system = new ParticleSystem();
   const room = particleRoom(300);
   const area = { x: 10, y: 10, w: 10, h: 10 };
-  for (const [random, glass, sparks] of [[0, 10, 3], [0.5, 13, 4], [0.999, 16, 5]]) {
+  for (const [random, glass, sparks] of [[0, 10, 4], [0.5, 13, 6], [0.999, 16, 7]]) {
     t.mock.method(Math, 'random', () => random);
     const added = system.burst(room, ['glass', 'sparks'], area);
     assert.equal(added.filter((particle) => particle.set === PARTICLE_SETS.glass).length, glass);

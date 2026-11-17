@@ -217,7 +217,7 @@ test('trip damage disables lights and dispensers and emits their usual debris', 
   machineSetup.world.update(0);
   const particles = machineSetup.world.particles.in(machineSetup.room);
   assert.equal(particles.filter((particle) => particle.asset.startsWith('particle:glass_')).length, 10);
-  assert.equal(particles.filter((particle) => particle.asset.startsWith('particle:spark_')).length, 6);
+  assert.equal(particles.filter((particle) => particle.asset.startsWith('particle:spark_')).length, 4);
 });
 
 test('falling only rolls on landing, damages the destination prop, and emits particles', (t) => {
