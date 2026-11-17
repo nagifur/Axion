@@ -251,9 +251,20 @@ minimum stay. Clearance rules and motion-sensor lighting are unchanged.
 | [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
 | [`src/lib/sim/roster.ts`](../src/lib/sim/roster.ts) | Profile → character conversion, trait rules, and per-character overrides. |
 | [`src/lib/sim/schedule.ts`](../src/lib/sim/schedule.ts) | Editable daily routine, breaks, and per-character schedule overrides. |
-| [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | Character tasks (walk, nap, chat, doors, elevator) and decision making. |
-| [`src/lib/sim/world.ts`](../src/lib/sim/world.ts) | All rooms and people: arrivals, moving between rooms, elevators. |
+| [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, and its task queue. |
+| [`src/lib/sim/planning.ts`](../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
+| [`src/lib/sim/tasks.ts`](../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, napping, falling, tripping, and prop breakage. |
+| [`src/lib/sim/itemTasks.ts`](../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
+| [`src/lib/sim/conversation.ts`](../src/lib/sim/conversation.ts) | Chats between two agents: meeting points, turns, and speech bubbles. |
+| [`src/lib/sim/transport.ts`](../src/lib/sim/transport.ts) | Leaving and entering rooms through doors and elevators, and leaving the facility. |
+| [`src/lib/sim/world.ts`](../src/lib/sim/world.ts) | All rooms and people: arrivals, departures, and the per-frame update. |
+| [`src/lib/sim/routing.ts`](../src/lib/sim/routing.ts) | Which rooms an agent may visit and which door or floor leads toward work or the exit. |
+| [`src/lib/sim/elevator.ts`](../src/lib/sim/elevator.ts) | Elevator cars: requests, door timing, and passenger layout. |
+| [`src/lib/sim/passages.ts`](../src/lib/sim/passages.ts) | Live state of passage doors between rooms (locks, panels, who is passing). |
+| [`src/lib/sim/random.ts`](../src/lib/sim/random.ts) | The single source of randomness (`random`, `chance`, `pick`, ...). Use it instead of `Math.random`; `setRandomSource` swaps in a seeded generator. |
 | [`src/lib/sim/events.ts`](../src/lib/sim/events.ts) | Random events, A1 announcements, and achievements. |
+| [`src/lib/sim/render.ts`](../src/lib/sim/render.ts) | Asset loading and drawing a camera feed onto a canvas. |
+| [`src/lib/sim/monitor.ts`](../src/lib/sim/monitor.ts) | Boots the monitoring page: cameras, drag and drop, and the frame loop. Its panels live in `monitorFile.ts` (personnel file), `monitorTags.ts` (name tags), `monitorDebug.ts` and `monitorEditor.ts` (`?debug` tools), and `monitorProgress.ts` (saved progress). |
 
 Add `?debug` to the URL to show buttons that trigger events, speed up time, and open
 the prop editor (see [Placing Props With the Editor](#placing-props-with-the-editor)).
@@ -366,7 +377,7 @@ The roll happens when seated use starts, when a valid dispenser attempt finishes
 or when a manual switch/inspection starts, never on every simulation tick or preview.
 When an agent trips or lands after a fall, there is also a 10% chance to break the
 nearest intact breakable prop whose impact area is within 12 room pixels of their
-feet (`TRIP_PROP_BREAK_CHANCE` and `TRIP_PROP_REACH` in [`agent.ts`](../src/lib/sim/agent.ts)).
+feet (`TRIP_PROP_BREAK_CHANCE` and `TRIP_PROP_REACH` in [`tasks.ts`](../src/lib/sim/tasks.ts)).
 Only one prop is considered per trip, and the roll happens once on impact, not
 while falling or on every recovery tick. Glass panes, chairs and vending machines
 use `impactArea` to exclude transparent padding.

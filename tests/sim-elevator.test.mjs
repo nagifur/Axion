@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
-import { Elevator, World } from '../src/lib/sim/world.ts';
-import { rideElevatorOut } from '../src/lib/sim/agent.ts';
+import { World } from '../src/lib/sim/world.ts';
+import { Elevator } from '../src/lib/sim/elevator.ts';
+import { rideElevatorOut } from '../src/lib/sim/transport.ts';
 
 const staff = (id) => ({
   id, name: id, href: '/', tint: '#fff', scale: 1, accessLevel: 'Admin',

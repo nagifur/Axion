@@ -7,6 +7,8 @@ export interface Point {
   y: number;
 }
 
+export const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
+
 export interface Rect {
   x: number;
   y: number;

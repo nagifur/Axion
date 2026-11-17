@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import sharp from 'sharp';
-import { TRIP_PROP_BREAK_CHANCE, TRIP_PROP_REACH, trip, wait, walkTo } from '../src/lib/sim/agent.ts';
+import { TRIP_PROP_BREAK_CHANCE, TRIP_PROP_REACH, trip, wait, walkTo } from '../src/lib/sim/tasks.ts';
 import { dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 import { Room } from '../src/lib/sim/room.ts';

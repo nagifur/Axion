@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Agent, planNext, walkTo } from '../src/lib/sim/agent.ts';
+import { Agent } from '../src/lib/sim/agent.ts';
+import { walkTo } from '../src/lib/sim/tasks.ts';
+import { planNext } from '../src/lib/sim/planning.ts';
 import { LIGHTS_OFF_SECONDS, Room } from '../src/lib/sim/room.ts';
 import { World } from '../src/lib/sim/world.ts';
 

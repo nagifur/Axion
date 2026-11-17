@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 import { dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
-import { getFromDispenser, planNext, useItem, walkTo } from '../src/lib/sim/agent.ts';
+import { wait, walkTo } from '../src/lib/sim/tasks.ts';
+import { getFromDispenser, useItem } from '../src/lib/sim/itemTasks.ts';
+import { planNext } from '../src/lib/sim/planning.ts';
 import { Item, ITEM_ACTIONS } from '../src/lib/sim/item.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
@@ -70,7 +72,8 @@ test('nothing comes out if the hand fills or the machine goes off or breaks mean
   const { world, room, machine, stand, logs } = await setup();
   const agent = world.spawn(character('a'), room, stand);
   for (const spoil of [() => agent.receiveItem(Item.create('can')), () => machine.setOn(false), () => { machine.broken = true; }]) {
-    agent.setPlan(world, [getFromDispenser(machine)]);
+    // The trailing wait keeps the planner from picking a new task (e.g. a meow) that would replace the '?' bubble.
+    agent.setPlan(world, [getFromDispenser(machine), wait(10, 'Waiting')]);
     agent.update(world, 0);
     assert.equal(agent.activity, 'Using the vending machine');
     assert.equal(agent.busy, true);

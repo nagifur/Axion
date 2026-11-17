@@ -4,6 +4,7 @@
 import { hasPropLook, propTypeOf, type PropLook, type PropType } from './sprites.ts';
 import type { Point, Room } from './room.ts';
 import type { Rect } from './navMap.ts';
+import { chance } from './random.ts';
 
 export interface PropState {
   /** Switched on. Only used by switchable props. */
@@ -145,7 +146,7 @@ export class Prop implements PlacedProp {
   }
 
   breakOnUse(): boolean {
-    return this.breakable && !this.broken && Math.random() < PROP_BREAK_CHANCE && this.break();
+    return this.breakable && !this.broken && chance(PROP_BREAK_CHANCE) && this.break();
   }
 
   /** Returns whether anything changed. */

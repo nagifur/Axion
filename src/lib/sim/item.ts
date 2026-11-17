@@ -1,5 +1,8 @@
 import { ITEM_SPRITES } from './sprites.ts';
 
+/** How far from their feet, in room pixels, an agent can pick up a loose item. */
+export const ITEM_REACH = 12;
+
 /** Something an agent can do with the item in their hand. */
 export interface ItemAction {
   id: string;

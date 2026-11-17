@@ -1,168 +1,28 @@
-import { Agent, enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './agent.ts';
+import { Agent } from './agent.ts';
+import { enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './transport.ts';
 import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
-import { directionTo, type Direction, type Door, type Point, type Room, type Spot } from './room.ts';
+import { directionTo, type Door, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
 import type { Prop } from './prop.ts';
 import { scheduleFor } from './schedule.ts';
-import { PASSAGE_DOOR_RANGE, PassageDoor, passagePartBounds } from './door.ts';
+import { passagePartBounds, type PassageDoor } from './door.ts';
 import type { Rect } from './navMap.ts';
+import { Elevator } from './elevator.ts';
+import { PassageNetwork } from './passages.ts';
+import * as routing from './routing.ts';
+import { chance, maybePick, pick, range, weightedPick } from './random.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
-export interface ElevatorRequest {
-  type: 'depart' | 'arrive';
-  agent: Agent;
-  /** Which way the car is travelling, shown on the arrow lights. */
-  direction: Direction;
-  /** Floor on camera the rider is going to; unset means off camera. */
-  destination?: Room;
-  /** Doors are open and the rider can move. */
-  board: boolean;
-  /** Rider is fully in (depart) or out (arrive); doors may close. */
-  ready: boolean;
-  /** The rider changed plans before boarding; the car leaves without them. */
-  cancelled: boolean;
-  /** Assigned standing position in a multi-person car. */
-  inside?: Point;
-}
-
-const DOOR_SECONDS = 0.7;
 /** Seconds the car takes between floors on camera: a fixed part plus a part per level travelled. */
 const RIDE_SECONDS = { base: 2, perLevel: 2 };
 const SPARK_PAUSE_SECONDS = { min: 1.2, max: 3 };
-
-const randomDirection = (): Direction => (Math.random() < 0.5 ? 'up' : 'down');
-
-/** The doors, lights and queue of one elevator stop. */
-export class Elevator {
-  /** 0 = closed, 1 = fully open. */
-  open = 0;
-  phase: 'idle' | 'arriving' | 'opening' | 'holding' | 'closing' | 'leaving' = 'idle';
-  light: Direction | null = null;
-  private timer = 0;
-  private queue: ElevatorRequest[] = [];
-  private current: ElevatorRequest[] = [];
-  readonly capacity: number;
-
-  constructor(capacity = 1) {
-    this.capacity = capacity;
-  }
-
-  request(type: ElevatorRequest['type'], agent: Agent, options: { direction?: Direction; destination?: Room } = {}): ElevatorRequest {
-    const request: ElevatorRequest = {
-      type, agent, board: false, ready: false, cancelled: false,
-      destination: options.destination,
-      direction: options.direction ?? randomDirection(),
-    };
-    this.queue.push(request);
-    return request;
-  }
-
-  get busy() {
-    return this.phase !== 'idle' || this.queue.length > 0;
-  }
-
-  update(world: World, dt: number) {
-    const current = this.current;
-    if (this.phase === 'arriving' || this.phase === 'opening' || this.phase === 'holding') this.addRiders();
-    switch (this.phase) {
-      case 'idle': {
-        this.light = null;
-        this.queue = this.queue.filter((request) => !request.cancelled && !request.agent.removed);
-        const next = this.queue.shift();
-        if (!next) return;
-        this.current = [next];
-        this.assignSpot(next, 0);
-        this.addRiders();
-        this.phase = 'arriving';
-        this.timer = 1.4;
-        this.light = next.direction;
-        return;
-      }
-      case 'arriving':
-        this.timer -= dt;
-        if (this.timer <= 0) {
-          this.light = null;
-          if (current.some((request) => !request.agent.removed && !request.cancelled)) this.phase = 'opening';
-          else this.finish();
-        }
-        return;
-      case 'opening':
-        this.open = Math.min(1, this.open + dt / DOOR_SECONDS);
-        if (this.open >= 1) {
-          this.phase = 'holding';
-          this.timer = 12;
-          for (const request of current) request.board = true;
-        }
-        return;
-      case 'holding': {
-        this.timer -= dt;
-        // Departing riders are always waited for (unless they change plans); arrivals have a safety timeout.
-        const timedOut = this.timer <= 0 && current[0]?.type === 'arrive';
-        if (current.every((request) => request.ready || request.cancelled || request.agent.removed) || timedOut) this.phase = 'closing';
-        return;
-      }
-      case 'closing':
-        this.open = Math.max(0, this.open - dt / DOOR_SECONDS);
-        if (this.open > 0) return;
-        const departing = current.find((request) => request.type === 'depart' && request.ready && !request.cancelled && !request.agent.removed);
-        if (departing) {
-          this.phase = 'leaving';
-          this.timer = 1.2;
-          this.light = departing.direction;
-        } else {
-          this.finish();
-        }
-        return;
-      case 'leaving':
-        this.timer -= dt;
-        if (this.timer <= 0) {
-          for (const request of current) {
-            if (request.ready && !request.cancelled && !request.agent.removed) world.elevatorDeparted(request.agent, request.destination);
-          }
-          this.finish();
-        }
-        return;
-    }
-  }
-
-  private addRiders() {
-    const first = this.current.find((request) => !request.cancelled && !request.agent.removed);
-    if (!first) return;
-    this.queue = this.queue.filter((request) => !request.cancelled && !request.agent.removed);
-    for (let i = 0; i < this.queue.length && this.current.length < this.capacity;) {
-      const request = this.queue[i];
-      if (request.type !== first.type || request.direction !== first.direction || request.destination !== first.destination) {
-        i++;
-        continue;
-      }
-      this.queue.splice(i, 1);
-      this.assignSpot(request, this.current.length);
-      request.board = this.phase === 'holding';
-      this.current.push(request);
-    }
-  }
-
-  private assignSpot(request: ElevatorRequest, index: number) {
-    if (this.capacity === 1) return;
-    const opening = request.agent.room.elevator!;
-    const columns = 5;
-    request.inside = {
-      x: Math.round(opening.x + 12 + (index % columns) * (opening.w - 24) / (columns - 1)),
-      y: opening.inside.y - Math.floor(index / columns) * 10,
-    };
-    if (request.type === 'arrive') {
-      request.agent.x = request.inside.x;
-      request.agent.y = request.inside.y;
-    }
-  }
-
-  private finish() {
-    this.current = [];
-    this.phase = 'idle';
-    this.light = null;
-  }
-}
+/** Seconds before someone who left may come back. */
+const RETURN_DELAY_SECONDS = { min: 45, max: 165 };
+/** Seconds between attempts to bring someone new in. */
+const ARRIVAL_INTERVAL_SECONDS = { min: 4, max: 12 };
+/** How far apart, in room pixels, two agents can be to start a chat. */
+const CHAT_RANGE = 260;
 
 export interface WorldOptions {
   roster: SimCharacter[];
@@ -176,12 +36,6 @@ export interface WorldHooks {
   achieve?: (id: string, room?: Room) => void;
   removed?: (agent: Agent) => void;
 }
-
-const weightedPick = <T extends { weight: number }>(items: T[]): T | undefined => {
-  let roll = Math.random() * items.reduce((sum, item) => sum + item.weight, 0);
-  return items.find((item) => (roll -= item.weight) <= 0) ?? items.at(-1);
-};
-const pick = <T>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
 
 /** Average number of staff per room, by the viewer's local time. */
 const DENSITY = { night: 1, evening: 2.5, day: 3.5 };
@@ -209,9 +63,7 @@ export class World {
   readonly particles = new ParticleSystem();
   private readonly sparkDelays = new WeakMap<object, number>();
   private readonly elevators = new Map<Room, Elevator>();
-  private readonly passageDoors = new Map<Door, PassageDoor>();
-  private readonly passageEndpoints = new Map<PassageDoor, { room: Room; door: Door }[]>();
-  private readonly passageUsers = new Map<PassageDoor, Set<Agent>>();
+  private readonly passages: PassageNetwork;
   private rides: Ride[] = [];
   /** Earliest time each off-camera character may come back. */
   private returnAt = new Map<string, number>();
@@ -224,28 +76,7 @@ export class World {
     for (const room of this.rooms) {
       if (room.elevator) this.elevators.set(room, new Elevator(room.elevator.big ? 10 : 1));
     }
-    for (const room of this.rooms) {
-      for (const door of room.doors) {
-        if (!door.appearance) continue;
-        const otherRoom = door.to && this.room(door.to.room);
-        const otherDoor = otherRoom?.doors.find((candidate) => candidate.id === door.to?.door);
-        const state = this.passageDoors.get(door) ?? new PassageDoor(door.appearance.clearance);
-        if (state.clearance !== door.appearance.clearance) {
-          throw new Error(`Linked passage doors in ${room.id} must have the same clearance.`);
-        }
-        this.passageDoors.set(door, state);
-        if (otherDoor) this.passageDoors.set(otherDoor, state);
-      }
-    }
-    for (const room of this.rooms) {
-      for (const door of room.doors) {
-        const state = this.passageDoors.get(door);
-        if (!state) continue;
-        const endpoints = this.passageEndpoints.get(state) ?? [];
-        endpoints.push({ room, door });
-        this.passageEndpoints.set(state, endpoints);
-      }
-    }
+    this.passages = new PassageNetwork(this.rooms, (id) => this.room(id));
   }
 
   log(text: string, tone: LogTone = 'default') {
@@ -265,7 +96,7 @@ export class World {
   }
 
   passageDoorFor(door: Door): PassageDoor | undefined {
-    return this.passageDoors.get(door);
+    return this.passages.stateFor(door);
   }
 
   canUsePassage(character: SimCharacter, door: Door): boolean {
@@ -278,66 +109,19 @@ export class World {
       (agent.leaving || !!agent.impostor || this.canUsePassage(agent.character, door));
   }
 
-  private updatePassageDoors(dt: number) {
-    for (const [state, endpoints] of this.passageEndpoints) {
-      const users = new Set(this.agents.filter((agent) =>
-        !agent.removed && !agent.held && agent.layer === 'room' &&
-        endpoints.some(({ room, door }) => agent.room === room && this.canAgentUsePassage(agent, door) &&
-          Math.hypot(agent.x - door.inside.x, agent.y - door.inside.y) <= PASSAGE_DOOR_RANGE)));
-      const previous = this.passageUsers.get(state);
-      for (const agent of users) {
-        if (previous?.has(agent)) continue;
-        for (const broken of state.breakOnUse()) {
-          const endpoint = endpoints.find(({ room }) => room === agent.room)!;
-          this.log(`${agent.character.name} broke the ${endpoint.door.id} door${broken === 'panel' ? ' panel' : ''} in ${endpoint.room.name}.`, 'warn');
-          agent.say('!', 1.5);
-        }
-      }
-      this.passageUsers.set(state, users);
-      state.update(users.size > 0, dt);
-    }
-  }
-
   /** Other rooms on camera that `room`'s elevator stops at, ordered by level. */
   elevatorStops(room: Room): Room[] {
-    const shaft = room.elevator?.shaft;
-    if (!shaft) return [];
-    return this.rooms.filter((other) => other !== room && other.elevator?.shaft === shaft).sort((a, b) => a.level - b.level);
+    return routing.elevatorStops(this, room);
   }
 
   /** Numeric staff work on their highest available floor; Admin has no floor preference. */
   workRooms(character: SimCharacter): Room[] {
-    const allowed = this.rooms.filter((room) => canVisitLevel(character, room.level));
-    if (/^admin$/i.test(character.accessLevel.trim())) return allowed;
-    const level = Math.max(...allowed.map((room) => room.level));
-    return allowed.filter((room) => room.level === level);
+    return routing.workRooms(this, character);
   }
 
   /** First door or elevator stop on a clearance-safe route to a work floor. */
   stepTowardWork(character: SimCharacter, room: Room): Door | Room | undefined {
-    const targets = new Set(this.workRooms(character));
-    if (targets.has(room)) return undefined;
-    const firstStep = new Map<Room, Door | Room>();
-    const queue = [room];
-    const seen = new Set(queue);
-    while (queue.length) {
-      const current = queue.shift()!;
-      const steps: { next: Room; step: Door | Room }[] = [];
-      for (const door of current.linkedDoors) {
-        const next = this.room(door.to!.room);
-        if (next && this.canUsePassage(character, door)) steps.push({ next, step: door });
-      }
-      for (const next of this.elevatorStops(current)) steps.push({ next, step: next });
-      for (const { next, step } of steps) {
-        if (seen.has(next) || !canVisitLevel(character, next.level)) continue;
-        seen.add(next);
-        const first = firstStep.get(current) ?? step;
-        if (targets.has(next)) return first;
-        firstStep.set(next, first);
-        queue.push(next);
-      }
-    }
-    return undefined;
+    return routing.stepTowardWork(this, character, room);
   }
 
   /** Everyone in the facility, including people riding the elevator between floors. */
@@ -376,39 +160,19 @@ export class World {
   freeSpot(room: Room, kind: Spot['kind']): Spot | undefined {
     const taken = new Set(this.agents.map((agent) => agent.spot?.id));
     const free = room.spots.filter((spot) => spot.kind === kind && !spot.prop.broken && !taken.has(spot.id));
-    return free[Math.floor(Math.random() * free.length)];
+    return maybePick(free);
   }
 
   findChatPartner(agent: Agent): Agent | undefined {
     if (agent.leaving) return undefined;
     const candidates = this.agents.filter((other) =>
-      other !== agent && other.room === agent.room && !other.busy && !other.removed && Math.abs(other.x - agent.x) < 260);
-    return candidates[Math.floor(Math.random() * candidates.length)];
+      other !== agent && other.room === agent.room && !other.busy && !other.removed && Math.abs(other.x - agent.x) < CHAT_RANGE);
+    return maybePick(candidates);
   }
 
-  /**
-   * First door to take from `room` to reach the nearest room with a way out of the facility.
-   * Null if `room` already has one. With `doorsOnly`, elevators don't count as a way out.
-   */
+  /** First door toward the nearest room with a way out; null if `room` has one (see routing.ts). */
   doorTowardExit(room: Room, doorsOnly = false): Door | null {
-    const hasExit = (candidate: Room) => (!doorsOnly && !!candidate.elevator) ||
-      candidate.outerDoors.some((door) => !this.passageDoorFor(door)?.blocked);
-    if (hasExit(room)) return null;
-    const firstDoor = new Map<Room, Door>();
-    const queue: Room[] = [room];
-    const seen = new Set([room]);
-    while (queue.length) {
-      const current = queue.shift()!;
-      for (const door of current.linkedDoors) {
-        const next = this.room(door.to!.room);
-        if (!next || seen.has(next) || this.passageDoorFor(door)?.blocked) continue;
-        seen.add(next);
-        firstDoor.set(next, firstDoor.get(current) ?? door);
-        if (hasExit(next)) return firstDoor.get(next)!;
-        queue.push(next);
-      }
-    }
-    return null;
+    return routing.doorTowardExit(this, room, doorsOnly);
   }
 
   /** Puts people around the facility immediately so the cameras never start empty. */
@@ -423,7 +187,7 @@ export class World {
         break;
       }
       const working = scheduleFor(character, this.now()) === 'work';
-      const room = pick(working && Math.random() < 0.85 ? this.workRooms(character) : rooms);
+      const room = pick(working && chance(0.85) ? this.workRooms(character) : rooms);
       this.spawn(character, room, room.randomFloorPoint());
     }
   }
@@ -501,7 +265,7 @@ export class World {
       this.log(`No entrances within ${character.name}'s clearance are available.`, 'warn');
       return undefined;
     }
-    if (!entrance || (ghost && Math.random() < 0.4)) {
+    if (!entrance || (ghost && chance(0.4))) {
       const preferred = [...workRooms];
       return this.arriveThroughWall(character, entrance?.room ?? pick(preferred.length ? preferred : rooms));
     }
@@ -585,7 +349,7 @@ export class World {
       if (agent.revealed) this.log(`${agent.impostor.name} escaped ${room.label}. Containment team dispatched.`, 'alert');
       else this.log(`Duplicate badge signal for ${name} lost. Subject left ${room.label} unidentified.`, 'warn');
     } else {
-      this.returnAt.set(agent.character.id, this.time + 45 + Math.random() * 120);
+      this.returnAt.set(agent.character.id, this.time + range(RETURN_DELAY_SECONDS.min, RETURN_DELAY_SECONDS.max));
       if (via === 'elevator') this.log(`${name} took the elevator.`, 'muted');
       else if (via === 'wall') {
         this.log(`${name} phased through the wall of the ${room.name}.`, 'muted');
@@ -633,7 +397,7 @@ export class World {
       this.particles.burst(room, 'sparks', area, depth, emitter, this.time);
       // Emit at most once per update rather than replaying missed bursts after a long frame.
       this.sparkDelays.set(source,
-        SPARK_PAUSE_SECONDS.min + Math.random() * (SPARK_PAUSE_SECONDS.max - SPARK_PAUSE_SECONDS.min));
+        range(SPARK_PAUSE_SECONDS.min, SPARK_PAUSE_SECONDS.max));
     } else {
       this.sparkDelays.set(source, remaining);
     }
@@ -643,7 +407,7 @@ export class World {
     this.particles.update(dt);
     this.time += dt;
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
-    this.updatePassageDoors(dt);
+    this.passages.update(this, dt);
 
     const arrived = this.rides.filter((ride) => ride.arrivesAt <= this.time);
     if (arrived.length) {
@@ -653,7 +417,7 @@ export class World {
 
     this.nextArrival -= dt;
     if (this.nextArrival <= 0) {
-      this.nextArrival = 4 + Math.random() * 8;
+      this.nextArrival = range(ARRIVAL_INTERVAL_SECONDS.min, ARRIVAL_INTERVAL_SECONDS.max);
       if (this.presentCount() < this.targetPopulation()) this.arrive();
     }
 

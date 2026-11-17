@@ -4,6 +4,7 @@
 import type { Rect } from './navMap.ts';
 import type { Prop } from './prop.ts';
 import type { Room } from './room.ts';
+import { chance, random, range } from './random.ts';
 
 export type ParticleEmissionSampler = (prop: Prop, area: Rect, time: number) => readonly { x: number; y: number }[];
 
@@ -35,6 +36,9 @@ export interface ParticleSet {
   glow?: { color: string; radius: number };
 }
 
+/** Downward acceleration shared by debris and falling agents, in room pixels per second squared. */
+export const GRAVITY = 420;
+
 /** Particle sets that prop types can name in `breakParticles` (see PROP_TYPES in sprites.ts). */
 export const PARTICLE_SETS: Record<string, ParticleSet> = {
   glass: {
@@ -43,7 +47,7 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     spreadSpeed: 45,
     upSpeed: [15, 70],
     spinSpeed: [3, 9],
-    gravity: 420,
+    gravity: GRAVITY,
     bounce: 0.35,
     friction: 5,
     lifetime: [2.5, 4],
@@ -56,7 +60,7 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     spreadSpeed: 90,
     upSpeed: [35, 95],
     spinSpeed: [6, 14],
-    gravity: 420,
+    gravity: GRAVITY,
     bounce: 0.7,
     friction: 8,
     lifetime: [0.15, 1.2],
@@ -84,7 +88,7 @@ export function particleSet(name: string): ParticleSet {
   return set;
 }
 
-const between = ([min, max]: readonly [number, number]) => min + Math.random() * (max - min);
+const between = ([min, max]: readonly [number, number]) => range(min, max);
 
 export class Particle {
   readonly room: Room;
@@ -108,16 +112,16 @@ export class Particle {
   constructor(room: Room, set: ParticleSet, at: { x: number; y: number }, floor: number, depth = floor) {
     this.room = room;
     this.set = set;
-    this.asset = particleAsset(set.sprites[Math.min(set.sprites.length - 1, Math.floor(Math.random() * set.sprites.length))]);
-    this.flip = Math.random() < 0.5;
+    this.asset = particleAsset(set.sprites[Math.min(set.sprites.length - 1, Math.floor(random() * set.sprites.length))]);
+    this.flip = chance(0.5);
     this.x = at.x;
     this.y = Math.min(at.y, floor);
     this.floor = floor;
     this.emissionDepth = depth;
-    this.vx = (Math.random() * 2 - 1) * set.spreadSpeed;
+    this.vx = (random() * 2 - 1) * set.spreadSpeed;
     this.vy = -between(set.upSpeed);
     this.lifetime = between(set.lifetime);
-    this.angularVelocity = between(set.spinSpeed) * (Math.random() < 0.5 ? -1 : 1);
+    this.angularVelocity = between(set.spinSpeed) * (chance(0.5) ? -1 : 1);
   }
 
   get expired() {
@@ -202,12 +206,12 @@ export class ParticleSystem {
     const added: Particle[] = [];
     for (const set of sets) {
       if (origins?.length === 0) continue;
-      const count = Math.floor(set.count[0] + Math.random() * (set.count[1] - set.count[0] + 1));
+      const count = Math.floor(set.count[0] + random() * (set.count[1] - set.count[0] + 1));
       for (let i = 0; i < count; i++) {
         const at = origins
-          ? origins[Math.floor(Math.random() * origins.length)]
-          : { x: area.x + Math.random() * area.w, y: area.y + Math.random() * area.h };
-        const scatter = Math.random() * set.scatter;
+          ? origins[Math.floor(random() * origins.length)]
+          : { x: area.x + random() * area.w, y: area.y + random() * area.h };
+        const scatter = random() * set.scatter;
         added.push(new Particle(room, set, at, bottom + scatter, depth + scatter));
       }
     }

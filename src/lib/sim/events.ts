@@ -1,4 +1,5 @@
-import { leaveFacility } from './agent.ts';
+import { leaveFacility } from './transport.ts';
+import { chance, pick, range, weightedPick } from './random.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import type { World } from './world.ts';
 
@@ -18,9 +19,6 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'night-shift', title: 'Night Shift', description: 'Watch the feed between midnight and 5 AM.' },
   { id: 'channel-surfer', title: 'Channel Surfer', description: 'Check every camera feed.' },
 ];
-
-const pick = <T>(items: T[]): T => items[Math.floor(Math.random() * items.length)];
-const range = (min: number, max: number) => min + Math.random() * (max - min);
 
 // Lines are taken from the Level 1 page and facility rules.
 const ANNOUNCEMENTS: ((roster: SimCharacter[]) => string)[] = [
@@ -58,7 +56,7 @@ export class EventDirector {
     for (const agent of world.agents) {
       if (!agent.impostor || agent.revealed) continue;
       // The disguise slips now and then: the eyes flash red for a moment.
-      if (Math.random() < dt * 0.12) agent.eyeFlash = 0.35;
+      if (chance(dt * 0.12)) agent.eyeFlash = 0.35;
       if (world.time > agent.expiresAt && !agent.leaving) agent.setPlan(world, leaveFacility(agent, world));
     }
   }
@@ -75,8 +73,7 @@ export class EventDirector {
     if (!victims.length) return false;
 
     const victim = pick(victims).character;
-    let roll = Math.random() * this.impostors.reduce((sum, item) => sum + item.weight, 0);
-    const impostor = this.impostors.find((item) => (roll -= item.weight) <= 0) ?? this.impostors[0];
+    const impostor = weightedPick(this.impostors)!;
 
     const agent = world.arrive(victim, impostor);
     if (!agent) return false;

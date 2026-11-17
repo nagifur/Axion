@@ -1,4 +1,7 @@
-import { breakPropOnUse, conversationPoint, fall, getFromDispenser, rest, startConversation, wait, type Agent } from './agent.ts';
+import type { Agent } from './agent.ts';
+import { breakPropOnUse, fall, rest, wait } from './tasks.ts';
+import { getFromDispenser } from './itemTasks.ts';
+import { conversationPoint, startConversation } from './conversation.ts';
 import type { Prop } from './prop.ts';
 import type { Point, Room, Spot } from './room.ts';
 import { scheduleFor } from './schedule.ts';

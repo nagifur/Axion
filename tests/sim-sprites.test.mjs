@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import sharp from 'sharp';
-import { Agent, enterThroughDoor, nap, trip, wait } from '../src/lib/sim/agent.ts';
+import { Agent } from '../src/lib/sim/agent.ts';
+import { nap, trip, wait } from '../src/lib/sim/tasks.ts';
+import { enterThroughDoor } from '../src/lib/sim/transport.ts';
 import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 

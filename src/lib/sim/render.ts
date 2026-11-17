@@ -10,6 +10,91 @@ import { isPassageDoorAsset, passageDoorFrame, passagePanelFrame } from './door.
 
 /** Images by name: "room:<id>", "character", prop file names, "item:<type>", and "particle:<file>". */
 export type Assets = Record<string, HTMLImageElement>;
+type Canvas = HTMLCanvasElement;
+type SizedImage = CanvasImageSource & { width: number; height: number };
+
+interface ScaledSheet {
+  normal: Canvas;
+  redEye: Canvas;
+  alpha: Uint8ClampedArray;
+  width: number;
+  frames: Record<FrameName, Frame>;
+}
+
+const EYE_WHITE = [255, 255, 255];
+const EYE_RED = [255, 40, 64];
+const LIGHT_OFF = [70, 42, 25];
+const LIGHT_ON = [255, 177, 91];
+/** Passage-door panel indicator light: offset inside the panel artwork and glow radius, in room pixels. */
+const DOOR_INDICATOR = { sideWall: { x: 8, y: 17 }, facing: { x: 9.5, y: 9.5 }, radius: 12 };
+/** South doors and their panels sit in front of the room, so they are see-through. */
+const FOREGROUND_DOOR_ALPHA = 0.35;
+/** Extra pixels around the cursor that still count as clicking a character. */
+const AGENT_PICK_TOLERANCE = 2;
+
+type AssetKind = 'room' | 'character' | 'item' | 'particle' | 'prop';
+
+function assetKind(name: string): AssetKind {
+  if (name === 'character') return 'character';
+  if (name.startsWith('room:')) return 'room';
+  if (name.startsWith('item:')) return 'item';
+  if (name.startsWith('particle:')) return 'particle';
+  return 'prop';
+}
+
+function requireAsset(assets: Assets, name: string): HTMLImageElement {
+  const image = assets[name];
+  if (!image) throw new Error(`Missing sim asset "${name}".`);
+  return image;
+}
+
+function makeCanvas(width: number, height: number): Canvas {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, width);
+  canvas.height = Math.max(1, height);
+  return canvas;
+}
+
+/** Grows a scratch canvas when a frame is larger than any seen before (resizing also clears it). */
+function fitCanvas(canvas: Canvas, width: number, height: number) {
+  if (canvas.width < width) canvas.width = width;
+  if (canvas.height < height) canvas.height = height;
+}
+
+/**
+ * `readback` canvases are read with getImageData; browsers keep those in CPU memory, which makes
+ * them slow to draw from, so only pixel-inspection scratch canvases ask for it.
+ */
+function context(canvas: Canvas, readback = false) {
+  const ctx = canvas.getContext('2d', readback ? { willReadFrequently: true } : undefined)!;
+  ctx.imageSmoothingEnabled = false;
+  return ctx;
+}
+
+/** RGBA pixels of one frame of an image. */
+function framePixels(image: CanvasImageSource, frame: Rect): Uint8ClampedArray {
+  const ctx = context(makeCanvas(frame.w, frame.h), true);
+  ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+  return ctx.getImageData(0, 0, frame.w, frame.h).data;
+}
+
+/** Opacity of each pixel in sprite frames, cached per asset frame. */
+class FrameAlphaMasks {
+  private readonly masks = new Map<string, { alpha: Uint8Array; w: number; h: number }>();
+
+  get(asset: string, image: CanvasImageSource, frame: Rect) {
+    const key = `${asset}:${frame.x}:${frame.y}:${frame.w}:${frame.h}`;
+    let mask = this.masks.get(key);
+    if (!mask) {
+      const rgba = framePixels(image, frame);
+      const alpha = new Uint8Array(frame.w * frame.h);
+      for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3];
+      mask = { alpha, w: frame.w, h: frame.h };
+      this.masks.set(key, mask);
+    }
+    return mask;
+  }
+}
 
 export function loadAssets(urls: Record<string, string>): Promise<Assets> {
   const entries = Object.entries(urls).map(([name, url]) => new Promise<[string, HTMLImageElement]>((resolve, reject) => {
@@ -17,14 +102,12 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
     image.decoding = 'async';
     image.onload = () => {
       try {
-        if (name.startsWith('item:')) itemFrame(name.slice(5), image);
-        else if (name !== 'character' && !name.startsWith('room:') && !name.startsWith('particle:')) {
+        // Validate sheet layouts up front so a bad sprite fails at load, not mid-frame.
+        const kind = assetKind(name);
+        if (kind === 'item') itemFrame(name.slice('item:'.length), image);
+        if (kind === 'prop') {
           if (needsPropCellOccupancy(name, image)) {
-            const canvas = makeCanvas(image.width, image.height);
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            if (!ctx) throw new Error(`Prop sprite "${name}": cannot inspect image pixels.`);
-            ctx.drawImage(image, 0, 0);
-            image.propCells = propCellOccupancy(image, ctx.getImageData(0, 0, image.width, image.height).data);
+            image.propCells = propCellOccupancy(image, framePixels(image, { x: 0, y: 0, w: image.width, h: image.height }));
           }
           if (!isPassageDoorAsset(name)) propFrames(name, image);
         }
@@ -53,16 +136,14 @@ function drawSpriteFrame(ctx: CanvasRenderingContext2D, image: CanvasImageSource
 
 /** Draws one artwork-sized prop frame, with mirroring around that frame rather than the sheet. */
 export function drawPropSprite(
-  ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
+  ctx: CanvasRenderingContext2D, image: SizedImage,
   asset: string, x: number, y: number, flip = false, time = 0, look?: PropLook,
 ) {
   drawSpriteFrame(ctx, image, propFrame(asset, image, time, look), x, y, flip);
 }
 
-type Canvas = HTMLCanvasElement;
-
 /** Draws a spinning, mirrored particle, with its rotated bounds above its floor position. */
-export function drawParticle(ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number }, particle: Particle) {
+export function drawParticle(ctx: CanvasRenderingContext2D, image: SizedImage, particle: Particle) {
   const alpha = particle.alpha;
   if (alpha <= 0) return;
   const halfWidth = image.width / 2;
@@ -89,7 +170,7 @@ export function drawParticle(ctx: CanvasRenderingContext2D, image: CanvasImageSo
 }
 
 export function drawItemSprite(
-  ctx: CanvasRenderingContext2D, image: CanvasImageSource & { width: number; height: number },
+  ctx: CanvasRenderingContext2D, image: SizedImage,
   item: PlacedItem, x = item.x, y = item.y, scale = 1, flip = item.flip,
 ) {
   const frame = itemFrame(item.type, image);
@@ -102,22 +183,9 @@ export function drawItemSprite(
   ctx.restore();
 }
 
-function makeCanvas(width: number, height: number): Canvas {
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, width);
-  canvas.height = Math.max(1, height);
-  return canvas;
-}
-
-function context(canvas: Canvas) {
-  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-  ctx.imageSmoothingEnabled = false;
-  return ctx;
-}
-
 /** Shared pixel-aware prop picking for player drops and the debug editor. */
 export class PropPicker {
-  private readonly masks = new Map<string, { alpha: Uint8ClampedArray; w: number }>();
+  private readonly masks = new FrameAlphaMasks();
   private readonly assets: Assets;
 
   constructor(assets: Assets) {
@@ -137,22 +205,13 @@ export class PropPicker {
     const inBox = front.filter((prop) =>
       point.x >= prop.x && point.x < prop.x + prop.w && point.y >= prop.y && point.y < prop.y + prop.h);
     const solid = inBox.find((prop) => {
-      const image = this.assets[prop.asset];
-      if (!image) throw new Error(`Missing sim asset "${prop.asset}".`);
+      const image = requireAsset(this.assets, prop.asset);
       const frame = prop instanceof Item ? itemFrame(prop.type, image) : propFrame(prop.asset, image, time, prop.look);
-      const key = `${prop.asset}:${frame.x}:${frame.y}`;
-      let mask = this.masks.get(key);
-      if (!mask) {
-        const canvas = makeCanvas(frame.w, frame.h);
-        const ctx = context(canvas);
-        ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
-        mask = { alpha: ctx.getImageData(0, 0, frame.w, frame.h).data, w: frame.w };
-        this.masks.set(key, mask);
-      }
+      const mask = this.masks.get(prop.asset, image, frame);
       let lx = Math.floor(point.x - prop.x);
       const ly = Math.floor(point.y - prop.y);
       if (prop.flip) lx = prop.w - 1 - lx;
-      return mask.alpha[(ly * mask.w + lx) * 4 + 3] > 0;
+      return mask.alpha[ly * mask.w + lx] > 0;
     });
     return solid ?? inBox[0] ?? null;
   }
@@ -160,7 +219,7 @@ export class PropPicker {
 
 /** Samples only opaque artwork pixels inside a prop's emission rectangle. */
 export class PropEmissionSampler {
-  private readonly masks = new Map<string, { alpha: Uint8Array; w: number; h: number }>();
+  private readonly masks = new FrameAlphaMasks();
   private readonly assets: Assets;
 
   constructor(assets: Assets) {
@@ -168,21 +227,8 @@ export class PropEmissionSampler {
   }
 
   readonly sample: ParticleEmissionSampler = (prop, area, time) => {
-    const image = this.assets[prop.asset];
-    if (!image) throw new Error(`Missing prop asset "${prop.asset}".`);
-    const frame = propFrame(prop.asset, image, time, prop.look);
-    const key = `${prop.asset}:${frame.x}:${frame.y}:${frame.w}:${frame.h}`;
-    let mask = this.masks.get(key);
-    if (!mask) {
-      const canvas = makeCanvas(frame.w, frame.h);
-      const ctx = context(canvas);
-      ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
-      const rgba = ctx.getImageData(0, 0, frame.w, frame.h).data;
-      const alpha = new Uint8Array(frame.w * frame.h);
-      for (let i = 0; i < alpha.length; i++) alpha[i] = rgba[i * 4 + 3];
-      mask = { alpha, w: frame.w, h: frame.h };
-      this.masks.set(key, mask);
-    }
+    const image = requireAsset(this.assets, prop.asset);
+    const mask = this.masks.get(prop.asset, image, propFrame(prop.asset, image, time, prop.look));
 
     const points: { x: number; y: number }[] = [];
     for (let py = 0; py < mask.h; py++) {
@@ -199,8 +245,9 @@ export class PropEmissionSampler {
 }
 
 /** Copy of an image with every pixel of `from` replaced by `to` (RGB). */
-function recolor(image: CanvasImageSource & { width: number; height: number }, from: number[], to: number[]): Canvas {
+function recolor(image: SizedImage, from: number[], to: number[]): Canvas {
   const canvas = makeCanvas(image.width, image.height);
+  // Read back once here, then only drawn from, so it stays a regular (GPU-friendly) canvas.
   const ctx = context(canvas);
   ctx.drawImage(image, 0, 0);
   const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -213,18 +260,6 @@ function recolor(image: CanvasImageSource & { width: number; height: number }, f
   return canvas;
 }
 
-interface ScaledSheet {
-  normal: Canvas;
-  redEye: Canvas;
-  alpha: Uint8ClampedArray;
-  width: number;
-  frames: Record<FrameName, Frame>;
-}
-
-const EYE_WHITE = [255, 255, 255];
-const EYE_RED = [255, 40, 64];
-const LIGHT_OFF = [70, 42, 25];
-const LIGHT_ON = [255, 177, 91];
 
 function agentDepth(agent: Agent) {
   return agent.sitting && agent.spot ? Math.max(agent.y, agent.spot.propDepth) : agent.y;
@@ -314,7 +349,7 @@ export class Renderer {
     const sheet: ScaledSheet = {
       normal,
       redEye: draw(this.redEyeSheet),
-      alpha: context(normal).getImageData(0, 0, width, height).data,
+      alpha: normal.getContext('2d')!.getImageData(0, 0, width, height).data,
       width,
       frames,
     };
@@ -349,8 +384,8 @@ export class Renderer {
     const ordered = [...world.agents].reverse().filter((agent) => this.isVisible(agent, world)).sort((a, b) => agentDepth(b) - agentDepth(a));
     for (const agent of ordered) {
       const { sheet, frame, flip, x, y } = this.placement(agent);
-      for (let oy = -2; oy <= 2; oy++) {
-        for (let ox = -2; ox <= 2; ox++) {
+      for (let oy = -AGENT_PICK_TOLERANCE; oy <= AGENT_PICK_TOLERANCE; oy++) {
+        for (let ox = -AGENT_PICK_TOLERANCE; ox <= AGENT_PICK_TOLERANCE; ox++) {
           let lx = Math.floor(px) - x + ox;
           const ly = Math.floor(py) - y + oy;
           if (lx < 0 || ly < 0 || lx >= frame.w || ly >= frame.h) continue;
@@ -379,24 +414,13 @@ export class Renderer {
       ctx.fillRect(fx - width + 3, fy - 2, width * 2 - 6, 4);
     }
 
-    const blit = (target: CanvasRenderingContext2D, source: CanvasImageSource, dx: number, dy: number) => {
-      if (!flip) {
-        target.drawImage(source, frame.x, frame.y, frame.w, frame.h, dx, dy, frame.w, frame.h);
-        return;
-      }
-      target.save();
-      target.translate(dx + frame.w, dy);
-      target.scale(-1, 1);
-      target.drawImage(source, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
-      target.restore();
-    };
-
     if (highlight) {
       // Draw a 1px outline by stamping a tinted silhouette around the sprite.
+      fitCanvas(this.outline, frame.w, frame.h);
       const outlineCtx = context(this.outline);
       outlineCtx.globalCompositeOperation = 'source-over';
       outlineCtx.clearRect(0, 0, this.outline.width, this.outline.height);
-      blit(outlineCtx, sheet.normal, 0, 0);
+      drawSpriteFrame(outlineCtx, sheet.normal, frame, 0, 0, flip);
       outlineCtx.globalCompositeOperation = 'source-in';
       outlineCtx.fillStyle = highlight;
       outlineCtx.fillRect(0, 0, frame.w, frame.h);
@@ -409,8 +433,7 @@ export class Renderer {
     const drawCarried = () => {
       const item = agent.item;
       if (!item) return;
-      const itemImage = this.assets[item.asset];
-      if (!itemImage) throw new Error(`Missing item asset "${item.asset}".`);
+      const itemImage = requireAsset(this.assets, item.asset);
       const scale = agent.character.scale;
       const width = Math.max(1, Math.round(item.w * scale));
       const height = Math.max(1, Math.round(item.h * scale));
@@ -421,7 +444,7 @@ export class Renderer {
         scale, item.flip !== flip);
     };
     if (hand.behind) drawCarried();
-    blit(ctx, image, x, y);
+    drawSpriteFrame(ctx, image, frame, x, y, flip);
     if (!hand.behind) drawCarried();
     ctx.restore();
   }
@@ -484,10 +507,11 @@ export class Renderer {
       const art = door.appearance;
       if (!art) continue;
       const state = world.passageDoorFor(door);
-      const image = this.assets[art.asset];
-      const panel = this.assets[art.panelAsset];
-      if (!state || !image || !panel) throw new Error(`Missing door state or artwork for ${this.room.id}/${door.id}.`);
+      if (!state) throw new Error(`Missing door state for ${this.room.id}/${door.id}.`);
+      const image = requireAsset(this.assets, art.asset);
+      const panel = requireAsset(this.assets, art.panelAsset);
       const frame = passageDoorFrame(door.side, state.broken);
+      fitCanvas(this.passageDoorCanvas, frame.w, frame.h);
       const slide = Math.round(state.open * frame.h);
       mask.globalCompositeOperation = 'source-over';
       mask.clearRect(0, 0, this.passageDoorCanvas.width, this.passageDoorCanvas.height);
@@ -496,7 +520,7 @@ export class Renderer {
       mask.drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
       mask.globalCompositeOperation = 'source-over';
       ctx.save();
-      if (foreground) ctx.globalAlpha *= 0.35;
+      if (foreground) ctx.globalAlpha *= FOREGROUND_DOOR_ALPHA;
       drawSpriteFrame(ctx, this.passageDoorCanvas, { x: 0, y: 0, w: frame.w, h: frame.h }, art.x, art.y, false);
       drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.unlocked, world.time, state.panelBroken, panel), art.panel.x, art.panel.y, art.panelFlip);
       ctx.restore();
@@ -513,17 +537,18 @@ export class Renderer {
       if (state.panelBroken) continue;
       const sideWall = door.side === 'west' || door.side === 'east';
       const panel = passagePanelFrame(door.side, state.unlocked, world.time);
-      const indicatorX = sideWall ? 8 : 9.5;
-      const x = art.panel.x + (art.panelFlip ? panel.w - indicatorX : indicatorX);
-      const y = art.panel.y + (sideWall ? 17 : 9.5);
-      const glow = ctx.createRadialGradient(x, y, 0, x, y, 12);
+      const indicator = sideWall ? DOOR_INDICATOR.sideWall : DOOR_INDICATOR.facing;
+      const { radius } = DOOR_INDICATOR;
+      const x = art.panel.x + (art.panelFlip ? panel.w - indicator.x : indicator.x);
+      const y = art.panel.y + indicator.y;
+      const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
       glow.addColorStop(0, state.unlocked ? 'rgba(40, 255, 115, 0.3)' : 'rgba(255, 35, 65, 0.3)');
       glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.save();
-      if (door.side === 'south') ctx.globalAlpha *= 0.35;
+      if (door.side === 'south') ctx.globalAlpha *= FOREGROUND_DOOR_ALPHA;
       ctx.globalCompositeOperation = 'screen';
       ctx.fillStyle = glow;
-      ctx.fillRect(x - 12, y - 12, 24, 24);
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
       ctx.restore();
     }
   }
@@ -538,39 +563,19 @@ export class Renderer {
 
     // Everything visible through openings in the room art is drawn first, then the room covers it.
     this.drawElevator(world, highlights);
-    ctx.drawImage(assets[`room:${room.id}`], 0, 0);
+    ctx.drawImage(requireAsset(assets, `room:${room.id}`), 0, 0);
     this.drawPassageDoors(world);
 
     // Props and people share one depth-sorted pass, ordered by where they touch the floor.
-    const drawables: { depth: number; draw: () => void }[] = room.props.map((prop) => {
-      const image = assets[prop.asset];
-      return {
-        depth: prop.y + prop.h - 0.5,
-        draw: () => {
-          if (!image) throw new Error(`Missing prop asset "${prop.asset}".`);
-          drawPropSprite(ctx, image, prop.asset, prop.x, prop.y, prop.flip, world.time, prop.look);
-        },
-      };
-    });
+    const drawables: { depth: number; draw: () => void }[] = room.props.map((prop) => ({
+      depth: prop.y + prop.h - 0.5,
+      draw: () => drawPropSprite(ctx, requireAsset(assets, prop.asset), prop.asset, prop.x, prop.y, prop.flip, world.time, prop.look),
+    }));
     for (const item of room.items ?? []) {
-      drawables.push({
-        depth: item.y + item.h - 0.5,
-        draw: () => {
-          const image = assets[item.asset];
-          if (!image) throw new Error(`Missing item asset "${item.asset}".`);
-          drawItemSprite(ctx, image, item);
-        },
-      });
+      drawables.push({ depth: item.y + item.h - 0.5, draw: () => drawItemSprite(ctx, requireAsset(assets, item.asset), item) });
     }
     for (const particle of world.particles.in(room)) {
-      drawables.push({
-        depth: particle.depth,
-        draw: () => {
-          const image = assets[particle.asset];
-          if (!image) throw new Error(`Missing particle asset "${particle.asset}".`);
-          drawParticle(ctx, image, particle);
-        },
-      });
+      drawables.push({ depth: particle.depth, draw: () => drawParticle(ctx, requireAsset(assets, particle.asset), particle) });
     }
     for (const agent of world.agentsIn(room)) {
       if (agent.held || agent.layer !== 'room') continue;

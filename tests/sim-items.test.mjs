@@ -12,7 +12,10 @@ import { Room } from '../src/lib/sim/room.ts';
 import { itemPreview, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { ITEM_HAND_ANCHORS, itemFrame } from '../src/lib/sim/sprites.ts';
 import { World } from '../src/lib/sim/world.ts';
-import { ITEM_REACH, itemPickupPoint, pickUp, planNext, setDownItem, useItem, walkTo } from '../src/lib/sim/agent.ts';
+import { walkTo } from '../src/lib/sim/tasks.ts';
+import { itemPickupPoint, pickUp, setDownItem, useItem } from '../src/lib/sim/itemTasks.ts';
+import { ITEM_REACH } from '../src/lib/sim/item.ts';
+import { planNext } from '../src/lib/sim/planning.ts';
 import { ITEM_ACTIONS, itemActions } from '../src/lib/sim/item.ts';
 
 const drink = ITEM_ACTIONS.can.find((action) => action.id === 'drink');

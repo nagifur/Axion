@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getFromDispenser, planNext, rest, wait, walkTo } from '../src/lib/sim/agent.ts';
+import { rest, wait, walkTo } from '../src/lib/sim/tasks.ts';
+import { getFromDispenser } from '../src/lib/sim/itemTasks.ts';
+import { planNext } from '../src/lib/sim/planning.ts';
 import { dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
 import { Item } from '../src/lib/sim/item.ts';
 import { Prop, PROP_BREAK_CHANCE } from '../src/lib/sim/prop.ts';
@@ -15,13 +17,13 @@ const character = (id, napChance = 0) => ({
 });
 const placed = (type) => ({ type, asset: type, x: 0, y: 0, w: 10, h: 10, flip: false });
 
-async function setup(id = 'level-1-offices', napChance = 0) {
+async function setup(id = 'level-1-offices', napChance = 0, spawn = undefined) {
   const room = new Room(await loadRoom(id));
   const world = new World({ roster: [], rooms: [room], now: () => new Date(2026, 0, 1, 12) });
   world.arrive = () => undefined;
   const logs = [];
   world.hooks.log = (text, tone) => logs.push({ text, tone });
-  const agent = world.spawn(character('a', napChance), room, room.randomFloorPoint());
+  const agent = world.spawn(character('a', napChance), room, spawn?.(room) ?? room.randomFloorPoint());
   return { room, world, agent, logs };
 }
 
@@ -139,7 +141,9 @@ test('manual previews never roll; seating, inspecting and switching roll on task
 });
 
 test('a dispenser rolls only on valid completion, and breakage gives no item', async (t) => {
-  const { world, room, agent, logs } = await setup('level-2-lobby');
+  // A fixed spawn keeps the walk deterministic; some random spawns reach the machine at a different moment.
+  const standNear = (room) => room.props.find((prop) => prop.type === 'vending_machine').standPoint(room);
+  const { world, room, agent, logs } = await setup('level-2-lobby', 0, standNear);
   const machine = room.props.find((prop) => prop.type === 'vending_machine');
   t.mock.method(Math, 'random', () => 0);
   const roll = t.mock.method(machine, 'breakOnUse', () => machine.break());

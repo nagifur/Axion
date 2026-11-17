@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 import { dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
-import { enterThroughDoor, nap, startConversation, wait } from '../src/lib/sim/agent.ts';
+import { nap, wait } from '../src/lib/sim/tasks.ts';
+import { startConversation } from '../src/lib/sim/conversation.ts';
+import { enterThroughDoor } from '../src/lib/sim/transport.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { LIGHTS_OFF_SECONDS, Room } from '../src/lib/sim/room.ts';
 import { World } from '../src/lib/sim/world.ts';

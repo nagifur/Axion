@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Agent, leaveFacility, planNext } from '../src/lib/sim/agent.ts';
+import { Agent } from '../src/lib/sim/agent.ts';
+import { leaveFacility } from '../src/lib/sim/transport.ts';
+import { planNext } from '../src/lib/sim/planning.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { DEFAULT_SCHEDULE, SCHEDULE_OVERRIDES, scheduleAt, scheduleFor } from '../src/lib/sim/schedule.ts';

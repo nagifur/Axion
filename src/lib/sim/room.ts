@@ -6,6 +6,7 @@ import { NavGrid } from './pathfinding.ts';
 import { Prop, type PlacedProp } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
+import { random } from './random.ts';
 import { doorAppearance, type DoorAppearance, type DoorConfig } from './door.ts';
 
 export type { DoorSide, Point } from './navMap.ts';
@@ -276,7 +277,7 @@ export class Room {
     return cell >= 0 ? this.grid.center(cell) : { x: Math.round(point.x), y: Math.round(point.y) };
   }
 
-  randomFloorPoint(rand: () => number = Math.random): Point {
+  randomFloorPoint(rand: () => number = random): Point {
     if (!this.openCells.length) return { x: Math.round(this.width / 2), y: Math.round(this.height / 2) };
     const center = this.grid.center(this.openCells[Math.floor(rand() * this.openCells.length)]);
     const jittered = {

@@ -1,14 +1,17 @@
-import { nap, trip, type Agent } from './agent.ts';
+import type { Agent } from './agent.ts';
 import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
+import { bindDebugPanel } from './monitorDebug.ts';
+import { clock, el } from './monitorDom.ts';
+import { EditorPanel } from './monitorEditor.ts';
+import { PersonnelFile } from './monitorFile.ts';
+import { loadProgress, saveProgress } from './monitorProgress.ts';
+import { NameTags } from './monitorTags.ts';
 import { PropEditor } from './propEditor.ts';
-import { Prop } from './prop.ts';
 import { PropEmissionSampler, PropPicker, Renderer, loadAssets } from './render.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import { Room, type Point, type RoomData } from './room.ts';
 import { World, type LogTone } from './world.ts';
-import { scheduleFor } from './schedule.ts';
-import type { AgentStats } from './stats.ts';
 
 export interface MonitorConfig {
   roster: SimCharacter[];
@@ -21,51 +24,14 @@ export interface MonitorConfig {
   assets: Record<string, string>;
 }
 
-interface Progress {
-  achievements: string[];
-  identified: string[];
-  /** Cameras the viewer has looked at, and the one they last had open. */
-  cameras: string[];
-  camera?: string;
-}
-
-const STORAGE_KEY = 'axion-monitor';
 const MAX_LOG_LINES = 40;
 const SWITCH_STATIC_MS = 220;
 const DRAG_CAMERA_HOVER_MS = 450;
 const DRAG_HELP = 'Drag an agent to open floor, a prop, or another agent. Hold over a floor or camera to switch. Esc cancels.';
+const TOAST_MS = 4000;
+const DRAG_START_PX = 5;
+const DEBUG_FAST_SPEED = 4;
 
-function loadProgress(): Progress {
-  try {
-    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-    return {
-      achievements: Array.isArray(stored.achievements) ? stored.achievements : [],
-      identified: Array.isArray(stored.identified) ? stored.identified : [],
-      cameras: Array.isArray(stored.cameras) ? stored.cameras : [],
-      camera: typeof stored.camera === 'string' ? stored.camera : undefined,
-    };
-  } catch {
-    return { achievements: [], identified: [], cameras: [] };
-  }
-}
-
-function saveProgress(progress: Progress) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  } catch {
-    // Storage can be unavailable (private mode); progress just won't persist.
-  }
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string) {
-  const node = document.createElement(tag);
-  if (className) node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-const clock = (date: Date, seconds = false) =>
-  date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: seconds ? '2-digit' : undefined, hour12: false });
 
 /** Boots the live feed inside `root`. Returns a cleanup function. */
 export function initMonitor(root: HTMLElement): () => void {
@@ -174,7 +140,7 @@ export function initMonitor(root: HTMLElement): () => void {
       toast.textContent = `Achievement complete: ${achievement.title}`;
       toast.hidden = false;
       window.clearTimeout(toastTimer);
-      toastTimer = window.setTimeout(() => { toast.hidden = true; }, 4000);
+      toastTimer = window.setTimeout(() => { toast.hidden = true; }, TOAST_MS);
     }
   };
 
@@ -193,7 +159,7 @@ export function initMonitor(root: HTMLElement): () => void {
     if (changed) {
       hovered = null;
       renderer?.setRoom(room);
-      editor?.setRoom(room);
+      editorPanel.editor?.setRoom(room);
       if (screen) {
         // A burst of static, like a real CCTV feed changing channel.
         screen.classList.remove('is-switching');
@@ -264,111 +230,9 @@ export function initMonitor(root: HTMLElement): () => void {
     }
   };
 
-  // --- Personnel file panel ----------------------------------------------
+  // --- Personnel file & selection ---------------------------------------
 
-  let fileKey = '';
-  let activityNode: HTMLElement | null = null;
-  const statNodes = new Map<keyof AgentStats, HTMLElement>();
-
-  const updateStats = (agent: Agent) => {
-    for (const [key, node] of statNodes) {
-      const { current, max } = agent.stats[key];
-      node.textContent = key === 'magic' && !agent.hasMagic ? 'None' : `${Math.round(current)} / ${max}`;
-    }
-  };
-
-  // True while the selected badge ID is shared with an undetected shapeshifter.
-  const hasTwin = (agent: Agent) => world.everyone().some((other) =>
-    other !== agent && other.character.id === agent.character.id
-    && ((other.impostor && !other.revealed) || (agent.impostor && !agent.revealed)));
-
-  const renderFile = (agent: Agent | null) => {
-    if (!fileNode) return;
-    const twin = agent ? hasTwin(agent) : false;
-    const onScreen = agent ? agent.room === viewed : false;
-    const period = agent ? scheduleFor(agent.character, world.now()) : 'free';
-    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}` : '';
-    if (key === fileKey) {
-      if (agent && activityNode) activityNode.textContent = agent.removed ? 'Off camera' : agent.activity;
-      if (agent) updateStats(agent);
-      return;
-    }
-    fileKey = key;
-    statNodes.clear();
-
-    if (!agent) {
-      fileNode.replaceChildren(el('p', 'monitor-file-empty', 'Select someone on the feed to pull up their file.'));
-      activityNode = null;
-      return;
-    }
-
-    const revealed = agent.revealed && agent.impostor;
-    const character = agent.character;
-    const head = el('div', 'monitor-file-head');
-    const image = revealed ? agent.impostor!.image : character.image;
-    if (image) {
-      const photo = el('img', 'monitor-file-photo');
-      photo.src = image;
-      photo.alt = '';
-      photo.width = 72;
-      photo.height = 72;
-      head.append(photo);
-    }
-    const titleBlock = el('div', 'monitor-file-title');
-    titleBlock.append(
-      el('p', 'panel-kicker', revealed ? 'Entity file · Escaped' : `Personnel file · ID ${character.employeeID}`),
-      el('h3', undefined, revealed ? `${agent.impostor!.name} "${agent.impostor!.nickname}"` : character.name),
-      el('p', 'monitor-file-role', revealed ? `Shapeshifter posing as ${character.name}` : character.position),
-    );
-    head.append(titleBlock);
-    fileNode.style.setProperty('--file-tint', revealed ? 'var(--neon-red)' : character.tint);
-
-    const stats = el('dl', 'monitor-file-stats');
-    const stat = (label: string, value: string) => {
-      const row = el('div');
-      const dd = el('dd', undefined, value);
-      row.append(el('dt', undefined, label), dd);
-      stats.append(row);
-      return dd;
-    };
-    if (!revealed) {
-      stat('Clearance', /^\d+$/.test(character.accessLevel) ? `Level ${character.accessLevel}` : character.accessLevel);
-      stat('Species', character.species);
-      stat('Schedule', { work: 'Working hours', lunch: 'Lunch break', break: 'Short break', free: 'Free time' }[period]);
-    }
-    activityNode = stat('Status', agent.removed ? 'Off camera' : agent.activity);
-    stat('Item', agent.item?.type ?? 'Empty');
-    for (const [key, label] of [
-      ['hp', 'HP'], ['stamina', 'Stamina'], ['magic', 'Magic'],
-      ['hunger', 'Hunger'], ['thirst', 'Thirst'],
-    ] as const) {
-      const node = stat(label, '');
-      if (key === 'hunger' || key === 'thirst') node.title = '0 = satisfied; maximum = urgent need';
-      statNodes.set(key, node);
-    }
-    updateStats(agent);
-    if (!agent.removed) {
-      const location = stat('Location', `${agent.room.name} · ${agent.room.camera}`);
-      if (!onScreen) {
-        const jump = el('button', 'monitor-file-jump', `View ${agent.room.camera} →`);
-        jump.type = 'button';
-        jump.addEventListener('click', () => switchCamera(agent.room));
-        location.append(jump);
-      }
-    }
-
-    const parts: HTMLElement[] = [head, stats];
-    if (twin) parts.push(el('p', 'monitor-file-warning', 'A1: Duplicate badge signal detected for this ID.'));
-    if (!revealed && character.traits.length) {
-      const traits = el('ul', 'monitor-file-traits');
-      traits.append(...character.traits.map((trait) => el('li', undefined, trait)));
-      parts.push(traits);
-    }
-    const link = el('a', 'btn monitor-file-link', 'Open database file →');
-    link.href = revealed ? agent.impostor!.href : character.href;
-    parts.push(link);
-    fileNode.replaceChildren(...parts);
-  };
+  const file = fileNode ? new PersonnelFile(fileNode, world, (room) => switchCamera(room)) : null;
 
   const select = (agent: Agent) => {
     selected = agent;
@@ -385,78 +249,11 @@ export function initMonitor(root: HTMLElement): () => void {
 
   // --- Name tags -----------------------------------------------------------
 
-  const tags = new Map<Agent, { button: HTMLButtonElement; name: HTMLElement; bubble: HTMLElement; label: string }>();
-
-  const syncTags = () => {
-    if (!renderer) return;
-    for (const [agent, tag] of tags) {
-      if (!world.agents.includes(agent)) {
-        tag.button.remove();
-        tags.delete(agent);
-      }
-    }
-
-    const visibleTags: { agent: Agent; button: HTMLButtonElement; head: { x: number; y: number } }[] = [];
-    for (const agent of world.agents) {
-      let tag = tags.get(agent);
-      if (!tag) {
-        const button = el('button', 'monitor-tag');
-        button.type = 'button';
-        const bubble = el('span', 'monitor-tag-bubble');
-        const name = el('span', 'monitor-tag-name');
-        button.append(bubble, name);
-        button.addEventListener('click', () => select(agent));
-        button.addEventListener('pointerenter', () => { hovered = agent; });
-        button.addEventListener('pointerleave', () => { if (hovered === agent) hovered = null; });
-        tagLayer.append(button);
-        tag = { button, name, bubble, label: '' };
-        tags.set(agent, tag);
-      }
-
-      const revealed = agent.revealed && agent.impostor;
-      const label = revealed ? `${agent.impostor!.name} "${agent.impostor!.nickname}"` : agent.character.name;
-      if (tag.label !== label) {
-        tag.label = label;
-        tag.name.textContent = label;
-        tag.button.setAttribute('aria-label', `${label}. Open file`);
-        tag.button.style.setProperty('--tag-tint', revealed ? 'var(--neon-red)' : agent.character.tint);
-      }
-      const bubble = agent.bubble ?? '';
-      if (tag.bubble.textContent !== bubble) tag.bubble.textContent = bubble;
-
-      const visible = renderer.isVisible(agent, world) || (agent.held && agent.room === viewed);
-      tag.button.hidden = !visible;
-      tag.button.classList.toggle('is-held', agent.held);
-      tag.button.classList.toggle('is-quiet', !showAllTags && agent !== hovered && agent !== selected);
-      tag.button.classList.toggle('is-active', agent === hovered || agent === selected);
-      if (visible) visibleTags.push({
-        agent, button: tag.button,
-        head: agent.held && drag?.agent === agent ? drag.head : renderer.headPosition(agent),
-      });
-    }
-
-    // Place tags front to back; any tag that would overlap one already placed moves up.
-    const layerWidth = tagLayer.clientWidth;
-    const layerHeight = tagLayer.clientHeight;
-    const sized = visibleTags
-      .map((tag) => ({ ...tag, width: tag.button.offsetWidth, height: tag.button.offsetHeight }))
-      .sort((a, b) => b.agent.y - a.agent.y);
-    const placed: { left: number; right: number; top: number; bottom: number }[] = [];
-    for (const tag of sized) {
-      const x = (tag.head.x / viewed.width) * layerWidth;
-      let bottom = (Math.max(8, tag.head.y - 1) / viewed.height) * layerHeight;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const left = x - tag.width / 2;
-        const right = x + tag.width / 2;
-        const hit = placed.find((box) => left < box.right + 2 && right > box.left - 2 && bottom - tag.height < box.bottom && bottom > box.top);
-        if (!hit) break;
-        bottom = hit.top - 1;
-      }
-      placed.push({ left: x - tag.width / 2, right: x + tag.width / 2, top: bottom - tag.height, bottom });
-      tag.button.style.left = `${x}px`;
-      tag.button.style.top = `${bottom}px`;
-    }
-  };
+  const tags = new NameTags(tagLayer, {
+    select,
+    hover: (agent) => { hovered = agent; },
+    hovered: () => hovered,
+  });
 
   // --- Input ---------------------------------------------------------------
 
@@ -469,11 +266,8 @@ export function initMonitor(root: HTMLElement): () => void {
   };
 
   const agentAt = (event: { clientX: number; clientY: number }, point: Point) => {
-    const element = document.elementFromPoint(event.clientX, event.clientY);
-    for (const [agent, tag] of tags) {
-      if (!agent.held && !tag.button.hidden && element && tag.button.contains(element)) return agent;
-    }
-    return renderer?.hitTest(world, point.x, point.y) ?? null;
+    return tags.agentFor(document.elementFromPoint(event.clientX, event.clientY))
+      ?? renderer?.hitTest(world, point.x, point.y) ?? null;
   };
 
   const currentDrop = (): DropTarget => {
@@ -500,7 +294,7 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const updateDragCameraHover = (): string | null => {
     if (!drag?.active) return null;
-    if (dragSwitchPoint && Math.hypot(drag.client.x - dragSwitchPoint.x, drag.client.y - dragSwitchPoint.y) >= 5) {
+    if (dragSwitchPoint && Math.hypot(drag.client.x - dragSwitchPoint.x, drag.client.y - dragSwitchPoint.y) >= DRAG_START_PX) {
       dragSwitchPoint = null;
     }
     const element = document.elementFromPoint(drag.client.x, drag.client.y);
@@ -554,14 +348,15 @@ export function initMonitor(root: HTMLElement): () => void {
   const onPointerMove = (event: PointerEvent) => {
     if (!renderer) return;
     const point = toRoom(event);
+    const editor = editorPanel.editor;
     if (editor?.active) {
       editor.pointerMove(point);
-      if (editorCursor && editor.cursor) editorCursor.textContent = `Cursor: ${editor.cursor.x}, ${editor.cursor.y}`;
+      if (editor.cursor) editorPanel.showCursor(editor.cursor);
       return;
     }
     if (drag && event.pointerId === drag.pointerId) {
       drag.client = { x: event.clientX, y: event.clientY };
-      if (!drag.active && Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) >= 5) {
+      if (!drag.active && Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) >= DRAG_START_PX) {
         if (!drag.agent.draggable) {
           log(`${drag.agent.character.name} cannot be picked up during a doorway or elevator transition.`, 'warn');
           cancelDrag();
@@ -590,8 +385,8 @@ export function initMonitor(root: HTMLElement): () => void {
     if (drag) return;
     hovered = null;
     canvas.style.cursor = '';
-    editor?.pointerLeave();
-    if (editorCursor) editorCursor.textContent = 'Cursor: –';
+    editorPanel.editor?.pointerLeave();
+    editorPanel.showCursor(null);
   };
   const onClick = (event: MouseEvent) => {
     if (suppressClick && event.detail !== 0) {
@@ -601,7 +396,7 @@ export function initMonitor(root: HTMLElement): () => void {
       return;
     }
     suppressClick = false;
-    if (!renderer || editor?.active) return;
+    if (!renderer || editorPanel.active) return;
     if (event.target instanceof Element && event.target.closest('.monitor-tag')) return;
     const point = toRoom(event);
     const agent = renderer.hitTest(world, point.x, point.y);
@@ -610,9 +405,9 @@ export function initMonitor(root: HTMLElement): () => void {
   const onPointerDown = (event: PointerEvent) => {
     if (!renderer || event.button !== 0 || !event.isPrimary || drag) return;
     suppressClick = false;
-    if (editor?.active) {
+    if (editorPanel.editor?.active) {
       inputSurface.setPointerCapture(event.pointerId);
-      editor.pointerDown(toRoom(event), world.time);
+      editorPanel.editor.pointerDown(toRoom(event), world.time);
       return;
     }
     const point = toRoom(event);
@@ -627,8 +422,8 @@ export function initMonitor(root: HTMLElement): () => void {
     inputSurface.setPointerCapture(event.pointerId);
   };
   const onPointerUp = (event: PointerEvent) => {
-    if (editor?.active) {
-      editor.pointerUp();
+    if (editorPanel.editor?.active) {
+      editorPanel.editor.pointerUp();
       if (inputSurface.hasPointerCapture(event.pointerId)) inputSurface.releasePointerCapture(event.pointerId);
       return;
     }
@@ -652,7 +447,7 @@ export function initMonitor(root: HTMLElement): () => void {
   };
   const onPointerCancel = () => {
     cancelDrag();
-    editor?.pointerUp();
+    editorPanel.editor?.pointerUp();
   };
   const onKeyDown = (event: KeyboardEvent) => {
     const target = event.target instanceof Element ? event.target : null;
@@ -661,6 +456,7 @@ export function initMonitor(root: HTMLElement): () => void {
       cancelDrag();
       return;
     }
+    const editor = editorPanel.editor;
     if (!editor?.active || target?.closest('input, textarea')) return;
     if (editor.key(event)) event.preventDefault();
   };
@@ -686,50 +482,33 @@ export function initMonitor(root: HTMLElement): () => void {
     root.classList.toggle('is-paused', paused);
   });
 
+  // --- Debug tools (?debug) ----------------------------------------------
+
+  const editorPanel = new EditorPanel(root.querySelector<HTMLElement>('[data-monitor-editor]'), root);
+  const toggleEditor = () => {
+    if (!editorPanel.editor) return;
+    cancelDrag();
+    const active = editorPanel.toggle();
+    root.classList.toggle('is-editing', active);
+    debugPanel?.querySelector('[data-debug="props"]')?.setAttribute('aria-pressed', String(active));
+    hovered = null;
+  };
+
   const debugMode = !!debugPanel && new URLSearchParams(location.search).has('debug');
   if (debugPanel && debugMode) {
-    debugPanel.hidden = false;
-    // Debug actions pick someone on the camera being watched.
-    const randomAgent = () => world.agentsIn(viewed).filter((agent) => !agent.busy)[0];
-    const timePresets: { label: string; hour?: number; minute?: number }[] = [
-      { label: 'Live' },
-      { label: '09:00 Work', hour: 9, minute: 0 },
-      { label: '10:05 Break', hour: 10, minute: 5 },
-      { label: '12:30 Lunch', hour: 12, minute: 30 },
-      { label: '18:00 Free', hour: 18, minute: 0 },
-      { label: '02:00 Night', hour: 2, minute: 0 },
-    ];
-    let timePreset = 0;
-    const cycleTime = () => {
-      timePreset = (timePreset + 1) % timePresets.length;
-      const { label, hour, minute } = timePresets[timePreset];
-      if (hour === undefined) {
-        clockOffset = 0;
-      } else {
-        const target = new Date();
-        target.setHours(hour, minute, 0, 0);
-        clockOffset = target.getTime() - Date.now();
-      }
-      const button = debugPanel.querySelector<HTMLButtonElement>('[data-debug="time"]');
-      if (button) {
-        button.textContent = `Time: ${label}`;
-        button.setAttribute('aria-pressed', String(clockOffset !== 0));
-      }
-      // Idle staff pick their next task under the new clock right away.
-      for (const agent of world.agents) if (!agent.busy && !agent.removed) agent.setPlan(world, []);
-      log(clockOffset ? `Debug: clock set to ${label}.` : 'Debug: clock back to live time.', 'muted');
-      tick();
-    };
-    const actions: Record<string, () => void> = {
-      time: cycleTime,
-      impostor: () => { if (!director.triggerImpostor(world)) log('Debug: no impostor possible right now.', 'muted'); },
-      arrive: () => { if (!world.arrive()) log('Debug: everyone is already on the floor.', 'muted'); },
-      nap: () => randomAgent()?.setPlan(world, [nap(20, 'front')]),
-      trip: () => randomAgent()?.interrupt(world, trip()),
-      announce: () => director.announce(world),
-      speed: () => { speed = speed === 1 ? 4 : 1; log(`Debug: speed x${speed}.`, 'muted'); },
-      props: () => toggleEditor(),
-      reset: () => {
+    bindDebugPanel(debugPanel, {
+      world,
+      director,
+      log,
+      onCamera: () => world.agentsIn(viewed),
+      setClockOffset: (ms) => { clockOffset = ms; },
+      refreshClock: () => tick(),
+      toggleSpeed: () => {
+        speed = speed === 1 ? DEBUG_FAST_SPEED : 1;
+        log(`Debug: speed x${speed}.`, 'muted');
+      },
+      toggleEditor,
+      resetProgress: () => {
         unlocked.clear();
         identified.clear();
         camerasSeen.clear();
@@ -740,86 +519,8 @@ export function initMonitor(root: HTMLElement): () => void {
         saveProgress(progress);
         renderAchievements();
       },
-    };
-    debugPanel.addEventListener('click', (event) => {
-      const action = (event.target as HTMLElement).closest<HTMLElement>('[data-debug]')?.dataset.debug;
-      if (action) actions[action]?.();
     });
   }
-
-  // --- Debug prop editor ---------------------------------------------------
-
-  let editor: PropEditor | null = null;
-  let copyTimer = 0;
-  const editorPanel = root.querySelector<HTMLElement>('[data-monitor-editor]');
-  const editorCursor = root.querySelector<HTMLElement>('[data-editor-cursor]');
-  const editorSnippet = root.querySelector<HTMLTextAreaElement>('[data-editor-snippet]');
-  const editorCopy = root.querySelector<HTMLButtonElement>('[data-editor-copy]');
-
-  const renderEditor = () => {
-    if (!editor || !editorPanel) return;
-    const { room, selected, selectedDoor, placing } = editor;
-    const prop = selected instanceof Prop ? selected : null;
-    const edited = editor.isEdited();
-    editorPanel.querySelector('[data-editor-room]')!.textContent = `${room.camera} · ${room.name}${edited ? ' · unsaved changes' : ''}`;
-    editorPanel.querySelector('[data-editor-file]')!.textContent = `src/sim_assets/rooms/${room.id}/room.json`;
-    editorPanel.querySelector('[data-editor-selected]')!.textContent = placing
-      ? `Click the feed to place: ${placing}`
-      : selectedDoor
-        ? `${selectedDoor.door.id} ${selectedDoor.part} · clearance ${selectedDoor.state.clearance}` +
-          `${selectedDoor.state.isBroken(selectedDoor.part) ? ' · broken' : ''} · live only, not saved`
-      : selected
-        ? `${selected.type} · x ${selected.x}, y ${selected.y}${selected.flip ? ' · flipped' : ''}` +
-          `${prop?.start?.broken ? ' · broken' : ''}${prop?.start?.on === false ? ' · starts off' : ''}`
-        : 'Nothing selected';
-    editorPanel.querySelector<HTMLButtonElement>('[data-editor-flip]')!.disabled = !selected;
-    const broken = editorPanel.querySelector<HTMLButtonElement>('[data-editor-broken]')!;
-    broken.disabled = !prop?.breakable && !selectedDoor;
-    broken.setAttribute('aria-pressed', String(selectedDoor ? selectedDoor.state.isBroken(selectedDoor.part) : !!prop?.start?.broken));
-    const off = editorPanel.querySelector<HTMLButtonElement>('[data-editor-off]')!;
-    off.disabled = !prop?.switchable;
-    off.setAttribute('aria-pressed', String(prop?.start?.on === false));
-    editorPanel.querySelector<HTMLButtonElement>('[data-editor-delete]')!.disabled = !selected;
-    for (const button of editorPanel.querySelectorAll<HTMLElement>('[data-editor-add]')) {
-      button.setAttribute('aria-pressed', String(button.dataset.editorAdd === placing));
-    }
-    if (editorSnippet) editorSnippet.value = editor.snippet();
-  };
-
-  const toggleEditor = () => {
-    if (!editor || !editorPanel) return;
-    cancelDrag();
-    editor.active = !editor.active;
-    editorPanel.hidden = !editor.active;
-    root.classList.toggle('is-editing', editor.active);
-    debugPanel?.querySelector('[data-debug="props"]')?.setAttribute('aria-pressed', String(editor.active));
-    hovered = null;
-    renderEditor();
-  };
-
-  editorPanel?.addEventListener('click', (event) => {
-    if (!editor) return;
-    const target = (event.target as HTMLElement).closest<HTMLElement>('button');
-    if (!target) return;
-    if (target.dataset.editorAdd) editor.add(target.dataset.editorAdd);
-    else if (target.hasAttribute('data-editor-flip')) editor.flip();
-    else if (target.hasAttribute('data-editor-broken')) editor.toggleBroken();
-    else if (target.hasAttribute('data-editor-off')) editor.toggleOff();
-    else if (target.hasAttribute('data-editor-delete')) editor.remove();
-    else if (target.hasAttribute('data-editor-reset')) editor.reset();
-    else if (target.hasAttribute('data-editor-copy') && editorSnippet) {
-      const done = () => {
-        if (!editorCopy) return;
-        editorCopy.textContent = 'Copied!';
-        window.clearTimeout(copyTimer);
-        copyTimer = window.setTimeout(() => { editorCopy.textContent = 'Copy'; }, 1500);
-      };
-      navigator.clipboard?.writeText(editorSnippet.value).then(done, () => {
-        // Clipboard access can be blocked; leave the text selected for Cmd/Ctrl+C.
-        editorSnippet.select();
-      });
-    }
-  });
 
   // --- Clock & status ------------------------------------------------------
 
@@ -848,7 +549,7 @@ export function initMonitor(root: HTMLElement): () => void {
     },
   };
   renderAchievements();
-  renderFile(null);
+  file?.render(null, viewed);
   switchCamera(viewed);
 
   const resizeObserver = new ResizeObserver(() => renderer?.resize());
@@ -886,9 +587,12 @@ export function initMonitor(root: HTMLElement): () => void {
         carry.style.top = `${Math.max(8, Math.min(drag.client.y + 12, window.innerHeight - carry.offsetHeight - 8))}px`;
       }
     }
-    if (editor?.active) editor.draw(renderer.context, renderer.scale, world.time);
-    syncTags();
-    renderFile(selected);
+    if (editorPanel.editor?.active) editorPanel.editor.draw(renderer.context, renderer.scale, world.time);
+    tags.sync(world, renderer, {
+      viewed, showAll: showAllTags, hovered, selected,
+      heldHead: drag?.active ? { agent: drag.agent, head: drag.head } : undefined,
+    });
+    file?.render(selected, viewed);
     raf = requestAnimationFrame(frame);
   };
 
@@ -898,7 +602,7 @@ export function initMonitor(root: HTMLElement): () => void {
     world.particles.setEmissionSampler(new PropEmissionSampler(assets).sample);
     propPicker = new PropPicker(assets);
     renderer.resize();
-    if (debugMode) editor = new PropEditor(assets, viewed, renderEditor, (door) => world.passageDoorFor(door));
+    if (debugMode) editorPanel.editor = new PropEditor(assets, viewed, editorPanel.render, (door) => world.passageDoorFor(door));
     world.populate();
     updateCameraCounts();
     log(`A1oS camera link established: ${rooms.length} feed${rooms.length === 1 ? '' : 's'} online.`, 'ok');
@@ -918,7 +622,7 @@ export function initMonitor(root: HTMLElement): () => void {
     window.clearInterval(clockTimer);
     window.clearTimeout(toastTimer);
     window.clearTimeout(staticTimer);
-    window.clearTimeout(copyTimer);
+    editorPanel.dispose();
     resizeObserver.disconnect();
     inputSurface.removeEventListener('pointermove', onPointerMove);
     inputSurface.removeEventListener('pointerleave', onPointerLeave);

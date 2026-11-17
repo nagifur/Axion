@@ -4,7 +4,9 @@ import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
-import { enterThroughDoor, exitThroughDoor, leaveFacility, planNext, wait } from '../src/lib/sim/agent.ts';
+import { wait } from '../src/lib/sim/tasks.ts';
+import { enterThroughDoor, exitThroughDoor, leaveFacility } from '../src/lib/sim/transport.ts';
+import { planNext } from '../src/lib/sim/planning.ts';
 import {
   DOOR_PANEL_FRAME_SECONDS, PASSAGE_DOOR_HOLD_SECONDS, PASSAGE_DOOR_RANGE, PASSAGE_DOOR_SECONDS,
   PassageDoor, doorAppearance, passageDoorFrame, passagePanelFrame, passagePartBounds,

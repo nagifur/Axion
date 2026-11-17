@@ -1,5 +1,6 @@
 import type { DoorSide, Point, Rect } from './navMap.ts';
 import { PROP_BREAK_CHANCE } from './prop.ts';
+import { chance } from './random.ts';
 import type { PropSheetImage } from './sprites.ts';
 
 /** An optional physical door attached to a painted passage. */
@@ -145,8 +146,8 @@ export class PassageDoor {
   breakOnUse(): ('door' | 'panel')[] {
     if (this.broken || this.panelBroken) return [];
     const broken: ('door' | 'panel')[] = [];
-    if (Math.random() < PROP_BREAK_CHANCE && this.breakPanel()) broken.push('panel');
-    if (Math.random() < PROP_BREAK_CHANCE && this.break()) broken.push('door');
+    if (chance(PROP_BREAK_CHANCE) && this.breakPanel()) broken.push('panel');
+    if (chance(PROP_BREAK_CHANCE) && this.break()) broken.push('door');
     return broken;
   }
 

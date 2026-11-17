@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EventDirector } from '../src/lib/sim/events.ts';
-import { exitThroughDoor, leaveFacility, planNext, rideElevatorOut } from '../src/lib/sim/agent.ts';
+import { exitThroughDoor, leaveFacility, rideElevatorOut } from '../src/lib/sim/transport.ts';
+import { planNext } from '../src/lib/sim/planning.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { checkShafts, linkRooms, loadFacility, orderRooms } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
