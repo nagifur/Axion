@@ -2,6 +2,9 @@
   "name": "Trophy Room",
   "level": 4,
   "camera": "CAM 4-02",
+  "doors": {
+    "south": { "clearance": 4 }
+  },
   "props": [
   { "type": "light", "x": 163, "y": 10 }
 ]

@@ -3,6 +3,11 @@
   "level": 4,
   "camera": "CAM 4-01",
   "elevators": { "shaft": "side" },
+  "doors": {
+    "west": { "clearance": 4 },
+    "north": { "clearance": 4 },
+    "east": { "clearance": 4 }
+  },
   "exits": {
     "north": "level-4-trophyRoom"
     

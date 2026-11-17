@@ -649,8 +649,8 @@ For connected rooms, configuring either side creates a matching door on the othe
 camera and both views share one lock and animation. If both rooms configure it,
 their clearance must match, but their offsets can differ. Remove the entries on both
 sides to make the connected passage doorless again. Off-camera passages may also
-have doors. The current Level 0 and 1 passages are configured; higher levels are
-still doorless.
+have doors. Every current facility passage on Levels 0 through 5 has a physical
+door configured with that level's clearance and artwork.
 
 A nearby authorized agent (within 40 room pixels of the passage threshold) turns
 the panel green and opens the door upward in 0.7 simulation seconds. Agents wait

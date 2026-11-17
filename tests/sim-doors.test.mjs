@@ -95,35 +95,32 @@ test('broken electrical panels keep sparking in both camera views until repaired
   assert.equal(burst.mock.callCount(), 8);
 });
 
-test('configured level 0 and 1 passages have matching doors; open exits and other levels remain doorless', async () => {
+test('every configured passage has matching floor-level door artwork', async () => {
   const rooms = (await loadFacility()).map((data) => new Room(data));
   const world = new World({ rooms, roster: [] });
   let count = 0;
   for (const room of rooms) {
     for (const door of room.doors) {
-      if (room.level <= 1) {
-        if (!door.appearance) {
-          assert.equal(world.passageDoorFor(door), undefined, `${room.id}/${door.id} stays open`);
-          continue;
-        }
-        count++;
-        assert.equal(door.appearance.clearance, room.level, `${room.id}/${door.id}`);
-        assert.equal(door.appearance.asset, `door_angle_level${room.level}`);
-        assert.equal(door.appearance.panelAsset, 'door_panel_angle');
-        assert.ok(world.passageDoorFor(door));
-        if (door.to) {
-          const other = world.room(door.to.room).doors.find((candidate) => candidate.id === door.to.door);
-          assert.equal(world.passageDoorFor(door), world.passageDoorFor(other), 'both cameras share one state');
-        }
-      } else {
-        assert.equal(door.appearance, undefined);
-        assert.equal(world.passageDoorFor(door), undefined);
+      count++;
+      assert.ok(door.appearance, `${room.id}/${door.id} has a physical door`);
+      assert.equal(door.appearance.clearance, room.level, `${room.id}/${door.id}`);
+      const angled = door.side === 'west' || door.side === 'east';
+      assert.equal(door.appearance.asset, `door_${angled ? 'angle_' : ''}level${room.level}`);
+      assert.equal(door.appearance.panelAsset, `door_panel${angled ? '_angle' : ''}`);
+      assert.ok(world.passageDoorFor(door));
+      if (door.to) {
+        const other = world.room(door.to.room).doors.find((candidate) => candidate.id === door.to.door);
+        assert.equal(world.passageDoorFor(door), world.passageDoorFor(other), 'both cameras share one state');
       }
     }
   }
-  assert.equal(count, 10);
+  assert.equal(count, 21);
   const palette = await listPropTypes();
-  for (const asset of ['door_level0', 'door_level1', 'door_angle_level0', 'door_angle_level1', 'door_panel', 'door_panel_angle']) {
+  const passageAssets = Array.from({ length: 6 }, (_, level) => [
+    `door_level${level}`,
+    `door_angle_level${level}`,
+  ]).flat().concat(['door_panel', 'door_panel_angle']);
+  for (const asset of passageAssets) {
     assert.ok(!palette.includes(asset), `${asset} is a passage assembly, not an ordinary prop`);
   }
 });

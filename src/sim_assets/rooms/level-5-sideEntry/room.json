@@ -3,6 +3,10 @@
   "level": 5,
   "camera": "CAM 5-01",
   "elevators": { "shaft": "side" },
+  "doors": {
+    "west": { "clearance": 5 },
+    "east": { "clearance": 5 }
+  },
   "props": [
     { "type": "light", "x": 83, "y": 34 },
     { "type": "light", "x": 370, "y": 34 }
