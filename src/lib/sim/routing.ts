@@ -46,14 +46,16 @@ export function workRooms(world: World, character: SimCharacter): Room[] {
 }
 
 /** First door or elevator stop on a clearance-safe route to a work floor. */
-export function stepTowardWork(world: World, character: SimCharacter, room: Room): Door | Room | undefined {
+export function stepTowardWork(world: World, character: SimCharacter, room: Room, agent?: Agent): Door | Room | undefined {
   const targets = new Set(workRooms(world, character));
   if (targets.has(room)) return undefined;
   return firstStepToward<Door | Room>(room, (current) => {
     const steps: { next: Room; step: Door | Room }[] = [];
     for (const door of current.linkedDoors) {
       const next = world.room(door.to!.room);
-      if (next && world.canUsePassage(character, door)) steps.push({ next, step: door });
+      if (next && (agent ? world.canAgentUsePassage(agent, door) : world.canUsePassage(character, door))) {
+        steps.push({ next, step: door });
+      }
     }
     for (const next of elevatorStops(world, current)) steps.push({ next, step: next });
     return steps.filter(({ next }) => canVisitLevel(character, next.level));
@@ -63,14 +65,18 @@ export function stepTowardWork(world: World, character: SimCharacter, room: Room
 /**
  * First door to take from `room` to reach the nearest room with a way out of the facility.
  * Null if `room` already has one. With `doorsOnly`, elevators don't count as a way out.
+ * When an agent is supplied, every passage and the final exit must allow their cards.
  */
-export function doorTowardExit(world: World, room: Room, doorsOnly = false): Door | null {
+export function doorTowardExit(world: World, room: Room, doorsOnly = false, agent?: Agent): Door | null {
+  const canUse = (door: Door) => agent
+    ? world.canAgentUsePassage(agent, door)
+    : !world.passageDoorFor(door)?.blocked;
   const hasExit = (candidate: Room) => (!doorsOnly && !!candidate.elevator) ||
-    candidate.outerDoors.some((door) => !world.passageDoorFor(door)?.blocked);
+    candidate.outerDoors.some(canUse);
   if (hasExit(room)) return null;
   return firstStepToward<Door>(room, (current) => current.linkedDoors.flatMap((door) => {
     const next = world.room(door.to!.room);
-    return next && !world.passageDoorFor(door)?.blocked ? [{ next, step: door }] : [];
+    return next && canUse(door) ? [{ next, step: door }] : [];
   }), hasExit) ?? null;
 }
 

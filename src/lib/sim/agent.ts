@@ -2,7 +2,7 @@ import type { SimCharacter, SimImpostor } from './roster.ts';
 import type { Facing, Point, Room, Spot } from './room.ts';
 import { CHARACTER_FRAMES, HOLD_ITEM_CYCLE, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { World } from './world.ts';
-import { ITEM_REACH, type Item } from './item.ts';
+import { accessCardLevel, ITEM_REACH, Item, startingItemTypes } from './item.ts';
 import { createAgentStats, type AgentStats } from './stats.ts';
 import { isSpeaking, type Conversation } from './conversation.ts';
 import { planNext } from './planning.ts';
@@ -78,6 +78,7 @@ export class Agent {
   private task?: Task;
   private plan: Task[] = [];
   private carriedItem: Item | null = null;
+  private readonly storedItems: Item[] = [];
 
   constructor(character: SimCharacter, room: Room, at: Point, impostor?: SimImpostor) {
     this.character = character;
@@ -86,6 +87,7 @@ export class Agent {
     this.stats = createAgentStats(impostor?.stats ?? character.stats);
     this.x = at.x;
     this.y = at.y;
+    for (const type of startingItemTypes(character)) this.storedItems.push(Item.create(type));
   }
 
   get ghost() {
@@ -98,6 +100,41 @@ export class Agent {
 
   get item(): Item | null {
     return this.carriedItem;
+  }
+
+  get inventory(): readonly Item[] {
+    return this.storedItems;
+  }
+
+  hasAccessCard(level: number): boolean {
+    return [...this.storedItems, ...(this.item ? [this.item] : [])]
+      .some((item) => (accessCardLevel(item) ?? -1) >= level);
+  }
+
+  /** Stores a brand-new item without occupying the hand. */
+  receiveStoredItem(item: Item) {
+    if (item === this.item || this.storedItems.includes(item) || this.room.items.includes(item)) {
+      throw new Error('Item is already held, stored, or loose in this agent\'s room.');
+    }
+    this.storedItems.push(item);
+  }
+
+  storeItem(): Item {
+    if (!this.draggable) throw new Error('Agent cannot store an item during transport, dragging, or departure.');
+    const item = this.item;
+    if (!item) throw new Error('Agent has no item to store.');
+    this.storedItems.push(item);
+    this.carriedItem = null;
+    return item;
+  }
+
+  retrieveItem(item: Item) {
+    if (!this.draggable) throw new Error('Agent cannot retrieve an item during transport, dragging, or departure.');
+    if (this.item) throw new Error('Agent already carries an item.');
+    const index = this.storedItems.indexOf(item);
+    if (index < 0) throw new Error('Item is not in this agent\'s inventory.');
+    this.storedItems.splice(index, 1);
+    this.carriedItem = item;
   }
 
   pickUpItem(item: Item) {
@@ -127,6 +164,7 @@ export class Agent {
   /** Puts a brand-new item (not one lying in the room) into the empty hand. */
   receiveItem(item: Item) {
     if (this.item) throw new Error('Agent already carries an item.');
+    if (this.storedItems.includes(item)) throw new Error('Stored items are retrieved with retrieveItem.');
     if (this.room.items.includes(item)) throw new Error('Loose items are picked up with pickUpItem.');
     this.carriedItem = item;
   }

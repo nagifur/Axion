@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EventDirector } from '../src/lib/sim/events.ts';
+import { Item } from '../src/lib/sim/item.ts';
 import { exitThroughDoor, leaveFacility, rideElevatorOut } from '../src/lib/sim/transport.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
 import { Room } from '../src/lib/sim/room.ts';
@@ -222,12 +223,14 @@ test('voluntary door and elevator plans respect clearance, but impostors do not'
   assert.equal(planNext(impostor, world)[0].activity, `Heading to the ${gallery.name}`);
 });
 
-test('clearance preferences do not block escape routes', async () => {
+test('departure routes require door access but not a matching profile floor preference', async () => {
   const rooms = await facility();
   const world = new World({ roster: [], rooms, now: noon });
   const trophy = world.room('level-4-trophyRoom');
   const gallery = world.room('level-4-gallery');
   const agent = world.spawn({ ...character('limited'), accessLevel: '3' }, trophy, trophy.randomFloorPoint());
+  assert.equal(leaveFacility(agent, world, true)[0].activity, 'Waiting for an exit');
+  agent.receiveStoredItem(Item.create('card_lvl4'));
   assert.equal(leaveFacility(agent, world, true)[0].activity, `Heading to the ${gallery.name}`);
   assert.equal(agent.leaving, true);
 });

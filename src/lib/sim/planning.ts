@@ -2,11 +2,11 @@ import type { Agent, Task } from './agent.ts';
 import type { Facing, Point, Room } from './room.ts';
 import type { World } from './world.ts';
 import type { Item } from './item.ts';
-import { itemActions } from './item.ts';
+import { accessCardLevel, itemActions } from './item.ts';
 import { scheduleFor } from './schedule.ts';
 import { pick, random, range } from './random.ts';
 import { rest, wait, walkTo } from './tasks.ts';
-import { getFromDispenser, itemPickupPoint, pickUp, setDownItem, useItem } from './itemTasks.ts';
+import { getFromDispenser, itemPickupPoint, pickUp, retrieveItem, setDownItem, storeItem, useItem } from './itemTasks.ts';
 import { startConversation } from './conversation.ts';
 import { headToNextRoom, leaveFacility, rideElevatorOut } from './transport.ts';
 import { wanderDoors, wanderFloors } from './routing.ts';
@@ -36,7 +36,7 @@ export function planNext(agent: Agent, world: World): Task[] {
   const period = scheduleFor(agent.character, world.now());
   const working = period === 'work' && !agent.impostor;
   const workRooms = working ? new Set(world.workRooms(agent.character)) : new Set<Room>();
-  const workStep = working ? world.stepTowardWork(agent.character, room) : undefined;
+  const workStep = working ? world.stepTowardWork(agent.character, room, agent) : undefined;
   const wandering = working ? 0.15 : period === 'free' ? 2 : 1;
 
   const benchSpot = world.freeSpot(room, 'bench');
@@ -54,6 +54,8 @@ export function planNext(agent: Agent, world: World): Task[] {
     .filter((item) => !claimed.has(item))
     .map((item) => ({ item, stand: itemPickupPoint(room, item) }))
     .filter((found): found is { item: Item; stand: Point } => !!found.stand);
+  const storedItems = agent.item || agent.impostor ? [] : agent.inventory
+    .filter((item) => accessCardLevel(item) === undefined);
 
   const options: Option[] = [
     {
@@ -119,6 +121,14 @@ export function planNext(agent: Agent, world: World): Task[] {
       weight: action.weight,
       build: () => [useItem(action)],
     })),
+    {
+      weight: agent.item && !agent.leaving ? 0.75 : 0,
+      build: () => [storeItem(agent.item!)],
+    },
+    {
+      weight: storedItems.length ? 0.5 : 0,
+      build: () => [retrieveItem(pick(storedItems))],
+    },
     {
       // Occasionally set down a carried item somewhere on the room's open floor.
       weight: agent.item && !agent.leaving ? 0.25 : 0,

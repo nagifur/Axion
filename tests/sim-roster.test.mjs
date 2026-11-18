@@ -7,6 +7,7 @@ import {
   parseHeightMeters,
   toSimCharacter,
   toSimImpostor,
+  SIM_OVERRIDES,
 } from '../src/lib/sim/roster.ts';
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 0.01, `${actual} ≉ ${expected}`);
@@ -70,6 +71,12 @@ test('builds characters and skips wanted or excluded staff', () => {
   assert.equal(toSimCharacter(personnel('canvas.md', { wanted: { status: 'Wanted' } })), null);
   assert.equal(toSimCharacter(personnel('mellisa.md')), null);
   assert.equal(toSimCharacter(personnel('sypher.md')).weight, 0.15);
+});
+
+test('per-character starting items pass through to the simulation loadout', (t) => {
+  t.after(() => { delete SIM_OVERRIDES['test-loadout']; });
+  SIM_OVERRIDES['test-loadout'] = { startingItems: ['can', 'can'] };
+  assert.deepEqual(toSimCharacter(personnel('test-loadout')).startingItems, ['can', 'can']);
 });
 
 test('floor preferences follow numeric clearance, with admin and unknown handling', () => {

@@ -35,7 +35,7 @@ export class PersonnelFile {
     const twin = agent ? hasTwin(world, agent) : false;
     const onScreen = agent ? agent.room === viewed : false;
     const period = agent ? scheduleFor(agent.character, world.now()) : 'free';
-    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}` : '';
+    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}|${agent.inventory.map((item) => item.type).join(',')}` : '';
     if (key === this.key) {
       if (agent && this.activityNode) this.activityNode.textContent = agent.removed ? 'Off camera' : agent.activity;
       if (agent) this.updateStats(agent);
@@ -86,6 +86,7 @@ export class PersonnelFile {
     }
     this.activityNode = stat('Status', agent.removed ? 'Off camera' : agent.activity);
     stat('Item', agent.item?.type ?? 'Empty');
+    stat('Inventory', agent.inventory.map((item) => item.type.replaceAll('_', ' ')).join(', ') || 'Empty');
     for (const [statKey, label] of STAT_LABELS) {
       const node = stat(label, '');
       if (statKey === 'hunger' || statKey === 'thirst') node.title = '0 = satisfied; maximum = urgent need';

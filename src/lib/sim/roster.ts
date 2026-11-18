@@ -32,6 +32,8 @@ export interface SimCharacter {
   weight: number;
   behavior: SimBehavior;
   stats: SimStats;
+  /** Additional item types placed in personal storage on each spawn, alongside the access card. */
+  startingItems?: readonly string[];
 }
 
 export interface SimImpostor {
@@ -45,17 +47,21 @@ export interface SimImpostor {
   stats: SimStats;
 }
 
+/** Unknown or redacted clearances use level 1; Admin has unrestricted access. */
+export function clearanceLevel(accessLevel: string): number {
+  const clearance = accessLevel.trim();
+  return /^admin$/i.test(clearance) ? Infinity : /^\d+$/.test(clearance) ? Number(clearance) : 1;
+}
+
 /** Staff keep to their clearance and below; unknown clearances use level 1. */
 export function canVisitLevel(character: SimCharacter, level: number): boolean {
-  const clearance = character.accessLevel.trim();
-  if (/^admin$/i.test(clearance)) return true;
-  const maximum = /^\d+$/.test(clearance) ? Number(clearance) : 1;
-  return level <= maximum;
+  return level <= clearanceLevel(character.accessLevel);
 }
 
 export interface SimOverride {
   exclude?: boolean;
   weight?: number;
+  startingItems?: readonly string[];
 }
 
 // Per-character tweaks for things the profile data doesn't express yet.
@@ -158,6 +164,7 @@ export function toSimCharacter(entry: PersonnelInput, base = '', image?: string)
     weight: override.weight ?? 1,
     behavior: behaviorFromTraits(traits, entry.data.species),
     stats: resolveStats(entry.data.stats),
+    startingItems: override.startingItems,
   };
 }
 

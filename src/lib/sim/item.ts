@@ -1,7 +1,22 @@
 import { ITEM_SPRITES } from './sprites.ts';
+import { clearanceLevel, type SimCharacter } from './roster.ts';
 
 /** How far from their feet, in room pixels, an agent can pick up a loose item. */
 export const ITEM_REACH = 12;
+
+// Level 0 retains its own permissions while reusing level-1 artwork.
+export const itemAssetType = (type: string): string => type === 'card_lvl0' ? 'card_lvl1' : type;
+
+export function startingItemTypes(character: SimCharacter): readonly string[] {
+  const level = clearanceLevel(character.accessLevel ?? '1');
+  return [level === Infinity ? 'card_admin' : `card_lvl${level}`, ...(character.startingItems ?? [])];
+}
+
+export function accessCardLevel(item: { type: string }): number | undefined {
+  if (item.type === 'card_admin') return Infinity;
+  const match = /^card_lvl(\d+)$/.exec(item.type);
+  return match ? Number(match[1]) : undefined;
+}
 
 /** Something an agent can do with the item in their hand. */
 export interface ItemAction {
@@ -35,7 +50,7 @@ export interface PlacedItem {
   flip: boolean;
 }
 
-/** A loose item lives in Room.items; a carried item lives only in Agent.item. */
+/** Items live on the floor, in an agent's hand, or in their personal storage, never more than one. */
 export class Item implements PlacedItem {
   readonly type: string;
   readonly asset: string;
@@ -64,6 +79,6 @@ export class Item implements PlacedItem {
   static create(type: string): Item {
     const frame = ITEM_SPRITES[type];
     if (!frame) throw new Error(`Item "${type}" needs an ITEM_SPRITES entry before it can be created.`);
-    return new Item({ type, asset: `item:${type}`, x: 0, y: 0, w: frame.w, h: frame.h, flip: false });
+    return new Item({ type, asset: `item:${itemAssetType(type)}`, x: 0, y: 0, w: frame.w, h: frame.h, flip: false });
   }
 }

@@ -13,7 +13,7 @@ import { itemPreview, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { HOLD_ITEM_CYCLE, IDLE_CYCLES, ITEM_HAND_ANCHORS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, itemFrame } from '../src/lib/sim/sprites.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { trip, wait, walkTo } from '../src/lib/sim/tasks.ts';
-import { itemPickupPoint, pickUp, setDownItem, useItem } from '../src/lib/sim/itemTasks.ts';
+import { itemPickupPoint, pickUp, retrieveItem, setDownItem, storeItem, useItem } from '../src/lib/sim/itemTasks.ts';
 import { ITEM_REACH } from '../src/lib/sim/item.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
 import { ITEM_ACTIONS, itemActions } from '../src/lib/sim/item.ts';
@@ -93,6 +93,100 @@ test('the planner only offers item actions while carrying a matching item', asyn
 
 const character = { scale: 1, behavior: { speed: 1 } };
 const can = (x = 197, y = 130) => new Item({ type: 'can', asset: 'item:can', x, y, w: 6, h: 10, flip: false });
+
+test('every agent spawns with its own profile-level card in storage and an empty hand', () => {
+  const room = { items: [] };
+  for (let level = 0; level <= 5; level++) {
+    const profile = { ...character, accessLevel: String(level) };
+    const a = new Agent(profile, room, { x: 0, y: 0 });
+    const b = new Agent(profile, room, { x: 0, y: 0 });
+    assert.equal(a.item, null);
+    assert.deepEqual(a.inventory.map((item) => item.type), [`card_lvl${level}`]);
+    assert.notEqual(a.inventory[0], b.inventory[0]);
+    for (let door = 0; door <= 6; door++) assert.equal(a.hasAccessCard(door), door <= level);
+  }
+  for (const accessLevel of ['Admin', ' admin ']) {
+    const admin = new Agent({ ...character, accessLevel }, room, { x: 0, y: 0 });
+    assert.equal(admin.inventory[0].type, 'card_admin');
+    assert.equal(admin.hasAccessCard(999), true);
+    assert.equal(admin.inventory[0].asset, 'item:card_admin');
+  }
+  for (const accessLevel of ['███', '', 'None', '-1', '3.5']) {
+    const agent = new Agent({ ...character, accessLevel }, room, { x: 0, y: 0 });
+    assert.equal(agent.inventory[0].type, 'card_lvl1');
+  }
+  assert.deepEqual(room.items, [], 'spawned inventory never appears on the floor');
+});
+
+test('starting items and storage preserve item identity without duplicating ownership', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const profile = { ...character, startingItems: ['can', 'can'] };
+  const agent = new Agent(profile, room, { x: 200, y: 140 });
+  const other = new Agent(profile, room, agent);
+  const first = agent.inventory[1];
+  assert.deepEqual(agent.inventory.map((item) => item.type), ['card_lvl1', 'can', 'can']);
+  assert.notEqual(first, other.inventory[1]);
+  assert.throws(() => agent.storeItem(), /no item/);
+  assert.throws(() => agent.retrieveItem(other.inventory[1]), /not in.*inventory/);
+  assert.throws(() => agent.receiveItem(first), /retrieveItem/);
+  assert.throws(() => agent.receiveStoredItem(first), /already/);
+  agent.retrieveItem(first);
+  assert.equal(agent.item, first);
+  assert.equal(agent.inventory.includes(first), false);
+  assert.throws(() => agent.retrieveItem(agent.inventory[1]), /already carries/);
+  assert.throws(() => agent.receiveStoredItem(first), /already/);
+  assert.equal(agent.storeItem(), first);
+  assert.equal(agent.item, null);
+  assert.equal(agent.inventory.filter((item) => item === first).length, 1);
+  agent.retrieveItem(first);
+  agent.dropItem();
+  assert.throws(() => agent.receiveStoredItem(first), /already/);
+  assert.equal(agent.inventory.includes(first), false);
+  agent.x = first.x + first.w / 2;
+  agent.y = first.y + first.h;
+  agent.pickUpItem(first);
+  agent.storeItem();
+  assert.equal(room.items.length, 0);
+  agent.room = new Room(await loadRoom('level-1-offices'));
+  agent.retrieveItem(first);
+  assert.equal(agent.consumeItem(), first);
+  assert.equal(agent.inventory.includes(first), false);
+  assert.equal(agent.hasAccessCard(1), true, 'using a drink does not consume the card');
+  assert.throws(() => new Agent({ ...character, startingItems: ['missing-item'] }, room, agent), /ITEM_SPRITES/);
+});
+
+test('storage transfers are forbidden during dragging, transport, removal and departure', () => {
+  for (const state of [{ held: true }, { layer: 'inside' }, { alpha: 0.5 }, { leaving: true }, { removed: true }]) {
+    const agent = new Agent(character, { items: [] }, { x: 0, y: 0 });
+    const card = agent.inventory[0];
+    Object.assign(agent, state);
+    assert.throws(() => agent.retrieveItem(card), /cannot retrieve/);
+    Object.assign(agent, { held: false, layer: 'room', alpha: 1, leaving: false, removed: false });
+    agent.retrieveItem(card);
+    Object.assign(agent, state);
+    assert.throws(() => agent.storeItem(), /cannot store/);
+    assert.equal(agent.item, card);
+    assert.deepEqual(agent.inventory, []);
+  }
+  const agent = new Agent(character, { items: [] }, { x: 0, y: 0 });
+  agent.setPlan({}, [{ activity: 'Transport', transport: true, update() { return false; } }]);
+  agent.update({}, 0);
+  assert.throws(() => agent.retrieveItem(agent.inventory[0]), /cannot retrieve/);
+});
+
+test('access card art is tightly cropped and level zero reuses level-one artwork', async () => {
+  for (const type of ['card_lvl0', 'card_lvl1', 'card_lvl2', 'card_lvl3', 'card_lvl4', 'card_lvl5', 'card_admin']) {
+    const item = Item.create(type);
+    const file = `src/sim_assets/items/${item.asset.slice(5)}.png`;
+    const frame = itemFrame(type, await sharp(file).metadata());
+    const { info } = await sharp(file).trim().toBuffer({ resolveWithObject: true });
+    assert.deepEqual([frame.w, frame.h, item.w, item.h], [10, 8, 10, 8]);
+    assert.deepEqual([info.width, info.height], [10, 8]);
+    const preview = await itemPreview(type);
+    const metadata = await sharp(Buffer.from(preview.split(',')[1], 'base64')).metadata();
+    assert.deepEqual([metadata.width, metadata.height], [10, 8]);
+  }
+});
 
 test('holding poses apply while standing or dragged without replacing walks, seats, or speaking', () => {
   for (const facing of ['right', 'left', 'front', 'back']) {
@@ -277,6 +371,12 @@ test('item room data and palette previews use the artwork crop, with explicit va
   const preview = await itemPreview('can', assetsDir);
   const image = await sharp(Buffer.from(preview.split(',')[1], 'base64')).metadata();
   assert.deepEqual([image.width, image.height], [6, 10]);
+  await Promise.all(['card_lvl1', 'card_admin'].map((type) =>
+    copyFile(`src/sim_assets/items/${type}.png`, path.join(assetsDir, 'items', `${type}.png`))));
+  for (const type of ['card_lvl0', 'card_admin']) {
+    const data = await load([{ type, x: 100, y: 100 }]);
+    assert.deepEqual(data.items, [{ ...Item.create(type).toData(), x: 100, y: 100 }]);
+  }
   await assert.rejects(load({}), /items.*must be an array/);
   await assert.rejects(load([{ type: 'missing', x: 0, y: 0 }]), /unknown type/);
   await assert.rejects(load([{ type: 'can', x: 0.5, y: 0 }]), /whole-number/);
@@ -329,6 +429,9 @@ test('elevator travel retains the carried item and leaving takes it off camera',
   const world = new World({ rooms: [source, destination], roster: [] });
   const item = can();
   const agent = new Agent({ ...character, id: 'carrier', name: 'Carrier' }, source, { x: 200, y: 140 });
+  const card = agent.inventory[0];
+  const stored = Item.create('can');
+  agent.receiveStoredItem(stored);
   source.items.push(item);
   world.agents.push(agent);
   agent.pickUpItem(item);
@@ -336,14 +439,17 @@ test('elevator travel retains the carried item and leaving takes it off camera',
   assert.equal(world.agents.includes(agent), false);
   assert.equal(agent.item, item);
   assert.equal(agent.room, destination);
+  assert.deepEqual(agent.inventory, [card, stored]);
   world.deliver(world.rides[0]);
   assert.equal(world.agents.includes(agent), true);
   assert.equal(agent.item, item);
   assert.equal(agent.layer, 'inside');
+  assert.deepEqual(agent.inventory, [card, stored]);
   assert.equal(source.items.length + destination.items.length, 0);
   world.remove(agent, 'elevator');
   assert.equal(agent.removed, true);
   assert.equal(agent.item, item);
+  assert.deepEqual(agent.inventory, [card, stored]);
   assert.equal(source.items.length + destination.items.length, 0);
 });
 
@@ -597,4 +703,53 @@ test('agents occasionally carry an item somewhere and set it down', async (t) =>
   assert.deepEqual(room.items, [item]);
   assert.ok(Math.hypot(item.x + item.w / 2 - destination.x, item.y + item.h - destination.y) <= 1);
   assert.ok(logs.includes(`a set down a can in the ${room.name}.`));
+});
+
+test('agents stash held items and retrieve stored items for later use without randomly taking out cards', async (t) => {
+  const { room, world, random, logs } = await curiousSetup(t);
+  const agent = world.spawn(person('inventory'), room, { x: 200, y: 140 });
+  const item = Item.create('can');
+  agent.receiveItem(item);
+  const findPlan = (activity) => {
+    for (let i = 0; i < 1000; i++) {
+      random.mock.mockImplementation(() => (i + 0.5) / 1000);
+      const plan = planNext(agent, world);
+      if (plan[0].activity === activity) return plan;
+    }
+    assert.fail(`Planner never offered ${activity}`);
+  };
+  agent.setPlan(world, findPlan('Storing a can'));
+  agent.update(world, 0);
+  assert.equal(agent.item, null);
+  assert.ok(agent.inventory.includes(item));
+  agent.setPlan(world, findPlan('Retrieving a can'));
+  agent.update(world, 0);
+  assert.equal(agent.item, item);
+  assert.equal(agent.inventory.includes(item), false);
+  agent.setPlan(world, [useItem(drink)]);
+  agent.update(world, drink.seconds);
+  assert.equal(agent.item, null);
+  for (let i = 0; i < 1000; i++) {
+    random.mock.mockImplementation(() => (i + 0.5) / 1000);
+    assert.ok(!planNext(agent, world)[0].activity.startsWith('Retrieving'), 'cards stay safely stored');
+  }
+  assert.deepEqual(logs.filter((line) => !line.includes('meowed')), [
+    'inventory stored a can.', 'inventory retrieved a can.', `inventory finished a can in the ${room.name}.`,
+  ]);
+});
+
+test('inventory tasks show confusion rather than transferring a missing or replaced item', () => {
+  const agent = new Agent(character, { items: [] }, { x: 0, y: 0 });
+  const item = Item.create('can');
+  const world = logWorld();
+  agent.setPlan(world, [retrieveItem(item)]);
+  agent.update(world, 0);
+  assert.equal(agent.item, null);
+  assert.equal(agent.bubble, '?');
+  agent.receiveItem(Item.create('can'));
+  agent.setPlan(world, [storeItem(item)]);
+  agent.update(world, 0);
+  assert.ok(agent.item);
+  assert.equal(agent.inventory.length, 1);
+  assert.deepEqual(world.lines, []);
 });

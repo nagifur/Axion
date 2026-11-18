@@ -11,6 +11,7 @@ import { Elevator } from './elevator.ts';
 import { PassageNetwork } from './passages.ts';
 import * as routing from './routing.ts';
 import { chance, maybePick, pick, range, weightedPick } from './random.ts';
+import { accessCardLevel, startingItemTypes } from './item.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -101,12 +102,14 @@ export class World {
 
   canUsePassage(character: SimCharacter, door: Door): boolean {
     const state = this.passageDoorFor(door);
-    return !state || (!state.blocked && (state.stuckOpen || canVisitLevel(character, state.clearance)));
+    return !state || (!state.blocked && (state.stuckOpen ||
+      startingItemTypes(character).some((type) => (accessCardLevel({ type }) ?? -1) >= state.clearance)));
   }
 
   canAgentUsePassage(agent: Agent, door: Door): boolean {
-    return !this.passageDoorFor(door)?.blocked &&
-      (agent.leaving || !!agent.impostor || this.canUsePassage(agent.character, door));
+    const state = this.passageDoorFor(door);
+    return !state || (!state.blocked &&
+      (state.stuckOpen || !!agent.impostor || agent.hasAccessCard(state.clearance)));
   }
 
   /** Other rooms on camera that `room`'s elevator stops at, ordered by level. */
@@ -120,8 +123,8 @@ export class World {
   }
 
   /** First door or elevator stop on a clearance-safe route to a work floor. */
-  stepTowardWork(character: SimCharacter, room: Room): Door | Room | undefined {
-    return routing.stepTowardWork(this, character, room);
+  stepTowardWork(character: SimCharacter, room: Room, agent?: Agent): Door | Room | undefined {
+    return routing.stepTowardWork(this, character, room, agent);
   }
 
   /** Everyone in the facility, including people riding the elevator between floors. */
@@ -171,8 +174,8 @@ export class World {
   }
 
   /** First door toward the nearest room with a way out; null if `room` has one (see routing.ts). */
-  doorTowardExit(room: Room, doorsOnly = false): Door | null {
-    return routing.doorTowardExit(this, room, doorsOnly);
+  doorTowardExit(room: Room, doorsOnly = false, agent?: Agent): Door | null {
+    return routing.doorTowardExit(this, room, doorsOnly, agent);
   }
 
   /** Puts people around the facility immediately so the cameras never start empty. */
@@ -280,6 +283,7 @@ export class World {
       agent.x = door.inside.x;
       agent.y = door.inside.y;
       agent.alpha = 1;
+      agent.leaving = false;
       agent.setPlan(this, []);
       return;
     }

@@ -16,6 +16,7 @@ import { Renderer } from '../src/lib/sim/render.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { linkRooms, listPropTypes, loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
+import { Item } from '../src/lib/sim/item.ts';
 
 beforeEach((t) => {
   t.mock.method(Math, 'random', () => 0.5);
@@ -303,7 +304,25 @@ test('authorized proximity opens and holds one shared door, then it closes and r
   assert.equal(state.open, 0);
 });
 
-test('held agents do not activate panels; Admin, impostors, and exits follow existing clearance exceptions', () => {
+test('each issued card opens exactly its level and lower door panels, including level zero', () => {
+  for (let card = 0; card <= 5; card++) {
+    for (let clearance = 0; clearance <= 5; clearance++) {
+      const { world, a, east } = connectedRooms(clearance);
+      const agent = stay(world, staff(String(card)), a, east.inside);
+      assert.equal(world.canAgentUsePassage(agent, east), clearance <= card);
+      world.update(PASSAGE_DOOR_SECONDS);
+      assert.equal(world.passageDoorFor(east).open, clearance <= card ? 1 : 0,
+        `card ${card}, door ${clearance}`);
+    }
+  }
+  const { world, a, east } = connectedRooms(6);
+  const admin = stay(world, staff('Admin'), a, east.inside);
+  assert.equal(admin.inventory[0].type, 'card_admin');
+  world.update(PASSAGE_DOOR_SECONDS);
+  assert.equal(world.passageDoorFor(east).open, 1, 'Admin is not limited to level 5');
+});
+
+test('held agents do not activate panels; only Admin and impostors bypass clearance', () => {
   const { world, a, east } = connectedRooms();
   const state = world.passageDoorFor(east);
   const admin = stay(world, staff('Admin', 'admin'), a, east.inside);
@@ -318,10 +337,172 @@ test('held agents do not activate panels; Admin, impostors, and exits follow exi
   const low = stay(world, staff('0', 'low'), a, east.inside);
   assert.equal(world.canAgentUsePassage(low, east), false);
   low.leaving = true;
-  assert.equal(world.canAgentUsePassage(low, east), true, 'exits remain available');
+  assert.equal(world.canAgentUsePassage(low, east), false, 'departure intent does not grant access');
   low.leaving = false;
   const mimic = stay(world, staff('0', 'mimic'), a, east.inside, { id: 'fake', name: 'Fake', nickname: '', href: '', weight: 1 });
   assert.equal(world.canAgentUsePassage(mimic, east), true, 'impostors retain their existing bypass');
+});
+
+test('a level-3 agent placed in the level-4 Trophy Room cannot open its door to leave', async () => {
+  const rooms = (await loadFacility()).map((data) => new Room(data));
+  const world = new World({ rooms, roster: [] });
+  const room = world.room('level-4-trophyRoom');
+  const door = room.linkedDoors[0];
+  const agent = stay(world, staff('3'), room, door.inside);
+  const state = world.passageDoorFor(door);
+  for (const hurry of [false, true]) {
+    const plan = leaveFacility(agent, world, hurry);
+    assert.equal(plan[0].activity, 'Waiting for an exit');
+    agent.setPlan(world, plan);
+    for (let i = 0; i < 10; i++) world.update(0.1);
+    assert.equal(agent.room, room);
+    assert.equal(agent.alpha, 1);
+    assert.equal(agent.removed, false);
+    assert.equal(state.open, 0);
+    assert.equal(state.unlocked, false);
+    assert.equal(agent.leaving, false, 'waiting for a permitted exit is not an active departure');
+    assert.equal(agent.draggable, true, 'the player can rescue an agent with no exit route');
+  }
+  agent.setPlan(world, [exitThroughDoor(door)]);
+  for (let i = 0; i < 10; i++) world.update(0.1);
+  assert.equal(agent.room, room, 'an explicitly queued crossing cannot bypass access either');
+  assert.equal(state.open, 0);
+});
+
+test('a departure interrupted by a relocked door restores pickup and cancels queued movement', () => {
+  const { world, a, b, east } = connectedRooms(4);
+  const state = world.passageDoorFor(east);
+  state.update(true, PASSAGE_DOOR_SECONDS);
+  state.breakPanel();
+  const agent = stay(world, staff('3'), a, east.inside);
+  const warnings = [];
+  world.hooks.log = (message) => warnings.push(message);
+  agent.leaving = true;
+  agent.setPlan(world, [exitThroughDoor(east), exitThroughDoor(east)]);
+  world.update(0.1);
+  world.update(0.1);
+  assert.ok(agent.alpha < 1, 'the agent has started crossing the stuck-open door');
+  assert.equal(agent.draggable, false);
+  state.repairPanel();
+  world.update(0.1);
+  assert.equal(agent.room, a);
+  assert.notEqual(agent.room, b);
+  assert.deepEqual({ x: agent.x, y: agent.y, alpha: agent.alpha }, { ...east.inside, alpha: 1 });
+  assert.equal(agent.leaving, false);
+  assert.equal(agent.draggable, true, 'a failed departure must release the pickup lock');
+  assert.ok(warnings.some((message) => message.includes('Access denied')));
+  world.update(0.1);
+  assert.equal(agent.draggable, true, 'queued transport must not restart after cancellation');
+});
+
+test('a door breaking during a planned departure releases the departure state', () => {
+  const { world, a, east } = connectedRooms(4);
+  const agent = stay(world, staff('4'), a, east.inside);
+  const state = world.passageDoorFor(east);
+  state.update(true, PASSAGE_DOOR_SECONDS);
+  agent.leaving = true;
+  agent.setPlan(world, [exitThroughDoor(east)]);
+  world.update(0.1);
+  world.update(0.1);
+  assert.ok(agent.alpha < 1);
+  state.break();
+  world.update(0.1);
+  assert.equal(agent.room, a);
+  assert.equal(agent.alpha, 1);
+  assert.equal(agent.leaving, false);
+  assert.equal(agent.draggable, true);
+});
+
+test('a door closing in front of a crossing agent returns them to the threshold until it reopens', () => {
+  const { world, a, b, east } = connectedRooms();
+  const agent = world.spawn(staff('2', 'nagi', { speed: 0.2 }), a, east.inside);
+  const state = world.passageDoorFor(east);
+  agent.setPlan(world, [exitThroughDoor(east)]);
+  for (let i = 0; i < 20 && agent.alpha === 1; i++) world.update(0.1);
+  assert.ok(agent.alpha < 1, 'the agent has started crossing');
+  state.open = 0.5;
+  world.update(0);
+  assert.deepEqual({ x: agent.x, y: agent.y, alpha: agent.alpha }, { ...east.inside, alpha: 1 },
+    'nobody stays half-faded in a closing doorway');
+  for (let i = 0; i < 300 && agent.room !== b; i++) world.update(0.1);
+  assert.equal(agent.room, b, 'the authorized agent reopens the door and finishes crossing');
+});
+
+test('authorized agents walking through the doorway keep the door open behind the threshold', () => {
+  const { world, a, east } = connectedRooms();
+  east.outside = { x: east.inside.x + PASSAGE_DOOR_RANGE * 3, y: east.inside.y };
+  const agent = stay(world, staff('2'), a, { x: east.inside.x + PASSAGE_DOOR_RANGE * 2, y: east.inside.y });
+  world.update(PASSAGE_DOOR_SECONDS + PASSAGE_DOOR_HOLD_SECONDS + 1);
+  assert.equal(world.passageDoorFor(east).open, 1);
+  assert.equal(agent.room, a);
+});
+
+test('a door that never reopens makes the agent give up and become pickable again', (t) => {
+  const { world, a, east } = connectedRooms();
+  const agent = world.spawn(staff('2', 'nagi'), a, east.inside);
+  const state = world.passageDoorFor(east);
+  t.mock.method(state, 'update', () => undefined);
+  const warnings = [];
+  world.hooks.log = (message) => warnings.push(message);
+  agent.leaving = true;
+  agent.setPlan(world, [exitThroughDoor(east), exitThroughDoor(east)]);
+  world.update(0.1);
+  assert.equal(agent.draggable, false);
+  for (let i = 0; i < 60; i++) world.update(0.1);
+  assert.equal(agent.room, a);
+  assert.equal(agent.alpha, 1);
+  assert.equal(agent.leaving, false);
+  assert.equal(agent.draggable, true, 'the stalled crossing releases the pickup lock');
+  assert.ok(warnings.some((message) => message.includes('gave up waiting')));
+});
+
+test('departure routing skips a locked shortcut and checks the final outer door', () => {
+  const data = (id, links) => {
+    const room = roomData(id, 0, 'west', undefined);
+    room.nav.exits = Object.keys(links).map((id) => ({
+      ...room.nav.exits[0], id,
+    }));
+    room.links = Object.fromEntries(Object.entries(links)
+      .filter(([, { to }]) => to).map(([id, { to }]) => [id, to]));
+    room.doors = Object.fromEntries(Object.entries(links).map(([id, { clearance }]) => [id, { clearance }]));
+    return new Room(room);
+  };
+  const start = data('start', {
+    shortcut: { clearance: 4, to: { room: 'exit', door: 'shortcut' } },
+    detour: { clearance: 3, to: { room: 'detour', door: 'back' } },
+  });
+  const detour = data('detour', {
+    back: { clearance: 3, to: { room: 'start', door: 'detour' } },
+    onward: { clearance: 3, to: { room: 'exit', door: 'detour' } },
+  });
+  const exit = data('exit', {
+    shortcut: { clearance: 4, to: { room: 'start', door: 'shortcut' } },
+    detour: { clearance: 3, to: { room: 'detour', door: 'onward' } },
+    outside: { clearance: 3 },
+  });
+  const world = new World({ rooms: [start, detour, exit], roster: [] });
+  const agent = stay(world, staff('3'), start, start.doors[0].inside);
+  for (const hurry of [false, true]) {
+    assert.equal(leaveFacility(agent, world, hurry)[0].activity, 'Heading to the detour');
+  }
+  world.passageDoorFor(exit.outerDoors[0]).break();
+  assert.equal(leaveFacility(agent, world)[0].activity, 'Waiting for an exit',
+    'a route must end at a usable exit');
+});
+
+test('outer-door departures require an access card and authorized departures still work', () => {
+  for (const level of ['3', '4']) {
+    const room = new Room(roomData('exit', 4, 'west', 4));
+    const world = new World({ rooms: [room], roster: [] });
+    const door = room.outerDoors[0];
+    const agent = stay(world, staff(level), room, door.inside);
+    const plan = leaveFacility(agent, world);
+    assert.equal(plan[0].activity, level === '3' ? 'Waiting for an exit' : 'Heading out');
+    agent.setPlan(world, plan);
+    for (let i = 0; i < 30 && !agent.removed; i++) world.update(0.1);
+    assert.equal(agent.removed, level === '4');
+    if (level === '3') assert.equal(world.passageDoorFor(door).open, 0);
+  }
 });
 
 test('crossing waits for the door to open and shares its state with the arrival view', () => {
@@ -360,24 +541,68 @@ test('a low-clearance agent cannot follow someone through an open door, and work
   assert.equal(world.stepTowardWork(low.character, a), undefined);
   assert.equal(world.stepTowardWork(high.character, a), east);
 
+  low.leaving = true;
   world.transfer(low, east);
   assert.equal(low.room, a, 'direct transfers also respect a physical lock');
   assert.notEqual(low.room, b);
+  assert.equal(low.leaving, false, 'a rejected direct transfer also clears departure intent');
+  assert.equal(low.draggable, true);
 });
 
-test('a clearance change during crossing returns the agent to the threshold visibly', () => {
+test('losing an access card during crossing returns the agent to the threshold visibly', () => {
   const { world, a, east } = connectedRooms();
   const agent = world.spawn(staff('2'), a, east.inside);
   const warnings = [];
   world.hooks.log = (message) => warnings.push(message);
+  agent.retrieveItem(agent.inventory[0]);
   agent.setPlan(world, [exitThroughDoor(east)]);
   world.update(PASSAGE_DOOR_SECONDS);
   world.update(0.1);
   assert.ok(agent.alpha < 1);
-  agent.character.accessLevel = '0';
+  agent.consumeItem();
   world.update(0.1);
   assert.deepEqual({ x: agent.x, y: agent.y, alpha: agent.alpha }, { ...east.inside, alpha: 1 });
   assert.ok(warnings.some((message) => message.includes('Access denied')));
+});
+
+test('door access follows the best stored or held card, not the current profile', () => {
+  const { world, a, east } = connectedRooms(3);
+  const agent = world.spawn(staff('1'), a, east.inside);
+  assert.equal(world.canAgentUsePassage(agent, east), false);
+  const card = Item.create('card_lvl3');
+  agent.receiveStoredItem(card);
+  assert.equal(world.canAgentUsePassage(agent, east), true);
+  assert.equal(world.stepTowardWork(agent.character, a, agent), east);
+  agent.retrieveItem(card);
+  assert.equal(world.canAgentUsePassage(agent, east), true);
+  agent.dropItem();
+  assert.equal(world.canAgentUsePassage(agent, east), false);
+  assert.equal(world.stepTowardWork(agent.character, a, agent), undefined);
+  agent.character.accessLevel = '5';
+  assert.equal(world.canAgentUsePassage(agent, east), false, 'editing a profile does not mint a new card');
+  agent.x = card.x + card.w / 2;
+  agent.y = card.y + card.h;
+  agent.pickUpItem(card);
+  assert.equal(world.canAgentUsePassage(agent, east), true);
+});
+
+test('spawn loadouts authorize arrivals and lost cards stop proximity activation and direct transfers', () => {
+  const room = new Room(roomData('entry', 0, 'west', 3));
+  const world = new World({ rooms: [room], roster: [] });
+  const door = room.doors[0];
+  const agent = world.arriveByDoor({ ...staff('1'), startingItems: ['card_lvl3'] }, room, door);
+  assert.deepEqual(agent.inventory.map((item) => item.type), ['card_lvl1', 'card_lvl3']);
+  assert.equal(world.canAgentUsePassage(agent, door), true);
+
+  const { world: connected, a, b, east } = connectedRooms(3);
+  const high = stay(connected, staff('3'), a, east.inside);
+  high.retrieveItem(high.inventory[0]);
+  high.dropItem();
+  connected.update(0.1);
+  assert.equal(connected.passageDoorFor(east).unlocked, false);
+  connected.transfer(high, east);
+  assert.equal(high.room, a);
+  assert.notEqual(high.room, b);
 });
 
 test('off-camera arrivals wait for an authorized door and do not bypass locked entrances', () => {

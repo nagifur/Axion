@@ -124,7 +124,7 @@ test('dropping an agent on the vending machine gets a can; switched off it is tu
   assert.equal(target.label, 'Get a can from the vending_machine');
   assert.deepEqual(target.point, stand);
   assert.equal(placeAgent(world, agent, target), true);
-  run(world, agent, 3);
+  for (let t = 0; t < 3 && !agent.item; t += 0.1) agent.update(world, 0.1);
   assert.equal(agent.item?.type, 'can');
   assert.equal(machine.on, true, 'buying does not toggle the power');
   const full = dropTarget(world, agent, at, null, machine);

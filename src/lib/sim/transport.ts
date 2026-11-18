@@ -92,6 +92,7 @@ export function rideElevatorIn(request: ElevatorRequest): Task {
 export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading out'): Task {
   let path: Point[] = [];
   let fading = false;
+  let waited = 0;
   return {
     activity,
     interruptible: false,
@@ -107,14 +108,22 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
       }
       const physical = world.passageDoorFor(door);
       if (physical && !world.canAgentUsePassage(agent, door)) {
-        agent.x = door.inside.x;
-        agent.y = door.inside.y;
-        agent.alpha = 1;
-        agent.say('?', 1.5);
+        giveUpOnDoor(agent, world, door);
         world.log(`Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
         return true;
       }
-      if (physical && physical.open < 1) return false;
+      if (physical && physical.open < 1) {
+        // Never stay half-faded in a closing doorway: wait visibly at the threshold instead.
+        agent.x = door.inside.x;
+        agent.y = door.inside.y;
+        agent.alpha = 1;
+        waited += Math.max(0, dt);
+        if (waited < DOOR_WAIT_LIMIT) return false;
+        giveUpOnDoor(agent, world, door);
+        world.log(`${agent.character.name} gave up waiting for the ${door.id} door in ${agent.room.name}.`, 'warn');
+        return true;
+      }
+      waited = 0;
       const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.outside, dt, speedMul);
       poseInDoorway(agent, door, 'out');
@@ -126,6 +135,19 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
       return reached;
     },
   };
+}
+
+/** Longest an agent waits at a closed passage before abandoning the crossing. */
+const DOOR_WAIT_LIMIT = 5;
+
+/** Puts the agent back at the threshold, visible and pickable, and drops the failed trip. */
+function giveUpOnDoor(agent: Agent, world: World, door: Door) {
+  agent.x = door.inside.x;
+  agent.y = door.inside.y;
+  agent.alpha = 1;
+  agent.leaving = false;
+  agent.setPlan(world, []);
+  agent.say('?', 1.5);
 }
 
 /** Walks through a door into the neighbouring room on camera. */
@@ -193,7 +215,7 @@ export function phaseThroughWall(direction: 'in' | 'out'): Task {
 /** Tasks that take the agent out of the facility: through this room's way out, or towards the nearest room with one. */
 export function leaveFacility(agent: Agent, world: World, hurry = false): Task[] {
   const { room } = agent;
-  const doors = room.outerDoors.filter((door) => !world.passageDoorFor(door)?.blocked);
+  const doors = room.outerDoors.filter((door) => world.canAgentUsePassage(agent, door));
   const hasExit = !!room.elevator || doors.length > 0;
   const speed = hurry ? 2.2 : 1;
   agent.leaving = true;
@@ -208,12 +230,14 @@ export function leaveFacility(agent: Agent, world: World, hurry = false): Task[]
       const nearest = doors.reduce((best, door) => (distance(door.inside, agent) < distance(best.inside, agent) ? door : best));
       return [exitThroughDoor(nearest, speed)];
     }
-    const step = world.doorTowardExit(room, true);
+    const step = world.doorTowardExit(room, true, agent);
     if (step) return [headToNextRoom(world, step, speed)];
   }
   if (!hasExit) {
-    const step = world.doorTowardExit(room);
-    return step ? [headToNextRoom(world, step, speed)] : [wait(2, 'Waiting for an exit')];
+    const step = world.doorTowardExit(room, false, agent);
+    if (step) return [headToNextRoom(world, step, speed)];
+    agent.leaving = false;
+    return [wait(2, 'Waiting for an exit')];
   }
   if (room.elevator && (!doors.length || chance(0.65))) return [rideElevatorOut()];
   return [exitThroughDoor(pick(doors), speed)];

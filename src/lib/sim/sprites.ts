@@ -96,6 +96,13 @@ export const IDLE_FRAME_SECONDS = 0.6;
 /** Item artwork crops, independent of prop power-state sheets. */
 export const ITEM_SPRITES: Record<string, Rect> = {
   can: { x: 45, y: 43, w: 6, h: 10 },
+  card_lvl0: { x: 43, y: 44, w: 10, h: 8 },
+  card_lvl1: { x: 43, y: 44, w: 10, h: 8 },
+  card_lvl2: { x: 43, y: 44, w: 10, h: 8 },
+  card_lvl3: { x: 43, y: 44, w: 10, h: 8 },
+  card_lvl4: { x: 43, y: 44, w: 10, h: 8 },
+  card_lvl5: { x: 43, y: 44, w: 10, h: 8 },
+  card_admin: { x: 43, y: 44, w: 10, h: 8 },
 };
 
 export function itemFrame(type: string, image: { width: number; height: number }): Rect {

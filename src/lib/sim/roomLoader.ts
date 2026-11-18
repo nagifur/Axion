@@ -8,7 +8,7 @@ import sharp from 'sharp';
 import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
 import { itemFrame, placeablePropTypes, propCellOccupancy, propFrame, propSheetFeatures, propTypeOf, type PropSheetImage } from './sprites.ts';
-import type { PlacedItem } from './item.ts';
+import { itemAssetType, type PlacedItem } from './item.ts';
 import { passageDoorAsset, passagePanelAsset, type DoorConfig } from './door.ts';
 
 export const SIM_ASSETS_DIR = path.resolve('src/sim_assets');
@@ -64,7 +64,7 @@ export async function listPropTypes(assetsDir = SIM_ASSETS_DIR): Promise<string[
 }
 
 export async function itemPreview(type: string, assetsDir = SIM_ASSETS_DIR): Promise<string> {
-  const file = path.join(assetsDir, 'items', `${type}.png`);
+  const file = path.join(assetsDir, 'items', `${itemAssetType(type)}.png`);
   const frame = itemFrame(type, await imageSize(file));
   const png = await sharp(file).extract({ left: frame.x, top: frame.y, width: frame.w, height: frame.h }).png().toBuffer();
   return `data:image/png;base64,${png.toString('base64')}`;
@@ -256,14 +256,15 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
       .filter((file) => file.endsWith('.png')).map((file) => file.slice(0, -4));
     for (const [index, entry] of json.items.entries()) {
       const { type, x, y, flip } = entry ?? {};
-      if (typeof type !== 'string' || !knownItems.includes(type)) {
+      if (typeof type !== 'string' || !knownItems.includes(itemAssetType(type))) {
         throw new NavMapError(`${label}/room.json: item ${index + 1} has unknown type "${type}". Known: ${knownItems.join(', ')}.`);
       }
       if (!Number.isInteger(x) || !Number.isInteger(y) || (flip !== undefined && typeof flip !== 'boolean')) {
         throw new NavMapError(`${label}/room.json: item ${index + 1} needs whole-number "x"/"y" and an optional boolean "flip".`);
       }
-      const frame = itemFrame(type, await imageSize(path.join(assetsDir, 'items', `${type}.png`)));
-      items.push({ type, asset: `item:${type}`, x, y, w: frame.w, h: frame.h, flip: flip === true });
+      const assetType = itemAssetType(type);
+      const frame = itemFrame(type, await imageSize(path.join(assetsDir, 'items', `${assetType}.png`)));
+      items.push({ type, asset: `item:${assetType}`, x, y, w: frame.w, h: frame.h, flip: flip === true });
     }
   }
 

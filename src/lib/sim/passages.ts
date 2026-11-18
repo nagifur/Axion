@@ -1,7 +1,16 @@
 import type { Agent } from './agent.ts';
-import type { Door, Room } from './room.ts';
+import type { Door, Point, Room } from './room.ts';
 import type { World } from './world.ts';
 import { PASSAGE_DOOR_RANGE, PassageDoor } from './door.ts';
+
+/** Distance from a point to the doorway, from its threshold to where people fade out. */
+function distanceToDoorway(point: Point, door: Door): number {
+  const dx = door.outside.x - door.inside.x;
+  const dy = door.outside.y - door.inside.y;
+  const length = dx * dx + dy * dy;
+  const t = length ? Math.max(0, Math.min(1, ((point.x - door.inside.x) * dx + (point.y - door.inside.y) * dy) / length)) : 0;
+  return Math.hypot(point.x - (door.inside.x + t * dx), point.y - (door.inside.y + t * dy));
+}
 
 /** One door seen from one room; a linked passage has an endpoint on each side. */
 interface Endpoint {
@@ -50,7 +59,7 @@ export class PassageNetwork {
       const users = new Set(world.agents.filter((agent) =>
         !agent.removed && !agent.held && agent.layer === 'room' &&
         endpoints.some(({ room, door }) => agent.room === room && world.canAgentUsePassage(agent, door) &&
-          Math.hypot(agent.x - door.inside.x, agent.y - door.inside.y) <= PASSAGE_DOOR_RANGE)));
+          distanceToDoorway(agent, door) <= PASSAGE_DOOR_RANGE)));
       const previous = this.users.get(state);
       for (const agent of users) {
         if (previous?.has(agent)) continue;

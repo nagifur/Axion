@@ -84,6 +84,41 @@ export function setDownItem(item: Item): Task {
   };
 }
 
+/** Moves an item between personal storage and the hand. */
+export function storeItem(item: Item): Task {
+  const name = item.type.replaceAll('_', ' ');
+  return {
+    activity: `Storing a ${name}`,
+    interruptible: false,
+    update(agent, world) {
+      if (agent.item !== item || !agent.draggable) {
+        agent.say('?', 2);
+        return true;
+      }
+      agent.storeItem();
+      world.log(`${agent.character.name} stored a ${name}.`, 'muted');
+      return true;
+    },
+  };
+}
+
+export function retrieveItem(item: Item): Task {
+  const name = item.type.replaceAll('_', ' ');
+  return {
+    activity: `Retrieving a ${name}`,
+    interruptible: false,
+    update(agent, world) {
+      if (agent.item || !agent.inventory.includes(item) || !agent.draggable) {
+        agent.say('?', 2);
+        return true;
+      }
+      agent.retrieveItem(item);
+      world.log(`${agent.character.name} retrieved a ${name}.`, 'muted');
+      return true;
+    },
+  };
+}
+
 /**
  * Uses a dispenser prop (e.g. a vending machine) the agent stands in front of, and puts the new
  * item in their hand. Nothing comes out if the hand is full or the prop broke or went off meanwhile.

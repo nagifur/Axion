@@ -191,9 +191,16 @@ ordinary clicks still do. Drop resolution lives in
 Staff start, arrive, and choose rooms only on floors at or below their profile's
 `accessLevel`. `Admin` can visit every floor; unknown or redacted clearances use
 level 1. This applies to connected doors, elevators, and ghost arrivals.
-Physical passage doors also check their own clearance before opening or allowing a
-crossing, including arrivals and work routes. Impostors ignore clearance limits,
-and people leaving can always use exit routes. Explicit player transfers remain
+Physical passage doors check the best access card in an agent's hand or personal
+inventory, rather than their profile, before opening or allowing a crossing.
+Arrivals check the starting loadout; live work routes use the agent's actual cards.
+Impostors ignore clearance limits. Departure routes check the agent's actual cards
+at every door, including the final off-camera exit; wanting to leave does not
+unlock restricted doors. Agents wait if no permitted exit route is available.
+Waiting for an exit is not an active departure and does not prevent pickup.
+If a crossing loses access or its door breaks, the agent returns fully visible to
+the inside threshold, cancels the queued departure, and can be picked up again.
+Explicit player transfers remain
 unrestricted.
 
 Staff follow the viewer's local clock (simulation speed does not speed up the day).
@@ -251,7 +258,7 @@ minimum stay. Clearance rules and motion-sensor lighting are unchanged.
 | [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
 | [`src/lib/sim/roster.ts`](../src/lib/sim/roster.ts) | Profile → character conversion, trait rules, and per-character overrides. |
 | [`src/lib/sim/schedule.ts`](../src/lib/sim/schedule.ts) | Editable daily routine, breaks, and per-character schedule overrides. |
-| [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, and its task queue. |
+| [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, personal inventory, and its task queue. |
 | [`src/lib/sim/planning.ts`](../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
 | [`src/lib/sim/tasks.ts`](../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, napping, falling, tripping, and prop breakage. |
 | [`src/lib/sim/itemTasks.ts`](../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
@@ -532,6 +539,36 @@ agent's current room. Transport, player dragging, and departure disallow both ac
 Carried items follow their agent through walking, sitting, dragging and room/elevator
 travel; they leave the facility with the agent rather than being duplicated on the floor.
 
+Agents also have a read-only `inventory` of stored items, separate from their hand.
+`agent.storeItem()` moves the held item into storage; `agent.retrieveItem(item)` moves
+that same stored instance into an empty hand. Both reject transport, dragging,
+departure, and removal, just like pickup/drop. `agent.receiveStoredItem(item)` adds a
+brand-new item directly to storage. Stored items are not rendered in the agent's hand
+and survive room changes, elevator rides, and dragging. Like stats, inventory belongs
+to the current agent instance; it is not saved across respawns or page reloads.
+There is currently no storage capacity limit.
+
+Every agent starts with a `card_lvl1` through `card_lvl5` matching their profile
+clearance. Unknown/redacted clearances get level 1. Level 0 gets `card_lvl0`, and
+Admin gets a distinct `card_admin` with unrestricted access and its own artwork.
+Level 0 reuses the level-1 artwork until dedicated artwork is available.
+The supplied card images use 10x8 crops at (43, 44) inside their 96x96 sheets.
+A card opens doors of its own level and below directly from storage or the hand;
+no hand slot or consumable is needed. Losing a card immediately removes its permissions,
+even during a crossing. Changing a profile does not replace an already-issued card.
+Floor preferences remain profile-based. Departure routes require the same cards as
+other door crossings; impostor, stuck-open-panel, and broken-door rules still apply.
+
+For extra spawn items, set `startingItems: ['can']` in the character's
+`SIM_OVERRIDES` entry in [`roster.ts`](../src/lib/sim/roster.ts), or on a
+`SimCharacter` passed to `World.spawn`. The automatic card is always added first;
+each spawn creates fresh item instances, including repeated types.
+
+The planner sometimes stashes a held item (weight 0.75) or retrieves a stored
+non-card item (weight 0.5) for later use. Cards stay stored unless explicitly retrieved.
+Item actions still require the item in hand; a retrieved drink can be consumed normally.
+The personnel panel shows stored inventory separately from the held item.
+
 The renderer scales carried items with the character and mirrors them for left-facing
 poses. Dedicated trip, holding, and use frames have per-frame hand anchors, so items
 follow the moving hand; walking, sitting, and talking use the facing-dependent
@@ -676,7 +713,10 @@ door configured with that level's clearance and artwork.
 
 A nearby authorized agent (within 40 room pixels of the passage threshold) turns
 the panel green and opens the door upward in 0.7 simulation seconds. Agents wait
-until it is fully open. Once no authorized agent is nearby, it holds for 1.5 seconds,
+until it is fully open; anyone authorized inside the doorway keeps it open. If it
+closes mid-crossing, the agent steps back to the threshold, fully visible, and
+gives up after 5 seconds without an open door, dropping the trip so they can be
+picked up again. Once no authorized agent is nearby, it holds for 1.5 seconds,
 then closes and the panel returns to red. An unauthorized agent cannot cross even
 when another agent has opened it. The panel glow remains visible in dark rooms.
 South-facing doors and their panels draw in front of the room's props and characters
