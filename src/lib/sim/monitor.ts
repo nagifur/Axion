@@ -364,8 +364,8 @@ export function initMonitor(root: HTMLElement): () => void {
           return;
         }
         drag.active = true;
-        drag.head = renderer.headPosition(drag.agent);
         drag.agent.held = true;
+        drag.head = renderer.headPosition(drag.agent);
         root.classList.add('is-dragging');
       }
       if (drag.active) {

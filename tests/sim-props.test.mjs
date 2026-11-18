@@ -450,7 +450,7 @@ test('elevator doors and lit arrows use their cropped artwork dimensions', async
   const door = { width: 96, height: 96 };
   const lights = { width: 96, height: 96 };
   const room = { elevator: { x: 20, y: 30, w: 48, h: 67 } };
-  const renderer = new Renderer(canvas, { character: { width: 576, height: 864 }, elevator_door: door, elevator_lights: lights }, room);
+  const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, elevator_door: door, elevator_lights: lights }, room);
   assert.deepEqual([...renderer.litArrows.getContext('2d').pixels.subarray(0, 4)], [255, 177, 91, 255]);
   const elevator = { open: 0.5, light: 'up' };
   const world = { time: 0, elevatorFor() { return elevator; }, agentsIn() { return []; } };

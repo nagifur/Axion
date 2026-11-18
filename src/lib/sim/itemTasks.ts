@@ -14,10 +14,11 @@ export function useItem(action: ItemAction): Task {
   return {
     activity: action.activity,
     interruptible: false,
+    get usingItem() { return item; },
     start(agent) {
       item = agent.item;
       if (!itemActions(item).includes(action)) throw new Error(`Agent cannot "${action.id}" without a matching item.`);
-      agent.facing = 'front';
+      agent.facing = agent.facing === 'left' ? 'left' : 'right';
     },
     update(agent, world, dt) {
       // The item may have been dropped meanwhile; then there is nothing left to do.

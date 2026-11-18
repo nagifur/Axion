@@ -1,6 +1,6 @@
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import type { Facing, Point, Room, Spot } from './room.ts';
-import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
+import { CHARACTER_FRAMES, HOLD_ITEM_CYCLE, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { World } from './world.ts';
 import { ITEM_REACH, type Item } from './item.ts';
 import { createAgentStats, type AgentStats } from './stats.ts';
@@ -24,6 +24,8 @@ export interface Task {
   falling?: boolean;
   /** Finish recovering before abandoning a broken seat. */
   tripping?: boolean;
+  /** The carried item this task is using, once it has started. */
+  readonly usingItem?: Item | null;
   start?(agent: Agent, world: World): void;
   /** Returns true when the task is finished. */
   update(agent: Agent, world: World, dt: number): boolean;
@@ -51,6 +53,7 @@ export class Agent {
   moving = false;
   walkDistance = 0;
   private idleElapsed = 0;
+  private taskElapsed = 0;
   layer: 'room' | 'inside' = 'room';
   alpha = 1;
 
@@ -155,11 +158,18 @@ export class Agent {
 
   get frame(): { name: FrameName; flip: boolean } {
     const speaking = !this.held && this.conversation && isSpeaking(this.conversation, this);
-    const cycle = this.moving && !this.held ? WALK_CYCLES[this.facing]
+    const walking = this.moving && !this.held;
+    const tripping = !this.held && this.tripping;
+    const usingItem = !this.held && this.item !== null && this.task?.usingItem === this.item;
+    const cycle = tripping ? TRIP_CYCLE
+      : usingItem ? USE_ITEM_CYCLE
+      : walking ? WALK_CYCLES[this.facing]
       : this.sitting ? SIT_CYCLES[this.facing]
       : speaking && (this.facing === 'left' || this.facing === 'right') ? TALK_RIGHT_CYCLE
+      : this.item ? HOLD_ITEM_CYCLE
       : IDLE_CYCLES[this.facing];
-    const phase = this.moving && !this.held ? this.walkDistance / WALK_STRIDE : this.idleElapsed / IDLE_FRAME_SECONDS;
+    const phase = tripping || usingItem ? this.taskElapsed / IDLE_FRAME_SECONDS
+      : walking ? this.walkDistance / WALK_STRIDE : this.idleElapsed / IDLE_FRAME_SECONDS;
     return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
   }
 
@@ -194,6 +204,7 @@ export class Agent {
     this.task?.end?.(this, world);
     for (const queued of this.plan) queued.cancel?.(this, world);
     this.task = undefined;
+    this.taskElapsed = 0;
     this.spot = undefined;
     this.curiousAbout = undefined;
     this.plan = tasks;
@@ -203,6 +214,7 @@ export class Agent {
   interrupt(world: World, task: Task) {
     if (this.task) this.plan.unshift(this.task);
     this.task = task;
+    this.taskElapsed = 0;
     task.start?.(this, world);
     this.activity = task.activity;
   }
@@ -240,6 +252,7 @@ export class Agent {
     if (!this.task) {
       if (!this.plan.length) this.plan = planNext(this, world);
       this.task = this.plan.shift();
+      this.taskElapsed = 0;
       this.task?.start?.(this, world);
       if (this.task) this.activity = this.task.activity;
     }
@@ -249,6 +262,7 @@ export class Agent {
       task.end?.(this, world);
       this.task = undefined;
     }
+    if (task && this.task === task) this.taskElapsed += Math.max(0, dt);
     this.idleElapsed = this.moving ? 0 : (this.idleElapsed + Math.max(0, dt)) % (IDLE_FRAME_SECONDS * 2);
   }
 }

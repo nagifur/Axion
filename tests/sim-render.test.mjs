@@ -25,13 +25,13 @@ test('scaled sheets crop each frame before resizing to prevent neighboring-row b
       },
     },
   });
-  const source = { width: 576, height: 864 };
+  const source = { width: 576, height: 1152 };
   const renderer = new Renderer(document.createElement('canvas'), { character: source }, {});
   for (const scale of [0.75, 0.8, 0.85, 0.88, 0.96, 0.97, 1, 1.01, 1.137, 1.2]) {
     const sheet = renderer.sheet(scale);
     assert.equal(renderer.sheet(scale), sheet, 'scaled sheets remain cached');
     for (const image of [sheet.normal, sheet.redEye]) {
-      assert.equal(image.draws.length, 24, 'each frame is resized independently');
+      assert.equal(image.draws.length, 34, 'each frame is resized independently');
       Object.entries(CHARACTER_FRAMES).forEach(([name, frame], index) => {
         const scaled = sheet.frames[name];
         assert.deepEqual(image.draws[index].slice(1), [
@@ -42,6 +42,21 @@ test('scaled sheets crop each frame before resizing to prevent neighboring-row b
         assert.ok(scaled.x + scaled.w <= image.width && scaled.y + scaled.h <= image.height);
       });
     }
+
+    const agent = new Agent({ scale, behavior: { speed: 1 } }, {}, { x: 200, y: 140 });
+    agent.setPlan({}, [{ activity: 'Trip', tripping: true, update() { return false; } }]);
+    agent.update({}, 0);
+    const height = sheet.frames.tripRight1.h;
+    for (const facing of ['right', 'left']) {
+      agent.facing = facing;
+      assert.deepEqual(renderer.headPosition(agent), {
+        x: 200 + Math.round(22 * scale) * (facing === 'left' ? -1 : 1),
+        y: 140 - height + Math.round(56 * scale),
+        height,
+      }, 'prone name tags follow the head at each scale and orientation');
+    }
+    agent.held = true;
+    assert.equal(renderer.headPosition(agent).x, 200, 'a dragged character uses the standing head position');
   }
 });
 
@@ -80,7 +95,7 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
     props: [{ asset: 'chair', x: 100, y: 100, w: 27, h: 38, flip: false }],
   };
   const canvas = document.createElement('canvas');
-  const renderer = new Renderer(canvas, { character: { width: 576, height: 864 }, chair, 'room:room': backdrop }, room);
+  const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, chair, 'room:room': backdrop }, room);
   const character = { scale: 1, behavior: { speed: 1 } };
   const seated = new Agent(character, room, { x: 110, y: 135 });
   seated.facing = 'right';

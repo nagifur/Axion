@@ -17,7 +17,8 @@ export interface Frame {
 
 export type FrameName =
   | `${'walkFront' | 'walkBack' | 'walkRight'}${1 | 2 | 3 | 4}`
-  | `${'idleRight' | 'idleFront' | 'idleBack' | 'sitRight' | 'sitFront' | 'talkRight'}${1 | 2}`;
+  | `${'idleRight' | 'idleFront' | 'idleBack' | 'sitRight' | 'sitFront' | 'talkRight' | 'tripRight' | 'holdRight'}${1 | 2}`
+  | `useRight${1 | 2 | 3 | 4 | 5 | 6}`;
 
 const gridFrame = (column: number, row: number): Frame => ({
   x: column * 96, y: row * 96, w: 96, h: 96, anchorX: 48,
@@ -49,6 +50,16 @@ export const CHARACTER_FRAMES: Record<FrameName, Frame> = {
   sitFront2: gridFrame(1, 7),
   talkRight1: gridFrame(0, 8),
   talkRight2: gridFrame(1, 8),
+  tripRight1: gridFrame(0, 9),
+  tripRight2: gridFrame(1, 9),
+  holdRight1: gridFrame(0, 10),
+  holdRight2: gridFrame(1, 10),
+  useRight1: gridFrame(0, 11),
+  useRight2: gridFrame(1, 11),
+  useRight3: gridFrame(2, 11),
+  useRight4: gridFrame(3, 11),
+  useRight5: gridFrame(4, 11),
+  useRight6: gridFrame(5, 11),
 };
 const WALK_RIGHT: FrameName[] = ['walkRight1', 'walkRight2', 'walkRight3', 'walkRight4'];
 const IDLE_RIGHT: FrameName[] = ['idleRight1', 'idleRight2'];
@@ -72,9 +83,14 @@ export const SIT_CYCLES: Record<Facing, readonly FrameName[]> = {
   left: SIT_RIGHT,
 };
 export const TALK_RIGHT_CYCLE: readonly FrameName[] = ['talkRight1', 'talkRight2'];
+export const TRIP_CYCLE: readonly FrameName[] = ['tripRight1', 'tripRight2'];
+export const HOLD_ITEM_CYCLE: readonly FrameName[] = ['holdRight1', 'holdRight2'];
+export const USE_ITEM_CYCLE: readonly FrameName[] = ['useRight1', 'useRight2', 'useRight3', 'useRight4', 'useRight5', 'useRight6'];
+/** Head position relative to the feet and the top of a prone frame. */
+export const TRIP_HEAD_OFFSET = { x: 22, y: 56 };
 /** Pixels walked before switching to the next walk frame. */
 export const WALK_STRIDE = 8;
-/** Seconds before switching to the next idle frame. */
+/** Seconds before switching to the next stationary frame. */
 export const IDLE_FRAME_SECONDS = 0.6;
 
 /** Item artwork crops, independent of prop power-state sheets. */
@@ -92,13 +108,34 @@ export function itemFrame(type: string, image: { width: number; height: number }
   return frame;
 }
 
-/** Temporary hand positions relative to the feet, in unscaled character pixels. */
+/** Hand positions relative to the feet, in unscaled character pixels. */
 export const ITEM_HAND_ANCHORS: Record<Facing, { x: number; y: number; behind: boolean }> = {
   right: { x: 12, y: -25, behind: false },
   left: { x: -12, y: -25, behind: false },
   front: { x: -12, y: -25, behind: false },
   back: { x: 12, y: -25, behind: true },
 };
+
+const ITEM_POSE_HANDS: Partial<Record<FrameName, { x: number; y: number }>> = {
+  tripRight1: { x: 44, y: -9 },
+  tripRight2: { x: 44, y: -11 },
+  holdRight1: { x: 17, y: -46 },
+  holdRight2: { x: 17, y: -47 },
+  useRight1: { x: 17, y: -46 },
+  useRight2: { x: 23, y: -50 },
+  useRight3: { x: 26, y: -53 },
+  useRight4: { x: 26, y: -53 },
+  useRight5: { x: 23, y: -50 },
+  useRight6: { x: 17, y: -46 },
+};
+
+/** The item follows the hand in dedicated poses, including when those poses are mirrored. */
+export function itemHandAnchor(frame: FrameName, facing: Facing) {
+  const hand = ITEM_POSE_HANDS[frame];
+  return hand
+    ? { x: facing === 'left' ? -hand.x : hand.x, y: hand.y, behind: false }
+    : ITEM_HAND_ANCHORS[facing];
+}
 
 export interface PropAnimation {
   /** Matching artwork-sized crops inside the sheet's 96x96 cells. */

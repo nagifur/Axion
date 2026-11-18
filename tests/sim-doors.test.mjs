@@ -497,7 +497,7 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer sl
   const panel = { width: 192, height: 384 };
   const canvas = document.createElement('canvas');
   const renderer = new Renderer(canvas, {
-    character: { width: 576, height: 864 }, 'room:entry': {},
+    character: { width: 576, height: 1152 }, 'room:entry': {},
     [door.appearance.asset]: image, [door.appearance.panelAsset]: panel,
   }, room);
   const mask = canvases.find((candidate) => candidate.width === 96 && candidate.height === 96);

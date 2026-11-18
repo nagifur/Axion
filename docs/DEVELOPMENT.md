@@ -286,15 +286,23 @@ uses untrimmed **96 × 96 pixel cells**, with one animation per row, top to bott
 | 7 | Sitting right | 2 |
 | 8 | Sitting front | 2 |
 | 9 | Talking right | 2 |
+| 10 | Tripped / fallen down right | 2 |
+| 11 | Holding an item right | 2 |
+| 12 | Using an item right | 6 |
 
 Frames run left to right; unused cells remain transparent. Keep the ground baseline
 at the cell's bottom and the body centered on x = 48. Left-facing animations mirror
 the right-facing rows. Walking uses the dominant movement direction and advances
-every 8 room pixels traveled; idle, sitting, and talking frames alternate every
-0.6 simulation seconds. Characters sit only while using a reserved chair or bench,
-including while napping there; the speaker in a conversation uses the talking pose.
-Seated characters are drawn in front of their seat's prop.
-There is no sitting-back or talking-front/back artwork, so those facings use idle frames.
+every 8 room pixels traveled; stationary frames advance every 0.6 simulation seconds.
+Trips and landings use the prone frames throughout recovery. Standing agents carrying
+an item use the holding frames, and item actions play the six-frame use sequence from
+the beginning. Those poses have right-facing art only; they mirror for left and use
+the right-facing art when the agent was facing front or back. Walking, sitting, and
+talking retain their own poses while carrying an item. Characters sit only while using
+a reserved chair or bench, including while napping there; the speaker in a conversation
+uses the talking pose. Seated characters are drawn in front of their seat's prop.
+There is no sitting-back or talking-front/back artwork, so those facings use idle frames
+unless a standing character is holding an item.
 Frame coordinates and timing are defined in [`sprites.ts`](../src/lib/sim/sprites.ts).
 The renderer crops each frame before scaling it, so neighboring animation rows cannot
 bleed into characters or their highlight outlines at fractional sizes.
@@ -524,9 +532,10 @@ agent's current room. Transport, player dragging, and departure disallow both ac
 Carried items follow their agent through walking, sitting, dragging and room/elevator
 travel; they leave the facility with the agent rather than being duplicated on the floor.
 
-The renderer uses temporary facing-dependent `ITEM_HAND_ANCHORS`, scales the item
-with the character, mirrors it for left-facing poses, and draws it behind back-facing
-characters. Dedicated carry poses are not implemented yet.
+The renderer scales carried items with the character and mirrors them for left-facing
+poses. Dedicated trip, holding, and use frames have per-frame hand anchors, so items
+follow the moving hand; walking, sitting, and talking use the facing-dependent
+`ITEM_HAND_ANCHORS` and draw the item behind back-facing characters.
 There is no player pickup control yet. Agents with an empty hand get curious about loose
 items on the floor: the planner sometimes sends them over (weight 4, or 1.5 while
 working) with a `?` bubble, and `pickUp(item)` takes it after a second ("Ana picked up a

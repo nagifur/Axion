@@ -3,7 +3,7 @@ import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import type { Particle, ParticleEmissionSampler } from './particles.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, ITEM_HAND_ANCHORS, itemFrame, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { World } from './world.ts';
 import type { Rect } from './navMap.ts';
 import { isPassageDoorAsset, passageDoorFrame, passagePanelFrame } from './door.ts';
@@ -365,13 +365,15 @@ export class Renderer {
     const shake = agent.shake > 0 ? Math.round(Math.sin(agent.shake * 60)) : 0;
     const x = Math.round(agent.x) + shake - (flip ? frame.w - frame.anchorX : frame.anchorX);
     const y = Math.round(agent.y) - frame.h;
-    return { sheet, frame, flip, x, y };
+    return { sheet, name, frame, flip, x, y };
   }
 
   /** Point just above an agent's head, in room pixels (for name tags). */
   headPosition(agent: Agent) {
-    const { frame, y } = this.placement(agent);
-    return { x: agent.x, y, height: frame.h };
+    const { name, frame, flip, y } = this.placement(agent);
+    const offset = TRIP_CYCLE.includes(name) ? TRIP_HEAD_OFFSET : undefined;
+    const x = agent.x + (offset ? Math.round(offset.x * agent.character.scale) * (flip ? -1 : 1) : 0);
+    return { x, y: y + (offset ? Math.round(offset.y * agent.character.scale) : 0), height: frame.h };
   }
 
   isVisible(agent: Agent, world: World) {
@@ -399,7 +401,7 @@ export class Renderer {
 
   private drawAgent(agent: Agent, highlight?: string) {
     const ctx = this.ctx;
-    const { sheet, frame, flip, x, y } = this.placement(agent);
+    const { sheet, name, frame, flip, x, y } = this.placement(agent);
     const image = agent.eyeFlash > 0 || agent.revealed ? sheet.redEye : sheet.normal;
 
     ctx.save();
@@ -429,7 +431,7 @@ export class Renderer {
       }
     }
 
-    const hand = ITEM_HAND_ANCHORS[agent.facing];
+    const hand = itemHandAnchor(name, agent.facing);
     const drawCarried = () => {
       const item = agent.item;
       if (!item) return;

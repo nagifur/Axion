@@ -10,9 +10,9 @@ import { PropEditor, itemsSnippet } from '../src/lib/sim/propEditor.ts';
 import { drawItemSprite, loadAssets, Renderer } from '../src/lib/sim/render.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { itemPreview, loadRoom } from '../src/lib/sim/roomLoader.ts';
-import { ITEM_HAND_ANCHORS, itemFrame } from '../src/lib/sim/sprites.ts';
+import { HOLD_ITEM_CYCLE, IDLE_CYCLES, ITEM_HAND_ANCHORS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, itemFrame } from '../src/lib/sim/sprites.ts';
 import { World } from '../src/lib/sim/world.ts';
-import { walkTo } from '../src/lib/sim/tasks.ts';
+import { trip, wait, walkTo } from '../src/lib/sim/tasks.ts';
 import { itemPickupPoint, pickUp, setDownItem, useItem } from '../src/lib/sim/itemTasks.ts';
 import { ITEM_REACH } from '../src/lib/sim/item.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
@@ -34,6 +34,7 @@ test('a carried can unlocks drinking, which uses it up and destroys it', async (
   agent.update(world, 0);
   assert.equal(agent.activity, 'Drinking a can');
   assert.equal(agent.busy, true, 'drinking cannot be interrupted by chats');
+  assert.equal(agent.frame.name, 'useRight1');
   agent.update(world, drink.seconds - 0.5);
   assert.equal(agent.item, item, 'the can lasts until the drink finishes');
   agent.update(world, 0.5);
@@ -54,8 +55,14 @@ test('item actions refuse to start without the item and stop if it is dropped', 
   agent.pickUpItem(item);
   agent.setPlan(world, [useItem(drink)]);
   agent.update(world, 1);
+  assert.ok(USE_ITEM_CYCLE.includes(agent.frame.name));
   agent.dropItem();
+  assert.ok(agent.frame.name.startsWith('idle'), 'dropping the item immediately clears the use pose');
+  const replacement = Item.create('can');
+  agent.receiveItem(replacement);
+  assert.ok(HOLD_ITEM_CYCLE.includes(agent.frame.name), 'a replacement item is not treated as the item being used');
   agent.update(world, drink.seconds);
+  assert.equal(agent.item, replacement);
   assert.deepEqual(room.items, [item], 'a dropped can is not consumed');
   assert.deepEqual(world.lines, []);
 });
@@ -86,6 +93,91 @@ test('the planner only offers item actions while carrying a matching item', asyn
 
 const character = { scale: 1, behavior: { speed: 1 } };
 const can = (x = 197, y = 130) => new Item({ type: 'can', asset: 'item:can', x, y, w: 6, h: 10, flip: false });
+
+test('holding poses apply while standing or dragged without replacing walks, seats, or speaking', () => {
+  for (const facing of ['right', 'left', 'front', 'back']) {
+    const room = { name: 'Test', items: [], props: [] };
+    const agent = new Agent(character, room, { x: 200, y: 140 });
+    agent.receiveItem(Item.create('can'));
+    agent.facing = facing;
+    agent.setPlan({}, [wait(10, 'Holding')]);
+    agent.update({}, 0);
+    assert.deepEqual(agent.frame, { name: 'holdRight1', flip: facing === 'left' });
+    agent.update({}, 0.61);
+    assert.equal(agent.frame.name, 'holdRight2');
+
+    agent.moving = true;
+    agent.walkDistance = WALK_STRIDE;
+    assert.equal(agent.frame.name, WALK_CYCLES[facing][1]);
+    agent.moving = false;
+    agent.setPlan({}, [{ activity: 'Resting', interruptible: true, sitting: true, update() { return false; } }]);
+    agent.update({}, 0);
+    assert.equal(agent.frame.name, SIT_CYCLES[facing][1]);
+    agent.held = true;
+    assert.ok(HOLD_ITEM_CYCLE.includes(agent.frame.name));
+    agent.held = false;
+    agent.setPlan({}, []);
+    if (facing === 'left' || facing === 'right') {
+      agent.conversation = { initiator: agent, partner: {}, started: true, ended: false, elapsed: 0 };
+      assert.ok(TALK_RIGHT_CYCLE.includes(agent.frame.name), 'speakers keep their talking pose');
+      agent.conversation = undefined;
+    }
+    agent.consumeItem();
+    assert.equal(agent.frame.name, IDLE_CYCLES[facing][1]);
+  }
+});
+
+test('item use starts at frame one, plays all six frames, loops, and respects facing', () => {
+  for (const facing of ['right', 'left', 'front', 'back']) {
+    const room = { name: 'Test', items: [], props: [] };
+    const agent = new Agent({ ...character, name: 'Test' }, room, { x: 200, y: 140 });
+    const world = logWorld();
+    agent.receiveItem(Item.create('can'));
+    agent.facing = facing;
+    agent.setPlan(world, [wait(10, 'Holding')]);
+    agent.update(world, 0.85);
+    agent.setPlan(world, [useItem(drink)]);
+    agent.update(world, 0);
+    assert.deepEqual(agent.frame, { name: 'useRight1', flip: facing === 'left' });
+    assert.equal(agent.facing, facing === 'left' ? 'left' : 'right');
+    for (const name of USE_ITEM_CYCLE.slice(1)) {
+      agent.update(world, 0.61);
+      assert.equal(agent.frame.name, name);
+    }
+    agent.update(world, 0.61);
+    assert.equal(agent.frame.name, 'useRight1', 'long actions loop the full sequence');
+    agent.update(world, 0.35);
+    assert.equal(agent.item, null);
+    assert.ok(agent.frame.name.startsWith('idle'), 'the use pose ends when the action finishes');
+  }
+});
+
+test('tripping overrides item use and the interrupted action resumes with its item', () => {
+  const room = { name: 'Test', items: [], props: [] };
+  const agent = new Agent({ ...character, name: 'Test' }, room, { x: 200, y: 140 });
+  const world = logWorld();
+  const item = Item.create('can');
+  agent.receiveItem(item);
+  agent.setPlan(world, [useItem(drink)]);
+  agent.update(world, 0.7);
+  assert.equal(agent.frame.name, 'useRight2');
+  agent.held = true;
+  assert.ok(HOLD_ITEM_CYCLE.includes(agent.frame.name), 'dragging shows the item being held');
+  agent.held = false;
+  assert.equal(agent.frame.name, 'useRight2', 'releasing a drag restores the paused use frame');
+  agent.interrupt(world, trip());
+  assert.equal(agent.frame.name, 'tripRight1');
+  assert.equal(agent.item, item);
+  agent.update(world, 0.61);
+  assert.equal(agent.frame.name, 'tripRight2');
+  agent.update(world, 0.7);
+  assert.ok(HOLD_ITEM_CYCLE.includes(agent.frame.name));
+  agent.update(world, 0);
+  assert.equal(agent.frame.name, 'useRight1');
+  agent.setPlan(world, []);
+  assert.ok(HOLD_ITEM_CYCLE.includes(agent.frame.name), 'cancelling use restores the carry pose');
+  assert.equal(agent.item, item);
+});
 
 test('one item slot transfers ownership atomically and rejects invalid pickups', async () => {
   const room = new Room(await loadRoom('level-1-offices'));
@@ -280,7 +372,7 @@ test('items render at hand anchors for every facing, scale, walk, sit and drag p
   const room = new Room(await loadRoom('level-1-offices'));
   const image = { width: 96, height: 96 };
   const canvas = document.createElement('canvas');
-  const renderer = new Renderer(canvas, { character: { width: 576, height: 864 }, 'item:can': image }, room);
+  const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, 'item:can': image }, room);
   for (const scale of [0.75, 1, 1.2]) {
     const agent = new Agent({ ...character, scale }, room, { x: 200, y: 140 });
     const item = can();
@@ -296,7 +388,9 @@ test('items render at hand anchors for every facing, scale, walk, sit and drag p
         canvas.draws.length = 0;
         canvas.transforms.length = 0;
         renderer.drawAgent(agent);
-        const hand = ITEM_HAND_ANCHORS[facing];
+        const hand = pose === 'idle' || pose === 'held'
+          ? { x: facing === 'left' ? -17 : 17, y: agent.frame.name === 'holdRight2' ? -47 : -46, behind: false }
+          : ITEM_HAND_ANCHORS[facing];
         assert.equal(canvas.draws[hand.behind ? 0 : 1][0], image);
         const draw = canvas.draws.find((args) => args[0] === image);
         const w = Math.round(6 * scale), h = Math.round(10 * scale);
@@ -309,6 +403,45 @@ test('items render at hand anchors for every facing, scale, walk, sit and drag p
           renderer.drawHeld(agent, { x: 250, y: 160 }, true);
           assert.deepEqual([agent.x, agent.y], before);
           assert.equal(agent.item, item);
+        }
+      }
+    }
+  }
+});
+
+test('items follow every trip, carry, and use hand frame at different scales and facings', async (t) => {
+  canvasEnvironment(t);
+  const room = new Room(await loadRoom('level-1-offices'));
+  const world = logWorld();
+  const image = { width: 96, height: 96 };
+  const canvas = document.createElement('canvas');
+  const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, 'item:can': image }, room);
+  const poses = [
+    { names: TRIP_CYCLE, hands: [[44, -9], [44, -11]], task: () => ({ activity: 'Trip', tripping: true, update() { return false; } }) },
+    { names: HOLD_ITEM_CYCLE, hands: [[17, -46], [17, -47]], task: () => wait(10, 'Holding') },
+    { names: USE_ITEM_CYCLE, hands: [[17, -46], [23, -50], [26, -53], [26, -53], [23, -50], [17, -46]], task: () => useItem(drink) },
+  ];
+  for (const scale of [0.75, 1, 1.2]) {
+    for (const facing of ['right', 'left', 'front', 'back']) {
+      for (const pose of poses) {
+        const agent = new Agent({ ...character, name: 'Test', scale }, room, { x: 200, y: 140 });
+        agent.receiveItem(Item.create('can'));
+        agent.facing = facing;
+        agent.setPlan(world, [pose.task()]);
+        agent.update(world, 0);
+        for (const [index, name] of pose.names.entries()) {
+          assert.equal(agent.frame.name, name);
+          canvas.draws.length = 0;
+          canvas.transforms.length = 0;
+          renderer.drawAgent(agent);
+          assert.equal(canvas.draws[1][0], image, 'the item is in front of the side-facing hand');
+          const [handX, handY] = pose.hands[index];
+          const flip = facing === 'left';
+          const width = Math.round(6 * scale), height = Math.round(10 * scale);
+          const x = 200 + Math.round((flip ? -handX : handX) * scale) - Math.round(width / 2) + (flip ? width : 0);
+          const y = 140 + Math.round(handY * scale) - height;
+          assert.ok(canvas.transforms.some((transform) => transform.join() === ['translate', x, y].join()), `${name}, ${facing}, scale ${scale}`);
+          if (index < pose.names.length - 1) agent.update(world, 0.61);
         }
       }
     }

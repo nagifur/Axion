@@ -4,18 +4,18 @@ import sharp from 'sharp';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { nap, trip, wait } from '../src/lib/sim/tasks.ts';
 import { enterThroughDoor } from '../src/lib/sim/transport.ts';
-import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, WALK_CYCLES, WALK_STRIDE } from '../src/lib/sim/sprites.ts';
+import { CHARACTER_FRAMES, HOLD_ITEM_CYCLE, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, itemHandAnchor } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 
 function agentAt(x = 0, y = 0) {
   return new Agent({ scale: 1, behavior: { speed: 1 } }, {}, { x, y });
 }
 
-test('all 24 frames occupy populated 96x96 cells in the sheet', async () => {
+test('all 34 frames occupy populated 96x96 cells in the sheet', async () => {
   const { data, info } = await sharp(new URL('../src/sim_assets/characters/char_spritesheet.png', import.meta.url).pathname)
     .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const rows = [WALK_CYCLES.front, WALK_CYCLES.back, WALK_CYCLES.right, IDLE_CYCLES.right, IDLE_CYCLES.front, IDLE_CYCLES.back, SIT_CYCLES.right, SIT_CYCLES.front, TALK_RIGHT_CYCLE];
-  assert.equal(Object.keys(CHARACTER_FRAMES).length, 24);
+  const rows = [WALK_CYCLES.front, WALK_CYCLES.back, WALK_CYCLES.right, IDLE_CYCLES.right, IDLE_CYCLES.front, IDLE_CYCLES.back, SIT_CYCLES.right, SIT_CYCLES.front, TALK_RIGHT_CYCLE, TRIP_CYCLE, HOLD_ITEM_CYCLE, USE_ITEM_CYCLE];
+  assert.equal(Object.keys(CHARACTER_FRAMES).length, 34);
   rows.forEach((names, row) => names.forEach((name, column) => {
     const frame = CHARACTER_FRAMES[name];
     assert.deepEqual(frame, { x: column * 96, y: row * 96, w: 96, h: 96, anchorX: 48 });
@@ -28,6 +28,16 @@ test('all 24 frames occupy populated 96x96 cells in the sheet', async () => {
     }
     assert.ok(opaque > 0 && opaque < 96 * 96, `${name} contains art and transparent padding`);
   }));
+
+  for (const name of [...TRIP_CYCLE, ...HOLD_ITEM_CYCLE, ...USE_ITEM_CYCLE]) {
+    const frame = CHARACTER_FRAMES[name];
+    const right = itemHandAnchor(name, 'right');
+    const left = itemHandAnchor(name, 'left');
+    assert.deepEqual(left, { x: -right.x, y: right.y, behind: false }, `${name} mirrors its hand`);
+    const x = frame.x + frame.anchorX + right.x;
+    const y = frame.y + frame.h + right.y - 5;
+    assert.ok(data[(y * info.width + x) * 4 + 3], `${name}'s item overlaps the hand artwork`);
+  }
 });
 
 test('walking uses four directional frames and mirrors only left', () => {
@@ -133,6 +143,29 @@ function activityAgent(x = 0, napChance = 0) {
   return agent;
 }
 
+test('tripping animates immediately, mirrors, and resumes the interrupted task', () => {
+  for (const facing of ['right', 'left', 'front', 'back']) {
+    const world = activityWorld();
+    const agent = activityAgent();
+    agent.setPlan(world, [wait(10, 'Original task', facing)]);
+    agent.update(world, 0.9);
+    agent.moving = true;
+    agent.interrupt(world, trip());
+    assert.deepEqual(agent.frame, { name: 'tripRight1', flip: facing === 'left' });
+    agent.held = true;
+    assert.ok(agent.frame.name.startsWith('idle'), 'dragging uses a standing pose');
+    agent.held = false;
+    agent.update(world, 0.61);
+    assert.equal(agent.frame.name, 'tripRight2');
+    agent.update(world, 0.6);
+    assert.equal(agent.frame.name, 'tripRight1');
+    agent.update(world, 0.1);
+    assert.ok(agent.frame.name.startsWith('idle'), 'recovery ends when the trip task finishes');
+    agent.update(world, 0);
+    assert.equal(agent.activity, 'Original task');
+  }
+});
+
 test('bench and mirrored chair rests sit only after reaching their reserved spot', (t) => {
   t.mock.method(Math, 'random', () => 0.75);
   for (const [kind, facing, expected, flip] of [
@@ -154,7 +187,7 @@ test('bench and mirrored chair rests sit only after reaching their reserved spot
     agent.update(world, IDLE_FRAME_SECONDS);
     assert.equal(agent.frame.name, expected.replace('1', '2'));
     agent.interrupt(world, trip());
-    assert.ok(agent.frame.name.startsWith('idle'), 'interrupted task stops sitting');
+    assert.ok(TRIP_CYCLE.includes(agent.frame.name), 'interrupted task switches from sitting to tripping');
     agent.update(world, 1.3);
     agent.update(world, 0);
     assert.ok(agent.frame.name.startsWith('sit'), 'resumed rest sits again');

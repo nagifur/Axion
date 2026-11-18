@@ -190,6 +190,7 @@ test('a natural walking trip can break a prop and then resumes the original walk
   world.update(0.1);
   assert.equal(table.broken, true);
   assert.equal(agent.activity, 'Picking themselves up');
+  assert.equal(agent.frame.name, 'tripRight1');
   assert.equal(agent.x, 100);
   assert.ok(logs.some((entry) => entry.tone === 'warn' && entry.text.includes('when they tripped')));
   random.mock.mockImplementation(() => 0.99);
@@ -243,6 +244,7 @@ test('falling only rolls on landing, damages the destination prop, and emits par
   world.update(0.1);
   assert.equal(agent.y, 100);
   assert.equal(agent.activity, 'Picking themselves up');
+  assert.equal(agent.frame.name, 'tripRight1', 'the fall switches to the trip pose on landing');
   assert.equal(pane.broken, true);
   assert.equal(sourceProp.broken, false);
   assert.equal(world.particles.in(source).length, 0);
