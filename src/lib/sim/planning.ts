@@ -9,7 +9,7 @@ import { rest, wait, walkTo } from './tasks.ts';
 import { getFromDispenser, itemPickupPoint, pickUp, retrieveItem, setDownItem, storeItem, useItem } from './itemTasks.ts';
 import { startConversation } from './conversation.ts';
 import { headToNextRoom, leaveFacility, rideElevatorOut } from './transport.ts';
-import { wanderDoors, wanderFloors } from './routing.ts';
+import { canSlipOut, isStranded, wanderDoors, wanderFloors } from './routing.ts';
 
 // Decision making: what an idle agent does next.
 
@@ -54,6 +54,11 @@ export function planNext(agent: Agent, world: World): Task[] {
     .filter((item) => !claimed.has(item))
     .map((item) => ({ item, stand: itemPickupPoint(room, item) }))
     .filter((found): found is { item: Item; stand: Point } => !!found.stand);
+  // Staff without a card for any way out hang around a door and slip out once someone opens it.
+  const stranded = isStranded(world, agent);
+  const slipOut = stranded && canSlipOut(world, agent);
+  const watchedDoors = stranded ? [...room.linkedDoors, ...room.outerDoors]
+    .filter((door) => world.passageDoorFor(door) && !world.passageDoorFor(door)!.broken) : [];
   const storedItems = agent.item || agent.impostor ? [] : agent.inventory
     .filter((item) => accessCardLevel(item) === undefined);
 
@@ -63,6 +68,21 @@ export function planNext(agent: Agent, world: World): Task[] {
       build: () => {
         if (!workStep) return null;
         return 'inside' in workStep ? [headToNextRoom(world, workStep)] : [rideElevatorOut(workStep)];
+      },
+    },
+    {
+      weight: slipOut ? 40 : 0,
+      build: () => leaveFacility(agent, world),
+    },
+    {
+      weight: !slipOut && watchedDoors.length ? 15 : 0,
+      build: () => {
+        const door = pick(watchedDoors);
+        const near = room.nearestWalkable({ x: door.inside.x + Math.round(range(-16, 16)), y: door.inside.y + Math.round(range(-16, 16)) });
+        return [
+          walkTo(near, 'Waiting for someone to open the door'),
+          wait(range(1.5, 3), 'Waiting for someone to open the door'),
+        ];
       },
     },
     {

@@ -107,7 +107,7 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
         return false;
       }
       const physical = world.passageDoorFor(door);
-      if (physical && !world.canAgentUsePassage(agent, door)) {
+      if (physical && !world.canAgentCross(agent, door)) {
         giveUpOnDoor(agent, world, door);
         world.log(`Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
         return true;
@@ -162,7 +162,7 @@ export function enterThroughDoor(door: Door): Task {
     transport: true,
     update(agent, world, dt) {
       const physical = door.appearance || door.to ? world.passageDoorFor(door) : undefined;
-      if (physical && !world.canAgentUsePassage(agent, door)) {
+      if (physical && !world.canAgentCross(agent, door)) {
         world.log(`Access denied: ${agent.character.name} cannot enter through the ${door.id} door in ${agent.room.name}.`, 'warn');
         if (agent.alpha < 1) world.remove(agent, door.id);
         return true;
@@ -215,7 +215,7 @@ export function phaseThroughWall(direction: 'in' | 'out'): Task {
 /** Tasks that take the agent out of the facility: through this room's way out, or towards the nearest room with one. */
 export function leaveFacility(agent: Agent, world: World, hurry = false): Task[] {
   const { room } = agent;
-  const doors = room.outerDoors.filter((door) => world.canAgentUsePassage(agent, door));
+  const doors = room.outerDoors.filter((door) => world.canAgentCross(agent, door));
   const hasExit = !!room.elevator || doors.length > 0;
   const speed = hurry ? 2.2 : 1;
   agent.leaving = true;
@@ -230,11 +230,11 @@ export function leaveFacility(agent: Agent, world: World, hurry = false): Task[]
       const nearest = doors.reduce((best, door) => (distance(door.inside, agent) < distance(best.inside, agent) ? door : best));
       return [exitThroughDoor(nearest, speed)];
     }
-    const step = world.doorTowardExit(room, true, agent);
+    const step = world.doorTowardExit(room, true, agent, true);
     if (step) return [headToNextRoom(world, step, speed)];
   }
   if (!hasExit) {
-    const step = world.doorTowardExit(room, false, agent);
+    const step = world.doorTowardExit(room, false, agent, true);
     if (step) return [headToNextRoom(world, step, speed)];
     agent.leaving = false;
     return [wait(2, 'Waiting for an exit')];

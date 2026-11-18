@@ -65,19 +65,33 @@ export function stepTowardWork(world: World, character: SimCharacter, room: Room
 /**
  * First door to take from `room` to reach the nearest room with a way out of the facility.
  * Null if `room` already has one. With `doorsOnly`, elevators don't count as a way out.
- * When an agent is supplied, every passage and the final exit must allow their cards.
+ * When an agent is supplied, every passage and the final exit must allow their cards;
+ * with `tailgate`, doors out of `room` that are already fully open count too.
  */
-export function doorTowardExit(world: World, room: Room, doorsOnly = false, agent?: Agent): Door | null {
-  const canUse = (door: Door) => agent
-    ? world.canAgentUsePassage(agent, door)
-    : !world.passageDoorFor(door)?.blocked;
+export function doorTowardExit(world: World, room: Room, doorsOnly = false, agent?: Agent, tailgate = false): Door | null {
+  const canUse = (door: Door, from: Room) => !agent ? !world.passageDoorFor(door)?.blocked
+    : tailgate && from === room ? world.canAgentCross(agent, door) : world.canAgentUsePassage(agent, door);
   const hasExit = (candidate: Room) => (!doorsOnly && !!candidate.elevator) ||
-    candidate.outerDoors.some(canUse);
+    candidate.outerDoors.some((door) => canUse(door, candidate));
   if (hasExit(room)) return null;
   return firstStepToward<Door>(room, (current) => current.linkedDoors.flatMap((door) => {
     const next = world.room(door.to!.room);
-    return next && canUse(door) ? [{ next, step: door }] : [];
+    return next && canUse(door, current) ? [{ next, step: door }] : [];
   }), hasExit) ?? null;
+}
+
+/** Whether staff have no way out of their room that their own cards allow. */
+export function isStranded(world: World, agent: Agent): boolean {
+  const { room } = agent;
+  return !agent.impostor && !agent.ghost && !room.elevator &&
+    !room.outerDoors.some((door) => world.canAgentUsePassage(agent, door)) &&
+    !doorTowardExit(world, room, false, agent);
+}
+
+/** Whether a stranded agent can leave right now through a door someone else has opened. */
+export function canSlipOut(world: World, agent: Agent): boolean {
+  return agent.room.outerDoors.some((door) => world.canAgentCross(agent, door)) ||
+    !!doorTowardExit(world, agent.room, false, agent, true);
 }
 
 /** Whether an agent may choose to be in `room`: impostors ignore clearance. */
@@ -90,7 +104,7 @@ export function wanderDoors(world: World, agent: Agent): Door[] {
   return agent.room.linkedDoors.filter((door) => {
     const destination = world.room(door.to!.room);
     return destination && (canAgentVisit(agent, destination) || world.passageDoorFor(door)?.stuckOpen) &&
-      world.canAgentUsePassage(agent, door);
+      world.canAgentCross(agent, door);
   });
 }
 

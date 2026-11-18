@@ -135,6 +135,7 @@ function activityAgent(x = 0, napChance = 0) {
     name: 'Test room',
     darkness: 0,
     linkedDoors: [],
+    outerDoors: [],
     props: [],
     items: [],
     route(_agent, target) { return [target]; },

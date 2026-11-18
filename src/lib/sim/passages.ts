@@ -12,6 +12,9 @@ function distanceToDoorway(point: Point, door: Door): number {
   return Math.hypot(point.x - (door.inside.x + t * dx), point.y - (door.inside.y + t * dy));
 }
 
+/** How close to the doorway line a fading agent counts as standing in it. */
+const DOORWAY_OCCUPIED = 4;
+
 /** One door seen from one room; a linked passage has an endpoint on each side. */
 interface Endpoint {
   room: Room;
@@ -70,7 +73,10 @@ export class PassageNetwork {
         }
       }
       this.users.set(state, users);
-      state.update(users.size > 0, dt);
+      const occupied = world.agents.some((agent) =>
+        !agent.removed && !agent.held && agent.layer === 'room' && agent.alpha < 1 &&
+        endpoints.some(({ room, door }) => agent.room === room && distanceToDoorway(agent, door) <= DOORWAY_OCCUPIED));
+      state.update(users.size > 0, dt, occupied);
     }
   }
 }

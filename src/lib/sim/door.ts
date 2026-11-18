@@ -153,7 +153,8 @@ export class PassageDoor {
     return broken;
   }
 
-  update(authorizedNearby: boolean, dt: number) {
+  /** `occupied`: someone is in the doorway, so it must not close on them (but they don't open it). */
+  update(authorizedNearby: boolean, dt: number, occupied = false) {
     if (this.broken || this.panelBroken) return;
     const elapsed = Math.max(0, dt);
     if (authorizedNearby) {
@@ -166,6 +167,6 @@ export class PassageDoor {
     this.hold -= held;
     this.open = Math.min(1, this.open + held / PASSAGE_DOOR_SECONDS);
     this.unlocked = this.hold > 0;
-    this.open = Math.max(0, this.open - (elapsed - held) / PASSAGE_DOOR_SECONDS);
+    if (!occupied) this.open = Math.max(0, this.open - (elapsed - held) / PASSAGE_DOOR_SECONDS);
   }
 }

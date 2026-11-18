@@ -196,7 +196,7 @@ inventory, rather than their profile, before opening or allowing a crossing.
 Arrivals check the starting loadout; live work routes use the agent's actual cards.
 Impostors ignore clearance limits. Departure routes check the agent's actual cards
 at every door, including the final off-camera exit; wanting to leave does not
-unlock restricted doors. Agents wait if no permitted exit route is available.
+unlock restricted doors, though agents may slip through a door already open. Agents wait if no permitted exit route is available.
 Waiting for an exit is not an active departure and does not prevent pickup.
 If a crossing loses access or its door breaks, the agent returns fully visible to
 the inside threshold, cancels the queued departure, and can be picked up again.
@@ -717,8 +717,12 @@ until it is fully open; anyone authorized inside the doorway keeps it open. If i
 closes mid-crossing, the agent steps back to the threshold, fully visible, and
 gives up after 5 seconds without an open door, dropping the trip so they can be
 picked up again. Once no authorized agent is nearby, it holds for 1.5 seconds,
-then closes and the panel returns to red. An unauthorized agent cannot cross even
-when another agent has opened it. The panel glow remains visible in dark rooms.
+then closes and the panel returns to red. Only a card opens a door, but anyone may
+slip through one that is already fully open, and a door never closes on someone
+standing in its doorway (that keeps it open without turning the panel green).
+Planned work and departure routes still only count doors the agent's cards open,
+except a fully open door out of the current room. Staff with no card-permitted way
+out of their room wait near a door and leave as soon as someone else opens it. The panel glow remains visible in dark rooms.
 South-facing doors and their panels draw in front of the room's props and characters
 at 35% opacity, so they frame the foreground passage without hiding the room.
 Their indicator glow uses the same opacity; other door orientations remain opaque

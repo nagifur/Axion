@@ -112,6 +112,12 @@ export class World {
       (state.stuckOpen || !!agent.impostor || agent.hasAccessCard(state.clearance)));
   }
 
+  /** Opening needs a card; anyone may slip through a door that is already fully open. */
+  canAgentCross(agent: Agent, door: Door): boolean {
+    const state = this.passageDoorFor(door);
+    return this.canAgentUsePassage(agent, door) || (!!state && !state.blocked && state.open === 1);
+  }
+
   /** Other rooms on camera that `room`'s elevator stops at, ordered by level. */
   elevatorStops(room: Room): Room[] {
     return routing.elevatorStops(this, room);
@@ -174,8 +180,8 @@ export class World {
   }
 
   /** First door toward the nearest room with a way out; null if `room` has one (see routing.ts). */
-  doorTowardExit(room: Room, doorsOnly = false, agent?: Agent): Door | null {
-    return routing.doorTowardExit(this, room, doorsOnly, agent);
+  doorTowardExit(room: Room, doorsOnly = false, agent?: Agent, tailgate = false): Door | null {
+    return routing.doorTowardExit(this, room, doorsOnly, agent, tailgate);
   }
 
   /** Puts people around the facility immediately so the cameras never start empty. */
@@ -278,7 +284,7 @@ export class World {
 
   /** Moves an agent through a door that leads to another room on camera. */
   transfer(agent: Agent, door: Door) {
-    if (!this.canAgentUsePassage(agent, door)) {
+    if (!this.canAgentCross(agent, door)) {
       this.log(`Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
       agent.x = door.inside.x;
       agent.y = door.inside.y;
