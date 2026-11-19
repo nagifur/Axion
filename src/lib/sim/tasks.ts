@@ -14,6 +14,7 @@ export const TRIP_PROP_REACH = 12;
 export const TRIP_PROP_BREAK_CHANCE = 0.1;
 /** Base chance per second of tripping for clumsy characters, and extra chance per unit of room darkness. */
 const TRIP_CHANCE = { clumsy: 0.006, darkness: 0.012 };
+const FALL_LANDING_DEPTH = 24;
 
 export function walkTo(target: Point, activity = 'Walking', speedMul = 1): Task {
   let path: Point[] = [];
@@ -75,6 +76,7 @@ export function nap(seconds: number, facing: Facing): Task {
 
 export function fall(): Task {
   let velocity = 0;
+  let landingY: number | undefined;
   return {
     activity: 'Falling',
     interruptible: false,
@@ -89,6 +91,13 @@ export function fall(): Task {
       // Sweep every crossed pixel so even a long frame cannot skip a thin green floor.
       for (let y = Math.round(agent.y); y <= Math.min(Math.round(nextY), agent.room.height - 1); y++) {
         if (!agent.room.isFloor(agent.x, y)) continue;
+        if (landingY === undefined) {
+          let bottom = y;
+          while (bottom < Math.min(y + FALL_LANDING_DEPTH, agent.room.height - 1)
+            && agent.room.isFloor(agent.x, bottom + 1)) bottom++;
+          landingY = Math.floor(range(y, bottom + 1));
+        }
+        if (y < landingY) continue;
         agent.y = y;
         agent.setPlan(world, []);
         agent.interrupt(world, trip('fall'));

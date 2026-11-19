@@ -169,8 +169,10 @@ repositions them, on a free chair or bench seat starts the usual seated activity
 and on another agent starts a conversation. Lights can be toggled; other unseated
 props are inspected. The held agent pauses while the rest of the facility continues.
 Dropping above non-green nav-map pixels makes the agent fall straight down with
-gravity until their feet touch the first green pixel, then play the usual trip
-reaction. If there is no green below, they fall fully out of view and respawn on
+gravity and land at a randomly chosen depth of 0-24 pixels into the first continuous
+green floor below, then play the usual trip reaction. The depth is chosen once per
+fall and limited by that floor's edge, so thin floor strips are never skipped.
+If there is no green below, they fall fully out of view and respawn on
 nearby walkable floor. Falling agents cannot be picked up or pulled into chats.
 Broken or occupied props, blocked floor, and drops outside the feed are rejected
 without changing the original task or position. Hold over a floor or camera button for

@@ -84,8 +84,9 @@ function fallingSetup(spans = (y) => y >= 100 ? [20, 180] : []) {
   return { world, room, agent, logs };
 }
 
-test('air drops fall with gravity, land on the first green pixel, and recover with a trip', () => {
+test('air drops fall with gravity, can land on the first green pixel, and recover with a trip', (t) => {
   const { world, room, agent, logs } = fallingSetup();
+  t.mock.method(Math, 'random', () => 0);
   const target = dropTarget(world, agent, { x: 100, y: 10 });
   assert.equal(target.kind, 'fall');
   assert.deepEqual([agent.x, agent.y], [100, 150], 'preview does not move the agent');
@@ -124,6 +125,46 @@ test('fast falls cannot skip a single green pixel row or land on a lower floor f
   assert.equal(agent.activity, 'Picking themselves up');
 });
 
+test('air drops vary landing depth within the first 24 pixels of continuous green floor', (t) => {
+  let roll = 0;
+  t.mock.method(Math, 'random', () => roll);
+  for (const [value, expectedY] of [[0, 100], [0.5, 112], [0.999, 124]]) {
+    const { world, room, agent } = fallingSetup();
+    roll = value;
+    placeAgent(world, agent, dropTarget(world, agent, { x: 100, y: 10 }));
+    world.update(5);
+    assert.deepEqual([agent.x, agent.y], [100, expectedY]);
+    assert.equal(room.isFloor(agent.x, agent.y), true);
+    assert.equal(agent.activity, 'Picking themselves up');
+  }
+});
+
+test('landing variation stays on a thin floor instead of crossing a gap', (t) => {
+  const { world, agent } = fallingSetup((y) => (y >= 80 && y <= 84) || y >= 120 ? [20, 180] : []);
+  t.mock.method(Math, 'random', () => 0.999);
+  placeAgent(world, agent, dropTarget(world, agent, { x: 100, y: 10 }));
+  world.update(5);
+  assert.deepEqual([agent.x, agent.y], [100, 84]);
+  assert.equal(agent.activity, 'Picking themselves up');
+});
+
+test('landing depth is chosen once and does not depend on frame size', (t) => {
+  let roll = 0.999;
+  t.mock.method(Math, 'random', () => roll);
+  for (const dt of [0.01, 0.1, 5]) {
+    const { world, agent } = fallingSetup();
+    roll = 0.999;
+    placeAgent(world, agent, dropTarget(world, agent, { x: 100, y: 10 }));
+    for (let elapsed = 0; elapsed < 5; elapsed += dt) {
+      world.update(dt);
+      if (agent.y >= 100) roll = 0;
+      if (agent.activity === 'Picking themselves up') break;
+    }
+    assert.deepEqual([agent.x, agent.y], [100, 124]);
+    assert.equal(agent.activity, 'Picking themselves up');
+  }
+});
+
 test('falls with no green below leave the whole camera before respawning on nearby floor', () => {
   const { world, room, agent, logs } = fallingSetup();
   placeAgent(world, agent, dropTarget(world, agent, { x: 190, y: 10 }));
@@ -147,7 +188,7 @@ test('green floor with insufficient walking clearance still rejects a direct dro
   assert.equal(agent.activity, 'Original task');
 });
 
-test('cross-room air drops release reservations and conversations before falling in the destination', async () => {
+test('cross-room air drops release reservations and conversations before falling in the destination', async (t) => {
   const { world, room, agent } = await setup();
   const destination = fallingSetup().room;
   world.rooms.push(destination);
@@ -156,6 +197,7 @@ test('cross-room air drops release reservations and conversations before falling
   agent.spot = room.spots[0];
   const target = dropTarget(world, agent, { x: 100, y: 10 }, null, null, destination);
   assert.equal(target.kind, 'fall');
+  t.mock.method(Math, 'random', () => 0);
   placeAgent(world, agent, target);
   assert.equal(agent.room, destination);
   assert.equal(agent.spot, undefined);
