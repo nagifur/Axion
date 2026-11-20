@@ -263,6 +263,7 @@ minimum stay. Clearance rules and motion-sensor lighting are unchanged.
 | [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, personal inventory, and its task queue. |
 | [`src/lib/sim/planning.ts`](../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
 | [`src/lib/sim/tasks.ts`](../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, napping, falling, tripping, and prop breakage. |
+| [`src/lib/sim/repairs.ts`](../src/lib/sim/repairs.ts) | Maintenance staff noticing, claiming, and repairing damaged equipment. |
 | [`src/lib/sim/itemTasks.ts`](../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
 | [`src/lib/sim/conversation.ts`](../src/lib/sim/conversation.ts) | Chats between two agents: meeting points, turns, and speech bubbles. |
 | [`src/lib/sim/transport.ts`](../src/lib/sim/transport.ts) | Leaving and entering rooms through doors and elevators, and leaving the facility. |
@@ -403,6 +404,17 @@ Chairs, benches, tables, lights, vending machines, and props with broken artwork
 opts in. Breakage logs a warning and shows an exclamation bubble. Seated use stops,
 and a vending machine that breaks dispenses nothing. Runtime breakage lasts until
 `prop.repair()` is called and does not change the exported starting state.
+
+Staff with the `Maintenance` job title (case-insensitive, at any clearance level)
+prioritize the nearest reachable broken prop, passage door, or door panel in their
+current room, even outside work hours and in darkness. They can abandon interruptible
+activities, but not conversations, naps, transport, or recovery from a fall/trip.
+They walk to the equipment, then spend 12 simulation seconds repairing each component
+(`REPAIR_SECONDS` in [`repairs.ts`](../src/lib/sim/repairs.ts)). Each component is
+reserved while approached or repaired, including across both camera views of a
+passage; cancellation or removal releases the claim. Repairs stop if the target is
+removed, already fixed, or no longer within reach. They preserve power settings
+and exported starting state. Impostors do not repair equipment.
 
 #### Breakage Particles
 
@@ -739,6 +751,8 @@ door cannot be crossed. Door damage takes priority if both components break.
 Damage logs a warning and shows an exclamation bubble. Runtime damage lasts until
 `world.passageDoorFor(door).repair()` or `.repairPanel()` is called; repairs are
 independent and do not change room configuration.
+Maintenance staff can repair either component from their side without opening or
+crossing the damaged door, regardless of its required clearance.
 
 The artwork is in `src/sim_assets/props/`, but is reserved for passage assemblies,
 not ordinary props. For clearance `N`, use `door_levelN.png` for north/south walls,

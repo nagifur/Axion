@@ -304,6 +304,11 @@ export class Room {
     return true;
   }
 
+  /** Whether a task can reach its standing point without crossing solid floor boundaries. */
+  canReach(from: Point, to: Point, ghost = false): boolean {
+    return this.isWalkable(to) && (ghost || this.lineClear(from, to) || this.grid.findPath(from, to) !== null);
+  }
+
   /** Waypoints from `from` to `to` around walls and furniture. Ghosts go straight. */
   route(from: Point, to: Point, ghost = false): Point[] {
     if (ghost || this.lineClear(from, to)) return [to];

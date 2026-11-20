@@ -10,6 +10,7 @@ import { getFromDispenser, itemPickupPoint, pickUp, retrieveItem, setDownItem, s
 import { startConversation } from './conversation.ts';
 import { headToNextRoom, leaveFacility, rideElevatorOut } from './transport.ts';
 import { canSlipOut, isStranded, wanderDoors, wanderFloors } from './routing.ts';
+import { planRepair } from './repairs.ts';
 
 // Decision making: what an idle agent does next.
 
@@ -27,6 +28,8 @@ function meow(agent: Agent, world: World) {
 export function planNext(agent: Agent, world: World): Task[] {
   agent.spot = undefined;
   agent.curiousAbout = undefined;
+  const repairs = planRepair(agent, world);
+  if (repairs) return repairs;
   const { behavior } = agent.character;
   const { room } = agent;
   const { darkness } = room;

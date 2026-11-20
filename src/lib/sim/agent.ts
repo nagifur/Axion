@@ -6,6 +6,7 @@ import { accessCardLevel, ITEM_REACH, Item, startingItemTypes } from './item.ts'
 import { createAgentStats, type AgentStats } from './stats.ts';
 import { isSpeaking, type Conversation } from './conversation.ts';
 import { planNext } from './planning.ts';
+import { planRepair, type RepairTarget } from './repairs.ts';
 
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
@@ -24,6 +25,8 @@ export interface Task {
   falling?: boolean;
   /** Finish recovering before abandoning a broken seat. */
   tripping?: boolean;
+  /** Reserves damaged equipment while walking to it or repairing it. */
+  repairTarget?: RepairTarget;
   /** The carried item this task is using, once it has started. */
   readonly usingItem?: Item | null;
   start?(agent: Agent, world: World): void;
@@ -194,6 +197,10 @@ export class Agent {
     return !!this.task?.tripping;
   }
 
+  get repairTarget(): RepairTarget | undefined {
+    return this.task?.repairTarget ?? this.plan.find((task) => task.repairTarget)?.repairTarget;
+  }
+
   get frame(): { name: FrameName; flip: boolean } {
     const speaking = !this.held && this.conversation && isSpeaking(this.conversation, this);
     const walking = this.moving && !this.held;
@@ -287,6 +294,10 @@ export class Agent {
     this.shake = Math.max(0, this.shake - dt);
     this.eyeFlash = Math.max(0, this.eyeFlash - dt);
 
+    if (this.task?.interruptible && !this.repairTarget) {
+      const repairs = planRepair(this, world);
+      if (repairs) this.setPlan(world, repairs);
+    }
     if (!this.task) {
       if (!this.plan.length) this.plan = planNext(this, world);
       this.task = this.plan.shift();
