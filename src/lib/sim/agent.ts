@@ -7,6 +7,7 @@ import { createAgentStats, type AgentStats } from './stats.ts';
 import { isSpeaking, type Conversation } from './conversation.ts';
 import { planNext } from './planning.ts';
 import { planRepair, type RepairTarget } from './repairs.ts';
+import { StatusEffects } from './statusEffects.ts';
 
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
@@ -42,6 +43,7 @@ const BASE_SPEED = 28;
 let nextUid = 1;
 
 export class Agent {
+  readonly statuses = new StatusEffects({ kind: 'agent', entity: this });
   readonly uid = nextUid++;
   readonly character: SimCharacter;
   readonly impostor?: SimImpostor;

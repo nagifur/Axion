@@ -2,6 +2,7 @@ import type { DoorSide, Point, Rect } from './navMap.ts';
 import { PROP_BREAK_CHANCE } from './prop.ts';
 import { chance } from './random.ts';
 import type { PropSheetImage } from './sprites.ts';
+import { StatusEffects } from './statusEffects.ts';
 
 /** An optional physical door attached to a painted passage. */
 export interface DoorConfig {
@@ -89,12 +90,39 @@ export class PassageDoor {
   /** 0 = closed, 1 = fully open. */
   open = 0;
   unlocked = false;
-  broken = false;
-  panelBroken = false;
+  readonly statuses = new StatusEffects({ kind: 'door', entity: this }, (id, active) => {
+    if (id !== 'broken' || !active) return;
+    this.open = 0;
+    this.unlocked = false;
+    this.hold = 0;
+  });
+  readonly panelStatuses = new StatusEffects({ kind: 'panel', entity: this }, (id, active) => {
+    if (id !== 'broken') return;
+    if (active) this.unlocked = false;
+    else this.hold = 0;
+  });
   private hold = 0;
 
   constructor(clearance: number) {
     this.clearance = clearance;
+  }
+
+  get broken(): boolean {
+    return this.statuses.has('broken');
+  }
+
+  set broken(broken: boolean) {
+    if (broken) this.break();
+    else this.repair();
+  }
+
+  get panelBroken(): boolean {
+    return this.panelStatuses.has('broken');
+  }
+
+  set panelBroken(broken: boolean) {
+    if (broken) this.breakPanel();
+    else this.repairPanel();
   }
 
   get blocked(): boolean {
@@ -106,32 +134,19 @@ export class PassageDoor {
   }
 
   break(): boolean {
-    if (this.broken) return false;
-    this.broken = true;
-    this.open = 0;
-    this.unlocked = false;
-    this.hold = 0;
-    return true;
+    return !this.broken && this.statuses.apply('broken');
   }
 
   breakPanel(): boolean {
-    if (this.panelBroken) return false;
-    this.panelBroken = true;
-    this.unlocked = false;
-    return true;
+    return !this.panelBroken && this.panelStatuses.apply('broken');
   }
 
   repair(): boolean {
-    if (!this.broken) return false;
-    this.broken = false;
-    return true;
+    return this.statuses.remove('broken');
   }
 
   repairPanel(): boolean {
-    if (!this.panelBroken) return false;
-    this.panelBroken = false;
-    this.hold = 0;
-    return true;
+    return this.panelStatuses.remove('broken');
   }
 
   isBroken(part: PassagePart): boolean {

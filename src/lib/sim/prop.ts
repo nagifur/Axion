@@ -5,6 +5,7 @@ import { hasPropLook, propTypeOf, type PropLook, type PropType } from './sprites
 import type { Point, Room } from './room.ts';
 import type { Rect } from './navMap.ts';
 import { chance } from './random.ts';
+import { StatusEffects } from './statusEffects.ts';
 
 export interface PropState {
   /** Switched on. Only used by switchable props. */
@@ -43,7 +44,9 @@ export class Prop implements PlacedProp {
   flip: boolean;
   start?: Partial<PropState>;
   on: boolean;
-  broken: boolean;
+  readonly statuses = new StatusEffects({ kind: 'prop', entity: this }, (id, active) => {
+    if (id === 'broken' && active) this.pendingBreaks++;
+  });
   readonly brokenLook?: boolean;
   private readonly sheetSwitchable: boolean;
   private pendingBreaks = 0;
@@ -60,7 +63,17 @@ export class Prop implements PlacedProp {
     if (data.brokenLook === true) this.brokenLook = true;
     if (data.start && Object.keys(data.start).length) this.start = { ...data.start };
     this.on = this.switchable ? data.start?.on ?? DEFAULT_PROP_STATE.on : DEFAULT_PROP_STATE.on;
-    this.broken = this.breakable ? data.start?.broken ?? DEFAULT_PROP_STATE.broken : DEFAULT_PROP_STATE.broken;
+    if (data.start?.broken) this.statuses.apply('broken');
+    this.pendingBreaks = 0;
+  }
+
+  get broken(): boolean {
+    return this.statuses.has('broken');
+  }
+
+  set broken(broken: boolean) {
+    if (broken) this.break();
+    else this.repair();
   }
 
   get kind(): PropType {
@@ -132,10 +145,7 @@ export class Prop implements PlacedProp {
 
   /** Returns whether anything changed. Anyone using a broken prop gets up (see World.update). */
   break(): boolean {
-    if (!this.breakable || this.broken) return false;
-    this.broken = true;
-    this.pendingBreaks++;
-    return true;
+    return !this.broken && this.statuses.apply('broken');
   }
 
   /** Runtime break events since the last simulation update. */
@@ -151,9 +161,7 @@ export class Prop implements PlacedProp {
 
   /** Returns whether anything changed. */
   repair(): boolean {
-    if (!this.broken) return false;
-    this.broken = false;
-    return true;
+    return this.statuses.remove('broken');
   }
 
   /**

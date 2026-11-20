@@ -12,6 +12,7 @@ import { PassageNetwork } from './passages.ts';
 import * as routing from './routing.ts';
 import { chance, maybePick, pick, range, weightedPick } from './random.ts';
 import { accessCardLevel, startingItemTypes } from './item.ts';
+import type { StatusEffects } from './statusEffects.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -414,8 +415,27 @@ export class World {
   }
 
   update(dt: number) {
+    if (!Number.isFinite(dt) || dt < 0) throw new Error('World update needs a finite, non-negative timestep.');
     this.particles.update(dt);
     this.time += dt;
+    const statuses = new Set<StatusEffects>();
+    for (const agent of this.everyone()) {
+      if (agent.removed) continue;
+      statuses.add(agent.statuses);
+      if (agent.item) statuses.add(agent.item.statuses);
+      for (const item of agent.inventory) statuses.add(item.statuses);
+    }
+    for (const room of this.rooms) {
+      for (const prop of room.props) statuses.add(prop.statuses);
+      for (const item of room.items) statuses.add(item.statuses);
+      for (const door of room.doors) {
+        const state = this.passageDoorFor(door);
+        if (!state) continue;
+        statuses.add(state.statuses);
+        statuses.add(state.panelStatuses);
+      }
+    }
+    for (const effects of statuses) effects.update(this, dt);
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
     this.passages.update(this, dt);
 

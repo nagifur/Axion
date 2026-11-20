@@ -255,6 +255,7 @@ minimum stay. Clearance rules and motion-sensor lighting are unchanged.
 | [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |
 | [`src/lib/sim/sprites.ts`](../src/lib/sim/sprites.ts) | What is inside each shared sprite: character frames, prop seats and blocked areas. |
 | [`src/lib/sim/prop.ts`](../src/lib/sim/prop.ts) | Placed props and their live state (on/off, broken). |
+| [`src/lib/sim/statusEffects.ts`](../src/lib/sim/statusEffects.ts) | Shared status definitions, active effects, durations, and lifecycle hooks. |
 | [`src/lib/sim/navMap.ts`](../src/lib/sim/navMap.ts) | Reads and checks nav maps at build time. |
 | [`src/lib/sim/roomLoader.ts`](../src/lib/sim/roomLoader.ts) | Loads every room folder at build time and connects their doors. |
 | [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
@@ -415,6 +416,58 @@ reserved while approached or repaired, including across both camera views of a
 passage; cancellation or removal releases the claim. Repairs stop if the target is
 removed, already fixed, or no longer within reach. They preserve power settings
 and exported starting state. Impostors do not repair equipment.
+
+#### Status Effects
+
+Agents, props and items each have a `statuses` collection from
+[`statusEffects.ts`](../src/lib/sim/statusEffects.ts). Physical passage doors use
+`statuses` for the door and `panelStatuses` for its independently repairable panel.
+`broken` is the first effect: it applies only to breakable props, doors and panels.
+The existing `broken`/`panelBroken` properties and break/repair methods read and
+change that same collection, not a second damage flag. Applying it through the
+status API also triggers the usual break particles and door/panel state transitions.
+Power is still separate; repairing damage never changes a prop's power setting.
+Starting damage from `room.json` does not emit runtime break particles.
+
+```ts
+prop.statuses.apply('broken'); // Same damage state as prop.break().
+prop.statuses.has('broken');
+prop.statuses.remove('broken'); // Same repair state as prop.repair().
+const effects = prop.statuses.active; // Read-only snapshots: id, label, remaining.
+```
+
+Add a definition to `STATUS_EFFECTS` to introduce an effect. Each definition has a
+`label` and `targets` (`agent`, `prop`, `item`, `door`, or `panel`), and can provide:
+
+- `duration`: positive, finite simulation seconds; omit for permanent effects.
+- `canApply(target)`: optional eligibility rule beyond the target kind.
+- `onApply(target)`: runs once when first added.
+- `onUpdate(target, world, dt)`: optional gameplay behavior each simulation update.
+- `onRemove(target, reason)`: cleanup on explicit removal (`removed`) or expiry
+  (`expired`). Use it to undo any persistent changes made by `onApply`.
+
+The target contains `kind` and `entity`; narrow by `kind` before accessing
+entity-specific fields. Definitions need no sprite or other art. No wet, fire or
+bleeding gameplay is enabled yet.
+
+Use `entity.statuses.apply(id, seconds)` to override a definition's duration.
+Only one instance of an effect can exist per target: reapplying a timed effect
+resets its remaining duration without stacking or rerunning `onApply`. Reapplying
+an already-permanent effect is a no-op. `apply` returns false for an ineligible
+target or an already-permanent effect, and true for additions or timed refreshes.
+Unknown effect IDs and invalid durations/timesteps throw explanatory errors.
+`get(id)` returns a snapshot or `undefined`; `has(id)` checks presence;
+`remove(id)` returns whether it removed anything; `clear()` removes current effects.
+
+`World.update` ticks statuses once per simulation frame, before movement and task
+planning, including held agents, off-camera elevator riders, and loose, carried
+or stored items. Linked doors are deduplicated across camera views. Effects use
+simulation time, so pause and speed controls apply automatically. A final update
+is capped to the remaining lifetime before expiry; hooks may safely remove or
+refresh effects. Effects added inside a collection's update hook first tick on
+that collection's next update. Removed agents and consumed items stop ticking.
+Runtime effects are not saved to placement exports or `room.json`; existing
+`on` and `broken` starting-state/editor formats are unchanged.
 
 #### Breakage Particles
 

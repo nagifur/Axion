@@ -1,5 +1,6 @@
 import { ITEM_SPRITES } from './sprites.ts';
 import { clearanceLevel, type SimCharacter } from './roster.ts';
+import { StatusEffects } from './statusEffects.ts';
 
 /** How far from their feet, in room pixels, an agent can pick up a loose item. */
 export const ITEM_REACH = 12;
@@ -52,6 +53,7 @@ export interface PlacedItem {
 
 /** Items live on the floor, in an agent's hand, or in their personal storage, never more than one. */
 export class Item implements PlacedItem {
+  readonly statuses = new StatusEffects({ kind: 'item', entity: this });
   readonly type: string;
   readonly asset: string;
   x: number;
