@@ -64,7 +64,7 @@ export class Agent {
 
   bubble: Bubble = null;
   private bubbleTimer = 0;
-  activity = 'Arriving';
+  private currentActivity = 'Arriving';
   /** When they entered the facility, and when they entered their current room. */
   arrivedAt = 0;
   enteredRoomAt = 0;
@@ -99,6 +99,18 @@ export class Agent {
     return this.character.behavior.ghost && !this.impostor;
   }
 
+  get incapacitated(): boolean {
+    return this.statuses.actionBlockRemaining > 0;
+  }
+
+  get activity(): string {
+    return this.statuses.has('shocked') ? 'Shocked' : this.currentActivity;
+  }
+
+  set activity(activity: string) {
+    this.currentActivity = activity;
+  }
+
   get hasMagic() {
     return this.stats.magic.max > 0;
   }
@@ -125,7 +137,7 @@ export class Agent {
   }
 
   storeItem(): Item {
-    if (!this.draggable) throw new Error('Agent cannot store an item during transport, dragging, or departure.');
+    if (!this.draggable) throw new Error('Agent cannot store an item during transport, dragging, departure, or incapacitation.');
     const item = this.item;
     if (!item) throw new Error('Agent has no item to store.');
     this.storedItems.push(item);
@@ -134,7 +146,7 @@ export class Agent {
   }
 
   retrieveItem(item: Item) {
-    if (!this.draggable) throw new Error('Agent cannot retrieve an item during transport, dragging, or departure.');
+    if (!this.draggable) throw new Error('Agent cannot retrieve an item during transport, dragging, departure, or incapacitation.');
     if (this.item) throw new Error('Agent already carries an item.');
     const index = this.storedItems.indexOf(item);
     if (index < 0) throw new Error('Item is not in this agent\'s inventory.');
@@ -143,7 +155,7 @@ export class Agent {
   }
 
   pickUpItem(item: Item) {
-    if (!this.draggable) throw new Error('Agent cannot pick up an item during transport, dragging, or departure.');
+    if (!this.draggable) throw new Error('Agent cannot pick up an item during transport, dragging, departure, or incapacitation.');
     if (this.item) throw new Error('Agent already carries an item.');
     if (!this.room.items.includes(item)) throw new Error('Item is not loose in this agent\'s room.');
     if (Math.hypot(item.x + item.w / 2 - this.x, item.y + item.h - this.y) > ITEM_REACH) {
@@ -155,7 +167,7 @@ export class Agent {
 
   /** Drops at the nearest open floor position in the current room. */
   dropItem(): Item {
-    if (!this.draggable) throw new Error('Agent cannot drop an item during transport, dragging, or departure.');
+    if (!this.draggable) throw new Error('Agent cannot drop an item during transport, dragging, departure, or incapacitation.');
     const item = this.item;
     if (!item) throw new Error('Agent has no item to drop.');
     const point = this.room.nearestWalkable(this);
@@ -183,11 +195,11 @@ export class Agent {
   }
 
   get busy() {
-    return this.held || !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
+    return this.incapacitated || this.held || !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
   }
 
   get draggable() {
-    return !this.removed && !this.leaving && !this.held && this.layer === 'room' && this.alpha >= 1 &&
+    return !this.incapacitated && !this.removed && !this.leaving && !this.held && this.layer === 'room' && this.alpha >= 1 &&
       !this.task?.transport && !this.task?.falling && !this.plan[0]?.falling;
   }
 
@@ -204,6 +216,7 @@ export class Agent {
   }
 
   get frame(): { name: FrameName; flip: boolean } {
+    if (this.incapacitated) return { name: IDLE_CYCLES[this.facing][0], flip: this.facing === 'left' };
     const speaking = !this.held && this.conversation && isSpeaking(this.conversation, this);
     const walking = this.moving && !this.held;
     const tripping = !this.held && this.tripping;
@@ -267,6 +280,7 @@ export class Agent {
   }
 
   moveToward(target: Point, dt: number, speedMul = 1): boolean {
+    if (this.incapacitated) return false;
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const distance = Math.hypot(dx, dy);
@@ -287,7 +301,7 @@ export class Agent {
     return false;
   }
 
-  update(world: World, dt: number) {
+  update(world: World, dt: number, blockedSeconds = 0) {
     this.moving = false;
     if (this.bubbleTimer > 0) {
       this.bubbleTimer -= dt;
@@ -295,6 +309,9 @@ export class Agent {
     }
     this.shake = Math.max(0, this.shake - dt);
     this.eyeFlash = Math.max(0, this.eyeFlash - dt);
+
+    if (this.incapacitated || (dt > 0 && blockedSeconds >= dt)) return;
+    dt = Math.max(0, dt - blockedSeconds);
 
     if (this.task?.interruptible && !this.repairTarget) {
       const repairs = planRepair(this, world);
@@ -307,13 +324,14 @@ export class Agent {
       this.task?.start?.(this, world);
       if (this.task) this.activity = this.task.activity;
     }
+    if (this.incapacitated) return;
     const task = this.task;
     // Tasks can replace themselves (trips) or remove the agent, so only end the one that ran.
     if (task && task.update(this, world, dt) && this.task === task) {
       task.end?.(this, world);
       this.task = undefined;
     }
-    if (task && this.task === task) this.taskElapsed += Math.max(0, dt);
+    if (task && this.task === task && !this.incapacitated) this.taskElapsed += Math.max(0, dt);
     this.idleElapsed = this.moving ? 0 : (this.idleElapsed + Math.max(0, dt)) % (IDLE_FRAME_SECONDS * 2);
   }
 }

@@ -4,6 +4,7 @@ import type { Prop } from './prop.ts';
 import type { Door, Point, Room } from './room.ts';
 import { walkTo } from './tasks.ts';
 import type { World } from './world.ts';
+import { tryElectricalShock } from './electrical.ts';
 
 export const REPAIR_SECONDS = 12;
 
@@ -37,6 +38,7 @@ function targetName(target: RepairTarget): string {
 function repair(target: RepairTarget): Task {
   let left = REPAIR_SECONDS;
   let started = false;
+  let checkedShock = false;
   return {
     activity: `Repairing the ${targetName(target)}`,
     interruptible: false,
@@ -52,6 +54,10 @@ function repair(target: RepairTarget): Task {
         agent.face(point);
         world.log(`${agent.character.name} started repairing the ${targetName(target)} in the ${target.room.name}.`, 'muted');
       }
+      if (dt > 0 && !checkedShock) {
+        checkedShock = true;
+        if (target.kind === 'prop' && tryElectricalShock(agent, world, target.prop)) return false;
+      }
       left -= Math.max(0, dt);
       if (left > 0) return false;
       const fixed = target.kind === 'prop' ? target.prop.repair() : target.state.setBroken(target.part, false);
@@ -64,7 +70,7 @@ function repair(target: RepairTarget): Task {
 /** Maintenance staff notice damage in their current room, including outside their shift. */
 export function planRepair(agent: Agent, world: World): Task[] | undefined {
   if (agent.impostor || agent.character.position?.trim().toLowerCase() !== 'maintenance'
-    || agent.held || agent.removed || agent.leaving || agent.conversation || agent.napping
+    || agent.incapacitated || agent.held || agent.removed || agent.leaving || agent.conversation || agent.napping
     || agent.layer !== 'room' || agent.alpha < 1) return undefined;
   const { room } = agent;
   const targets: RepairTarget[] = room.props.filter((prop) => prop.broken)

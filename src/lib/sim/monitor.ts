@@ -358,7 +358,7 @@ export function initMonitor(root: HTMLElement): () => void {
       drag.client = { x: event.clientX, y: event.clientY };
       if (!drag.active && Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) >= DRAG_START_PX) {
         if (!drag.agent.draggable) {
-          log(`${drag.agent.character.name} cannot be picked up during a doorway or elevator transition.`, 'warn');
+          log(`${drag.agent.character.name} cannot be picked up while incapacitated or during a doorway or elevator transition.`, 'warn');
           cancelDrag();
           suppressClick = true;
           return;

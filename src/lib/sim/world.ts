@@ -13,6 +13,7 @@ import * as routing from './routing.ts';
 import { chance, maybePick, pick, range, weightedPick } from './random.ts';
 import { accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
+import { checkElectricalApproach } from './electrical.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -419,8 +420,10 @@ export class World {
     this.particles.update(dt);
     this.time += dt;
     const statuses = new Set<StatusEffects>();
+    const blockedSeconds = new Map<Agent, number>();
     for (const agent of this.everyone()) {
       if (agent.removed) continue;
+      blockedSeconds.set(agent, Math.min(dt, agent.statuses.actionBlockRemaining));
       statuses.add(agent.statuses);
       if (agent.item) statuses.add(agent.item.statuses);
       for (const item of agent.inventory) statuses.add(item.statuses);
@@ -462,7 +465,10 @@ export class World {
         }
         agent.setPlan(this, []);
       }
-      agent.update(this, dt);
+      const from = { x: agent.x, y: agent.y };
+      const room = agent.room;
+      agent.update(this, dt, blockedSeconds.get(agent) ?? 0);
+      if (dt > 0 && agent.moving && agent.room === room) checkElectricalApproach(agent, this, from);
     }
 
     for (const room of this.rooms) {

@@ -4,6 +4,7 @@ import type { Prop } from './prop.ts';
 import { distance } from './navMap.ts';
 import { Item, ITEM_REACH, itemActions, type ItemAction } from './item.ts';
 import { breakPropOnUse } from './tasks.ts';
+import { tryElectricalShock } from './electrical.ts';
 
 // Tasks for picking up, using, setting down and dispensing items.
 
@@ -125,6 +126,7 @@ export function retrieveItem(item: Item): Task {
  */
 export function getFromDispenser(prop: Prop, seconds = 2.5): Task {
   let left = seconds;
+  let checkedShock = false;
   const type = prop.kind.dispenses;
   if (!type) throw new Error(`The ${prop.type} does not dispense anything.`);
   return {
@@ -134,6 +136,10 @@ export function getFromDispenser(prop: Prop, seconds = 2.5): Task {
       agent.facing = 'back';
     },
     update(agent, world, dt) {
+      if (dt > 0 && prop.broken && !checkedShock) {
+        checkedShock = true;
+        if (tryElectricalShock(agent, world, prop)) return false;
+      }
       left -= dt;
       if (left > 0) return false;
       const name = prop.type.replaceAll('_', ' ');

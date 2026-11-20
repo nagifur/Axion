@@ -15,6 +15,8 @@ export type StatusRemovalReason = 'removed' | 'expired';
 export interface StatusEffectDefinition {
   label: string;
   targets: readonly StatusTarget['kind'][];
+  /** Pauses the target agent's task runner and movement while active. */
+  blocksActions?: boolean;
   /** Simulation seconds; omitted means permanent until removed. */
   duration?: number;
   canApply?(target: StatusTarget): boolean;
@@ -24,12 +26,31 @@ export interface StatusEffectDefinition {
   onRemove?(target: StatusTarget, reason: StatusRemovalReason): void;
 }
 
+export const SHOCK_SECONDS = 2;
+
 /** Add effects here; no artwork is required for simulation-only effects. */
 export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   broken: {
     label: 'Broken',
     targets: ['prop', 'door', 'panel'],
     canApply: (target) => target.kind !== 'prop' || target.entity.breakable,
+  },
+  shocked: {
+    label: 'Shocked',
+    targets: ['agent'],
+    duration: SHOCK_SECONDS,
+    blocksActions: true,
+    onApply(target) {
+      if (target.kind !== 'agent') return;
+      target.entity.moving = false;
+      target.entity.shake = SHOCK_SECONDS;
+      target.entity.say('!', SHOCK_SECONDS);
+    },
+    onRemove(target) {
+      if (target.kind === 'agent' && target.entity.bubble === '!') {
+        target.entity.bubble = target.entity.napping ? 'zZ' : null;
+      }
+    },
   },
 };
 
@@ -64,6 +85,14 @@ export class StatusEffects {
 
   has(id: string): boolean {
     return this.effects.has(id);
+  }
+
+  get actionBlockRemaining(): number {
+    let remaining = 0;
+    for (const effect of this.effects.values()) {
+      if (effect.definition.blocksActions) remaining = Math.max(remaining, effect.remaining ?? Infinity);
+    }
+    return remaining;
   }
 
   get(id: string): ActiveStatusEffect | undefined {

@@ -256,6 +256,7 @@ minimum stay. Clearance rules and motion-sensor lighting are unchanged.
 | [`src/lib/sim/sprites.ts`](../src/lib/sim/sprites.ts) | What is inside each shared sprite: character frames, prop seats and blocked areas. |
 | [`src/lib/sim/prop.ts`](../src/lib/sim/prop.ts) | Placed props and their live state (on/off, broken). |
 | [`src/lib/sim/statusEffects.ts`](../src/lib/sim/statusEffects.ts) | Shared status definitions, active effects, durations, and lifecycle hooks. |
+| [`src/lib/sim/electrical.ts`](../src/lib/sim/electrical.ts) | Broken electrical prop exposure, shock chances, and recovery grace. |
 | [`src/lib/sim/navMap.ts`](../src/lib/sim/navMap.ts) | Reads and checks nav maps at build time. |
 | [`src/lib/sim/roomLoader.ts`](../src/lib/sim/roomLoader.ts) | Loads every room folder at build time and connects their doors. |
 | [`src/lib/sim/room.ts`](../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
@@ -422,7 +423,7 @@ and exported starting state. Impostors do not repair equipment.
 Agents, props and items each have a `statuses` collection from
 [`statusEffects.ts`](../src/lib/sim/statusEffects.ts). Physical passage doors use
 `statuses` for the door and `panelStatuses` for its independently repairable panel.
-`broken` is the first effect: it applies only to breakable props, doors and panels.
+`broken` applies only to breakable props, doors and panels.
 The existing `broken`/`panelBroken` properties and break/repair methods read and
 change that same collection, not a second damage flag. Applying it through the
 status API also triggers the usual break particles and door/panel state transitions.
@@ -440,6 +441,9 @@ Add a definition to `STATUS_EFFECTS` to introduce an effect. Each definition has
 `label` and `targets` (`agent`, `prop`, `item`, `door`, or `panel`), and can provide:
 
 - `duration`: positive, finite simulation seconds; omit for permanent effects.
+- `blocksActions`: pauses an agent's current task and movement without cancelling
+  its plan or releasing reservations. Multiple blockers use the longest remaining
+  duration; only the unstunned portion of an expiry frame advances the task.
 - `canApply(target)`: optional eligibility rule beyond the target kind.
 - `onApply(target)`: runs once when first added.
 - `onUpdate(target, world, dt)`: optional gameplay behavior each simulation update.
@@ -468,6 +472,40 @@ refresh effects. Effects added inside a collection's update hook first tick on
 that collection's next update. Removed agents and consumed items stop ticking.
 Runtime effects are not saved to placement exports or `room.json`; existing
 `on` and `broken` starting-state/editor formats are unchanged.
+
+##### Electrical Shock
+
+`shocked` is an agent-only effect lasting two simulation seconds (`SHOCK_SECONDS`
+in [`statusEffects.ts`](../src/lib/sim/statusEffects.ts)). It pauses movement,
+planning, task progress and item actions, and makes the agent unavailable for
+dragging or new conversations. The personnel file shows **Shocked**, and existing
+idle artwork, shaking and an exclamation bubble provide feedback without new art.
+The same task resumes afterward, including a maintenance repair and its claim.
+Shock does not currently damage HP or spread to other agents/items.
+
+[`electrical.ts`](../src/lib/sim/electrical.ts) controls exposure:
+
+- Walking within 10 room pixels of a broken electrical prop's `impactBounds`
+  gives a 20% shock chance **once per approach**, not per frame. Leaving the radius
+  and approaching again permits a fresh roll. Swept movement checks also catch
+  long frames whose start and end points are both outside the radius.
+- Actually inspecting, using or starting to repair one gives a 50% chance,
+  once per interaction attempt. Drag/drop previews and paused updates never roll.
+  Broken electrical props remain inspectable through drag/drop with a
+  **shock risk** warning; broken non-electrical props remain unavailable.
+- A successful shock gives four seconds of grace after its normal two-second
+  stun, and exposure cannot refresh a shock that is still active.
+- Only broken props explicitly marked `electric` qualify, even when switched off,
+  matching their existing spark behavior. Removed, distant and other-room props
+  cannot shock an interacting agent. Held, off-camera, fading and elevator-inside
+  agents do not receive environmental shocks. Standing still nearby is not an
+  approach. Passage panels retain their existing spark/repair behavior; shock
+  exposure currently applies to placed props only.
+
+The reach, chances and grace duration are exported constants in
+[`electrical.ts`](../src/lib/sim/electrical.ts). Use
+`agent.statuses.apply('shocked')` for scripted shocks; normal electrical exposure
+also logs a warning and applies the recovery grace.
 
 #### Breakage Particles
 

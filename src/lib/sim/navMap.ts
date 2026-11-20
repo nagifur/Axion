@@ -16,6 +16,48 @@ export interface Rect {
   h: number;
 }
 
+export function distanceToRect(point: Point, rect: Rect): number {
+  return Math.hypot(
+    Math.max(rect.x - point.x, 0, point.x - rect.x - rect.w),
+    Math.max(rect.y - point.y, 0, point.y - rect.y - rect.h),
+  );
+}
+
+/** Includes the swept path, so a long simulation frame cannot skip a nearby hazard. */
+export function segmentDistanceToRect(from: Point, to: Point, rect: Rect): number {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  let enter = 0;
+  let exit = 1;
+  for (const [start, delta, min, max] of [
+    [from.x, dx, rect.x, rect.x + rect.w],
+    [from.y, dy, rect.y, rect.y + rect.h],
+  ]) {
+    if (delta === 0) {
+      if (start < min || start > max) {
+        enter = Infinity;
+        break;
+      }
+    } else {
+      const a = (min - start) / delta;
+      const b = (max - start) / delta;
+      enter = Math.max(enter, Math.min(a, b));
+      exit = Math.min(exit, Math.max(a, b));
+    }
+  }
+  if (enter <= exit) return 0;
+  let distance = Math.min(distanceToRect(from, rect), distanceToRect(to, rect));
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared === 0) return distance;
+  for (const x of [rect.x, rect.x + rect.w]) {
+    for (const y of [rect.y, rect.y + rect.h]) {
+      const t = Math.max(0, Math.min(1, ((x - from.x) * dx + (y - from.y) * dy) / lengthSquared));
+      distance = Math.min(distance, Math.hypot(x - from.x - t * dx, y - from.y - t * dy));
+    }
+  }
+  return distance;
+}
+
 type NavKind = 'floor' | 'door' | 'elevator' | 'blocked';
 
 /** Colours a nav map may use. Fully transparent pixels are blocked too. */

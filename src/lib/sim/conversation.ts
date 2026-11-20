@@ -77,6 +77,7 @@ export function conversationPoint(agent: Point, partner: Agent): Point | undefin
 }
 
 export function startConversation(agent: Agent, partner: Agent, world: World, immediate = false): Task[] | null {
+  if (agent.incapacitated || partner.incapacitated) return null;
   const meet = conversationPoint(agent, partner);
   if (!meet) return null;
 

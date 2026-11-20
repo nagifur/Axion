@@ -5,6 +5,8 @@ import type { World } from './world.ts';
 import type { SchedulePeriod } from './schedule.ts';
 import { GRAVITY } from './particles.ts';
 import { chance, range } from './random.ts';
+import { distanceToRect } from './navMap.ts';
+import { tryElectricalShock } from './electrical.ts';
 
 // General-purpose tasks: walking, waiting, resting, napping, falling and tripping.
 
@@ -146,10 +148,7 @@ function breakNearbyProp(agent: Agent, world: World, cause: 'trip' | 'fall') {
   let nearestDistance = Infinity;
   for (const prop of agent.room.props) {
     if (!prop.breakable || prop.broken) continue;
-    const { x, y, w, h } = prop.impactBounds;
-    const dx = Math.max(x - agent.x, 0, agent.x - (x + w));
-    const dy = Math.max(y - agent.y, 0, agent.y - (y + h));
-    const distance = Math.hypot(dx, dy);
+    const distance = distanceToRect(agent, prop.impactBounds);
     if (distance <= TRIP_PROP_REACH && distance < nearestDistance) {
       nearest = prop;
       nearestDistance = distance;
@@ -170,6 +169,7 @@ export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePer
   const task = sleeping ? nap(range(25, 50), spot.facing)
     : wait(period === 'work' ? range(30, 60) : range(8, 18), activity, spot.facing);
   let attempted = false;
+  let checkedShock = false;
   let started = false;
   return {
     ...task,
@@ -185,6 +185,10 @@ export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePer
       }
     },
     update(agent, world, dt) {
+      if (dt > 0 && spot.prop.broken && !checkedShock) {
+        checkedShock = true;
+        if (tryElectricalShock(agent, world, spot.prop)) return false;
+      }
       return spot.prop.broken || task.update(agent, world, dt);
     },
     end(agent, world) {

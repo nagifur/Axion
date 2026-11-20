@@ -68,7 +68,8 @@ test('an agent walks to the machine, gets a fresh can, then drinks it until it i
   assert.deepEqual(room.items, []);
 });
 
-test('nothing comes out if the hand fills or the machine goes off or breaks meanwhile', async () => {
+test('nothing comes out if the hand fills or the machine goes off or breaks meanwhile', async (t) => {
+  t.mock.method(Math, 'random', () => 0.99);
   const { world, room, machine, stand, logs } = await setup();
   const agent = world.spawn(character('a'), room, stand);
   for (const spoil of [() => agent.receiveItem(Item.create('can')), () => machine.setOn(false), () => { machine.broken = true; }]) {

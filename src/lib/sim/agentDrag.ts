@@ -6,6 +6,7 @@ import type { Prop } from './prop.ts';
 import type { Point, Room, Spot } from './room.ts';
 import { scheduleFor } from './schedule.ts';
 import type { World } from './world.ts';
+import { tryElectricalShock } from './electrical.ts';
 
 export type DropTarget =
   | { kind: 'invalid'; label: string }
@@ -19,6 +20,7 @@ export type DropTarget =
 export function dropTarget(
   world: World, agent: Agent, point: Point, partner?: Agent | null, prop?: Prop | null, room: Room = agent.room,
 ): DropTarget {
+  if (agent.incapacitated) return { kind: 'invalid', label: 'That agent is incapacitated' };
   if (point.x < 0 || point.y < 0 || point.x >= room.width || point.y >= room.height) {
     return { kind: 'invalid', label: 'Drop inside the camera feed' };
   }
@@ -31,8 +33,8 @@ export function dropTarget(
   }
   if (prop) {
     if (!room.props.includes(prop)) return { kind: 'invalid', label: 'That prop is not in this room' };
-    if (prop.broken) return { kind: 'invalid', label: `The ${prop.type} is broken` };
-    const seats = room.spots.filter((spot) => spot.prop === prop);
+    if (prop.broken && !prop.electric) return { kind: 'invalid', label: `The ${prop.type} is broken` };
+    const seats = prop.broken ? [] : room.spots.filter((spot) => spot.prop === prop);
     if (seats.length) {
       const free = seats.filter((spot) => !world.agentsIn(room).some((other) => other !== agent && other.spot === spot));
       free.sort((a, b) => Math.hypot(a.x - point.x, a.y - point.y) - Math.hypot(b.x - point.x, b.y - point.y));
@@ -43,6 +45,9 @@ export function dropTarget(
     const stand = prop.standPoint(room);
     if (!room.isWalkable(stand)) {
       return { kind: 'invalid', label: `Cannot reach the ${prop.type}` };
+    }
+    if (prop.broken) {
+      return { kind: 'prop', room, point: stand, prop, label: `Inspect broken ${prop.type} (shock risk)` };
     }
     const dispensed = prop.dispensing;
     if (dispensed) {
@@ -63,6 +68,10 @@ export function dropTarget(
 
 /** Applies a freshly resolved drop; invalid drops leave the original task and position intact. */
 export function placeAgent(world: World, agent: Agent, target: DropTarget): boolean {
+  if (agent.incapacitated) {
+    world.log(`Cannot place ${agent.character.name}: agent is incapacitated.`, 'warn');
+    return false;
+  }
   if (target.kind === 'invalid') {
     world.log(`Cannot place ${agent.character.name}: ${target.label}.`, 'warn');
     return false;
@@ -94,16 +103,25 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
     agent.setPlan(world, [getFromDispenser(target.prop)]);
   } else if (target.kind === 'prop') {
     let attempted = false;
+    let checkedShock = false;
+    const task = wait(3, target.label);
     agent.facing = 'back';
     agent.face({ x: target.prop.x + target.prop.w / 2, y: target.prop.y });
     agent.setPlan(world, [{
-      ...wait(3, target.label),
+      ...task,
       start() {
         if (attempted) return;
         attempted = true;
         if (target.prop.broken || breakPropOnUse(agent, world, target.prop)) return;
         if (target.prop.switchable) target.prop.setOn(switchOn);
         else agent.say('?', 2);
+      },
+      update(agent, world, dt) {
+        if (dt > 0 && target.prop.broken && !checkedShock) {
+          checkedShock = true;
+          if (tryElectricalShock(agent, world, target.prop)) return false;
+        }
+        return task.update(agent, world, dt);
       },
     }]);
   } else {

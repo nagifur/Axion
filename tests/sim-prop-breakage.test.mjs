@@ -134,7 +134,7 @@ test('manual previews never roll; seating, inspecting and switching roll on task
     agent.update(world, 0);
     assert.equal(prop.broken, true, type);
     assert.equal(agent.bubble, '!');
-    assert.equal(dropTarget(world, agent, point, null, prop).kind, 'invalid');
+    assert.equal(dropTarget(world, agent, point, null, prop).kind, prop.electric ? 'prop' : 'invalid');
     if (type === 'light') assert.equal(prop.on, true, 'failed switch does not toggle power');
   }
   assert.equal(logs.filter((entry) => entry.tone === 'warn').length, 4);
