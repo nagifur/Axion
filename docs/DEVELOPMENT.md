@@ -454,6 +454,16 @@ The target contains `kind` and `entity`; narrow by `kind` before accessing
 entity-specific fields. Definitions need no sprite or other art. No wet, fire or
 bleeding gameplay is enabled yet.
 
+For an overhead character popup, add `popup: { icon, color, background? }` to the
+definition. Use an asset URL for `icon` (for example,
+`new URL('../../sim_assets/icons/shocked.svg', import.meta.url).href`).
+`color` sets the border color; optional `background` overrides the usual dark
+popup box. The SVG controls its own artwork colors. Popups sit above speech and
+name tags, participate in the same overlap avoidance, and remain visible in
+hover-only name-tag mode. Multiple effects appear side by side; effects without
+`popup` have no overhead UI. Popups follow the active status, including duration
+overrides, refreshes, pause, explicit removal and expiry.
+
 Use `entity.statuses.apply(id, seconds)` to override a definition's duration.
 Only one instance of an effect can exist per target: reapplying a timed effect
 resets its remaining duration without stacking or rerunning `onApply`. Reapplying
@@ -479,7 +489,10 @@ Runtime effects are not saved to placement exports or `room.json`; existing
 in [`statusEffects.ts`](../src/lib/sim/statusEffects.ts)). It pauses movement,
 planning, task progress and item actions, and makes the agent unavailable for
 dragging or new conversations. The personnel file shows **Shocked**, and existing
-idle artwork, shaking and an exclamation bubble provide feedback without new art.
+idle artwork, shaking and a yellow-bordered popup using
+[`shocked.svg`](../src/sim_assets/icons/shocked.svg) provide feedback. Its border
+and optional background are configured in the effect's `popup` definition.
+The popup does not overwrite speech or sleeping bubbles.
 The same task resumes afterward, including a maintenance repair and its claim.
 Shock does not currently damage HP or spread to other agents/items.
 

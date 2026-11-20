@@ -2,6 +2,7 @@ import type { Agent } from './agent.ts';
 import { el } from './monitorDom.ts';
 import type { Renderer } from './render.ts';
 import type { Point, Room } from './room.ts';
+import { STATUS_EFFECTS } from './statusEffects.ts';
 import type { World } from './world.ts';
 
 /** A tag to place: anchored at a head position in room pixels, measured in layer pixels. */
@@ -42,7 +43,14 @@ export function layoutTags(tags: TagBox[], room: { width: number; height: number
   return positions;
 }
 
-interface Tag { button: HTMLButtonElement; name: HTMLElement; bubble: HTMLElement; label: string }
+interface Tag {
+  button: HTMLButtonElement;
+  name: HTMLElement;
+  bubble: HTMLElement;
+  statuses: HTMLElement;
+  statusKey: string;
+  label: string;
+}
 
 export interface TagState {
   viewed: Room;
@@ -53,14 +61,19 @@ export interface TagState {
   heldHead?: { agent: Agent; head: Point };
 }
 
-/** Clickable name tags (with speech bubbles) floating over every visible agent. */
+/** Clickable name tags with speech and status popups over every visible agent. */
 export class NameTags {
   private readonly tags = new Map<Agent, Tag>();
+  private readonly layer: HTMLElement;
+  private readonly events: { select(agent: Agent): void; hover(agent: Agent | null): void; hovered(): Agent | null };
 
   constructor(
-    private readonly layer: HTMLElement,
-    private readonly events: { select(agent: Agent): void; hover(agent: Agent | null): void; hovered(): Agent | null },
-  ) {}
+    layer: HTMLElement,
+    events: { select(agent: Agent): void; hover(agent: Agent | null): void; hovered(): Agent | null },
+  ) {
+    this.layer = layer;
+    this.events = events;
+  }
 
   /** The agent whose (visible, not held) tag contains `element`. */
   agentFor(element: Element | null): Agent | null {
@@ -87,9 +100,30 @@ export class NameTags {
       if (tag.label !== label) {
         tag.label = label;
         tag.name.textContent = label;
-        tag.button.setAttribute('aria-label', `${label}. Open file`);
         tag.button.style.setProperty('--tag-tint', revealed ? 'var(--neon-red)' : agent.character.tint);
       }
+      const popups = agent.statuses.active.flatMap(({ id, label }) => {
+        const popup = STATUS_EFFECTS[id]?.popup;
+        return popup ? [{ id, label, ...popup }] : [];
+      });
+      const statusKey = JSON.stringify(popups);
+      if (tag.statusKey !== statusKey) {
+        tag.statusKey = statusKey;
+        tag.statuses.replaceChildren(...popups.map(({ label, icon, color, background }) => {
+          const box = el('span', 'monitor-tag-status');
+          box.title = label;
+          box.style.setProperty('--status-color', color);
+          if (background) box.style.setProperty('--status-background', background);
+          const image = el('img');
+          image.src = icon;
+          image.alt = label;
+          image.width = image.height = 16;
+          box.append(image);
+          return box;
+        }));
+      }
+      const ariaLabel = [label, ...popups.map((popup) => popup.label), 'Open file'].join('. ');
+      if (tag.button.getAttribute('aria-label') !== ariaLabel) tag.button.setAttribute('aria-label', ariaLabel);
       const bubble = agent.bubble ?? '';
       if (tag.bubble.textContent !== bubble) tag.bubble.textContent = bubble;
 
@@ -120,13 +154,14 @@ export class NameTags {
     const button = el('button', 'monitor-tag');
     button.type = 'button';
     const bubble = el('span', 'monitor-tag-bubble');
+    const statuses = el('span', 'monitor-tag-statuses');
     const name = el('span', 'monitor-tag-name');
-    button.append(bubble, name);
+    button.append(statuses, bubble, name);
     button.addEventListener('click', () => this.events.select(agent));
     button.addEventListener('pointerenter', () => this.events.hover(agent));
     button.addEventListener('pointerleave', () => { if (this.events.hovered() === agent) this.events.hover(null); });
     this.layer.append(button);
-    const tag = { button, name, bubble, label: '' };
+    const tag = { button, name, bubble, statuses, statusKey: '', label: '' };
     this.tags.set(agent, tag);
     return tag;
   }

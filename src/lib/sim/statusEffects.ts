@@ -15,6 +15,8 @@ export type StatusRemovalReason = 'removed' | 'expired';
 export interface StatusEffectDefinition {
   label: string;
   targets: readonly StatusTarget['kind'][];
+  /** Optional character popup; effects without artwork remain simulation-only. */
+  popup?: { icon: string; color: string; background?: string };
   /** Pauses the target agent's task runner and movement while active. */
   blocksActions?: boolean;
   /** Simulation seconds; omitted means permanent until removed. */
@@ -40,16 +42,14 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     targets: ['agent'],
     duration: SHOCK_SECONDS,
     blocksActions: true,
+    popup: {
+      icon: new URL('../../sim_assets/icons/shocked.svg', import.meta.url).href,
+      color: '#ffbc00',
+    },
     onApply(target) {
       if (target.kind !== 'agent') return;
       target.entity.moving = false;
       target.entity.shake = SHOCK_SECONDS;
-      target.entity.say('!', SHOCK_SECONDS);
-    },
-    onRemove(target) {
-      if (target.kind === 'agent' && target.entity.bubble === '!') {
-        target.entity.bubble = target.entity.napping ? 'zZ' : null;
-      }
     },
   },
 };

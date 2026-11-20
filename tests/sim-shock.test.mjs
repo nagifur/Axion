@@ -61,7 +61,7 @@ test('shocked blocks tasks, movement, dragging and item actions, then resumes th
   assert.equal(agent.incapacitated, true);
   assert.equal(agent.busy, true);
   assert.equal(agent.draggable, false);
-  assert.equal(agent.bubble, '!');
+  assert.equal(agent.bubble, null, 'shock has its own status popup instead of replacing speech');
   assert.equal(agent.shake, SHOCK_SECONDS);
   assert.equal(agent.frame.name, 'idleFront1');
   const point = [agent.x, agent.y];
@@ -114,7 +114,7 @@ test('shocked agents cannot initiate or be invited into a conversation', () => {
   assert.equal(other.conversation, undefined);
 });
 
-test('shocked pauses item consumption and restores a sleeping agent bubble on recovery', () => {
+test('shocked pauses item consumption and preserves a sleeping agent bubble on recovery', () => {
   const { world, agent } = setup(null);
   const item = Item.create('can');
   agent.receiveItem(item);
