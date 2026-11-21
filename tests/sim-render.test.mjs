@@ -5,6 +5,52 @@ import { Agent } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 
+test('backup power keeps the scene dim and multiplies it red before door glows', (t) => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, 'document', original);
+    else delete globalThis.document;
+  });
+  const fills = [];
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const stack = [];
+        const ctx = {
+          globalCompositeOperation: 'source-over',
+          drawImage() {}, setTransform() {}, putImageData() {}, clearRect() {},
+          getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4) }; },
+          fillRect(...rect) { fills.push({ style: this.fillStyle, composite: this.globalCompositeOperation, rect }); },
+          save() { stack.push(this.globalCompositeOperation); },
+          restore() { this.globalCompositeOperation = stack.pop(); },
+        };
+        return { width: 0, height: 0, getContext() { return ctx; } };
+      },
+    },
+  });
+  const light = new Prop({ type: 'light', asset: 'light', x: 0, y: 0, w: 40, h: 17, flip: false });
+  const room = { id: 'room', width: 200, height: 100, darkness: 0, power: 'backup', props: [light], doors: [] };
+  light.setPowerSource(() => room.power);
+  const canvas = document.createElement('canvas');
+  const renderer = new Renderer(canvas, {
+    character: { width: 576, height: 1152 }, 'room:room': {}, light: { width: 192, height: 288 },
+  }, room);
+  const world = { time: 0, agentsIn: () => [], elevatorFor() {}, particles: { in: () => [] } };
+  renderer.draw(world, new Map());
+  assert.deepEqual(fills.slice(-2), [
+    { style: 'rgba(0, 0, 0, 0.55)', composite: 'source-over', rect: [0, 0, 200, 100] },
+    { style: 'rgb(255, 81, 95)', composite: 'color', rect: [0, 0, 200, 100] },
+  ], 'emergency light stays dark with a red hue layer');
+  assert.equal(canvas.getContext().globalCompositeOperation, 'source-over', 'the tint blend does not leak into glows');
+  assert.equal(room.darkness, 0, 'the tint is visual only');
+
+  fills.length = 0;
+  room.power = 'normal';
+  renderer.draw(world, new Map());
+  assert.ok(!fills.some((fill) => fill.composite === 'color'), 'normal power has no tint');
+});
+
 test('emergency light sprites are red, preserve alpha and framing, and reuse the tinted sheet', (t) => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
   t.after(() => {

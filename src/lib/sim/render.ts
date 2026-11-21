@@ -30,6 +30,8 @@ const DOOR_INDICATOR = {
   sideWall: { x: 8, y: 17 }, facing: { x: 9.5, y: 9.5 },
   radius: 12, darkRadius: 32, alpha: 0.3, darkAlpha: 0.4,
 };
+/** Hue applied to the dimmed scene while backup power runs the emergency lights. */
+const EMERGENCY_TINT = 'rgb(171, 126, 126)';
 /** South doors and their panels sit in front of the room, so they are see-through. */
 const FOREGROUND_DOOR_ALPHA = 0.35;
 /** Extra pixels around the cursor that still count as clicking a character. */
@@ -534,7 +536,7 @@ export class Renderer {
     }
   }
 
-  private drawDoorGlows(world: World) {
+  private drawDoorGlows(world: World, darkness: number) {
     const ctx = this.ctx;
     for (const door of this.room.doors ?? []) {
       const art = door.appearance;
@@ -545,7 +547,6 @@ export class Renderer {
       const sideWall = door.side === 'west' || door.side === 'east';
       const panel = passagePanelFrame(door.side, state.unlocked, world.time);
       const indicator = sideWall ? DOOR_INDICATOR.sideWall : DOOR_INDICATOR.facing;
-      const darkness = this.room.darkness;
       const radius = DOOR_INDICATOR.radius + (DOOR_INDICATOR.darkRadius - DOOR_INDICATOR.radius) * darkness;
       const alpha = DOOR_INDICATOR.alpha + (DOOR_INDICATOR.darkAlpha - DOOR_INDICATOR.alpha) * darkness;
       const x = art.panel.x + (art.panelFlip ? panel.w - indicator.x : indicator.x);
@@ -617,14 +618,21 @@ export class Renderer {
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());
     this.drawPassageDoors(world, true);
 
-    if (room.darkness > 0) {
-      ctx.fillStyle = `rgba(0, 0, 0, ${room.darkness * 0.55})`;
+    // Emergency lighting looks as dim as darkness, tinted red, without changing gameplay darkness.
+    const emergency = room.power === 'backup' && room.props.some((prop) => prop.emergency);
+    const dim = emergency ? 1 : room.darkness;
+    if (dim > 0) {
+      ctx.fillStyle = `rgba(0, 0, 0, ${dim * 0.55})`;
       ctx.fillRect(0, 0, room.width, room.height);
     }
-    if (room.power === 'backup' && room.props.some((prop) => prop.emergency)) {
-      ctx.fillStyle = 'rgba(110, 0, 0, 0.25)';
+    if (emergency) {
+      ctx.save();
+      // 'color' recolours by hue only, keeping each pixel's brightness, so every floor palette tints evenly.
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = EMERGENCY_TINT;
       ctx.fillRect(0, 0, room.width, room.height);
+      ctx.restore();
     }
-    this.drawDoorGlows(world);
+    this.drawDoorGlows(world, dim);
   }
 }

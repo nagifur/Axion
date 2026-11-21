@@ -379,7 +379,12 @@ current camera's floor, even if no agents are on camera.
 The shared **Blackout** event immediately cuts power to all lights, door panels,
 and electrical props (currently lights and vending machines) on that floor.
 After **10 simulation seconds**, backup generation restores door panels and
-forces working lights on in red emergency mode, including empty rooms. Vending
+forces working lights on in red emergency mode, including empty rooms. Rooms
+with emergency lights keep the dark-room dimming and get a red `color`-blend
+tint, which replaces hue but keeps each pixel's brightness, so floors of any
+palette turn equally red (multiply crushed blue floors to near black); door
+panel glows draw on top. This is visual only: emergency-lit rooms count
+as lit for gameplay darkness. Vending
 machines stay unusable. Pausing freezes the delay; debug speed accelerates it.
 The blackout remains active until ended manually; there is no random trigger.
 
