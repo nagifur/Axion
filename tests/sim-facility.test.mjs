@@ -6,6 +6,7 @@ import { exitThroughDoor, leaveFacility, rideElevatorOut } from '../src/lib/sim/
 import { planNext } from '../src/lib/sim/planning.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { checkShafts, linkRooms, loadFacility, orderRooms } from '../src/lib/sim/roomLoader.ts';
+import { seededRandom, setRandomSource } from '../src/lib/sim/random.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { WALK_CYCLES } from '../src/lib/sim/sprites.ts';
 
@@ -111,25 +112,37 @@ test('finds the way out from rooms without an exit', async () => {
   assert.equal(world.doorTowardExit(offices, true).to.room, pipe.id, 'without the elevator, run for the pipe room door');
 });
 
-test('people walk between rooms and come and go', async () => {
-  const rooms = await facility();
-  const world = new World({ roster, rooms, now: noon });
-  world.populate();
-  const visited = new Map();
-  for (let t = 0; t < 900; t += 0.1) {
-    world.update(0.1);
-    for (const agent of world.agents) {
-      if (!visited.has(agent)) visited.set(agent, new Set());
-      visited.get(agent).add(agent.room.id);
-      assert.ok(Number.isFinite(agent.x) && Number.isFinite(agent.y), `${agent.character.name} has a valid position`);
+for (const seed of [1, 20261121, 0xc0ffee]) {
+  test(`people walk between rooms and come and go (seed ${seed})`, async () => {
+    setRandomSource(seededRandom(seed));
+    try {
+      const rooms = await facility();
+      const world = new World({ roster, rooms, now: noon });
+      world.populate();
+      const visited = new Map();
+      for (let t = 0; t < 900; t += 0.1) {
+        world.update(0.1);
+        const agents = world.everyone();
+        assert.equal(new Set(agents).size, agents.length, 'an agent appears in more than one place');
+        for (const agent of agents) {
+          if (!visited.has(agent)) visited.set(agent, new Set());
+          visited.get(agent).add(agent.room.id);
+          assert.ok(Number.isFinite(agent.x) && Number.isFinite(agent.y), `${agent.character.name} has a valid position`);
+        }
+      }
+      const movers = [...visited.values()].filter((roomIds) => roomIds.size > 1).length;
+      assert.ok(movers > 0, 'someone moved to another room');
+      for (const room of rooms) {
+        assert.ok([...visited.values()].some((roomIds) => roomIds.has(room.id)), `someone visited ${room.id}`);
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`Facility scenario failed with seed ${seed}: ${detail}`, { cause: error });
+    } finally {
+      setRandomSource(null);
     }
-  }
-  const movers = [...visited.values()].filter((roomIds) => roomIds.size > 1).length;
-  assert.ok(movers > 0, 'someone moved to another room');
-  for (const room of rooms) {
-    assert.ok([...visited.values()].some((roomIds) => roomIds.has(room.id)), `someone visited ${room.id}`);
-  }
-});
+  });
+}
 
 test('population and arrivals stay within clearance, including ghosts', async (t) => {
   const rooms = await facility();
