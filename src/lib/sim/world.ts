@@ -14,6 +14,8 @@ import { chance, maybePick, pick, range, weightedPick } from './random.ts';
 import { accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
+import { LevelState, type LevelDefinitions } from './levelState.ts';
+import { LEVEL_DEFINITIONS } from './levels.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -31,6 +33,7 @@ export interface WorldOptions {
   roster: SimCharacter[];
   rooms: Room[];
   now?: () => Date;
+  levels?: LevelDefinitions;
 }
 
 export interface WorldHooks {
@@ -64,6 +67,7 @@ export class World {
   readonly now: () => Date;
   hooks: WorldHooks = {};
   readonly particles = new ParticleSystem();
+  private readonly levels = new Map<number, LevelState>();
   private readonly sparkDelays = new WeakMap<object, number>();
   private readonly elevators = new Map<Room, Elevator>();
   private readonly passages: PassageNetwork;
@@ -76,8 +80,16 @@ export class World {
     this.roster = options.roster;
     this.rooms = options.rooms;
     this.now = options.now ?? (() => new Date());
+    const definitions = options.levels ?? LEVEL_DEFINITIONS;
+    const roomsByLevel = new Map<number, Room[]>();
     for (const room of this.rooms) {
+      const floorRooms = roomsByLevel.get(room.level);
+      if (floorRooms) floorRooms.push(room);
+      else roomsByLevel.set(room.level, [room]);
       if (room.elevator) this.elevators.set(room, new Elevator(room.elevator.big ? 10 : 1));
+    }
+    for (const [number, rooms] of roomsByLevel) {
+      this.levels.set(number, new LevelState(this, number, rooms, definitions[number]));
     }
     this.passages = new PassageNetwork(this.rooms, (id) => this.room(id));
   }
@@ -92,6 +104,10 @@ export class World {
 
   room(id: string): Room | undefined {
     return this.rooms.find((room) => room.id === id);
+  }
+
+  level(number: number): LevelState | undefined {
+    return this.levels.get(number);
   }
 
   elevatorFor(room: Room): Elevator | undefined {
@@ -418,7 +434,9 @@ export class World {
   update(dt: number) {
     if (!Number.isFinite(dt) || dt < 0) throw new Error('World update needs a finite, non-negative timestep.');
     this.particles.update(dt);
+    const frameStart = this.time;
     this.time += dt;
+    for (const level of this.levels.values()) level.update(frameStart, dt);
     const statuses = new Set<StatusEffects>();
     const blockedSeconds = new Map<Agent, number>();
     for (const agent of this.everyone()) {

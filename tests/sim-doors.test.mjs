@@ -837,6 +837,8 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
         const drawOrigins = [];
         const gradients = [];
         const gradientCenters = [];
+        const gradientRadii = [];
+        const fills = [];
         const stack = [];
         let flipped = false;
         let originX = 0;
@@ -850,7 +852,10 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
             drawOrigins.push([originX, originY]);
           },
           getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4).fill(255) }; },
-          putImageData() {}, clearRect() {}, setTransform() {}, fillRect() {},
+          putImageData() {}, clearRect() {}, setTransform() {},
+          fillRect(...rect) {
+            fills.push({ style: this.fillStyle, composite: this.globalCompositeOperation, alpha: this.globalAlpha, rect });
+          },
           save() { stack.push({ flipped, alpha: this.globalAlpha, originX, originY }); },
           restore() {
             const state = stack.pop();
@@ -861,14 +866,15 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
           },
           translate(x, y) { originX += x; originY += y; },
           scale(x) { if (x < 0) flipped = !flipped; },
-          createRadialGradient(x, y) {
+          createRadialGradient(x, y, _innerRadius, _outerX, _outerY, radius) {
             const stops = [];
             gradients.push(stops);
             gradientCenters.push([x, y]);
+            gradientRadii.push(radius);
             return { addColorStop(...args) { stops.push(args); } };
           },
         };
-        const canvas = { width: 0, height: 0, draws, drawFlips, drawAlphas, drawOrigins, gradients, gradientCenters, getContext() { return ctx; } };
+        const canvas = { width: 0, height: 0, draws, drawFlips, drawAlphas, drawOrigins, gradients, gradientCenters, gradientRadii, fills, getContext() { return ctx; } };
         canvases.push(canvas);
         return canvas;
       },
@@ -917,6 +923,8 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
     door.appearance.panel.y + (sideWall ? 17 : 9.5),
   ], 'the indicator glow follows the panel orientation');
   assert.ok(canvas.gradients[0][0][1].includes('255, 35, 65'), 'locked panel glows red');
+  assert.equal(canvas.gradientRadii[0], 12, 'lit rooms keep the small indicator glow');
+  assert.equal(canvas.gradients[0][0][1], 'rgba(255, 35, 65, 0.3)');
 
   const state = world.passageDoorFor(door);
   state.update(true, state.motionSeconds / 2);
@@ -925,6 +933,25 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   assert.equal(mask.draws[2][6], -Math.round(frame.h / 2), 'half-open door slides upward');
   assert.deepEqual(canvas.draws.filter((draw) => draw[0] === panel).at(-1).slice(1, 5), [135, sideWall ? 288 : 302, panelFrame.w, panelFrame.h]);
   assert.ok(canvas.gradients.at(-1)[0][1].includes('40, 255, 115'), 'unlocked panel glows green');
+
+  Object.defineProperty(room, 'darkness', { configurable: true, value: 1 });
+  for (const unlocked of [false, true]) {
+    state.unlocked = unlocked;
+    renderer.draw(world, new Map());
+    assert.equal(canvas.gradientRadii.at(-1), 32, 'dark panels illuminate a wider area');
+    assert.deepEqual(canvas.gradientCenters.at(-1), canvas.gradientCenters[0], 'the wider halo stays centered on the indicator');
+    assert.deepEqual(canvas.gradients.at(-1), [
+      [0, unlocked ? 'rgba(40, 255, 115, 0.4)' : 'rgba(255, 35, 65, 0.4)'],
+      [1, 'rgba(0, 0, 0, 0)'],
+    ], 'both panel colors fade gently to transparent');
+    const [x, y] = canvas.gradientCenters.at(-1);
+    assert.equal(canvas.fills.at(-2).style, 'rgba(0, 0, 0, 0.55)', 'room dimming precedes illumination');
+    assert.equal(canvas.fills.at(-1).composite, 'screen', 'the glow brightens the dimmed scene');
+    assert.equal(canvas.fills.at(-1).alpha, side === 'south' ? 0.35 : 1, 'the halo preserves foreground transparency');
+    assert.deepEqual(canvas.fills.at(-1).rect, [x - 32, y - 32, 64, 64]);
+    assert.equal(canvas.getContext().globalAlpha, 1, 'halo opacity does not leak');
+    assert.equal(room.darkness, 1, 'the glow does not remove gameplay darkness');
+  }
 
   state.breakPanel();
   const glows = canvas.gradients.length;

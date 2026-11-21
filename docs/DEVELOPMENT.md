@@ -164,6 +164,17 @@ values last only for that agent instance, not across spawns or reloads.
 All three character collections validate optional stat blocks, including
 synthetics that do not yet spawn in monitoring.
 
+#### Simulation performance benchmark
+
+Run `npm run benchmark:sim` with Node 24 to compare `World.update` at 1x, 2x,
+and 4x the checked-in facility size. Each scenario uses 3.5 synthetic staff per
+room, a fixed 1/60-second timestep, a 30-second warmup, and three 30-second
+measurement samples. The report includes mean and p95 update time, estimated
+simulation updates per second, and p95 time as a share of the 16.67 ms 60 Hz
+frame budget. It measures simulation updates only, not rendering or browser
+frame rate; use it for before/after comparisons rather than as an end-to-end FPS
+claim.
+
 Drag a sprite or name tag to physically pick up an agent. Dropping on open floor
 repositions them, on a free chair or bench seat starts the usual seated activity,
 and on another agent starts a conversation. Lights can be toggled; other unseated
@@ -318,6 +329,43 @@ unless a standing character is holding an item.
 Frame coordinates and timing are defined in [`sprites.ts`](../src/lib/sim/sprites.ts).
 The renderer crops each frame before scaling it, so neighboring animation rows cannot
 bleed into characters or their highlight outlines at fractional sizes.
+
+#### Floor Events and Variables
+
+Register floor-specific rules in [`levels.ts`](../src/lib/sim/levels.ts), keyed by
+the numeric `level` from `room.json`. Every room on that floor reads the same
+state through `world.level(room.level)`. Even floors without rules have their own
+empty state; floors with no loaded rooms return `undefined`. Variables are
+booleans, numbers, strings, or `null`, and each world gets a fresh copy of the
+defaults. Floor state is not saved on reload.
+
+For example, this entry defines a Level 2 blackout without changing the lights:
+
+```ts
+2: {
+  variables: { powerOnline: true },
+  events: {
+    blackout: {
+      duration: 30,
+      onStart: (level) => { level.variables.set('powerOnline', false); },
+      onEnd: (level) => { level.variables.set('powerOnline', true); },
+    },
+  },
+},
+```
+
+Start it from simulation logic with `world.level(2)?.startEvent('blackout')`.
+Use `level.hasEvent('blackout')` to check it, `level.activeEvents` to inspect its
+timing, and `level.stopEvent('blackout')` to end it early. An event can only have
+one active instance per floor; a second start does not refresh it. Different
+events can overlap. You can override the duration with a second argument to
+`startEvent`; without any duration, the event lasts until stopped.
+
+An event can use `onStart`, `onUpdate`, and `onEnd` to apply, sustain, and clean up
+its effects. `onEnd` receives `'stopped'` or `'expired'`. A floor can use its own
+`onUpdate` hook to decide when to trigger events. All floors advance with the
+simulation clock before agents and room systems update, even off-camera. No events
+or automatic triggers are enabled by default.
 
 #### Adding a Room
 
@@ -847,7 +895,11 @@ slip through one that is already fully open, and a door never closes on someone
 standing in its doorway (that keeps it open without turning the panel green).
 Planned work and departure routes still only count doors the agent's cards open,
 except a fully open door out of the current room. Staff with no card-permitted way
-out of their room wait near a door and leave as soon as someone else opens it. The panel glow remains visible in dark rooms.
+out of their room wait near a door and leave as soon as someone else opens it.
+Working panels cast a faint red/green halo over nearby room art, props, and people
+after the darkness pass. In dark rooms its radius grows from 12 to 32 room pixels
+and its center opacity from 30% to 40%; lit rooms keep the smaller glow.
+This visual illumination does not change room darkness or agent behavior.
 South-facing doors and their panels draw in front of the room's props and characters
 at 35% opacity, so they frame the foreground passage without hiding the room.
 Their indicator glow uses the same opacity; other door orientations remain opaque

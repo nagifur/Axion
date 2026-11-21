@@ -26,7 +26,10 @@ const EYE_RED = [255, 40, 64];
 const LIGHT_OFF = [70, 42, 25];
 const LIGHT_ON = [255, 177, 91];
 /** Passage-door panel indicator light: offset inside the panel artwork and glow radius, in room pixels. */
-const DOOR_INDICATOR = { sideWall: { x: 8, y: 17 }, facing: { x: 9.5, y: 9.5 }, radius: 12 };
+const DOOR_INDICATOR = {
+  sideWall: { x: 8, y: 17 }, facing: { x: 9.5, y: 9.5 },
+  radius: 12, darkRadius: 32, alpha: 0.3, darkAlpha: 0.4,
+};
 /** South doors and their panels sit in front of the room, so they are see-through. */
 const FOREGROUND_DOOR_ALPHA = 0.35;
 /** Extra pixels around the cursor that still count as clicking a character. */
@@ -540,11 +543,13 @@ export class Renderer {
       const sideWall = door.side === 'west' || door.side === 'east';
       const panel = passagePanelFrame(door.side, state.unlocked, world.time);
       const indicator = sideWall ? DOOR_INDICATOR.sideWall : DOOR_INDICATOR.facing;
-      const { radius } = DOOR_INDICATOR;
+      const darkness = this.room.darkness;
+      const radius = DOOR_INDICATOR.radius + (DOOR_INDICATOR.darkRadius - DOOR_INDICATOR.radius) * darkness;
+      const alpha = DOOR_INDICATOR.alpha + (DOOR_INDICATOR.darkAlpha - DOOR_INDICATOR.alpha) * darkness;
       const x = art.panel.x + (art.panelFlip ? panel.w - indicator.x : indicator.x);
       const y = art.panel.y + indicator.y;
       const glow = ctx.createRadialGradient(x, y, 0, x, y, radius);
-      glow.addColorStop(0, state.unlocked ? 'rgba(40, 255, 115, 0.3)' : 'rgba(255, 35, 65, 0.3)');
+      glow.addColorStop(0, state.unlocked ? `rgba(40, 255, 115, ${alpha})` : `rgba(255, 35, 65, ${alpha})`);
       glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.save();
       if (door.side === 'south') ctx.globalAlpha *= FOREGROUND_DOOR_ALPHA;

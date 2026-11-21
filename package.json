@@ -7,6 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "benchmark:sim": "node scripts/benchmark-sim.mjs",
     "import-submission": "node scripts/import-submission.mjs"
   },
   "dependencies": {
