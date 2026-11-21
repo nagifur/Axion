@@ -32,6 +32,8 @@ const DOOR_INDICATOR = {
 };
 /** Hue applied to the dimmed scene while backup power runs the emergency lights. */
 const EMERGENCY_TINT = 'rgb(171, 126, 126)';
+/** Halo around emergency lights, drawn above the tint; stretch widens it to suit the wide fixture. */
+const EMERGENCY_GLOW = { radius: 36, stretch: 1.6, alpha: 0.6 };
 /** South doors and their panels sit in front of the room, so they are see-through. */
 const FOREGROUND_DOOR_ALPHA = 0.35;
 /** Extra pixels around the cursor that still count as clicking a character. */
@@ -563,6 +565,26 @@ export class Renderer {
     }
   }
 
+  /** Emergency lights are light sources, so they stay bright above the dim and tint, with a red halo. */
+  private drawEmergencyLights(time: number) {
+    const ctx = this.ctx;
+    for (const prop of this.room.props) {
+      if (!prop.emergency) continue;
+      this.drawProp(prop, time);
+      const { radius, stretch, alpha } = EMERGENCY_GLOW;
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+      glow.addColorStop(0, `rgba(255, 35, 35, ${alpha})`);
+      glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.save();
+      ctx.translate(prop.x + prop.w / 2, prop.y + prop.h / 2);
+      ctx.scale(stretch, 1);
+      ctx.globalCompositeOperation = 'screen';
+      ctx.fillStyle = glow;
+      ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
+      ctx.restore();
+    }
+  }
+
   private drawProp(prop: Prop, time: number) {
     const image = requireAsset(this.assets, prop.asset);
     if (!prop.emergency) {
@@ -632,6 +654,7 @@ export class Renderer {
       ctx.fillStyle = EMERGENCY_TINT;
       ctx.fillRect(0, 0, room.width, room.height);
       ctx.restore();
+      this.drawEmergencyLights(world.time);
     }
     this.drawDoorGlows(world, dim);
   }

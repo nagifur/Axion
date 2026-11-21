@@ -5,7 +5,7 @@ import { Agent } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 
-test('backup power keeps the scene dim and multiplies it red before door glows', (t) => {
+test('backup power keeps the scene dim and tints it red, with emergency lights glowing above', (t) => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
   t.after(() => {
     if (original) Object.defineProperty(globalThis, 'document', original);
@@ -19,7 +19,9 @@ test('backup power keeps the scene dim and multiplies it red before door glows',
         const stack = [];
         const ctx = {
           globalCompositeOperation: 'source-over',
-          drawImage() {}, setTransform() {}, putImageData() {}, clearRect() {},
+          drawImage() { fills.push({ draw: 'image' }); },
+          setTransform() {}, putImageData() {}, clearRect() {}, translate() {}, scale() {},
+          createRadialGradient() { return { addColorStop() {} }; },
           getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4) }; },
           fillRect(...rect) { fills.push({ style: this.fillStyle, composite: this.globalCompositeOperation, rect }); },
           save() { stack.push(this.globalCompositeOperation); },
@@ -38,17 +40,19 @@ test('backup power keeps the scene dim and multiplies it red before door glows',
   }, room);
   const world = { time: 0, agentsIn: () => [], elevatorFor() {}, particles: { in: () => [] } };
   renderer.draw(world, new Map());
-  assert.deepEqual(fills.slice(-2), [
-    { style: 'rgba(0, 0, 0, 0.55)', composite: 'source-over', rect: [0, 0, 200, 100] },
-    { style: 'rgb(255, 81, 95)', composite: 'color', rect: [0, 0, 200, 100] },
-  ], 'emergency light stays dark with a red hue layer');
+  const dimAt = fills.findIndex((fill) => fill.style === 'rgba(0, 0, 0, 0.55)');
+  assert.deepEqual(fills[dimAt], { style: 'rgba(0, 0, 0, 0.55)', composite: 'source-over', rect: [0, 0, 200, 100] });
+  assert.equal(fills[dimAt + 1].composite, 'color', 'the dimmed scene gets a red hue layer');
+  assert.deepEqual(fills[dimAt + 1].rect, [0, 0, 200, 100]);
+  assert.deepEqual(fills.slice(dimAt + 2).map((fill) => fill.draw ?? fill.composite), ['image', 'screen'],
+    'the red light is redrawn above the tint, then its halo');
   assert.equal(canvas.getContext().globalCompositeOperation, 'source-over', 'the tint blend does not leak into glows');
   assert.equal(room.darkness, 0, 'the tint is visual only');
 
   fills.length = 0;
   room.power = 'normal';
   renderer.draw(world, new Map());
-  assert.ok(!fills.some((fill) => fill.composite === 'color'), 'normal power has no tint');
+  assert.ok(!fills.some((fill) => fill.composite === 'color' || fill.composite === 'screen'), 'normal power has no tint or halo');
 });
 
 test('emergency light sprites are red, preserve alpha and framing, and reuse the tinted sheet', (t) => {
