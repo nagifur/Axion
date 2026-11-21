@@ -7,12 +7,14 @@ import { StatusEffects } from './statusEffects.ts';
 /** An optional physical door attached to a painted passage. */
 export interface DoorConfig {
   clearance: number;
+  big?: boolean;
   offset?: Point;
   panelOffset?: Point;
 }
 
 export interface DoorAppearance {
   clearance: number;
+  big: boolean;
   asset: string;
   panelAsset: string;
   x: number;
@@ -28,14 +30,19 @@ export const DOOR_PANEL_FRAME_SECONDS = 0.6;
 
 const angled = (side: DoorSide) => side === 'west' || side === 'east';
 
-export const passageDoorAsset = (clearance: number, side: DoorSide) =>
-  `door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
+export const passageDoorAsset = (clearance: number, side: DoorSide, big = false) =>
+  `${big ? 'BIG_' : ''}door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
 export const passagePanelAsset = (side: DoorSide) => `door_panel${angled(side) ? '_angle' : ''}`;
 
-/** These sheets use 96px cells; the crops keep the same alignment across their states. */
-export const passageDoorFrame = (side: DoorSide, broken = false): Rect => angled(side)
-  ? { x: 35, y: broken ? 192 : 0, w: 26, h: 96 }
-  : { x: 26, y: (broken ? 192 : 0) + 14, w: 46, h: 69 };
+/** Big sheets use 192px cells with their own artwork crop; panels stay normal-sized. */
+export function passageDoorFrame(side: DoorSide, broken = false, big = false): Rect {
+  if (big && angled(side)) return { x: 53, y: (broken ? 384 : 0) + 22, w: 86, h: 160 };
+  const scale = big ? 2 : 1;
+  const frame = angled(side)
+    ? { x: 35, y: broken ? 192 : 0, w: 26, h: 96 }
+    : { x: 26, y: (broken ? 192 : 0) + 14, w: 46, h: 69 };
+  return { x: frame.x * scale, y: frame.y * scale, w: frame.w * scale, h: frame.h * scale };
+}
 
 export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: number, broken = false, image?: PropSheetImage): Rect {
   const columns = broken ? image?.propCells?.[2]?.flatMap((populated, column) => populated ? [column] : []) ?? [0] : [0, 1];
@@ -48,12 +55,12 @@ export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: numbe
 }
 
 export function isPassageDoorAsset(asset: string): boolean {
-  return /^door_(?:level\d+|angle_level\d+(?:_east)?)$/.test(asset) || asset === 'door_panel' || asset === 'door_panel_angle';
+  return /^(?:BIG_)?door_(?:level\d+|angle_level\d+(?:_east)?)$/.test(asset) || asset === 'door_panel' || asset === 'door_panel_angle';
 }
 
 /** Align the door with the nav opening and put its panel alongside it on the wall. */
 export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig): DoorAppearance {
-  const door = passageDoorFrame(side);
+  const door = passageDoorFrame(side, false, config.big);
   const panel = passagePanelFrame(side, false, 0);
   const x = Math.round(bounds.x + (bounds.w - door.w) / 2) + (config.offset?.x ?? 0);
   const y = bounds.y + bounds.h - door.h + (config.offset?.y ?? 0);
@@ -64,7 +71,8 @@ export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig)
   const panelY = y + door.h - panel.h + wallOffsetY;
   return {
     clearance: config.clearance,
-    asset: passageDoorAsset(config.clearance, side),
+    big: config.big ?? false,
+    asset: passageDoorAsset(config.clearance, side, config.big),
     panelAsset: passagePanelAsset(side),
     x, y,
     panel: { x: panelX + (config.panelOffset?.x ?? 0), y: panelY + (config.panelOffset?.y ?? 0) },
@@ -76,7 +84,7 @@ export type PassagePart = 'door' | 'panel';
 
 /** Room-pixel boxes of a passage's door and panel artwork. */
 export function passagePartBounds(side: DoorSide, art: DoorAppearance): Record<PassagePart, Rect> {
-  const door = passageDoorFrame(side);
+  const door = passageDoorFrame(side, false, art.big);
   const panel = passagePanelFrame(side, false, 0);
   return {
     door: { x: art.x, y: art.y, w: door.w, h: door.h },

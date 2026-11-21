@@ -512,7 +512,7 @@ export class Renderer {
       if (!state) throw new Error(`Missing door state for ${this.room.id}/${door.id}.`);
       const image = requireAsset(this.assets, art.asset);
       const panel = requireAsset(this.assets, art.panelAsset);
-      const frame = passageDoorFrame(door.side, state.broken);
+      const frame = passageDoorFrame(door.side, state.broken, art.big);
       fitCanvas(this.passageDoorCanvas, frame.w, frame.h);
       const slide = Math.round(state.open * frame.h);
       mask.globalCompositeOperation = 'source-over';

@@ -93,7 +93,7 @@ test('loads the rooms in floor-plan order, level by level', async () => {
   const rooms = await facility();
   assert.deepEqual(rooms.map((room) => room.id), [
     'level-0-mainEntrance', 'level-0-Lookout',
-    'level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom', 'level-2-lobby', 'level-3-checkpoint',
+    'level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom', 'level-2-lobby', 'level-3-checkpoint', 'level-3-MainEntrance',
     'level-4-trophyRoom', 'level-4-gallery', 'level-5-sideEntry',
   ]);
   const offices = rooms.find((room) => room.id === 'level-1-offices');

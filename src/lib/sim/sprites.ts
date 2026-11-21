@@ -202,13 +202,13 @@ function propAnimation(sprite: PropSprite, look?: PropLook): PropAnimation {
 }
 
 /** Which cells contain visible pixels, shared by build-time and browser image loading. */
-export function propCellOccupancy(image: { width: number; height: number }, rgba: ArrayLike<number>): boolean[][] {
+export function propCellOccupancy(image: { width: number; height: number }, rgba: ArrayLike<number>, cellSize = 96): boolean[][] {
   const { width, height } = image;
-  if (![width, height].every((value) => Number.isSafeInteger(value) && value > 0) || rgba.length !== width * height * 4) {
+  if (![width, height, cellSize].every((value) => Number.isSafeInteger(value) && value > 0) || rgba.length !== width * height * 4) {
     throw new Error('Prop sprite pixels must contain RGBA data matching the image size.');
   }
-  const w = Math.min(96, width);
-  const h = Math.min(96, height);
+  const w = Math.min(cellSize, width);
+  const h = Math.min(cellSize, height);
   const cells = Array.from({ length: Math.ceil(height / h) }, () =>
     Array<boolean>(Math.ceil(width / w)).fill(false));
   for (let y = 0; y < height; y++) {

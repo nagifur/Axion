@@ -816,7 +816,8 @@ door to its id:
 `clearance` is a non-negative whole number and selects both the access requirement
 and the numbered door artwork. The door and panel are positioned from the nav-map
 opening; the optional whole-pixel `offset` moves both, while `panelOffset` moves only
-the panel. Panels sit on an approaching character's right: screen-right on north and
+the panel. Set `"big": true` to use a door sheet with 192x192 cells and larger
+door crops; the panel remains normal-sized. Panels sit on an approaching character's right: screen-right on north and
 side walls, and screen-left on south walls. Side-wall panels follow the wall's slope,
 and their sprites are mirrored automatically on east walls. The debug prop editor
 does not edit these passage assemblies, but it can break and repair them live
@@ -824,7 +825,9 @@ does not edit these passage assemblies, but it can break and repair them live
 
 For connected rooms, configuring either side creates a matching door on the other
 camera and both views share one lock and animation. If both rooms configure it,
-their clearance must match, but their offsets can differ. Remove the entries on both
+their clearance must match, but their size and offsets can differ per camera.
+An automatically created counterpart inherits `big` as well as clearance.
+Remove the entries on both
 sides to make the connected passage doorless again. Off-camera passages may also
 have doors. Every current facility passage on Levels 0 through 5 has a physical
 door configured with that level's clearance and artwork.
@@ -870,6 +873,11 @@ occupies `(35, 0, 26, 96)`. `door_panel.png` and `door_panel_angle.png` use two 
 frames in the first row and two green frames in the fourth row. Doors and panels
 use broken artwork from the third row; populated broken panel cells animate
 horizontally at 0.6 seconds per frame. The off row is unused.
+Big doors use the same filenames prefixed with `BIG_`, for example
+`BIG_door_angle_level3.png` and `BIG_door_angle_level3_east.png`.
+Their closed crops are `(52, 28, 92, 138)` for north/south walls and
+`(53, 22, 86, 160)` for the supplied west/east artwork; broken crops start 384 pixels lower,
+in the third 192px row. They slide at their native size, without scaling down.
 Add the numbered door sheets for another
 clearance before configuring it; missing or incomplete artwork is reported at build
 time.

@@ -24,7 +24,10 @@ test('main entrance uses the large car and links to the lookout', async () => {
   assert.equal(entrance.elevator.big, true);
   assert.equal(world.elevatorFor(entrance).capacity, 10);
   assert.equal(world.elevatorFor(lookout).capacity, 1);
-  assert.deepEqual(world.elevatorStops(entrance), []);
+  assert.deepEqual(world.elevatorStops(entrance).map((room) => room.id), ['level-3-MainEntrance']);
+  const upperEntrance = world.room('level-3-MainEntrance');
+  assert.equal(world.elevatorFor(upperEntrance).capacity, 10);
+  assert.equal(upperEntrance.elevator.big, true);
   assert.equal(entrance.doors.find((door) => door.id === 'east-2').to.room, lookout.id);
   assert.equal(lookout.doors.find((door) => door.id === 'west').to.room, entrance.id);
 });

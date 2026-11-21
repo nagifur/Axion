@@ -1,7 +1,7 @@
 {
   "name": "Checkpoint",
   "level": 3,
-  "camera": "CAM 3-01",
+  "camera": "CAM 3-02",
   "elevators": { "shaft": "side" },
   "doors": {
     "west": { "clearance": 3 },

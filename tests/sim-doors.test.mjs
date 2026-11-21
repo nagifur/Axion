@@ -114,7 +114,8 @@ test('every configured passage has matching floor-level door artwork', async () 
       assert.ok(door.appearance, `${room.id}/${door.id} has a physical door`);
       assert.equal(door.appearance.clearance, room.level, `${room.id}/${door.id}`);
       const angled = door.side === 'west' || door.side === 'east';
-      assert.equal(door.appearance.asset, `door_${angled ? 'angle_' : ''}level${room.level}${door.side === 'east' ? '_east' : ''}`);
+      assert.equal(door.appearance.big, facility[index].doors[door.id].big ?? false);
+      assert.equal(door.appearance.asset, `${door.appearance.big ? 'BIG_' : ''}door_${angled ? 'angle_' : ''}level${room.level}${door.side === 'east' ? '_east' : ''}`);
       assert.equal(door.appearance.panelAsset, `door_panel${angled ? '_angle' : ''}`);
       const { panel } = passagePartBounds(door.side, door.appearance);
       assert.ok(panel.x >= 0 && panel.y >= 0 && panel.x + panel.w <= room.width && panel.y + panel.h <= room.height,
@@ -126,13 +127,13 @@ test('every configured passage has matching floor-level door artwork', async () 
       }
     }
   }
-  assert.equal(count, 20);
+  assert.equal(count, 22);
   const palette = await listPropTypes();
   const passageAssets = Array.from({ length: 6 }, (_, level) => [
     `door_level${level}`,
     `door_angle_level${level}`,
     `door_angle_level${level}_east`,
-  ]).flat().concat(['door_panel', 'door_panel_angle']);
+  ]).flat().concat(['door_panel', 'door_panel_angle', 'BIG_door_angle_level3', 'BIG_door_angle_level3_east']);
   for (const asset of passageAssets) {
     assert.ok(!palette.includes(asset), `${asset} is a passage assembly, not an ordinary prop`);
   }
@@ -143,10 +144,15 @@ test('linked door configuration propagates to the other view and rejects mismatc
     data: { id, level: 1, links: {}, doors, nav: { exits: [{ id: side, kind: 'door', side }] } },
     exits: new Map(Object.entries(exits).map(([door, room]) => [door, { room }])),
   });
-  const a = loaded('a', 'east', { east: { clearance: 1, panelOffset: { x: 4, y: 5 } } }, { east: 'b' });
+  const a = loaded('a', 'east', { east: { clearance: 1, big: true, panelOffset: { x: 4, y: 5 } } }, { east: 'b' });
   const b = loaded('b', 'west', {});
   linkRooms([a, b]);
-  assert.deepEqual(b.data.doors, { west: { clearance: 1 } }, 'view-specific offsets are not copied');
+  assert.deepEqual(b.data.doors, { west: { clearance: 1, big: true } }, 'size is inherited but view-specific offsets are not copied');
+
+  const small = loaded('small', 'east', { east: { clearance: 1, big: false } }, { east: 'large' });
+  const large = loaded('large', 'west', { west: { clearance: 1, big: true } });
+  linkRooms([small, large]);
+  assert.equal(small.data.doors.east.big, false, 'explicit camera-specific artwork is preserved');
 
   const c = loaded('c', 'east', { east: { clearance: 0 } }, { east: 'd' });
   const d = loaded('d', 'west', { west: { clearance: 1 } });
@@ -176,6 +182,20 @@ test('door configuration and missing or incomplete artwork report useful errors'
   await assert.rejects(load({ west: { clearance: 1, panelOffset: { x: 2 } } }), /"panelOffset".*whole-number/);
   await assert.rejects(load({ west: { clearance: 1, offset: { x: 2, y: 3, z: 4 } } }), /"offset".*whole-number/);
   await assert.rejects(load({ west: { clearance: 1, colour: 'red' } }), /unknown property "colour"/);
+  for (const big of [null, 1, 'true', {}]) {
+    await assert.rejects(load({ west: { clearance: 1, big } }), /"big" must be true or false/);
+  }
+  assert.equal((await load({ west: { clearance: 1, big: false } })).doors.west.big, false);
+  await assert.rejects(load({ west: { clearance: 1, big: true } }), /needs sim_assets\/props\/BIG_door_angle_level1.png/);
+  const bigFile = path.join(assets, 'props', 'BIG_door_angle_level1.png');
+  await cp(path.join(assets, 'props', 'BIG_door_angle_level3.png'), bigFile);
+  assert.equal((await load({ west: { clearance: 1, big: true } })).doors.west.big, true);
+  const bigPixels = await sharp(bigFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  bigPixels.data.fill(0, 384 * bigPixels.info.width * 4);
+  await sharp(bigPixels.data, { raw: bigPixels.info }).png().toFile(bigFile);
+  await assert.rejects(load({ west: { clearance: 1, big: true } }), /complete 192px cells.*broken frame in the third row/);
+  await sharp({ create: { width: 96, height: 576, channels: 4, background: '#ff0000' } }).png().toFile(bigFile);
+  await assert.rejects(load({ west: { clearance: 1, big: true } }), /complete 192px cells/);
   await assert.rejects(load({ west: { clearance: 99 } }), /needs sim_assets\/props\/door_angle_level99.png/);
   assert.equal((await load({ east: { clearance: 1 } })).doors.east.clearance, 1);
   const eastFile = path.join(assets, 'props', 'door_angle_level1_east.png');
@@ -208,6 +228,45 @@ test('door artwork aligns with openings and offsets move the door and panel inde
   assert.equal(doorAppearance('west', bounds, { clearance: 0 }).asset, 'door_angle_level0');
   assert.equal(doorAppearance('north', bounds, { clearance: 0 }).asset, 'door_level0');
   assert.equal(doorAppearance('north', bounds, { clearance: 0 }).panelAsset, 'door_panel');
+});
+
+for (const side of ['north', 'south', 'west', 'east']) test(`${side} big door bounds and panel placement match its larger crop`, () => {
+  const bounds = { x: 100, y: 120, w: 100, h: 180 };
+  const art = doorAppearance(side, bounds, { clearance: 3, big: true });
+  const frame = passageDoorFrame(side, false, true);
+  const broken = passageDoorFrame(side, true, true);
+  assert.deepEqual(broken, { ...frame, y: frame.y + 384 });
+  assert.equal(art.big, true);
+  assert.equal(art.asset, `BIG_door_${side === 'west' || side === 'east' ? 'angle_' : ''}level3${side === 'east' ? '_east' : ''}`);
+  const parts = passagePartBounds(side, art);
+  assert.deepEqual(parts.door, { x: Math.round(bounds.x + (bounds.w - frame.w) / 2), y: 300 - frame.h, w: frame.w, h: frame.h });
+  assert.deepEqual({ w: parts.panel.w, h: parts.panel.h }, side === 'west' || side === 'east' ? { w: 17, h: 84 } : { w: 20, h: 69 });
+  assert.equal(parts.panel.x, side === 'south' ? art.x - parts.panel.w - 3 : art.x + frame.w + 3);
+  assert.equal(parts.panel.y, 300 - parts.panel.h + (side === 'west' ? -frame.w - 4 : side === 'east' ? parts.panel.w + 2 : 0));
+  const moved = doorAppearance(side, bounds, { clearance: 3, big: true, offset: { x: 3, y: -4 }, panelOffset: { x: -5, y: 8 } });
+  assert.deepEqual(moved.panel, { x: art.panel.x - 2, y: art.panel.y + 4 });
+});
+
+test('big angled door crops contain all supplied artwork in the closed and broken rows', async () => {
+  for (const side of ['west', 'east']) {
+    const asset = `BIG_door_angle_level3${side === 'east' ? '_east' : ''}`;
+    const { data, info } = await sharp(`src/sim_assets/props/${asset}.png`).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    assert.equal(info.width % 192, 0);
+    assert.equal(info.height, 576);
+    for (const broken of [false, true]) {
+      const frame = passageDoorFrame(side, broken, true);
+      assert.deepEqual(frame, { x: 53, y: (broken ? 384 : 0) + 22, w: 86, h: 160 });
+      let pixels = 0;
+      for (let y = broken ? 384 : 0; y < (broken ? 576 : 192); y++) {
+        for (let x = 0; x < 192; x++) {
+          if (!data[(y * info.width + x) * 4 + 3]) continue;
+          assert.ok(x >= frame.x && x < frame.x + frame.w && y >= frame.y && y < frame.y + frame.h, `${asset} artwork is not clipped`);
+          pixels++;
+        }
+      }
+      assert.ok(pixels > 0);
+    }
+  }
 });
 
 for (const { side, door, panel, flip } of [
@@ -706,7 +765,7 @@ test('a doorless passage still transfers without waiting for a physical door', (
   assert.equal(agent.room, b);
 });
 
-for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer slides the door and selects the panel state`, (t) => {
+for (const big of [false, true]) for (const side of ['north', 'south', 'west', 'east']) test(`${side} ${big ? 'big ' : ''}renderer slides the door and selects the panel state`, (t) => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
   t.after(() => {
     if (original) Object.defineProperty(globalThis, 'document', original);
@@ -760,11 +819,13 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer sl
       },
     },
   });
-  const room = new Room(roomData('entry', 0, side, 0));
+  const data = roomData('entry', 0, side, 0);
+  data.doors[side].big = big;
+  const room = new Room(data);
   const world = new World({ rooms: [room], roster: [] });
   const door = room.doors[0];
   const agent = stay(world, staff('0'), room, { x: 30, y: 80 });
-  const image = { width: 192, height: 384 };
+  const image = { width: big ? 384 : 192, height: big ? 768 : 384 };
   const panel = { width: 192, height: 384 };
   const canvas = document.createElement('canvas');
   const renderer = new Renderer(canvas, {
@@ -773,7 +834,7 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer sl
   }, room);
   const mask = canvases.find((candidate) => candidate.width === 96 && candidate.height === 96);
   renderer.draw(world, new Map());
-  const frame = passageDoorFrame(side);
+  const frame = passageDoorFrame(side, false, big);
   const sideWall = side === 'west' || side === 'east';
   const panelFrame = passagePanelFrame(side, false, 0);
   const doorIndex = canvas.draws.findIndex((draw) => draw[0] === mask);
@@ -819,7 +880,7 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} renderer sl
 
   state.break();
   renderer.draw(world, new Map());
-  const brokenFrame = passageDoorFrame(side, true);
+  const brokenFrame = passageDoorFrame(side, true, big);
   assert.deepEqual(mask.draws.at(-2), [image, brokenFrame.x, brokenFrame.y, frame.w, frame.h, 0, -0, frame.w, frame.h]);
   assert.equal(canvas.drawFlips[canvas.draws.findLastIndex((draw) => draw[0] === mask)], false, 'broken artwork is not mirrored');
 });

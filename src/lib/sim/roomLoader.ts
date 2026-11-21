@@ -43,10 +43,10 @@ async function imageSize(file: string) {
   return { width, height };
 }
 
-async function propImage(file: string): Promise<PropSheetImage> {
+async function propImage(file: string, cellSize = 96): Promise<PropSheetImage> {
   const { data, info } = await sharp(file).toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const image = { width: info.width, height: info.height };
-  return { ...image, propCells: propCellOccupancy(image, data) };
+  return { ...image, propCells: propCellOccupancy(image, data, cellSize) };
 }
 
 /** First-frame thumbnail for the editor palette, never the entire sprite sheet. */
@@ -102,13 +102,17 @@ function readDoors(raw: unknown, id: string, nav: RoomData['nav']): Record<strin
       throw new NavMapError(`${jsonLabel(id)}: door "${door}" needs { "clearance": 0 }.`);
     }
     for (const key of Object.keys(value)) {
-      if (key !== 'clearance' && key !== 'offset' && key !== 'panelOffset') {
+      if (key !== 'clearance' && key !== 'big' && key !== 'offset' && key !== 'panelOffset') {
         throw new NavMapError(`${jsonLabel(id)}: door "${door}" has unknown property "${key}".`);
       }
     }
     const clearance = 'clearance' in value ? value.clearance : undefined;
     if (typeof clearance !== 'number' || !Number.isSafeInteger(clearance) || clearance < 0) {
       throw new NavMapError(`${jsonLabel(id)}: door "${door}" needs a non-negative whole-number "clearance".`);
+    }
+    const big = 'big' in value ? value.big : undefined;
+    if (big !== undefined && typeof big !== 'boolean') {
+      throw new NavMapError(`${jsonLabel(id)}: door "${door}" "big" must be true or false.`);
     }
     const offset = (key: 'offset' | 'panelOffset') => {
       const point = key in value ? value[key] : undefined;
@@ -125,6 +129,7 @@ function readDoors(raw: unknown, id: string, nav: RoomData['nav']): Record<strin
     const panelOffset = offset('panelOffset');
     doors[door] = {
       clearance,
+      ...(big !== undefined ? { big } : {}),
       ...(doorOffset ? { offset: doorOffset } : {}),
       ...(panelOffset ? { panelOffset } : {}),
     };
@@ -133,13 +138,13 @@ function readDoors(raw: unknown, id: string, nav: RoomData['nav']): Record<strin
 }
 
 async function checkDoorAssets(rooms: RoomData[], assetsDir: string) {
-  const required = new Map<string, { room: string; door: string; panel: boolean }>();
+  const required = new Map<string, { room: string; door: string; panel: boolean; cellSize: number }>();
   for (const room of rooms) {
     for (const [id, config] of Object.entries(room.doors ?? {})) {
       const exit = room.nav.exits.find((candidate) => candidate.kind === 'door' && candidate.id === id)!;
       const side = exit.side ?? 'west';
-      required.set(passageDoorAsset(config.clearance, side), { room: room.id, door: id, panel: false });
-      required.set(passagePanelAsset(side), { room: room.id, door: id, panel: true });
+      required.set(passageDoorAsset(config.clearance, side, config.big), { room: room.id, door: id, panel: false, cellSize: config.big ? 192 : 96 });
+      required.set(passagePanelAsset(side), { room: room.id, door: id, panel: true, cellSize: 96 });
     }
   }
   if (!required.size) return;
@@ -148,14 +153,14 @@ async function checkDoorAssets(rooms: RoomData[], assetsDir: string) {
   for (const [asset, source] of required) {
     const label = `${jsonLabel(source.room)}: door "${source.door}"`;
     if (!files.has(`${asset}.png`)) throw new NavMapError(`${label} needs sim_assets/props/${asset}.png.`);
-    const image = await propImage(path.join(folder, `${asset}.png`));
+    const image = await propImage(path.join(folder, `${asset}.png`), source.cellSize);
     const cells = image.propCells;
-    const validSize = image.width % 96 === 0 && image.height % 96 === 0;
+    const validSize = image.width % source.cellSize === 0 && image.height % source.cellSize === 0;
     const validFrames = source.panel
       ? cells?.[0]?.[0] && cells?.[0]?.[1] && cells?.[3]?.[0] && cells?.[3]?.[1]
       : cells?.[0]?.[0];
     if (!validSize || !validFrames || !cells?.[2]?.[0]) {
-      throw new NavMapError(`${label}: ${asset}.png needs complete 96px cells and ${source.panel ? 'two red and two green panel frames' : 'a closed door frame'}, plus a broken frame in the third row.`);
+      throw new NavMapError(`${label}: ${asset}.png needs complete ${source.cellSize}px cells and ${source.panel ? 'two red and two green panel frames' : 'a closed door frame'}, plus a broken frame in the third row.`);
     }
   }
 }
@@ -349,7 +354,7 @@ export function linkRooms(rooms: LoadedRoom[]) {
       }
       if (!local && opposite) {
         room.doors ??= {};
-        room.doors[door] = { clearance: opposite.clearance };
+        room.doors[door] = { clearance: opposite.clearance, ...(opposite.big !== undefined ? { big: opposite.big } : {}) };
       }
     }
   }

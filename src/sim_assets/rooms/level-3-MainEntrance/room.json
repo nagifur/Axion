@@ -1,0 +1,19 @@
+{
+  "name": "Main Entrance",
+  "level": 3,
+  "camera": "CAM 3-01",
+  "elevators": { "shaft": "main", "big": true },
+  "doors": {
+    "west": { "clearance": 3, "big": true },
+    "east": { "clearance": 3 }
+  },
+
+  "props": [
+  { "type": "light", "x": 281, "y": 122 },
+  { "type": "light", "x": 770, "y": 122 }
+],
+"items": []
+ 
+
+  
+}
