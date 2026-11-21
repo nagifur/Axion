@@ -668,8 +668,8 @@ and survive room changes, elevator rides, and dragging. Like stats, inventory be
 to the current agent instance; it is not saved across respawns or page reloads.
 There is currently no storage capacity limit.
 
-Every agent starts with a `card_lvl1` through `card_lvl5` matching their profile
-clearance. Unknown/redacted clearances get level 1. Level 0 gets `card_lvl0`, and
+Every agent starts with a `card_level1` through `card_level5` matching their profile
+clearance. Unknown/redacted clearances get level 1. Level 0 gets `card_level0`, and
 Admin gets a distinct `card_admin` with unrestricted access and its own artwork.
 Level 0 reuses the level-1 artwork until dedicated artwork is available.
 The supplied card images use 10x8 crops at (43, 44) inside their 96x96 sheets.
@@ -877,8 +877,8 @@ occupies `(35, 0, 26, 96)`. `door_panel.png` and `door_panel_angle.png` use two 
 frames in the first row and two green frames in the fourth row. Doors and panels
 use broken artwork from the third row; populated broken panel cells animate
 horizontally at 0.6 seconds per frame. The off row is unused.
-Big doors use the same filenames prefixed with `BIG_`, for example
-`BIG_door_angle_level3.png` and `BIG_door_angle_level3_east.png`.
+Big doors use the same filenames prefixed with `big_`, for example
+`big_door_angle_level3.png` and `big_door_angle_level3_east.png`.
 Their closed crops are `(52, 28, 92, 138)` for north/south walls and
 `(53, 22, 86, 160)` for the supplied west/east artwork; broken crops start 384 pixels lower,
 in the third 192px row. They slide at their native size, without scaling down.
@@ -908,7 +908,7 @@ Level 1 to Level 2 shows the down arrow. Keep elevator openings in the same plac
 every floor so the shaft lines up.
 
 For a large elevator, use `"elevators": { "shaft": "big", "big": true }`, as in
-the Level 0 main entrance. It uses `elevator_door_big.png` and carries up to 10
+the Level 0 main entrance. It uses `big_elevator_door.png` and carries up to 10
 riders together, with separate standing positions inside the car. Riders share a
 trip only when their request type, direction and destination match. Standard
 elevators omit `big` (or set it to `false`) and carry one person per trip.

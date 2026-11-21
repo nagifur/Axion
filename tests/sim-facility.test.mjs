@@ -230,7 +230,7 @@ test('departure routes require door access but not a matching profile floor pref
   const gallery = world.room('level-4-gallery');
   const agent = world.spawn({ ...character('limited'), accessLevel: '3' }, trophy, trophy.randomFloorPoint());
   assert.equal(leaveFacility(agent, world, true)[0].activity, 'Waiting for an exit');
-  agent.receiveStoredItem(Item.create('card_lvl4'));
+  agent.receiveStoredItem(Item.create('card_level4'));
   assert.equal(leaveFacility(agent, world, true)[0].activity, `Heading to the ${gallery.name}`);
   assert.equal(agent.leaving, true);
 });

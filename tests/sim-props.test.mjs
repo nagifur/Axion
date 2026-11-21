@@ -466,7 +466,7 @@ test('elevator doors and lit arrows use their cropped artwork dimensions', async
   assert.deepEqual(canvas.draws[3].slice(1), [49, 44, 11, 9, 45, 14, 11, 9]);
 
   const bigDoor = { width: 96, height: 96 };
-  renderer.assets.elevator_door_big = bigDoor;
+  renderer.assets.big_elevator_door = bigDoor;
   room.elevator = { x: 458, y: 251, w: 176, h: 73, big: true };
   canvas.draws.length = 0;
   canvas.translations.length = 0;

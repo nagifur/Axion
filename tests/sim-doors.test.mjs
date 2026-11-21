@@ -115,7 +115,7 @@ test('every configured passage has matching floor-level door artwork', async () 
       assert.equal(door.appearance.clearance, room.level, `${room.id}/${door.id}`);
       const angled = door.side === 'west' || door.side === 'east';
       assert.equal(door.appearance.big, facility[index].doors[door.id].big ?? false);
-      assert.equal(door.appearance.asset, `${door.appearance.big ? 'BIG_' : ''}door_${angled ? 'angle_' : ''}level${room.level}${door.side === 'east' ? '_east' : ''}`);
+      assert.equal(door.appearance.asset, `${door.appearance.big ? 'big_' : ''}door_${angled ? 'angle_' : ''}level${room.level}${door.side === 'east' ? '_east' : ''}`);
       assert.equal(door.appearance.panelAsset, `door_panel${angled ? '_angle' : ''}`);
       const { panel } = passagePartBounds(door.side, door.appearance);
       assert.ok(panel.x >= 0 && panel.y >= 0 && panel.x + panel.w <= room.width && panel.y + panel.h <= room.height,
@@ -133,7 +133,7 @@ test('every configured passage has matching floor-level door artwork', async () 
     `door_level${level}`,
     `door_angle_level${level}`,
     `door_angle_level${level}_east`,
-  ]).flat().concat(['door_panel', 'door_panel_angle', 'BIG_door_angle_level3', 'BIG_door_angle_level3_east']);
+  ]).flat().concat(['door_panel', 'door_panel_angle', 'big_door_angle_level3', 'big_door_angle_level3_east']);
   for (const asset of passageAssets) {
     assert.ok(!palette.includes(asset), `${asset} is a passage assembly, not an ordinary prop`);
   }
@@ -186,15 +186,15 @@ test('door configuration and missing or incomplete artwork report useful errors'
     await assert.rejects(load({ west: { clearance: 1, big } }), /"big" must be true or false/);
   }
   assert.equal((await load({ west: { clearance: 1, big: false } })).doors.west.big, false);
-  await assert.rejects(load({ west: { clearance: 1, big: true } }), /needs sim_assets\/props\/BIG_door_angle_level1.png/);
-  const bigFile = path.join(assets, 'props', 'BIG_door_angle_level1.png');
-  await cp(path.join(assets, 'props', 'BIG_door_angle_level3.png'), bigFile);
+  await assert.rejects(load({ west: { clearance: 1, big: true } }), /needs sim_assets\/props\/big_door_angle_level1.png/);
+  const bigFile = path.join(assets, 'props', 'big_door_angle_level1.png');
+  await cp(path.join(assets, 'props', 'big_door_angle_level3.png'), bigFile);
   assert.equal((await load({ west: { clearance: 1, big: true } })).doors.west.big, true);
   const bigPixels = await sharp(bigFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   bigPixels.data[3] = 255;
   await sharp(bigPixels.data, { raw: bigPixels.info }).png().toFile(bigFile);
   await assert.rejects(load({ west: { clearance: 1, big: true } }), /visible artwork at \(0, 0\) in row 1, outside crop/);
-  await cp(path.join('src/sim_assets/props/BIG_door_angle_level3.png'), bigFile);
+  await cp(path.join('src/sim_assets/props/big_door_angle_level3.png'), bigFile);
   const cleanBigPixels = await sharp(bigFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   cleanBigPixels.data.fill(0, 384 * cleanBigPixels.info.width * 4);
   await sharp(cleanBigPixels.data, { raw: cleanBigPixels.info }).png().toFile(bigFile);
@@ -242,7 +242,7 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} big door bo
   const broken = passageDoorFrame(side, true, true);
   assert.deepEqual(broken, { ...frame, y: frame.y + 384 });
   assert.equal(art.big, true);
-  assert.equal(art.asset, `BIG_door_${side === 'west' || side === 'east' ? 'angle_' : ''}level3${side === 'east' ? '_east' : ''}`);
+  assert.equal(art.asset, `big_door_${side === 'west' || side === 'east' ? 'angle_' : ''}level3${side === 'east' ? '_east' : ''}`);
   const parts = passagePartBounds(side, art);
   assert.deepEqual(parts.door, { x: Math.round(bounds.x + (bounds.w - frame.w) / 2), y: 300 - frame.h, w: frame.w, h: frame.h });
   assert.deepEqual({ w: parts.panel.w, h: parts.panel.h }, side === 'west' || side === 'east' ? { w: 17, h: 84 } : { w: 20, h: 69 });
@@ -254,7 +254,7 @@ for (const side of ['north', 'south', 'west', 'east']) test(`${side} big door bo
 
 test('big angled door crops contain all supplied artwork in the closed and broken rows', async () => {
   for (const side of ['west', 'east']) {
-    const asset = `BIG_door_angle_level3${side === 'east' ? '_east' : ''}`;
+    const asset = `big_door_angle_level3${side === 'east' ? '_east' : ''}`;
     const { data, info } = await sharp(`src/sim_assets/props/${asset}.png`).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     assert.equal(info.width % 192, 0);
     assert.equal(info.height, 576);
@@ -727,7 +727,7 @@ test('door access follows the best stored or held card, not the current profile'
   const { world, a, east } = connectedRooms(3);
   const agent = world.spawn(staff('1'), a, east.inside);
   assert.equal(world.canAgentUsePassage(agent, east), false);
-  const card = Item.create('card_lvl3');
+  const card = Item.create('card_level3');
   agent.receiveStoredItem(card);
   assert.equal(world.canAgentUsePassage(agent, east), true);
   assert.equal(world.stepTowardWork(agent.character, a, agent), east);
@@ -748,8 +748,8 @@ test('spawn loadouts authorize arrivals and lost cards stop proximity activation
   const room = new Room(roomData('entry', 0, 'west', 3));
   const world = new World({ rooms: [room], roster: [] });
   const door = room.doors[0];
-  const agent = world.arriveByDoor({ ...staff('1'), startingItems: ['card_lvl3'] }, room, door);
-  assert.deepEqual(agent.inventory.map((item) => item.type), ['card_lvl1', 'card_lvl3']);
+  const agent = world.arriveByDoor({ ...staff('1'), startingItems: ['card_level3'] }, room, door);
+  assert.deepEqual(agent.inventory.map((item) => item.type), ['card_level1', 'card_level3']);
   assert.equal(world.canAgentUsePassage(agent, door), true);
 
   const { world: connected, a, b, east } = connectedRooms(3);

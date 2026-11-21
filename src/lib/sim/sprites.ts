@@ -96,12 +96,12 @@ export const IDLE_FRAME_SECONDS = 0.6;
 /** Item artwork crops, independent of prop power-state sheets. */
 export const ITEM_SPRITES: Record<string, Rect> = {
   can: { x: 45, y: 43, w: 6, h: 10 },
-  card_lvl0: { x: 43, y: 44, w: 10, h: 8 },
-  card_lvl1: { x: 43, y: 44, w: 10, h: 8 },
-  card_lvl2: { x: 43, y: 44, w: 10, h: 8 },
-  card_lvl3: { x: 43, y: 44, w: 10, h: 8 },
-  card_lvl4: { x: 43, y: 44, w: 10, h: 8 },
-  card_lvl5: { x: 43, y: 44, w: 10, h: 8 },
+  card_level0: { x: 43, y: 44, w: 10, h: 8 },
+  card_level1: { x: 43, y: 44, w: 10, h: 8 },
+  card_level2: { x: 43, y: 44, w: 10, h: 8 },
+  card_level3: { x: 43, y: 44, w: 10, h: 8 },
+  card_level4: { x: 43, y: 44, w: 10, h: 8 },
+  card_level5: { x: 43, y: 44, w: 10, h: 8 },
   card_admin: { x: 43, y: 44, w: 10, h: 8 },
 };
 
@@ -192,7 +192,7 @@ export const PROP_SPRITES: Record<string, PropSprite> = {
     },
   },
   elevator_door: { frames: [{ x: 36, y: 15, w: 24, h: 67 }] },
-  elevator_door_big: { frames: [{ x: 5, y: 12, w: 87, h: 73 }] },
+  big_elevator_door: { frames: [{ x: 5, y: 12, w: 87, h: 73 }] },
   elevator_lights: { frames: [{ x: 36, y: 44, w: 24, h: 9 }] },
 };
 
@@ -370,7 +370,7 @@ export const PROP_TYPES: Record<string, PropType> = {
 // The elevator is found from the nav map; its sprites are drawn to fit the opening.
 export const ELEVATOR_SPRITES = {
   door: 'elevator_door',
-  bigDoor: 'elevator_door_big',
+  bigDoor: 'big_elevator_door',
   lights: 'elevator_lights',
   /** Gap between the top of the opening and the bottom of the arrow lights. */
   lightsGap: 7,

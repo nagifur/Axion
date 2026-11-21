@@ -6,16 +6,16 @@ import { StatusEffects } from './statusEffects.ts';
 export const ITEM_REACH = 12;
 
 // Level 0 retains its own permissions while reusing level-1 artwork.
-export const itemAssetType = (type: string): string => type === 'card_lvl0' ? 'card_lvl1' : type;
+export const itemAssetType = (type: string): string => type === 'card_level0' ? 'card_level1' : type;
 
 export function startingItemTypes(character: SimCharacter): readonly string[] {
   const level = clearanceLevel(character.accessLevel ?? '1');
-  return [level === Infinity ? 'card_admin' : `card_lvl${level}`, ...(character.startingItems ?? [])];
+  return [level === Infinity ? 'card_admin' : `card_level${level}`, ...(character.startingItems ?? [])];
 }
 
 export function accessCardLevel(item: { type: string }): number | undefined {
   if (item.type === 'card_admin') return Infinity;
-  const match = /^card_lvl(\d+)$/.exec(item.type);
+  const match = /^card_level(\d+)$/.exec(item.type);
   return match ? Number(match[1]) : undefined;
 }
 

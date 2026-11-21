@@ -50,7 +50,7 @@ export function passageDoorLayout(side: DoorSide, big = false): { cellSize: numb
 }
 
 export const passageDoorAsset = (clearance: number, side: DoorSide, big = false) =>
-  `${big ? 'BIG_' : ''}door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
+  `${big ? 'big_' : ''}door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
 export const passagePanelAsset = (side: DoorSide) => `door_panel${angled(side) ? '_angle' : ''}`;
 
 export function passageDoorFrame(side: DoorSide, broken = false, big = false): Rect {
@@ -69,7 +69,7 @@ export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: numbe
 }
 
 export function isPassageDoorAsset(asset: string): boolean {
-  return /^(?:BIG_)?door_(?:level\d+|angle_level\d+(?:_east)?)$/.test(asset) || asset === 'door_panel' || asset === 'door_panel_angle';
+  return /^(?:big_)?door_(?:level\d+|angle_level\d+(?:_east)?)$/.test(asset) || asset === 'door_panel' || asset === 'door_panel_angle';
 }
 
 /** Align the door with the nav opening and put its panel alongside it on the wall. */

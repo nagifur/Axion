@@ -101,7 +101,7 @@ test('every agent spawns with its own profile-level card in storage and an empty
     const a = new Agent(profile, room, { x: 0, y: 0 });
     const b = new Agent(profile, room, { x: 0, y: 0 });
     assert.equal(a.item, null);
-    assert.deepEqual(a.inventory.map((item) => item.type), [`card_lvl${level}`]);
+    assert.deepEqual(a.inventory.map((item) => item.type), [`card_level${level}`]);
     assert.notEqual(a.inventory[0], b.inventory[0]);
     for (let door = 0; door <= 6; door++) assert.equal(a.hasAccessCard(door), door <= level);
   }
@@ -113,7 +113,7 @@ test('every agent spawns with its own profile-level card in storage and an empty
   }
   for (const accessLevel of ['███', '', 'None', '-1', '3.5']) {
     const agent = new Agent({ ...character, accessLevel }, room, { x: 0, y: 0 });
-    assert.equal(agent.inventory[0].type, 'card_lvl1');
+    assert.equal(agent.inventory[0].type, 'card_level1');
   }
   assert.deepEqual(room.items, [], 'spawned inventory never appears on the floor');
 });
@@ -124,7 +124,7 @@ test('starting items and storage preserve item identity without duplicating owne
   const agent = new Agent(profile, room, { x: 200, y: 140 });
   const other = new Agent(profile, room, agent);
   const first = agent.inventory[1];
-  assert.deepEqual(agent.inventory.map((item) => item.type), ['card_lvl1', 'can', 'can']);
+  assert.deepEqual(agent.inventory.map((item) => item.type), ['card_level1', 'can', 'can']);
   assert.notEqual(first, other.inventory[1]);
   assert.throws(() => agent.storeItem(), /no item/);
   assert.throws(() => agent.retrieveItem(other.inventory[1]), /not in.*inventory/);
@@ -175,7 +175,7 @@ test('storage transfers are forbidden during dragging, transport, removal and de
 });
 
 test('access card art is tightly cropped and level zero reuses level-one artwork', async () => {
-  for (const type of ['card_lvl0', 'card_lvl1', 'card_lvl2', 'card_lvl3', 'card_lvl4', 'card_lvl5', 'card_admin']) {
+  for (const type of ['card_level0', 'card_level1', 'card_level2', 'card_level3', 'card_level4', 'card_level5', 'card_admin']) {
     const item = Item.create(type);
     const file = `src/sim_assets/items/${item.asset.slice(5)}.png`;
     const frame = itemFrame(type, await sharp(file).metadata());
@@ -371,9 +371,9 @@ test('item room data and palette previews use the artwork crop, with explicit va
   const preview = await itemPreview('can', assetsDir);
   const image = await sharp(Buffer.from(preview.split(',')[1], 'base64')).metadata();
   assert.deepEqual([image.width, image.height], [6, 10]);
-  await Promise.all(['card_lvl1', 'card_admin'].map((type) =>
+  await Promise.all(['card_level1', 'card_admin'].map((type) =>
     copyFile(`src/sim_assets/items/${type}.png`, path.join(assetsDir, 'items', `${type}.png`))));
-  for (const type of ['card_lvl0', 'card_admin']) {
+  for (const type of ['card_level0', 'card_admin']) {
     const data = await load([{ type, x: 100, y: 100 }]);
     assert.deepEqual(data.items, [{ ...Item.create(type).toData(), x: 100, y: 100 }]);
   }
