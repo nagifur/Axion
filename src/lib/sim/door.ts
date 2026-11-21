@@ -125,6 +125,15 @@ export class PassageDoor {
     else this.hold = 0;
   });
   private hold = 0;
+  private powerSource: () => boolean = () => true;
+
+  setPowerSource(source: () => boolean) {
+    this.powerSource = source;
+  }
+
+  get powered(): boolean {
+    return this.powerSource();
+  }
 
   constructor(clearance: number, big = false) {
     this.clearance = clearance;
@@ -150,11 +159,11 @@ export class PassageDoor {
   }
 
   get blocked(): boolean {
-    return this.broken || (this.panelBroken && this.open < 1);
+    return this.broken || ((this.panelBroken || !this.powered) && this.open < 1);
   }
 
   get stuckOpen(): boolean {
-    return !this.broken && this.panelBroken && this.open === 1;
+    return !this.broken && (this.panelBroken || !this.powered) && this.open === 1;
   }
 
   break(): boolean {
@@ -185,7 +194,7 @@ export class PassageDoor {
 
   /** One roll per working component when an authorized agent approaches. */
   breakOnUse(): ('door' | 'panel')[] {
-    if (this.broken || this.panelBroken) return [];
+    if (!this.powered || this.broken || this.panelBroken) return [];
     const broken: ('door' | 'panel')[] = [];
     if (chance(PROP_BREAK_CHANCE) && this.breakPanel()) broken.push('panel');
     if (chance(PROP_BREAK_CHANCE) && this.break()) broken.push('door');
@@ -194,6 +203,11 @@ export class PassageDoor {
 
   /** `occupied`: someone is in the doorway, so it must not close on them (but they don't open it). */
   update(authorizedNearby: boolean, dt: number, occupied = false) {
+    if (!this.powered) {
+      this.unlocked = false;
+      this.hold = 0;
+      return;
+    }
     if (this.broken || this.panelBroken) return;
     const elapsed = Math.max(0, dt);
     if (authorizedNearby) {

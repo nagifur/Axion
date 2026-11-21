@@ -33,6 +33,8 @@ export function dropTarget(
   }
   if (prop) {
     if (!room.props.includes(prop)) return { kind: 'invalid', label: 'That prop is not in this room' };
+    if (!prop.powered) return { kind: 'invalid', label: `The ${prop.type} has no power` };
+    if (prop.emergency) return { kind: 'invalid', label: 'Emergency lights cannot be switched manually' };
     if (prop.broken && !prop.electric) return { kind: 'invalid', label: `The ${prop.type} is broken` };
     const seats = prop.broken ? [] : room.spots.filter((spot) => spot.prop === prop);
     if (seats.length) {
@@ -112,7 +114,7 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
       start() {
         if (attempted) return;
         attempted = true;
-        if (target.prop.broken || breakPropOnUse(agent, world, target.prop)) return;
+        if (!target.prop.powered || target.prop.emergency || target.prop.broken || breakPropOnUse(agent, world, target.prop)) return;
         if (target.prop.switchable) target.prop.setOn(switchOn);
         else agent.say('?', 2);
       },

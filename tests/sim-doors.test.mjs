@@ -835,6 +835,7 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
         const drawFlips = [];
         const drawAlphas = [];
         const drawOrigins = [];
+        const drawFilters = [];
         const gradients = [];
         const gradientCenters = [];
         const gradientRadii = [];
@@ -845,22 +846,25 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
         let originY = 0;
         const ctx = {
           globalAlpha: 1,
+          filter: 'none',
           drawImage(...args) {
             draws.push(args);
             drawFlips.push(flipped);
             drawAlphas.push(this.globalAlpha);
             drawOrigins.push([originX, originY]);
+            drawFilters.push(this.filter);
           },
           getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4).fill(255) }; },
           putImageData() {}, clearRect() {}, setTransform() {},
           fillRect(...rect) {
             fills.push({ style: this.fillStyle, composite: this.globalCompositeOperation, alpha: this.globalAlpha, rect });
           },
-          save() { stack.push({ flipped, alpha: this.globalAlpha, originX, originY }); },
+          save() { stack.push({ flipped, alpha: this.globalAlpha, filter: this.filter, originX, originY }); },
           restore() {
             const state = stack.pop();
             flipped = state.flipped;
             this.globalAlpha = state.alpha;
+            this.filter = state.filter;
             originX = state.originX;
             originY = state.originY;
           },
@@ -874,7 +878,7 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
             return { addColorStop(...args) { stops.push(args); } };
           },
         };
-        const canvas = { width: 0, height: 0, draws, drawFlips, drawAlphas, drawOrigins, gradients, gradientCenters, gradientRadii, fills, getContext() { return ctx; } };
+        const canvas = { width: 0, height: 0, draws, drawFlips, drawAlphas, drawOrigins, drawFilters, gradients, gradientCenters, gradientRadii, fills, getContext() { return ctx; } };
         canvases.push(canvas);
         return canvas;
       },
@@ -952,6 +956,19 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
     assert.equal(canvas.getContext().globalAlpha, 1, 'halo opacity does not leak');
     assert.equal(room.darkness, 1, 'the glow does not remove gameplay darkness');
   }
+
+  const previousGlows = canvas.gradients.length;
+  room.power = 'off';
+  renderer.draw(world, new Map());
+  assert.equal(canvas.gradients.length, previousGlows, 'unpowered panels have no indicator halo');
+  const unpoweredIndex = canvas.draws.findLastIndex((draw) => draw[0] === panel);
+  assert.equal(canvas.drawFilters[unpoweredIndex], 'grayscale(1) brightness(0.25)', 'unpowered panel art is dark and colorless');
+  assert.equal(canvas.getContext().filter, 'none', 'panel filters do not leak into the scene');
+  room.power = 'backup';
+  renderer.draw(world, new Map());
+  assert.equal(canvas.gradients.length, previousGlows + 1, 'backup restores panel illumination');
+  assert.equal(canvas.drawFilters.at(-1), 'none');
+  room.power = 'normal';
 
   state.breakPanel();
   const glows = canvas.gradients.length;

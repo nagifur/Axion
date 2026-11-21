@@ -231,6 +231,12 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <button type="button" class="btn" data-debug="time" aria-pressed="false">Time: Live</button>
           <button type="button" class="btn" data-debug="props" aria-pressed="false">Edit props / items</button>
           <button type="button" class="btn danger" data-debug="reset">Reset progress</button>
+          <div class="monitor-debug-events">
+            <span data-debug-event-floor></span>
+            <label>Floor event <select data-debug-event aria-label="Floor event"></select></label>
+            <button type="button" class="btn" data-debug="event-start">Trigger event</button>
+            <button type="button" class="btn" data-debug="event-stop">End event</button>
+          </div>
         </div>
         <p class="monitor-drag-help" data-monitor-drag-status role="status">
           Drag an agent to open floor, a prop, or another agent. Hold over a floor or camera to switch. Esc cancels.
@@ -477,6 +483,8 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-debug[hidden]{ display:none }
   .monitor-debug-label{ font-size:0.68rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--neon-yellow) }
   .monitor-debug .btn[aria-pressed="true"]{ --btn-tint:var(--neon-yellow); --btn-fill:30% }
+  .monitor-debug-events{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; font-size:0.75rem }
+  .monitor-debug-events select{ background:#05080d; color:var(--text); border:1px solid var(--neon-yellow); padding:5px }
 
   /* Debug prop editor. */
   .monitor-page.is-editing .monitor-tags{ display:none }

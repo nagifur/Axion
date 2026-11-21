@@ -3,6 +3,45 @@ import test from 'node:test';
 import { Renderer } from '../src/lib/sim/render.ts';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES } from '../src/lib/sim/sprites.ts';
+import { Prop } from '../src/lib/sim/prop.ts';
+
+test('emergency light sprites are red, preserve alpha and framing, and reuse the tinted sheet', (t) => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, 'document', original);
+    else delete globalThis.document;
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const draws = [];
+        const ctx = {
+          drawImage(...args) { draws.push(args); },
+          getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4).fill(255) }; },
+          putImageData(pixels) { this.pixels = pixels; },
+          save() {}, restore() {},
+        };
+        return { width: 0, height: 0, draws, getContext() { return ctx; } };
+      },
+    },
+  });
+  const canvas = document.createElement('canvas');
+  const image = { width: 192, height: 288 };
+  const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, light: image }, {});
+  const light = new Prop({ type: 'light', asset: 'light', x: 10, y: 20, w: 40, h: 17, flip: false });
+  light.setPowerSource(() => 'backup');
+  renderer.drawProp(light, 0);
+  const tinted = canvas.draws[0][0];
+  assert.deepEqual([...tinted.getContext().pixels.data.slice(0, 4)], [255, 20, 20, 255]);
+  assert.deepEqual(canvas.draws[0].slice(1), [28, 39, 40, 17, 10, 20, 40, 17]);
+  renderer.drawProp(light, 0.6);
+  assert.equal(canvas.draws[1][0], tinted, 'red sheet is cached across frames');
+  assert.deepEqual(canvas.draws[1].slice(1, 5), [124, 39, 40, 17]);
+  light.break();
+  renderer.drawProp(light, 0);
+  assert.equal(canvas.draws[2][0], image, 'broken lights keep their broken artwork, not the emergency tint');
+});
 
 test('scaled sheets crop each frame before resizing to prevent neighboring-row bleed', (t) => {
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');

@@ -2,9 +2,11 @@ import type { Room } from './room.ts';
 import type { World } from './world.ts';
 
 export type LevelVariable = boolean | number | string | null;
+export type LevelPower = 'normal' | 'off' | 'backup';
 export type LevelEventEndReason = 'stopped' | 'expired';
 
 export interface LevelEventDefinition {
+  label?: string;
   /** Simulation seconds; omitted means the event runs until explicitly stopped. */
   duration?: number;
   onStart?(level: LevelState, world: World): void;
@@ -51,6 +53,10 @@ export class LevelState {
 
   hasEvent(id: string): boolean {
     return this.events.has(id);
+  }
+
+  get availableEvents(): readonly { id: string; label: string }[] {
+    return Object.entries(this.definition.events ?? {}).map(([id, event]) => ({ id, label: event.label ?? id }));
   }
 
   get activeEvents(): readonly ActiveLevelEvent[] {

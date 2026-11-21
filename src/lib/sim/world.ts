@@ -15,7 +15,7 @@ import { accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
-import { LEVEL_DEFINITIONS } from './levels.ts';
+import { LEVEL_DEFINITIONS, LEVEL_EVENTS } from './levels.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 
@@ -89,7 +89,10 @@ export class World {
       if (room.elevator) this.elevators.set(room, new Elevator(room.elevator.big ? 10 : 1));
     }
     for (const [number, rooms] of roomsByLevel) {
-      this.levels.set(number, new LevelState(this, number, rooms, definitions[number]));
+      const definition = definitions[number];
+      this.levels.set(number, new LevelState(this, number, rooms, {
+        ...definition, events: { ...LEVEL_EVENTS, ...definition?.events },
+      }));
     }
     this.passages = new PassageNetwork(this.rooms, (id) => this.room(id));
   }
@@ -507,7 +510,8 @@ export class World {
         const art = door.appearance;
         if (!art) continue;
         const bounds = passagePartBounds(door.side, art);
-        const panel = this.passageDoorFor(door)?.panelBroken ? bounds.panel : null;
+        const state = this.passageDoorFor(door);
+        const panel = state?.powered && state.panelBroken ? bounds.panel : null;
         this.updateSparks(door, room, panel, dt, bounds.door.y + bounds.door.h);
       }
     }

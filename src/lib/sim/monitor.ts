@@ -77,6 +77,7 @@ export function initMonitor(root: HTMLElement): () => void {
   const camerasSeen = new Set(progress.cameras);
   const maxRoomWidth = Math.max(...rooms.map((room) => room.width));
   let viewed = world.room(progress.camera ?? '') ?? world.room(config.initialRoom) ?? rooms[0];
+  let refreshDebugEvents: (() => void) | undefined;
 
   let disposed = false;
   let raf = 0;
@@ -153,6 +154,7 @@ export function initMonitor(root: HTMLElement): () => void {
     const changed = room !== viewed;
     if (changed && !drag?.active) cancelDrag();
     viewed = room;
+    refreshDebugEvents?.();
     // Same pixel scale on every camera, so characters don't change size between rooms.
     if (stage) stage.style.width = `${(room.width / maxRoomWidth) * 100}%`;
     canvas.style.aspectRatio = `${room.width} / ${room.height}`;
@@ -496,11 +498,12 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const debugMode = !!debugPanel && new URLSearchParams(location.search).has('debug');
   if (debugPanel && debugMode) {
-    bindDebugPanel(debugPanel, {
+    refreshDebugEvents = bindDebugPanel(debugPanel, {
       world,
       director,
       log,
       onCamera: () => world.agentsIn(viewed),
+      currentRoom: () => viewed,
       setClockOffset: (ms) => { clockOffset = ms; },
       refreshClock: () => tick(),
       toggleSpeed: () => {

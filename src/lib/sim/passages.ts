@@ -53,6 +53,9 @@ export class PassageNetwork {
         this.endpoints.set(state, endpoints);
       }
     }
+    for (const [state, endpoints] of this.endpoints) {
+      state.setPowerSource(() => endpoints.every(({ room }) => room.power !== 'off'));
+    }
   }
 
   stateFor(door: Door): PassageDoor | undefined {

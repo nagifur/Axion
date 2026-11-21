@@ -6,6 +6,7 @@ import type { Point, Room } from './room.ts';
 import type { Rect } from './navMap.ts';
 import { chance } from './random.ts';
 import { StatusEffects } from './statusEffects.ts';
+import type { LevelPower } from './levelState.ts';
 
 export interface PropState {
   /** Switched on. Only used by switchable props. */
@@ -50,6 +51,7 @@ export class Prop implements PlacedProp {
   readonly brokenLook?: boolean;
   private readonly sheetSwitchable: boolean;
   private pendingBreaks = 0;
+  private powerSource: () => LevelPower = () => 'normal';
 
   constructor(data: PlacedProp) {
     this.type = data.type;
@@ -92,19 +94,32 @@ export class Prop implements PlacedProp {
     return this.switchable && this.kind.automaticPowerOff === true;
   }
 
+  setPowerSource(source: () => LevelPower) {
+    this.powerSource = source;
+  }
+
+  get powered(): boolean {
+    return !this.electric || this.powerSource() === 'normal'
+      || (this.type === 'light' && this.powerSource() === 'backup');
+  }
+
+  get emergency(): boolean {
+    return this.type === 'light' && this.powerSource() === 'backup' && !this.broken;
+  }
+
   get breakable() {
     return !!this.kind.breakable || this.brokenLook === true;
   }
 
   /** Switched on and working. */
   get lit() {
-    return this.switchable && this.on && !this.broken;
+    return this.switchable && this.powered && (this.on || this.emergency) && !this.broken;
   }
 
   /** Item type this prop hands out right now, or null when it has none or is broken or switched off. */
   get dispensing(): string | null {
     const type = this.kind.dispenses;
-    return type && !this.broken && (!this.switchable || this.on) ? type : null;
+    return type && this.powered && !this.broken && (!this.switchable || this.on) ? type : null;
   }
 
   private placeArea(area: Rect): Rect {
@@ -127,7 +142,7 @@ export class Prop implements PlacedProp {
 
   /** Broken electrical equipment sparks from its particle area, or its whole artwork by default. */
   get sparkArea(): Rect | null {
-    if (!this.electric || !this.broken) return null;
+    if (!this.electric || !this.powered || !this.broken) return null;
     return this.placeArea(this.kind.breakParticles?.area ?? { x: 0, y: 0, w: this.w, h: this.h });
   }
 
@@ -170,7 +185,7 @@ export class Prop implements PlacedProp {
    */
   get look(): PropLook | undefined {
     if (this.broken && (this.brokenLook || hasPropLook(this.asset, 'broken'))) return 'broken';
-    if (this.switchable && !this.lit) return 'off';
+    if (!this.powered || (this.switchable && !this.lit)) return 'off';
     return undefined;
   }
 

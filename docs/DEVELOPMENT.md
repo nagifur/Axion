@@ -332,20 +332,23 @@ bleed into characters or their highlight outlines at fractional sizes.
 
 #### Floor Events and Variables
 
-Register floor-specific rules in [`levels.ts`](../src/lib/sim/levels.ts), keyed by
+Register floor-specific rules in `LEVEL_DEFINITIONS` in [`levels.ts`](../src/lib/sim/levels.ts), keyed by
 the numeric `level` from `room.json`. Every room on that floor reads the same
 state through `world.level(room.level)`. Even floors without rules have their own
-empty state; floors with no loaded rooms return `undefined`. Variables are
+state; floors with no loaded rooms return `undefined`. Variables are
 booleans, numbers, strings, or `null`, and each world gets a fresh copy of the
 defaults. Floor state is not saved on reload.
 
-For example, this entry defines a Level 2 blackout without changing the lights:
+`LEVEL_EVENTS` defines events available on every floor. Floor-specific event
+definitions override shared events with the same ID. `level.availableEvents`
+lists the IDs and labels for the debug picker. For example, this entry defines
+a Level 2 power test without changing the lights:
 
 ```ts
 2: {
   variables: { powerOnline: true },
   events: {
-    blackout: {
+    'power-test': {
       duration: 30,
       onStart: (level) => { level.variables.set('powerOnline', false); },
       onEnd: (level) => { level.variables.set('powerOnline', true); },
@@ -354,9 +357,9 @@ For example, this entry defines a Level 2 blackout without changing the lights:
 },
 ```
 
-Start it from simulation logic with `world.level(2)?.startEvent('blackout')`.
-Use `level.hasEvent('blackout')` to check it, `level.activeEvents` to inspect its
-timing, and `level.stopEvent('blackout')` to end it early. An event can only have
+Start it from simulation logic with `world.level(2)?.startEvent('power-test')`.
+Use `level.hasEvent('power-test')` to check it, `level.activeEvents` to inspect its
+timing, and `level.stopEvent('power-test')` to end it early. An event can only have
 one active instance per floor; a second start does not refresh it. Different
 events can overlap. You can override the duration with a second argument to
 `startEvent`; without any duration, the event lasts until stopped.
@@ -364,8 +367,32 @@ events can overlap. You can override the duration with a second argument to
 An event can use `onStart`, `onUpdate`, and `onEnd` to apply, sustain, and clean up
 its effects. `onEnd` receives `'stopped'` or `'expired'`. A floor can use its own
 `onUpdate` hook to decide when to trigger events. All floors advance with the
-simulation clock before agents and room systems update, even off-camera. No events
-or automatic triggers are enabled by default.
+simulation clock before agents and room systems update, even off-camera. No
+automatic triggers are enabled by default.
+
+##### Blackout and backup power
+
+Open `/monitoring?debug`, switch to the floor you want, and use the **Floor event**
+picker with **Trigger event** or **End event**. These controls always target the
+current camera's floor, even if no agents are on camera.
+
+The shared **Blackout** event immediately cuts power to all lights, door panels,
+and electrical props (currently lights and vending machines) on that floor.
+After **10 simulation seconds**, backup generation restores door panels and
+forces working lights on in red emergency mode, including empty rooms. Vending
+machines stay unusable. Pausing freezes the delay; debug speed accelerates it.
+The blackout remains active until ended manually; there is no random trigger.
+
+`room.power` is `'normal'`, `'off'`, or `'backup'`. Props derive effective power
+from their room, including props added or replaced in the editor mid-event.
+An outage does not overwrite prop switches or damage: ending it returns to normal
+power and motion-sensor behavior without repairing broken equipment.
+Emergency lights cannot be manually switched, and a vending interaction already
+in progress cannot dispense while its supply is down. Unpowered electrical props
+do not spark or shock. Unpowered door panels cannot open doors; doors freeze in
+place, so fully open doors remain passable. Linked camera views share the same
+door power state (a blackout on either endpoint cuts its supply). Backup power
+does not bypass clearance or repair broken doors/panels.
 
 #### Adding a Room
 

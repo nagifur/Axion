@@ -25,7 +25,7 @@ export function tryElectricalShock(agent: Agent, world: World, prop: Prop): bool
 }
 
 function shock(agent: Agent, world: World, prop: Prop, probability: number): boolean {
-  if (!exposed(agent) || !prop.electric || !prop.broken || !agent.room.props.includes(prop)
+  if (!exposed(agent) || !prop.electric || !prop.powered || !prop.broken || !agent.room.props.includes(prop)
     || world.time < (nextShockAt.get(agent) ?? 0) || !chance(probability)) return false;
   if (!agent.statuses.apply('shocked')) return false;
   nextShockAt.set(agent, world.time + SHOCK_SECONDS + SHOCK_RECOVERY_SECONDS);
@@ -41,7 +41,7 @@ export function checkElectricalApproach(agent: Agent, world: World, from: Point)
   let closest: Prop | undefined;
   let closestDistance = Infinity;
   for (const prop of agent.room.props) {
-    if (!prop.electric || !prop.broken) continue;
+    if (!prop.electric || !prop.powered || !prop.broken) continue;
     const area = prop.impactBounds;
     if (distanceToRect(agent, area) <= SHOCK_REACH) nearby.add(prop);
     if (previous?.has(prop) && distanceToRect(from, area) <= SHOCK_REACH) continue;

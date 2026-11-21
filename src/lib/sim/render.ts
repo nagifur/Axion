@@ -278,6 +278,7 @@ export class Renderer {
   private readonly sheets = new Map<number, ScaledSheet>();
   private readonly outline = makeCanvas(160, 160);
   private readonly passageDoorCanvas = makeCanvas(96, 96);
+  private readonly emergencySheets = new Map<string, Canvas>();
   private pixelScale = 1;
 
   constructor(canvas: Canvas, assets: Assets, room: Room) {
@@ -495,7 +496,7 @@ export class Renderer {
       const x = Math.round(opening.x + (opening.w - frame.w) / 2);
       const y = opening.y - ELEVATOR_SPRITES.lightsGap - frame.h;
       drawPropSprite(ctx, lights, ELEVATOR_SPRITES.lights, x, y, false, world.time);
-      if (elevator.light && Math.floor(world.time * 3) % 2 === 0) {
+      if (this.room.power !== 'off' && elevator.light && Math.floor(world.time * 3) % 2 === 0) {
         const { upWidth, downX } = ELEVATOR_SPRITES;
         const sx = elevator.light === 'up' ? 0 : downX;
         const sw = elevator.light === 'up' ? upWidth : frame.w - downX;
@@ -527,7 +528,8 @@ export class Renderer {
       ctx.save();
       if (foreground) ctx.globalAlpha *= FOREGROUND_DOOR_ALPHA;
       drawSpriteFrame(ctx, this.passageDoorCanvas, { x: 0, y: 0, w: frame.w, h: frame.h }, art.x, art.y, false);
-      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.unlocked, world.time, state.panelBroken, panel), art.panel.x, art.panel.y, art.panelFlip);
+      if (!state.powered) ctx.filter = 'grayscale(1) brightness(0.25)';
+      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.powered && state.unlocked, world.time, state.panelBroken, panel), art.panel.x, art.panel.y, art.panelFlip);
       ctx.restore();
     }
   }
@@ -539,7 +541,7 @@ export class Renderer {
       if (!art) continue;
       const state = world.passageDoorFor(door);
       if (!state) throw new Error(`Missing door state for ${this.room.id}/${door.id}.`);
-      if (state.panelBroken) continue;
+      if (!state.powered || state.panelBroken) continue;
       const sideWall = door.side === 'west' || door.side === 'east';
       const panel = passagePanelFrame(door.side, state.unlocked, world.time);
       const indicator = sideWall ? DOOR_INDICATOR.sideWall : DOOR_INDICATOR.facing;
@@ -560,6 +562,30 @@ export class Renderer {
     }
   }
 
+  private drawProp(prop: Prop, time: number) {
+    const image = requireAsset(this.assets, prop.asset);
+    if (!prop.emergency) {
+      drawPropSprite(this.ctx, image, prop.asset, prop.x, prop.y, prop.flip, time, prop.look);
+      return;
+    }
+    let red = this.emergencySheets.get(prop.asset);
+    if (!red) {
+      red = makeCanvas(image.width, image.height);
+      const ctx = context(red);
+      ctx.drawImage(image, 0, 0);
+      const pixels = ctx.getImageData(0, 0, image.width, image.height);
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        const brightness = Math.max(pixels.data[i], pixels.data[i + 1], pixels.data[i + 2]);
+        pixels.data[i] = brightness;
+        pixels.data[i + 1] = Math.round(brightness * 0.08);
+        pixels.data[i + 2] = Math.round(brightness * 0.08);
+      }
+      ctx.putImageData(pixels, 0, 0);
+      this.emergencySheets.set(prop.asset, red);
+    }
+    drawSpriteFrame(this.ctx, red, propFrame(prop.asset, image, time, prop.look), prop.x, prop.y, prop.flip);
+  }
+
   draw(world: World, highlights: Map<Agent, string>) {
     const ctx = this.ctx;
     const { assets, room } = this;
@@ -576,7 +602,7 @@ export class Renderer {
     // Props and people share one depth-sorted pass, ordered by where they touch the floor.
     const drawables: { depth: number; draw: () => void }[] = room.props.map((prop) => ({
       depth: prop.y + prop.h - 0.5,
-      draw: () => drawPropSprite(ctx, requireAsset(assets, prop.asset), prop.asset, prop.x, prop.y, prop.flip, world.time, prop.look),
+      draw: () => this.drawProp(prop, world.time),
     }));
     for (const item of room.items ?? []) {
       drawables.push({ depth: item.y + item.h - 0.5, draw: () => drawItemSprite(ctx, requireAsset(assets, item.asset), item) });
@@ -593,6 +619,10 @@ export class Renderer {
 
     if (room.darkness > 0) {
       ctx.fillStyle = `rgba(0, 0, 0, ${room.darkness * 0.55})`;
+      ctx.fillRect(0, 0, room.width, room.height);
+    }
+    if (room.power === 'backup' && room.props.some((prop) => prop.emergency)) {
+      ctx.fillStyle = 'rgba(110, 0, 0, 0.25)';
       ctx.fillRect(0, 0, room.width, room.height);
     }
     this.drawDoorGlows(world);

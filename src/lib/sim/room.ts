@@ -8,6 +8,7 @@ import { Item, type PlacedItem } from './item.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
 import { random } from './random.ts';
 import { doorAppearance, type DoorAppearance, type DoorConfig } from './door.ts';
+import type { LevelPower } from './levelState.ts';
 
 export type { DoorSide, Point } from './navMap.ts';
 export type { PlacedProp } from './prop.ts';
@@ -107,6 +108,7 @@ const contains = (rect: Rect, point: Point) =>
   point.x >= rect.x && point.x < rect.x + rect.w && point.y >= rect.y && point.y < rect.y + rect.h;
 
 export class Room {
+  power: LevelPower = 'normal';
   readonly id: string;
   readonly name: string;
   readonly level: number;
@@ -175,6 +177,7 @@ export class Room {
     this.spots.length = 0;
     this.blocked.length = 0;
     this.props.forEach((prop, propIndex) => {
+      prop.setPowerSource(() => this.power);
       const type = PROP_TYPES[prop.type];
       if (type?.blocks) {
         const rect = prop.flip ? mirror(type.blocks, prop.w) : type.blocks;
@@ -215,6 +218,7 @@ export class Room {
    * Occupancy-controlled power for opted-in props (only lights by default).
    */
   updateLights(occupied: boolean, dt: number) {
+    if (this.power !== 'normal') return;
     const entered = occupied && !this.occupied;
     this.occupied = occupied;
     if (occupied) {
