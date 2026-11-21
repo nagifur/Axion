@@ -4,7 +4,7 @@
 import { hasPropLook, propTypeOf, type PropLook, type PropType } from './sprites.ts';
 import type { Point, Room } from './room.ts';
 import type { Rect } from './navMap.ts';
-import { chance } from './random.ts';
+import { chance, range } from './random.ts';
 import { StatusEffects } from './statusEffects.ts';
 import type { LevelPower } from './levelState.ts';
 
@@ -17,6 +17,19 @@ export interface PropState {
 /** How a prop starts unless room.json says otherwise. */
 export const DEFAULT_PROP_STATE: Readonly<PropState> = { on: true, broken: false };
 export const PROP_BREAK_CHANCE = 0.01;
+
+/**
+ * Old-fluorescent flicker: every working light has a small chance per second to strobe
+ * on and off for a short burst, in irregular phases. Visual only (see Prop.flickerOff).
+ */
+export const LIGHT_FLICKER = {
+  /** Chance per second that a lit light starts a flicker burst. */
+  chance: 1 / 120,
+  /** How long one burst lasts, in seconds. */
+  duration: { min: 0.5, max: 2 },
+  /** How long each dark or bright phase within a burst lasts, in seconds. */
+  phase: { min: 0.04, max: 0.16 },
+} as const;
 
 /** A prop as room.json places it. */
 export interface PlacedProp {
@@ -52,6 +65,9 @@ export class Prop implements PlacedProp {
   private readonly sheetSwitchable: boolean;
   private pendingBreaks = 0;
   private powerSource: () => LevelPower = () => 'normal';
+  private flickerLeft = 0;
+  private flickerPhaseLeft = 0;
+  private flickerDark = false;
 
   constructor(data: PlacedProp) {
     this.type = data.type;
@@ -114,6 +130,45 @@ export class Prop implements PlacedProp {
   /** Switched on and working. */
   get lit() {
     return this.switchable && this.powered && (this.on || this.emergency) && !this.broken;
+  }
+
+  /** Mid-flicker right now. */
+  get flickering(): boolean {
+    return this.flickerLeft > 0;
+  }
+
+  /**
+   * Momentarily dark during a flicker burst. Visual only: `lit` and gameplay darkness
+   * are unchanged, like emergency lighting (see Room.visualDarkness).
+   */
+  get flickerOff(): boolean {
+    return this.flickering && this.flickerDark;
+  }
+
+  /** Rolls for, and advances, an old-fluorescent flicker. Only lit lights on mains power flicker. */
+  updateFlicker(dt: number) {
+    if (this.type !== 'light' || !this.lit || this.emergency) {
+      this.flickerLeft = 0;
+      this.flickerDark = false;
+      return;
+    }
+    if (!this.flickering) {
+      if (!chance(Math.min(1, LIGHT_FLICKER.chance * dt))) return;
+      this.flickerLeft = range(LIGHT_FLICKER.duration.min, LIGHT_FLICKER.duration.max);
+      this.flickerPhaseLeft = range(LIGHT_FLICKER.phase.min, LIGHT_FLICKER.phase.max);
+      this.flickerDark = true;
+      return;
+    }
+    this.flickerLeft -= dt;
+    if (!this.flickering) {
+      this.flickerDark = false;
+      return;
+    }
+    this.flickerPhaseLeft -= dt;
+    if (this.flickerPhaseLeft <= 0) {
+      this.flickerDark = !this.flickerDark;
+      this.flickerPhaseLeft = range(LIGHT_FLICKER.phase.min, LIGHT_FLICKER.phase.max);
+    }
   }
 
   /** Item type this prop hands out right now, or null when it has none or is broken or switched off. */
@@ -185,7 +240,7 @@ export class Prop implements PlacedProp {
    */
   get look(): PropLook | undefined {
     if (this.broken && (this.brokenLook || hasPropLook(this.asset, 'broken'))) return 'broken';
-    if (!this.powered || (this.switchable && !this.lit)) return 'off';
+    if (!this.powered || (this.switchable && !this.lit) || this.flickerOff) return 'off';
     return undefined;
   }
 

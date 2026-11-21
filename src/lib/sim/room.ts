@@ -214,6 +214,13 @@ export class Room {
     return this.level === 0 || this.props.some((prop) => prop.type === 'light' && prop.lit) ? 0 : 1;
   }
 
+  /** Darkness as drawn right now: a flicker can momentarily black out the camera without changing gameplay `darkness`. */
+  get visualDarkness(): number {
+    return this.level === 0 || this.props.some((prop) => prop.type === 'light' && prop.lit && !prop.flickerOff)
+      ? this.darkness
+      : 1;
+  }
+
   /**
    * Occupancy-controlled power for opted-in props (only lights by default).
    */

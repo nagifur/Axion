@@ -642,7 +642,7 @@ export class Renderer {
 
     // Emergency lighting looks as dim as darkness, tinted red, without changing gameplay darkness.
     const emergency = room.power === 'backup' && room.props.some((prop) => prop.emergency);
-    const dim = emergency ? 1 : room.darkness;
+    const dim = emergency ? 1 : room.visualDarkness;
     if (dim > 0) {
       ctx.fillStyle = `rgba(0, 0, 0, ${dim * 0.55})`;
       ctx.fillRect(0, 0, room.width, room.height);

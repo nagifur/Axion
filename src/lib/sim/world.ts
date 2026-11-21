@@ -495,6 +495,7 @@ export class World {
     for (const room of this.rooms) {
       room.updateLights(this.agentsIn(room).length > 0, dt);
       for (const prop of room.props) {
+        prop.updateFlicker(dt);
         const breaks = prop.takeBreaks();
         if (breaks) {
           const debris = prop.breakParticles;

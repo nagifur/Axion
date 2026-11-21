@@ -181,6 +181,7 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
   const backdrop = {};
   const room = {
     id: 'room', width: 400, height: 200, darkness: 0,
+    get visualDarkness() { return this.darkness; },
     props: [{ asset: 'chair', x: 100, y: 100, w: 27, h: 38, flip: false }],
   };
   const canvas = document.createElement('canvas');

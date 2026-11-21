@@ -261,6 +261,14 @@ on top of the clumsy trait's 0.6%; impostors still do not trip. At their next
 decision, agents are more likely to move rooms or leave, without the usual
 minimum stay. Clearance rules and motion-sensor lighting are unchanged.
 
+Every lit light on mains power also has a small chance per second (`LIGHT_FLICKER`
+in [`prop.ts`](../src/lib/sim/prop.ts)) to flicker like an old fluorescent tube:
+for 0.5–2 seconds it strobes between its on and off artwork in irregular
+0.04–0.16 second phases. When a room's last bright light is mid-dark-phase the
+camera dims through `room.visualDarkness`, but the effect is visual only —
+gameplay `darkness`, trips, and planning never see it, and emergency lights
+never flicker.
+
 | File | Purpose |
 | --- | --- |
 | [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |
