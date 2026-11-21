@@ -393,6 +393,12 @@ The blackout remains active until ended manually; there is no random trigger.
 from their room, including props added or replaced in the editor mid-event.
 An outage does not overwrite prop switches or damage: ending it returns to normal
 power and motion-sensor behavior without repairing broken equipment.
+Ending a blackout restores the floor's mains (and door panels) immediately, but
+each electric prop comes back to life at its own random moment within the next
+`BLACKOUT_RESTORE_SECONDS` (5 simulation seconds), going dark until then — a
+deliberate "coming to life" effect rather than everything snapping on at once.
+Replacing a room's props in the editor resets their power sources and skips any
+pending restore delay.
 Emergency lights cannot be manually switched, and a vending interaction already
 in progress cannot dispense while its supply is down. Unpowered electrical props
 do not spark or shock. Unpowered door panels cannot open doors; doors freeze in

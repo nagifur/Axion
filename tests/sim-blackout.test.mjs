@@ -3,7 +3,7 @@ import test from 'node:test';
 import { dropTarget } from '../src/lib/sim/agentDrag.ts';
 import { getFromDispenser } from '../src/lib/sim/itemTasks.ts';
 import { tryElectricalShock } from '../src/lib/sim/electrical.ts';
-import { BLACKOUT_BACKUP_SECONDS } from '../src/lib/sim/levels.ts';
+import { BLACKOUT_BACKUP_SECONDS, BLACKOUT_RESTORE_SECONDS } from '../src/lib/sim/levels.ts';
 import { bindDebugPanel } from '../src/lib/sim/monitorDebug.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
@@ -81,6 +81,7 @@ test('blackout is debug/manual-only and affects the entire floor immediately, th
   assert.equal(b.power, 'normal');
   assert.equal(a.props[1].on, false);
   assert.equal(a.props[2].broken, true);
+  world.update(BLACKOUT_RESTORE_SECONDS);
   assert.equal(a.props[3].dispensing, 'can');
 });
 
@@ -122,6 +123,7 @@ test('unpowered doors freeze safely, and editor-added props inherit the floor po
   a.updateLights(false, 100);
   assert.equal(a.props[0].lit, true, 'emergency lights stay on in empty rooms');
   level.stopEvent('blackout');
+  world.update(BLACKOUT_RESTORE_SECONDS);
   assert.equal(a.props[1].dispensing, 'can');
 });
 
@@ -142,7 +144,29 @@ test('blackout blocks drag/drop vending and manual lights, including a vending t
   assert.equal(dropTarget(world, agent, agent, null, machine).kind, 'invalid');
   assert.match(dropTarget(world, agent, agent, null, a.props[0]).label, /cannot be switched manually/);
   level.stopEvent('blackout');
+  world.update(BLACKOUT_RESTORE_SECONDS);
   assert.equal(dropTarget(world, agent, agent, null, machine).kind, 'prop');
+});
+
+test('power returns to equipment one piece at a time after a blackout ends', (t) => {
+  const { world, a, level } = setup();
+  level.startEvent('blackout');
+  world.update(BLACKOUT_BACKUP_SECONDS);
+  // Restore moments consumed per electric prop in room order: a gets 0.2/0.4/0.6/0.8 of the window.
+  const rolls = [0.2, 0.4, 0.6, 0.8];
+  let index = 0;
+  t.mock.method(Math, 'random', () => rolls[index++ % rolls.length]);
+  level.stopEvent('blackout');
+  assert.equal(a.power, 'normal', 'mains power is back on the floor immediately');
+  assert.equal(a.props[0].on, true, 'the switch itself is untouched');
+  assert.equal(a.props[0].lit, false, 'equipment stays dead until its own restore moment');
+  assert.equal(a.props[0].emergency, false, 'the emergency circuit is no longer supplying it');
+  assert.equal(a.props[3].dispensing, null);
+  world.update(0.2 * BLACKOUT_RESTORE_SECONDS + 0.5);
+  assert.equal(a.props[0].lit, true, 'the first light pops back on');
+  assert.equal(a.props[3].dispensing, null, 'the vending machine is still waiting its turn');
+  world.update(0.6 * BLACKOUT_RESTORE_SECONDS);
+  assert.equal(a.props[3].dispensing, 'can', 'the last machine comes back within the restore window');
 });
 
 test('the debug event picker triggers and ends the selected event on the currently viewed floor', (t) => {
