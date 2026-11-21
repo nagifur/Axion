@@ -157,7 +157,7 @@ function average(points: Point[]): Point {
   return { x: Math.round(sum.x / points.length), y: Math.round(sum.y / points.length) };
 }
 
-export function parseNavMap(pixels: ArrayLike<number>, width: number, height: number, file = 'navMap.png'): NavMapData {
+export function parseNavMap(pixels: ArrayLike<number>, width: number, height: number, file = 'nav_map.png'): NavMapData {
   if (pixels.length !== width * height * 4) {
     throw new NavMapError(`${file}: expected ${width}×${height} RGBA pixels.`);
   }

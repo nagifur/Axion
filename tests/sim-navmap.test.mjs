@@ -84,7 +84,7 @@ test('every elevator opening is left transparent in its room art', async () => {
         if (pixels[(row * info.width + col) * 4 + 3] !== 0) opaque++;
       }
     }
-    assert.equal(opaque, 0, `${data.id}: the elevator painted on navMap.png should be see-through in room.png`);
+    assert.equal(opaque, 0, `${data.id}: the elevator painted on nav_map.png should be see-through in room.png`);
   }
 });
 

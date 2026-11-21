@@ -169,7 +169,7 @@ test('automatic sheets use one frame for room loading, palette previews, placeme
   json.props = [{ type: 'animated_decoration', x: 100, y: 50, on: false }];
   await Promise.all([
     copyFile(path.join(originalRoom, 'room.png'), path.join(roomDir, 'room.png')),
-    copyFile(path.join(originalRoom, 'navMap.png'), path.join(roomDir, 'navMap.png')),
+    copyFile(path.join(originalRoom, 'nav_map.png'), path.join(roomDir, 'nav_map.png')),
     writeFile(path.join(roomDir, 'room.json'), JSON.stringify(json)),
     sharp({ create: { width: 192, height: 192, channels: 4, background: '#ff0000' } })
       .png().toFile(path.join(assetsDir, 'props', 'animated_decoration.png')),
@@ -229,7 +229,7 @@ test('broken-only sheets work through room loading, editing, cloning, and drawin
   json.props = [{ type: 'glass', x: 100, y: 50, broken: true }];
   await Promise.all([
     copyFile(path.join(originalRoom, 'room.png'), path.join(roomDir, 'room.png')),
-    copyFile(path.join(originalRoom, 'navMap.png'), path.join(roomDir, 'navMap.png')),
+    copyFile(path.join(originalRoom, 'nav_map.png'), path.join(roomDir, 'nav_map.png')),
     copyFile('src/sim_assets/props/glass.png', path.join(assetsDir, 'props', 'glass.png')),
     writeFile(roomJson, JSON.stringify(json)),
   ]);

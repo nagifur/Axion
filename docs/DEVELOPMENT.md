@@ -328,7 +328,7 @@ by `exits` in `room.json`, so update those references when renaming a room:
 ```text
 rooms/level-1-offices/
 |-- room.png        # The room art. Leave the elevator opening transparent.
-|-- navMap.png      # Same size as room.png, painted with the colours below.
+|-- nav_map.png      # Same size as room.png, painted with the colours below.
 |-- room.json       # Name, camera label, and where props are placed.
 `-- prototype.png   # Optional mockup; not used by the site.
 ```

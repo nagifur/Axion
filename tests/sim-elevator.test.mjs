@@ -37,7 +37,7 @@ test('elevator configuration validates shaft, size and nav opening', async (t) =
   t.after(() => rm(dir, { recursive: true, force: true }));
   const folder = path.join(dir, 'rooms', 'test');
   await mkdir(folder, { recursive: true });
-  for (const image of ['room.png', 'navMap.png']) {
+  for (const image of ['room.png', 'nav_map.png']) {
     await copyFile(`src/sim_assets/rooms/level-0-main-entrance/${image}`, path.join(folder, image));
   }
   const load = async (elevators) => {
@@ -53,7 +53,7 @@ test('elevator configuration validates shaft, size and nav opening', async (t) =
   await assert.rejects(load({ shaft: 10 }), /non-empty name/);
   await assert.rejects(load({ big: 'true' }), /must be true or false/);
   await assert.rejects(load([]), /should look like/);
-  for (const image of ['room.png', 'navMap.png']) {
+  for (const image of ['room.png', 'nav_map.png']) {
     await copyFile(`src/sim_assets/rooms/level-1-rec-room/${image}`, path.join(folder, image));
   }
   await assert.rejects(load({ shaft: 'service' }), /no elevator/);

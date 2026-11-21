@@ -355,7 +355,7 @@ test('item room data and palette previews use the artwork crop, with explicit va
   json.items = [{ type: 'can', x: 197, y: 130, flip: true }];
   await Promise.all([
     copyFile(`${original}/room.png`, path.join(roomDir, 'room.png')),
-    copyFile(`${original}/navMap.png`, path.join(roomDir, 'navMap.png')),
+    copyFile(`${original}/nav_map.png`, path.join(roomDir, 'nav_map.png')),
     copyFile('src/sim_assets/items/can.png', path.join(assetsDir, 'items', 'can.png')),
   ]);
   const load = async (items) => {

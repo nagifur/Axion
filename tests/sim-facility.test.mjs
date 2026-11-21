@@ -38,7 +38,7 @@ test('uses the only door, or the one named explicitly', () => {
 });
 
 test('explains linking mistakes', () => {
-  assert.throws(() => linkRooms([fakeRoom('a', ['west'], { east: 'b' }), fakeRoom('b', ['west'])]), /mentions door "east", but navMap.png has: west/);
+  assert.throws(() => linkRooms([fakeRoom('a', ['west'], { east: 'b' }), fakeRoom('b', ['west'])]), /mentions door "east", but nav_map.png has: west/);
   assert.throws(() => linkRooms([fakeRoom('a', ['east'], { east: 'nowhere' })]), /no such room folder/);
   assert.throws(
     () => linkRooms([fakeRoom('a', ['west-1'], { 'west-1': 'b' }), fakeRoom('b', ['east-1', 'east-2'])]),

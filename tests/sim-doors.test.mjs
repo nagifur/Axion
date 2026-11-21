@@ -175,7 +175,7 @@ test('door configuration and missing or incomplete artwork report useful errors'
   };
   assert.equal((await load({ west: { clearance: 1 } })).doors.west.clearance, 1);
   await assert.rejects(load([]), /"doors" must be an object/);
-  await assert.rejects(load({ north: { clearance: 1 } }), /passage "north".*navMap.png/);
+  await assert.rejects(load({ north: { clearance: 1 } }), /passage "north".*nav_map.png/);
   for (const value of [-1, 1.5, '1', null]) {
     await assert.rejects(load({ west: { clearance: value } }), /non-negative whole-number "clearance"/);
   }

@@ -1,5 +1,5 @@
 // Build-time only: reads room folders from src/sim_assets/rooms/<id>/ and checks them.
-// A room folder holds room.png (the art), navMap.png (where feet can go) and room.json
+// A room folder holds room.png (the art), nav_map.png (where feet can go) and room.json
 // (name, props, and which room each door leads to).
 
 import { readdir, readFile } from 'node:fs/promises';
@@ -96,7 +96,7 @@ function readDoors(raw: unknown, id: string, nav: RoomData['nav']): Record<strin
   for (const [door, value] of Object.entries(raw)) {
     if (!nav.exits.some((exit) => exit.kind === 'door' && exit.id === door)) {
       const available = nav.exits.filter((exit) => exit.kind === 'door').map((exit) => exit.id);
-      throw new NavMapError(`${jsonLabel(id)}: "doors" mentions passage "${door}", but navMap.png has: ${listOr(available, 'no doors')}.`);
+      throw new NavMapError(`${jsonLabel(id)}: "doors" mentions passage "${door}", but nav_map.png has: ${listOr(available, 'no doors')}.`);
     }
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       throw new NavMapError(`${jsonLabel(id)}: door "${door}" needs { "clearance": 0 }.`);
@@ -208,7 +208,7 @@ function readElevator(raw: unknown, id: string, nav: RoomData['nav']): RoomData[
     throw new NavMapError(`${jsonLabel(id)}: "elevators" should look like { "shaft": "main", "big": true }.`);
   }
   if (!nav.exits.some((exit) => exit.kind === 'elevator')) {
-    throw new NavMapError(`${jsonLabel(id)}: "elevators" is configured, but navMap.png has no elevator.`);
+    throw new NavMapError(`${jsonLabel(id)}: "elevators" is configured, but nav_map.png has no elevator.`);
   }
   for (const key of Object.keys(raw)) {
     if (key !== 'shaft' && key !== 'big') {
@@ -236,13 +236,13 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   }
 
   const room = await imageSize(path.join(folder, 'room.png'));
-  const { data, info } = await sharp(path.join(folder, 'navMap.png')).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const { data, info } = await sharp(path.join(folder, 'nav_map.png')).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   if (info.width !== room.width || info.height !== room.height) {
     throw new NavMapError(
-      `${label}/navMap.png is ${info.width}×${info.height} but room.png is ${room.width}×${room.height}. They must match pixel for pixel.`,
+      `${label}/nav_map.png is ${info.width}×${info.height} but room.png is ${room.width}×${room.height}. They must match pixel for pixel.`,
     );
   }
-  const nav = parseNavMap(data, info.width, info.height, `${label}/navMap.png`);
+  const nav = parseNavMap(data, info.width, info.height, `${label}/nav_map.png`);
 
   const props: PlacedProp[] = [];
   const entries = Array.isArray(json.props) ? json.props : [];
@@ -354,7 +354,7 @@ export function linkRooms(rooms: LoadedRoom[]) {
     for (const [door, target] of exits) {
       const label = jsonLabel(room.id);
       if (!doorIds(room).includes(door)) {
-        throw new NavMapError(`${label}: "exits" mentions door "${door}", but navMap.png has: ${listOr(doorIds(room), 'no doors')}.`);
+        throw new NavMapError(`${label}: "exits" mentions door "${door}", but nav_map.png has: ${listOr(doorIds(room), 'no doors')}.`);
       }
       const other = byId.get(target.room);
       if (!other) {
