@@ -191,8 +191,13 @@ test('door configuration and missing or incomplete artwork report useful errors'
   await cp(path.join(assets, 'props', 'BIG_door_angle_level3.png'), bigFile);
   assert.equal((await load({ west: { clearance: 1, big: true } })).doors.west.big, true);
   const bigPixels = await sharp(bigFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  bigPixels.data.fill(0, 384 * bigPixels.info.width * 4);
+  bigPixels.data[3] = 255;
   await sharp(bigPixels.data, { raw: bigPixels.info }).png().toFile(bigFile);
+  await assert.rejects(load({ west: { clearance: 1, big: true } }), /visible artwork at \(0, 0\) in row 1, outside crop/);
+  await cp(path.join('src/sim_assets/props/BIG_door_angle_level3.png'), bigFile);
+  const cleanBigPixels = await sharp(bigFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  cleanBigPixels.data.fill(0, 384 * cleanBigPixels.info.width * 4);
+  await sharp(cleanBigPixels.data, { raw: cleanBigPixels.info }).png().toFile(bigFile);
   await assert.rejects(load({ west: { clearance: 1, big: true } }), /complete 192px cells.*broken frame in the third row/);
   await sharp({ create: { width: 96, height: 576, channels: 4, background: '#ff0000' } }).png().toFile(bigFile);
   await assert.rejects(load({ west: { clearance: 1, big: true } }), /complete 192px cells/);

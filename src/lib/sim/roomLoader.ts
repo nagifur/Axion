@@ -9,7 +9,7 @@ import { NavMapError, parseNavMap, type DoorSide } from './navMap.ts';
 import type { ExitLink, PlacedProp, RoomData } from './room.ts';
 import { itemFrame, placeablePropTypes, propCellOccupancy, propFrame, propSheetFeatures, propTypeOf, type PropSheetImage } from './sprites.ts';
 import { itemAssetType, type PlacedItem } from './item.ts';
-import { passageDoorAsset, passagePanelAsset, type DoorConfig } from './door.ts';
+import { passageDoorAsset, passageDoorLayout, passagePanelAsset, type DoorConfig } from './door.ts';
 
 export const SIM_ASSETS_DIR = path.resolve('src/sim_assets');
 
@@ -138,12 +138,21 @@ function readDoors(raw: unknown, id: string, nav: RoomData['nav']): Record<strin
 }
 
 async function checkDoorAssets(rooms: RoomData[], assetsDir: string) {
-  const required = new Map<string, { room: string; door: string; panel: boolean; cellSize: number }>();
+  const required = new Map<string, {
+    room: string;
+    door: string;
+    panel: boolean;
+    cellSize: number;
+    crop?: { x: number; y: number; w: number; h: number };
+  }>();
   for (const room of rooms) {
     for (const [id, config] of Object.entries(room.doors ?? {})) {
       const exit = room.nav.exits.find((candidate) => candidate.kind === 'door' && candidate.id === id)!;
       const side = exit.side ?? 'west';
-      required.set(passageDoorAsset(config.clearance, side, config.big), { room: room.id, door: id, panel: false, cellSize: config.big ? 192 : 96 });
+      const layout = passageDoorLayout(side, config.big);
+      required.set(passageDoorAsset(config.clearance, side, config.big), {
+        room: room.id, door: id, panel: false, cellSize: layout.cellSize, crop: layout.crop,
+      });
       required.set(passagePanelAsset(side), { room: room.id, door: id, panel: true, cellSize: 96 });
     }
   }
@@ -153,14 +162,41 @@ async function checkDoorAssets(rooms: RoomData[], assetsDir: string) {
   for (const [asset, source] of required) {
     const label = `${jsonLabel(source.room)}: door "${source.door}"`;
     if (!files.has(`${asset}.png`)) throw new NavMapError(`${label} needs sim_assets/props/${asset}.png.`);
-    const image = await propImage(path.join(folder, `${asset}.png`), source.cellSize);
-    const cells = image.propCells;
-    const validSize = image.width % source.cellSize === 0 && image.height % source.cellSize === 0;
+    const file = path.join(folder, `${asset}.png`);
+    const { data, info } = await sharp(file).toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const image = { width: info.width, height: info.height };
+    const cells = propCellOccupancy(image, data, source.cellSize);
+    const validSize = info.width % source.cellSize === 0 && info.height % source.cellSize === 0;
     const validFrames = source.panel
       ? cells?.[0]?.[0] && cells?.[0]?.[1] && cells?.[3]?.[0] && cells?.[3]?.[1]
       : cells?.[0]?.[0];
     if (!validSize || !validFrames || !cells?.[2]?.[0]) {
       throw new NavMapError(`${label}: ${asset}.png needs complete ${source.cellSize}px cells and ${source.panel ? 'two red and two green panel frames' : 'a closed door frame'}, plus a broken frame in the third row.`);
+    }
+    if (!source.panel && source.crop) {
+      const { x, y, w, h } = source.crop;
+      if (![x, y, w, h].every(Number.isSafeInteger) || x < 0 || y < 0 || w <= 0 || h <= 0 ||
+        x + w > source.cellSize || y + h > source.cellSize) {
+        throw new NavMapError(`${label}: ${asset}.png has a crop that does not fit inside its ${source.cellSize}px cell.`);
+      }
+      for (const row of [0, 2]) {
+        let visibleInCrop = false;
+        for (let cellY = 0; cellY < source.cellSize; cellY++) {
+          for (let cellX = 0; cellX < source.cellSize; cellX++) {
+            const alpha = data[((row * source.cellSize + cellY) * info.width + cellX) * 4 + 3];
+            if (!alpha) continue;
+            if (cellX < x || cellX >= x + w || cellY < y || cellY >= y + h) {
+              throw new NavMapError(
+                `${label}: ${asset}.png has visible artwork at (${cellX}, ${cellY}) in row ${row + 1}, outside crop (${x}, ${y}, ${w}, ${h}).`,
+              );
+            }
+            visibleInCrop = true;
+          }
+        }
+        if (!visibleInCrop) {
+          throw new NavMapError(`${label}: ${asset}.png has no visible door artwork inside its crop in row ${row + 1}.`);
+        }
+      }
     }
   }
 }

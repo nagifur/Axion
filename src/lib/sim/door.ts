@@ -30,18 +30,31 @@ export const DOOR_PANEL_FRAME_SECONDS = 0.6;
 
 const angled = (side: DoorSide) => side === 'west' || side === 'east';
 
+const DOOR_LAYOUTS = {
+  normal: {
+    cellSize: 96,
+    straight: { x: 26, y: 14, w: 46, h: 69 },
+    angled: { x: 35, y: 0, w: 26, h: 96 },
+  },
+  big: {
+    cellSize: 192,
+    straight: { x: 52, y: 28, w: 92, h: 138 },
+    angled: { x: 53, y: 22, w: 86, h: 160 },
+  },
+} as const;
+
+export function passageDoorLayout(side: DoorSide, big = false): { cellSize: number; crop: Rect } {
+  const layout = big ? DOOR_LAYOUTS.big : DOOR_LAYOUTS.normal;
+  return { cellSize: layout.cellSize, crop: angled(side) ? layout.angled : layout.straight };
+}
+
 export const passageDoorAsset = (clearance: number, side: DoorSide, big = false) =>
   `${big ? 'BIG_' : ''}door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
 export const passagePanelAsset = (side: DoorSide) => `door_panel${angled(side) ? '_angle' : ''}`;
 
-/** Big sheets use 192px cells with their own artwork crop; panels stay normal-sized. */
 export function passageDoorFrame(side: DoorSide, broken = false, big = false): Rect {
-  if (big && angled(side)) return { x: 53, y: (broken ? 384 : 0) + 22, w: 86, h: 160 };
-  const scale = big ? 2 : 1;
-  const frame = angled(side)
-    ? { x: 35, y: broken ? 192 : 0, w: 26, h: 96 }
-    : { x: 26, y: (broken ? 192 : 0) + 14, w: 46, h: 69 };
-  return { x: frame.x * scale, y: frame.y * scale, w: frame.w * scale, h: frame.h * scale };
+  const { cellSize, crop } = passageDoorLayout(side, big);
+  return { ...crop, y: crop.y + (broken ? 2 * cellSize : 0) };
 }
 
 export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: number, broken = false, image?: PropSheetImage): Rect {

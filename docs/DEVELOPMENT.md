@@ -878,6 +878,9 @@ Big doors use the same filenames prefixed with `BIG_`, for example
 Their closed crops are `(52, 28, 92, 138)` for north/south walls and
 `(53, 22, 86, 160)` for the supplied west/east artwork; broken crops start 384 pixels lower,
 in the third 192px row. They slide at their native size, without scaling down.
+The loader checks that every visible pixel in the closed and broken door cells
+falls inside the configured crop; update the layout metadata when adding artwork
+with different bounds.
 Add the numbered door sheets for another
 clearance before configuring it; missing or incomplete artwork is reported at build
 time.
