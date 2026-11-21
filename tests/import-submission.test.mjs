@@ -88,7 +88,7 @@ test("refuses to overwrite an existing page without --overwrite", async () => {
     const zipPath = join(dir, "a-071.zip");
     await writeFile(zipPath, await zipOf({ "src/content/entities/a-071.md": "---\ntitle: T\n---\nReplaced bio" }));
     assert.throws(
-      () => execFileSync("node", ["scripts/import-submission.mjs", zipPath], { stdio: "pipe" }),
+      () => execFileSync(process.execPath, ["scripts/import-submission.mjs", zipPath], { stdio: "pipe" }),
       (error) => /already exist[\s\S]*src\/content\/entities\/a-071\.md/.test(error.stderr.toString()),
     );
   } finally {

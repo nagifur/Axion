@@ -24,7 +24,7 @@ export interface DoorAppearance {
 }
 
 export const PASSAGE_DOOR_SECONDS = 0.7;
-export const BIG_PASSAGE_DOOR_SECONDS = 3;
+export const BIG_PASSAGE_DOOR_SECONDS = 2;
 export const PASSAGE_DOOR_HOLD_SECONDS = 1.5;
 export const PASSAGE_DOOR_RANGE = 40;
 export const DOOR_PANEL_FRAME_SECONDS = 0.6;
