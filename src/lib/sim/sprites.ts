@@ -363,8 +363,8 @@ export const PROP_TYPES: Record<string, PropType> = {
   },
   // Breakable through the broken row of their sheets.
   glass: { asset: 'glass', ...glassPane({ x: 3, y: 30, w: 91, h: 37 }) },
-  glassHalf: { asset: 'glassHalf', ...glassPane({ x: 25, y: 30, w: 46, h: 37 }) },
-  glassAngle: { asset: 'glassAngle', ...glassPane({ x: 28, y: 12, w: 40, h: 74 }) },
+  glass_half: { asset: 'glass_half', ...glassPane({ x: 25, y: 30, w: 46, h: 37 }) },
+  glass_angle: { asset: 'glass_angle', ...glassPane({ x: 28, y: 12, w: 40, h: 74 }) },
 };
 
 // The elevator is found from the nav map; its sprites are drawn to fit the opening.

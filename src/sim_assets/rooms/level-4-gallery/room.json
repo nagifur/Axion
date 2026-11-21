@@ -9,7 +9,7 @@
     "east": { "clearance": 4 }
   },
   "exits": {
-    "north": "level-4-trophyRoom"
+    "north": "level-4-trophy-room"
     
   },
   "props": [

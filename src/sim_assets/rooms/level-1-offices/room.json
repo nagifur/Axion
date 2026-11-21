@@ -8,8 +8,8 @@
     "east": { "clearance": 1 }
   },
   "exits": {
-    "west": "level-1-pipeRoom",
-    "east": "level-1-recRoom"
+    "west": "level-1-pipe-room",
+    "east": "level-1-rec-room"
   },
   "props": [
     { "type": "light", "x": 83, "y": 34 },

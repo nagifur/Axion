@@ -18,14 +18,14 @@ const staff = (id) => ({
 test('main entrance uses the large car and links to the lookout', async () => {
   const rooms = (await loadFacility()).map((data) => new Room(data));
   const world = new World({ rooms, roster: [] });
-  const entrance = world.room('level-0-mainEntrance');
-  const lookout = world.room('level-0-Lookout');
+  const entrance = world.room('level-0-main-entrance');
+  const lookout = world.room('level-0-lookout');
   assert.equal(entrance.elevator.shaft, 'main');
   assert.equal(entrance.elevator.big, true);
   assert.equal(world.elevatorFor(entrance).capacity, 10);
   assert.equal(world.elevatorFor(lookout).capacity, 1);
-  assert.deepEqual(world.elevatorStops(entrance).map((room) => room.id), ['level-3-MainEntrance']);
-  const upperEntrance = world.room('level-3-MainEntrance');
+  assert.deepEqual(world.elevatorStops(entrance).map((room) => room.id), ['level-3-main-entrance']);
+  const upperEntrance = world.room('level-3-main-entrance');
   assert.equal(world.elevatorFor(upperEntrance).capacity, 10);
   assert.equal(upperEntrance.elevator.big, true);
   assert.equal(entrance.doors.find((door) => door.id === 'east-2').to.room, lookout.id);
@@ -38,7 +38,7 @@ test('elevator configuration validates shaft, size and nav opening', async (t) =
   const folder = path.join(dir, 'rooms', 'test');
   await mkdir(folder, { recursive: true });
   for (const image of ['room.png', 'navMap.png']) {
-    await copyFile(`src/sim_assets/rooms/level-0-mainEntrance/${image}`, path.join(folder, image));
+    await copyFile(`src/sim_assets/rooms/level-0-main-entrance/${image}`, path.join(folder, image));
   }
   const load = async (elevators) => {
     await writeFile(path.join(folder, 'room.json'), JSON.stringify({ name: 'Test', level: 0, camera: 'Test', elevators }));
@@ -54,7 +54,7 @@ test('elevator configuration validates shaft, size and nav opening', async (t) =
   await assert.rejects(load({ big: 'true' }), /must be true or false/);
   await assert.rejects(load([]), /should look like/);
   for (const image of ['room.png', 'navMap.png']) {
-    await copyFile(`src/sim_assets/rooms/level-1-recRoom/${image}`, path.join(folder, image));
+    await copyFile(`src/sim_assets/rooms/level-1-rec-room/${image}`, path.join(folder, image));
   }
   await assert.rejects(load({ shaft: 'service' }), /no elevator/);
 });
@@ -66,7 +66,7 @@ const tickUntil = (elevator, world, predicate) => {
 };
 
 test('a large car admits ten compatible riders, waits for all, and leaves the eleventh queued', async () => {
-  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const room = new Room(await loadRoom('level-0-main-entrance'));
   const elevator = new Elevator(10);
   const departed = [];
   const world = { elevatorDeparted(agent) { departed.push(agent); } };
@@ -85,7 +85,7 @@ test('a large car admits ten compatible riders, waits for all, and leaves the el
 });
 
 test('riders can join an opening car, but different trips wait', async () => {
-  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const room = new Room(await loadRoom('level-0-main-entrance'));
   const elevator = new Elevator(10);
   const destination = {};
   const first = elevator.request('depart', fakeAgent(room), { direction: 'down', destination });
@@ -103,7 +103,7 @@ test('riders can join an opening car, but different trips wait', async () => {
 });
 
 test('cancelled and removed riders neither block nor ride the large car', async () => {
-  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const room = new Room(await loadRoom('level-0-main-entrance'));
   const elevator = new Elevator(10);
   const departed = [];
   const world = { elevatorDeparted(agent) { departed.push(agent); } };
@@ -129,7 +129,7 @@ test('standard cars still admit one rider per trip', () => {
 });
 
 test('large cars unload ten arrivals together and retain the arrival safety timeout', async () => {
-  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const room = new Room(await loadRoom('level-0-main-entrance'));
   const elevator = new Elevator(10);
   const requests = Array.from({ length: 10 }, () => elevator.request('arrive', fakeAgent(room), { direction: 'up' }));
   tickUntil(elevator, {}, () => requests.every((request) => request.board));
@@ -142,7 +142,7 @@ test('large cars unload ten arrivals together and retain the arrival safety time
 });
 
 test('ten people actually walk into the main entrance car and depart together', async () => {
-  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const room = new Room(await loadRoom('level-0-main-entrance'));
   const world = new World({ rooms: [room], roster: [] });
   const agents = Array.from({ length: 10 }, (_, index) => {
     const agent = world.spawn(staff(`rider-${index}`), room, room.elevator.front);

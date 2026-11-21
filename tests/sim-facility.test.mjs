@@ -92,20 +92,20 @@ const noon = () => new Date(2026, 0, 1, 12);
 test('loads the rooms in floor-plan order, level by level', async () => {
   const rooms = await facility();
   assert.deepEqual(rooms.map((room) => room.id), [
-    'level-0-mainEntrance', 'level-0-Lookout',
-    'level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom', 'level-2-lobby', 'level-3-checkpoint', 'level-3-MainEntrance',
-    'level-4-trophyRoom', 'level-4-gallery', 'level-5-sideEntry',
+    'level-0-main-entrance', 'level-0-lookout',
+    'level-1-pipe-room', 'level-1-offices', 'level-1-rec-room', 'level-2-lobby', 'level-3-checkpoint', 'level-3-main-entrance',
+    'level-4-trophy-room', 'level-4-gallery', 'level-5-side-entry',
   ]);
   const offices = rooms.find((room) => room.id === 'level-1-offices');
-  assert.deepEqual(offices.linkedDoors.map((door) => door.to.room), ['level-1-pipeRoom', 'level-1-recRoom']);
+  assert.deepEqual(offices.linkedDoors.map((door) => door.to.room), ['level-1-pipe-room', 'level-1-rec-room']);
   assert.equal(offices.outerDoors.length, 0);
-  assert.equal(rooms.find((room) => room.id === 'level-1-pipeRoom').outerDoors[0].id, 'west', 'the pipe room west door leads off camera');
+  assert.equal(rooms.find((room) => room.id === 'level-1-pipe-room').outerDoors[0].id, 'west', 'the pipe room west door leads off camera');
 });
 
 test('finds the way out from rooms without an exit', async () => {
   const rooms = await facility();
   const world = new World({ roster, rooms, now: noon });
-  const [pipe, offices, rec] = ['level-1-pipeRoom', 'level-1-offices', 'level-1-recRoom'].map((id) => world.room(id));
+  const [pipe, offices, rec] = ['level-1-pipe-room', 'level-1-offices', 'level-1-rec-room'].map((id) => world.room(id));
   assert.equal(world.doorTowardExit(rec).to.room, offices.id, 'rec room leads to the elevator in the offices');
   assert.equal(world.doorTowardExit(offices), null, 'offices has the elevator');
   assert.equal(world.doorTowardExit(offices, true).to.room, pipe.id, 'without the elevator, run for the pipe room door');
@@ -154,7 +154,7 @@ test('population and arrivals stay within clearance, including ghosts', async (t
   assert.ok(wallArrival.room.level <= 3);
   assert.equal(wallArrival.alpha, 0, 'ghost phases through a wall');
 
-  const isolated = new World({ roster: staff, rooms: [world.room('level-1-recRoom')], now: noon });
+  const isolated = new World({ roster: staff, rooms: [world.room('level-1-rec-room')], now: noon });
   assert.equal(isolated.arrive(staff[0]).room.level, 1, 'no-entrance fallback stays within clearance');
 
   Math.random.mock.mockImplementation(() => 0.99);
@@ -226,7 +226,7 @@ test('voluntary door and elevator plans respect clearance, but impostors do not'
 test('departure routes require door access but not a matching profile floor preference', async () => {
   const rooms = await facility();
   const world = new World({ roster: [], rooms, now: noon });
-  const trophy = world.room('level-4-trophyRoom');
+  const trophy = world.room('level-4-trophy-room');
   const gallery = world.room('level-4-gallery');
   const agent = world.spawn({ ...character('limited'), accessLevel: '3' }, trophy, trophy.randomFloorPoint());
   assert.equal(leaveFacility(agent, world, true)[0].activity, 'Waiting for an exit');
@@ -260,10 +260,10 @@ test('the main elevator stops on every level', async () => {
   const world = new World({ roster, rooms, now: noon });
   const offices = world.room('level-1-offices');
   const lobby = world.room('level-2-lobby');
-  const stops = ['level-0-Lookout', 'level-2-lobby', 'level-3-checkpoint', 'level-4-gallery', 'level-5-sideEntry'];
+  const stops = ['level-0-lookout', 'level-2-lobby', 'level-3-checkpoint', 'level-4-gallery', 'level-5-side-entry'];
   assert.deepEqual(world.elevatorStops(offices).map((room) => room.id), stops);
   assert.ok(world.elevatorStops(lobby).some((room) => room === offices));
-  assert.deepEqual(world.elevatorStops(world.room('level-1-recRoom')), []);
+  assert.deepEqual(world.elevatorStops(world.room('level-1-rec-room')), []);
 });
 
 test('riding the elevator down to level 2', async () => {
@@ -302,7 +302,7 @@ test('walking through the gallery north door into the trophy room and back', asy
   const rooms = await facility();
   const world = new World({ roster: roster.slice(0, 1), rooms, now: noon });
   const gallery = world.room('level-4-gallery');
-  const trophy = world.room('level-4-trophyRoom');
+  const trophy = world.room('level-4-trophy-room');
   const north = gallery.doors.find((door) => door.id === 'north');
   const south = trophy.doors.find((door) => door.id === 'south');
   assert.deepEqual(north.to, { room: trophy.id, door: 'south' });

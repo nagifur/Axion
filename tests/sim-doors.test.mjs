@@ -460,7 +460,7 @@ test('held agents do not activate panels; only Admin and impostors bypass cleara
 test('a level-3 agent placed in the level-4 Trophy Room cannot open its door to leave', async () => {
   const rooms = (await loadFacility()).map((data) => new Room(data));
   const world = new World({ rooms, roster: [] });
-  const room = world.room('level-4-trophyRoom');
+  const room = world.room('level-4-trophy-room');
   const door = room.linkedDoors[0];
   const agent = stay(world, staff('3'), room, door.inside);
   const state = world.passageDoorFor(door);
@@ -574,7 +574,7 @@ test('a door that never reopens makes the agent give up and become pickable agai
 test('a stranded agent waits by the door and slips out when someone else opens it', async (t) => {
   const rooms = (await loadFacility()).map((data) => new Room(data));
   const world = new World({ rooms, roster: [], now: () => new Date(2026, 0, 1, 19) });
-  const trophy = world.room('level-4-trophyRoom');
+  const trophy = world.room('level-4-trophy-room');
   const gallery = world.room('level-4-gallery');
   const door = trophy.linkedDoors[0];
   const nagi = world.spawn(staff('3', 'Nagi'), trophy, trophy.randomFloorPoint());

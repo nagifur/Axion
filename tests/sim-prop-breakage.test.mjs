@@ -190,7 +190,7 @@ test('dragging onto a working vending machine shares the failed-use behavior', a
 });
 
 test('inspecting a glass pane can break it without introducing a power switch', async (t) => {
-  const { world, room, agent, logs } = await setup('level-0-mainEntrance');
+  const { world, room, agent, logs } = await setup('level-0-main-entrance');
   const pane = room.props.find((prop) => prop.type === 'glass');
   assert.deepEqual([pane.breakable, pane.switchable, pane.broken], [true, false, false]);
   t.mock.method(Math, 'random', () => 0);

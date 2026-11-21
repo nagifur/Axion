@@ -28,7 +28,7 @@ test('all registered particle images exist and glass prop types share one set', 
       assert.ok(metadata.width > 0 && metadata.height > 0);
     }
   }
-  for (const type of ['glass', 'glassHalf', 'glassAngle']) {
+  for (const type of ['glass', 'glass_half', 'glass_angle']) {
     assert.equal(PROP_TYPES[type].breakParticles.set, 'glass');
   }
   assert.throws(() => particleSet('missing'), /Unknown particle set "missing"/);
@@ -102,7 +102,7 @@ test('runtime breakage emits once per break in the correct room, including share
   t.mock.method(Math, 'random', () => 0.5);
   PROP_TYPES.glass_cup_test = { asset: 'glass_cup_test', breakable: true, breakParticles: { set: 'glass' } };
   t.after(() => { delete PROP_TYPES.glass_cup_test; });
-  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const room = new Room(await loadRoom('level-0-main-entrance'));
   const other = new Room(await loadRoom('level-2-lobby'));
   const world = new World({ roster: [], rooms: [room, other] });
   world.arrive = () => undefined;
@@ -143,7 +143,7 @@ test('runtime breakage emits once per break in the correct room, including share
 });
 
 test('emission areas mirror with flipped props and default to the whole prop', () => {
-  const angle = new Prop(placed('glassAngle', { flip: true, x: 10, y: 20 }));
+  const angle = new Prop(placed('glass_angle', { flip: true, x: 10, y: 20 }));
   assert.deepEqual(angle.breakParticles, {
     set: 'glass', area: { x: 38, y: 32, w: 40, h: 74 }, depth: 116,
   });
@@ -159,7 +159,7 @@ test('emission areas mirror with flipped props and default to the whole prop', (
 
 test('vending machine breakage throws glass once and keeps sparking until repaired', async (t) => {
   t.mock.method(Math, 'random', () => 0.5);
-  const room = new Room(await loadRoom('level-0-mainEntrance'));
+  const room = new Room(await loadRoom('level-0-main-entrance'));
   const world = new World({ roster: [], rooms: [room] });
   world.arrive = () => undefined;
   const machine = new Prop(placed('vending_machine'));

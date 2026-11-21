@@ -123,7 +123,7 @@ test('automatic sheets use only populated cells in their separate state rows', (
 });
 
 test('the real glass and vending sheets detect their populated frames', async () => {
-  for (const asset of ['glass', 'glassAngle', 'glassHalf']) {
+  for (const asset of ['glass', 'glass_angle', 'glass_half']) {
     const image = await inspectedImage(`src/sim_assets/props/${asset}.png`);
     assert.deepEqual(image.propCells, [[true, false], [false, false], [true, false]]);
     assert.deepEqual(propTypeOf(asset, image), { ...PROP_TYPES[asset], breakable: true });

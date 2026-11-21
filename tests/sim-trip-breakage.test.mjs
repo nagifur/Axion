@@ -105,7 +105,7 @@ test('trip reach measures Euclidean distance from the feet to the prop bounds', 
 });
 
 test('trip impact bounds exclude padded glass and mirror with flipped props', (t) => {
-  const pane = prop('glassHalf', 100, 40, 96, 96, { brokenLook: true });
+  const pane = prop('glass_half', 100, 40, 96, 96, { brokenLook: true });
   const { world, agent } = setup([pane], { x: 112, y: 100 });
   const random = t.mock.method(Math, 'random', () => 0);
   assert.deepEqual(pane.impactBounds, { x: 125, y: 70, w: 46, h: 37 });
@@ -130,7 +130,7 @@ test('trip impact bounds exclude padded glass and mirror with flipped props', (t
 });
 
 test('configured impact areas match the visible artwork across normal animation frames', async () => {
-  for (const type of ['chair', 'vending_machine', 'glass', 'glassHalf', 'glassAngle']) {
+  for (const type of ['chair', 'vending_machine', 'glass', 'glass_half', 'glass_angle']) {
     const { data, info } = await sharp(`src/sim_assets/props/${type}.png`)
       .toColourspace('srgb').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const image = { width: info.width, height: info.height };
@@ -224,7 +224,7 @@ test('trip damage disables lights and dispensers and emits their usual debris', 
 test('falling only rolls on landing, damages the destination prop, and emits particles', (t) => {
   const sourceProp = prop('table', 100, 100);
   const { room: source, world, agent, logs } = setup([sourceProp], { x: 100, y: 150 });
-  const pane = prop('glassHalf', 76, 34, 96, 96, { brokenLook: true });
+  const pane = prop('glass_half', 76, 34, 96, 96, { brokenLook: true });
   const destination = room([pane], (y) => y >= 100 ? [20, 180] : [], 'destination');
   world.rooms.push(destination);
   agent.setPlan(world, [wait(60, 'Original task')]);

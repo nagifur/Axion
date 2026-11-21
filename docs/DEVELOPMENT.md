@@ -321,7 +321,9 @@ bleed into characters or their highlight outlines at fractional sizes.
 
 #### Adding a Room
 
-Each room is a folder in [`src/sim_assets/rooms/`](../src/sim_assets/rooms/):
+Each room is a folder in [`src/sim_assets/rooms/`](../src/sim_assets/rooms/).
+Name room folders with lowercase kebab-case; the folder name is the room ID used
+by `exits` in `room.json`, so update those references when renaming a room:
 
 ```text
 rooms/level-1-offices/
@@ -781,13 +783,13 @@ they are numbered left to right as they appear in the image: `west-1`, `west-2`.
 
 ```json
 "exits": {
-  "west": "level-1-pipeRoom",
-  "north": "level-4-trophyRoom",
-  "east-2": { "room": "level-1-recRoom", "door": "west-1" }
+  "west": "level-1-pipe-room",
+  "north": "level-4-trophy-room",
+  "east-2": { "room": "level-1-rec-room", "door": "west-1" }
 }
 ```
 
-The short form (`"west": "level-1-pipeRoom"`) comes out of the other room's opposite
+The short form (`"west": "level-1-pipe-room"`) comes out of the other room's opposite
 door (`east` for `west`, `south` for `north`), or its only door. Use the long form for
 numbered doors or anything else. A connection only needs to be written in one of the
 two rooms; the way back is added automatically, and the build stops if the two rooms
