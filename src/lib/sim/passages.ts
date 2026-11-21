@@ -33,7 +33,10 @@ export class PassageNetwork {
         if (!door.appearance) continue;
         const otherRoom = door.to && roomById(door.to.room);
         const otherDoor = otherRoom?.doors.find((candidate) => candidate.id === door.to?.door);
-        const state = this.states.get(door) ?? new PassageDoor(door.appearance.clearance);
+        const state = this.states.get(door) ?? new PassageDoor(
+          door.appearance.clearance,
+          door.appearance.big || otherDoor?.appearance?.big === true,
+        );
         if (state.clearance !== door.appearance.clearance) {
           throw new Error(`Linked passage doors in ${room.id} must have the same clearance.`);
         }

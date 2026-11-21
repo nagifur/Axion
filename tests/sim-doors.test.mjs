@@ -368,6 +368,56 @@ test('authorized proximity opens and holds one shared door, then it closes and r
   assert.equal(state.open, 0);
 });
 
+test('big doors take two seconds to open and close without changing the hold time', () => {
+  const state = new PassageDoor(1, true);
+  assert.equal(state.motionSeconds, 2);
+  state.update(true, 1);
+  assert.equal(state.open, 0.5);
+  state.update(true, 1);
+  assert.equal(state.open, 1);
+  state.update(false, PASSAGE_DOOR_HOLD_SECONDS);
+  assert.equal(state.open, 1);
+  assert.equal(state.unlocked, false);
+  state.update(false, 1);
+  assert.equal(state.open, 0.5);
+  state.update(false, 1);
+  assert.equal(state.open, 0);
+
+  const normal = new PassageDoor(1);
+  assert.equal(normal.motionSeconds, 0.7);
+  normal.update(true, 0.7);
+  assert.equal(normal.open, 1);
+  normal.update(false, PASSAGE_DOOR_HOLD_SECONDS + 0.7);
+  assert.equal(normal.open, 0);
+});
+
+test('linked doors use the slower timing if either camera has big artwork, regardless of room order', () => {
+  for (const [eastBig, westBig] of [[true, false], [false, true], [true, true]]) {
+    for (const reversed of [false, true]) {
+      const aData = roomData('a', 0, 'east', 2, { room: 'b', door: 'west' });
+      const bData = roomData('b', 1, 'west', 2, { room: 'a', door: 'east' });
+      aData.doors.east.big = eastBig;
+      bData.doors.west.big = westBig;
+      const a = new Room(aData);
+      const b = new Room(bData);
+      const world = new World({ rooms: reversed ? [b, a] : [a, b], roster: [] });
+      const east = a.doors[0];
+      const west = b.doors[0];
+      const state = world.passageDoorFor(east);
+      assert.equal(state, world.passageDoorFor(west));
+      assert.equal(state.motionSeconds, 2);
+      const agent = stay(world, staff('2'), a, east.inside);
+      world.update(1);
+      assert.equal(state.open, 0.5);
+      agent.room = b;
+      agent.x = west.inside.x;
+      agent.y = west.inside.y;
+      world.update(1);
+      assert.equal(state.open, 1, 'the other camera continues the same two-second animation');
+    }
+  }
+});
+
 test('each issued card opens exactly its level and lower door panels, including level zero', () => {
   for (let card = 0; card <= 5; card++) {
     for (let clearance = 0; clearance <= 5; clearance++) {
@@ -869,7 +919,7 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   assert.ok(canvas.gradients[0][0][1].includes('255, 35, 65'), 'locked panel glows red');
 
   const state = world.passageDoorFor(door);
-  state.update(true, PASSAGE_DOOR_SECONDS / 2);
+  state.update(true, state.motionSeconds / 2);
   world.time = DOOR_PANEL_FRAME_SECONDS;
   renderer.draw(world, new Map());
   assert.equal(mask.draws[2][6], -Math.round(frame.h / 2), 'half-open door slides upward');
@@ -890,10 +940,10 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   assert.equal(canvas.drawFlips[canvas.draws.findLastIndex((draw) => draw[0] === mask)], false, 'broken artwork is not mirrored');
 });
 
-test('door hold time is independent of update step size', () => {
-  const state = new PassageDoor(1);
-  state.update(true, PASSAGE_DOOR_SECONDS);
-  state.update(false, PASSAGE_DOOR_HOLD_SECONDS + PASSAGE_DOOR_SECONDS / 2);
+for (const big of [false, true]) test(`${big ? 'big ' : ''}door hold time is independent of update step size`, () => {
+  const state = new PassageDoor(1, big);
+  state.update(true, state.motionSeconds);
+  state.update(false, PASSAGE_DOOR_HOLD_SECONDS + state.motionSeconds / 2);
   assert.equal(state.unlocked, false);
   assert.ok(Math.abs(state.open - 0.5) < 1e-9);
 });

@@ -24,6 +24,7 @@ export interface DoorAppearance {
 }
 
 export const PASSAGE_DOOR_SECONDS = 0.7;
+export const BIG_PASSAGE_DOOR_SECONDS = 3;
 export const PASSAGE_DOOR_HOLD_SECONDS = 1.5;
 export const PASSAGE_DOOR_RANGE = 40;
 export const DOOR_PANEL_FRAME_SECONDS = 0.6;
@@ -108,6 +109,7 @@ export function passagePartBounds(side: DoorSide, art: DoorAppearance): Record<P
 /** Shared by both camera views of the same physical door. */
 export class PassageDoor {
   readonly clearance: number;
+  readonly motionSeconds: number;
   /** 0 = closed, 1 = fully open. */
   open = 0;
   unlocked = false;
@@ -124,8 +126,9 @@ export class PassageDoor {
   });
   private hold = 0;
 
-  constructor(clearance: number) {
+  constructor(clearance: number, big = false) {
     this.clearance = clearance;
+    this.motionSeconds = big ? BIG_PASSAGE_DOOR_SECONDS : PASSAGE_DOOR_SECONDS;
   }
 
   get broken(): boolean {
@@ -196,13 +199,13 @@ export class PassageDoor {
     if (authorizedNearby) {
       this.hold = PASSAGE_DOOR_HOLD_SECONDS;
       this.unlocked = true;
-      this.open = Math.min(1, this.open + elapsed / PASSAGE_DOOR_SECONDS);
+      this.open = Math.min(1, this.open + elapsed / this.motionSeconds);
       return;
     }
     const held = Math.min(this.hold, elapsed);
     this.hold -= held;
-    this.open = Math.min(1, this.open + held / PASSAGE_DOOR_SECONDS);
+    this.open = Math.min(1, this.open + held / this.motionSeconds);
     this.unlocked = this.hold > 0;
-    if (!occupied) this.open = Math.max(0, this.open - (elapsed - held) / PASSAGE_DOOR_SECONDS);
+    if (!occupied) this.open = Math.max(0, this.open - (elapsed - held) / this.motionSeconds);
   }
 }

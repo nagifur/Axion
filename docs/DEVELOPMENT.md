@@ -833,7 +833,9 @@ have doors. Every current facility passage on Levels 0 through 5 has a physical
 door configured with that level's clearance and artwork.
 
 A nearby authorized agent (within 40 room pixels of the passage threshold) turns
-the panel green and opens the door upward in 0.7 simulation seconds. Agents wait
+the panel green and opens the door upward in 0.7 simulation seconds, or 2 seconds
+for big doors. Closing takes the same duration as opening. If either connected
+camera uses big artwork, both views share the slower timing. Agents wait
 until it is fully open; anyone authorized inside the doorway keeps it open. If it
 closes mid-crossing, the agent steps back to the threshold, fully visible, and
 gives up after 5 seconds without an open door, dropping the trip so they can be
