@@ -42,7 +42,10 @@ test('blackout is debug/manual-only and affects the entire floor immediately, th
   const { world, a, b, other, level, panel } = setup();
   world.update(100);
   assert.equal(a.power, 'normal', 'no automatic triggers');
-  assert.deepEqual(level.availableEvents, [{ id: 'blackout', label: 'Blackout' }]);
+  assert.deepEqual(level.availableEvents, [
+    { id: 'blackout', label: 'Blackout' },
+    { id: 'containment-failure', label: 'Containment failure' },
+  ]);
   for (const room of [a, b]) room.props[0].setOn(true);
   level.startEvent('blackout');
   for (const room of [a, b]) {
@@ -216,15 +219,16 @@ test('the debug event picker triggers and ends the selected event on the current
   const refresh = bindDebugPanel(panel, {
     world, director: {}, log() {}, currentRoom: () => viewed, onCamera: () => [],
   });
+  select.value = 'blackout';
   const click = (debug) => listeners.click({ target: { closest: () => ({ dataset: { debug } }) } });
   click('event-start');
   assert.equal(a.power, 'off');
   assert.equal(other.power, 'normal');
-  assert.equal(select.options[0].textContent, 'Blackout (active)');
+  assert.equal(select.options.find(({ value }) => value === 'blackout').textContent, 'Blackout (active)');
   viewed = other;
   refresh();
   assert.equal(floor.textContent, 'Level 4');
-  assert.equal(select.options[0].textContent, 'Blackout');
+  assert.equal(select.options.find(({ value }) => value === 'blackout').textContent, 'Blackout');
   click('event-start');
   assert.equal(other.power, 'off');
   click('event-stop');

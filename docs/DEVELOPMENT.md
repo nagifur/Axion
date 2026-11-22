@@ -424,11 +424,31 @@ its effects. `onEnd` receives `'stopped'` or `'expired'`. A floor can use its ow
 simulation clock before agents and room systems update, even off-camera. No
 automatic triggers are enabled by default.
 
-##### Blackout and backup power
+##### Containment failure
 
 Open `/monitoring?debug`, switch to the floor you want, and use the **Floor event**
 picker with **Trigger event** or **End event**. These controls always target the
 current camera's floor, even if no agents are on camera.
+
+The shared **Containment failure** event (`containment-failure`) holds all cell
+doors on that floor fully open, including empty cells and unlinked cell doors.
+Every resident present in its cell actively tries to escape, regardless of its
+normal containment-class escape chance. Residents away in disguise remain
+pending until they return and can escape. Already-loose residents are included;
+creatures that had already fled the facility are not.
+
+Capturing a creature does not release its door: security must escort it home.
+`World.recontain(creature)` releases that cell's door immediately, while the
+other cells stay open. A creature that flees the facility leaves its door held
+open until the event ends. The event ends automatically when every affected
+resident has been returned home or fled, or manually through **End event**.
+An empty affected roster ends immediately. There is no random trigger or default
+time limit. Holding doors open bypasses clearance, broken panels, blackouts, and
+broken doors: a broken cell door is forced open without being repaired, and drops
+shut again (still broken) once released. Ending the event restores normal door
+behavior, including existing damage, power outages, and doorway occupancy safety.
+
+##### Blackout and backup power
 
 The shared **Blackout** event immediately cuts power to all lights, door panels,
 and electrical props (currently lights and vending machines) on that floor.

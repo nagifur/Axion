@@ -1,10 +1,33 @@
 import type { LevelDefinitions, LevelEventDefinition, LevelState, LevelPower } from './levelState.ts';
 import { range } from './random.ts';
+import type { Creature } from './creature.ts';
+import type { PassageDoor } from './door.ts';
+import type { World } from './world.ts';
 
 export const BLACKOUT_BACKUP_SECONDS = 10;
 /** Window after a blackout ends during which equipment comes back to life one piece at a time. */
 export const BLACKOUT_RESTORE_SECONDS = 5;
 const backupAt = new WeakMap<LevelState, number>();
+const containmentFailures = new WeakMap<LevelState, {
+  pending: Set<Creature>;
+  doors: Set<PassageDoor>;
+}>();
+
+function finishContainmentFailure(level: LevelState) {
+  const failure = containmentFailures.get(level);
+  if (failure && failure.pending.size === 0) level.stopEvent('containment-failure');
+}
+
+/** A captured creature must be delivered home before its cell can stop being held open. */
+export function restoreCellContainment(world: World, creature: Creature) {
+  const level = world.level(creature.home.level);
+  if (!level) return;
+  const failure = containmentFailures.get(level);
+  if (!failure) return;
+  failure.pending.delete(creature);
+  for (const door of creature.home.doors) world.passageDoorFor(door)?.releaseOpen(level);
+  finishContainmentFailure(level);
+}
 
 function setPower(level: LevelState, power: LevelPower) {
   for (const room of level.rooms) room.power = power;
@@ -40,6 +63,42 @@ export const LEVEL_EVENTS: Readonly<Record<string, LevelEventDefinition>> = {
         }
       }
       world.log(`Level ${level.number}: normal power restored. Equipment coming back online.`, 'ok');
+    },
+  },
+  'containment-failure': {
+    label: 'Containment failure',
+    onStart(level, world) {
+      const pending = new Set(world.creatures.filter((creature) =>
+        creature.home.level === level.number && !creature.escaped));
+      const doors = new Set<PassageDoor>();
+      containmentFailures.set(level, { pending, doors });
+      for (const room of level.rooms) {
+        for (const door of room.doors) {
+          if (!room.cell && !door.cell) continue;
+          const state = world.passageDoorFor(door);
+          if (!state) continue;
+          doors.add(state);
+          state.forceOpen(level);
+        }
+      }
+      world.log(`Level ${level.number}: containment failure. Cell doors held open. Security team notified.`, 'alert');
+      finishContainmentFailure(level);
+    },
+    onUpdate(level) {
+      const failure = containmentFailures.get(level);
+      if (!failure) return;
+      for (const creature of failure.pending) {
+        if (creature.escaped) failure.pending.delete(creature);
+      }
+      finishContainmentFailure(level);
+    },
+    onEnd(level, world) {
+      const failure = containmentFailures.get(level);
+      if (failure) {
+        for (const door of failure.doors) door.releaseOpen(level);
+        containmentFailures.delete(level);
+      }
+      world.log(`Level ${level.number}: containment failure ended. Cell door controls restored.`, 'ok');
     },
   },
 };

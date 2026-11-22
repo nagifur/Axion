@@ -145,6 +145,25 @@ export class PassageDoor {
   });
   private hold = 0;
   private powerSource: () => boolean = () => true;
+  private readonly openOverrides = new Set<object>();
+
+  get forcedOpen(): boolean {
+    return this.openOverrides.size > 0;
+  }
+
+  forceOpen(owner: object) {
+    this.openOverrides.add(owner);
+    this.open = 1;
+    this.unlocked = true;
+  }
+
+  releaseOpen(owner: object) {
+    this.openOverrides.delete(owner);
+    if (this.forcedOpen) return;
+    this.hold = 0;
+    this.unlocked = false;
+    if (this.broken) this.open = 0;
+  }
 
   setPowerSource(source: () => boolean) {
     this.powerSource = source;
@@ -178,15 +197,15 @@ export class PassageDoor {
   }
 
   get passable(): boolean {
-    return !this.broken && this.open >= 0.5;
+    return (!this.broken || this.forcedOpen) && this.open >= 0.5;
   }
 
   get blocked(): boolean {
-    return this.broken || ((this.panelBroken || !this.powered) && !this.passable);
+    return (this.broken && !this.forcedOpen) || ((this.panelBroken || !this.powered) && !this.passable);
   }
 
   get stuckOpen(): boolean {
-    return (this.panelBroken || !this.powered) && this.passable;
+    return (this.forcedOpen || this.panelBroken || !this.powered) && this.passable;
   }
 
   break(): boolean {
@@ -217,7 +236,7 @@ export class PassageDoor {
 
   /** One roll per working component when an authorized agent approaches. */
   breakOnUse(): ('door' | 'panel')[] {
-    if (!this.powered || this.broken || this.panelBroken) return [];
+    if (this.forcedOpen || !this.powered || this.broken || this.panelBroken) return [];
     const broken: ('door' | 'panel')[] = [];
     if (chance(PROP_BREAK_CHANCE) && this.breakPanel()) broken.push('panel');
     if (chance(PROP_BREAK_CHANCE) && this.break()) broken.push('door');
@@ -226,6 +245,12 @@ export class PassageDoor {
 
   /** `occupied`: someone is in the doorway, so it must not close on them (but they don't open it). */
   update(authorizedNearby: boolean, dt: number, occupied = false) {
+    // Overrides hold even damaged doors open; the damage remains once released.
+    if (this.forcedOpen) {
+      this.open = 1;
+      this.unlocked = true;
+      return;
+    }
     if (!this.powered) {
       this.unlocked = false;
       this.hold = 0;

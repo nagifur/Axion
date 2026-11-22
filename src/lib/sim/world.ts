@@ -20,7 +20,7 @@ import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
 import { reactToCreatures } from './creatureReactions.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
-import { LEVEL_DEFINITIONS, LEVEL_EVENTS } from './levels.ts';
+import { LEVEL_DEFINITIONS, LEVEL_EVENTS, restoreCellContainment } from './levels.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 export type CameraActor = Agent | Creature;
@@ -214,6 +214,7 @@ export class World {
     creature.returnHome(this);
     this.log(escort ? `Containment restored: ${escort.character.name} escorted ${creature.character.name} back to ${creature.home.name}.`
       : `Containment restored: ${creature.character.name} was returned to ${creature.home.name} from ${from}.`, 'ok');
+    restoreCellContainment(this, creature);
   }
 
   freeSpot(room: Room, kind: Spot['kind'], agent?: Agent): Spot | undefined {

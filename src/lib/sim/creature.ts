@@ -160,7 +160,7 @@ export class Creature {
 
   private passable(world: World, door: Door) {
     const physical = world.passageDoorFor(door);
-    return !physical || (!physical.broken && physical.open >= SQUEEZE_OPENING);
+    return !physical || ((!physical.broken || physical.forcedOpen) && physical.open >= SQUEEZE_OPENING);
   }
 
   private headFor(door: Door): Plan | undefined {
@@ -191,10 +191,11 @@ export class Creature {
         this.noticed.delete(door);
         continue;
       }
-      if (this.noticed.has(door)) continue;
+      const failure = this.contained && world.passageDoorFor(door)?.forcedOpen;
+      if (this.noticed.has(door) && !failure) continue;
       this.noticed.add(door);
       if (this.escaping || !this.canUse(world, door)) continue;
-      if (!chance(this.contained ? escapeChance(this.character.containmentClass) : LOOSE_NOTICE_CHANCE)) continue;
+      if (!failure && !chance(this.contained ? escapeChance(this.character.containmentClass) : LOOSE_NOTICE_CHANCE)) continue;
       const plan = this.headFor(door);
       if (!plan) continue;
       this.plan = plan;
