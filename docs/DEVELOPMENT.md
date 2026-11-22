@@ -175,6 +175,32 @@ frame budget. It measures simulation updates only, not rendering or browser
 frame rate; use it for before/after comparisons rather than as an end-to-end FPS
 claim.
 
+#### Crash and freeze diagnostics
+
+Open `/monitoring?debug` and use **Copy diagnostics** below the incident log to copy a
+JSON report for troubleshooting. Diagnostics are recorded even without debug mode.
+If the browser is locked up, open `/monitoring?debug` first, then copy the report: it
+includes the previous session's last saved checkpoint as well as the new session. A
+read-only text box supports manual copying when clipboard access is denied.
+
+[`monitorDiagnostics.ts`](../src/lib/sim/monitorDiagnostics.ts) keeps the last 100 entries
+(each limited to 2,000 characters), including incidents, camera/pause changes, browser
+errors, unhandled rejections, resource failures, frame gaps over two seconds, and frames
+taking over one second. Update/render exceptions stop the feed with an explicit message
+and record the stack and failing phase. A visible-page watchdog reports when no frame
+has completed for over five seconds; hidden tabs are excluded.
+
+State checkpoints are saved locally every five seconds and immediately on caught simulation
+errors. They include the camera, speed, simulation clock, active floor events, counts, and
+the first 100 agents/creatures with their locations and activities. `snapshotAt` identifies
+the state sample's age; `savedAt` identifies the last storage write. Reports include browser
+and viewport information but are not uploaded automatically. Storage failures are shown
+explicitly. An in-memory report remains copyable in debug mode before reloading.
+
+A fully blocked main thread cannot execute a watchdog or write its exact failing phase;
+the previous checkpoint is evidence from before the lockup, not a guaranteed crash stack.
+Only the immediately preceding session is retained, so copy it after the first reload.
+
 Drag a sprite or name tag to physically pick up an agent. Dropping on open floor
 repositions them, on a free chair or bench seat starts the usual seated activity,
 and on another agent starts a conversation. Lights can be toggled; other unseated

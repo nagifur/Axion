@@ -332,6 +332,18 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <span class="panel-kicker-meta">A1 relay</span>
         </div>
         <ol class="monitor-log" data-monitor-log></ol>
+        <div data-monitor-diagnostics hidden>
+          <button type="button" class="btn secondary" data-monitor-copy-diagnostics>Copy diagnostics</button>
+          <p class="monitor-diagnostics-help">
+            If the feed freezes, reload this page, then copy diagnostics. The report includes the previous
+            session's last saved checkpoint. Reports stay in this browser until you copy and share them.
+          </p>
+          <textarea
+            class="monitor-editor-snippet" data-monitor-diagnostics-output
+            aria-label="Simulation diagnostic report" readonly spellcheck="false" rows="8" hidden
+          ></textarea>
+        </div>
+        <p class="monitor-diagnostics-help" data-monitor-diagnostics-status role="status" hidden></p>
       </section>
 
       <section class="card monitor-achievements-panel" aria-labelledby="monitor-achievements-title">
@@ -368,6 +380,8 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   /* Global because tags, log lines and file contents are created at runtime. */
   .monitor-page{ width:100%; max-width:1180px; display:flex; flex-direction:column; gap:16px }
   .monitor-feed{ display:flex; flex-direction:column; gap:12px }
+  .monitor-diagnostics-help{ color:var(--muted); font-size:0.72rem }
+  [data-monitor-diagnostics-output][hidden]{ display:none }
 
   .monitor-hud{
     display:flex; align-items:center; flex-wrap:wrap; gap:6px 16px;

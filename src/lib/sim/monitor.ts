@@ -3,6 +3,7 @@ import { Creature } from './creature.ts';
 import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
 import { bindDebugPanel } from './monitorDebug.ts';
+import { bindMonitorDiagnostics, diagnosticError, type MonitorDiagnostics } from './monitorDiagnostics.ts';
 import { clock, el } from './monitorDom.ts';
 import { EditorPanel } from './monitorEditor.ts';
 import { MonitorFile } from './monitorFile.ts';
@@ -45,6 +46,30 @@ export function initMonitor(root: HTMLElement): () => void {
   if (root.dataset.monitorActive) return () => {};
   root.dataset.monitorActive = 'true';
 
+  const debugMode = new URLSearchParams(location.search).has('debug');
+  const diagnosticPanel = bindMonitorDiagnostics(root, debugMode);
+  try {
+    const cleanup = bootMonitor(root, configNode, canvas, tagLayer, diagnosticPanel.diagnostics, diagnosticPanel.notify, debugMode);
+    return () => {
+      cleanup();
+      diagnosticPanel.dispose();
+    };
+  } catch (error) {
+    diagnosticPanel.diagnostics.record('boot-error', diagnosticError(error));
+    diagnosticPanel.diagnostics.persist();
+    diagnosticPanel.notify('Simulation startup failed. Copy diagnostics to investigate.');
+    console.error('Simulation startup failed', error);
+    return () => {
+      delete root.dataset.monitorActive;
+      diagnosticPanel.dispose();
+    };
+  }
+}
+
+function bootMonitor(
+  root: HTMLElement, configNode: HTMLScriptElement, canvas: HTMLCanvasElement, tagLayer: HTMLElement,
+  diagnostics: MonitorDiagnostics, notifyDiagnostics: (message: string) => void, debugMode: boolean,
+): () => void {
   const config: MonitorConfig = JSON.parse(configNode.textContent ?? '{}');
   const status = root.querySelector<HTMLElement>('[data-monitor-status]');
   const clockNode = root.querySelector<HTMLElement>('[data-monitor-clock]');
@@ -100,9 +125,29 @@ export function initMonitor(root: HTMLElement): () => void {
   let suppressClick = false;
   let toastTimer = 0;
 
+  const snapshot = () => ({
+    camera: viewed.id, paused, speed, clockOffset, simulationTime: world.time,
+    simulationClock: world.now().toISOString(), visibility: document.visibilityState,
+    selected: selected?.character.id ?? null, held: drag?.agent.uid ?? null,
+    counts: { rooms: rooms.length, agents: world.agents.length, creatures: world.creatures.length },
+    agents: world.agents.slice(0, 100).map((agent) => ({
+      uid: agent.uid, id: agent.character.id, room: agent.room.id,
+      x: agent.x, y: agent.y, activity: agent.activity, moving: agent.moving,
+      leaving: agent.leaving, held: agent.held, impostor: agent.impostor?.id ?? null,
+    })),
+    creatures: world.creatures.slice(0, 100).map((creature) => ({
+      id: creature.character.id, room: creature.room.id, home: creature.home.id,
+      x: creature.x, y: creature.y, activity: creature.activity,
+    })),
+    floors: [...new Set(rooms.map((room) => room.level))].map((number) => ({
+      number, events: world.level(number)?.activeEvents,
+    })),
+  });
+
   // --- Log & achievements -------------------------------------------------
 
   const log = (text: string, tone: LogTone = 'default') => {
+    diagnostics.record(`incident:${tone}`, text);
     if (!logNode) return;
     const item = el('li', `monitor-log-line is-${tone}`);
     item.append(el('time', 'monitor-log-time', clock(world.now())), document.createTextNode(text));
@@ -154,6 +199,7 @@ export function initMonitor(root: HTMLElement): () => void {
 
   const switchCamera = (room: Room) => {
     const changed = room !== viewed;
+    if (changed) diagnostics.record('camera', `${viewed.id} -> ${room.id}`);
     if (changed && !drag?.active) cancelDrag();
     viewed = room;
     refreshDebugEvents?.();
@@ -484,6 +530,7 @@ export function initMonitor(root: HTMLElement): () => void {
   });
   pauseToggle?.addEventListener('click', () => {
     paused = !paused;
+    diagnostics.record('pause', String(paused));
     pauseToggle.setAttribute('aria-pressed', String(paused));
     pauseToggle.textContent = paused ? 'Resume feed' : 'Pause feed';
     root.classList.toggle('is-paused', paused);
@@ -501,7 +548,6 @@ export function initMonitor(root: HTMLElement): () => void {
     hovered = null;
   };
 
-  const debugMode = !!debugPanel && new URLSearchParams(location.search).has('debug');
   if (debugPanel && debugMode) {
     refreshDebugEvents = bindDebugPanel(debugPanel, {
       world,
@@ -564,63 +610,125 @@ export function initMonitor(root: HTMLElement): () => void {
   resizeObserver.observe(canvas);
 
   let last = performance.now();
+  let lastFrameCompleted = last;
+  let stalled = false;
+  let failed = false;
+  const fail = (error: unknown) => {
+    failed = true;
+    diagnostics.record('simulation-error', diagnosticError(error));
+    diagnostics.checkpoint(snapshot, true);
+    notifyDiagnostics('Simulation stopped with an error. Copy diagnostics to investigate.');
+    console.error('Simulation stopped', error);
+    if (status) {
+      status.hidden = false;
+      status.textContent = debugMode
+        ? 'Feed stopped: copy diagnostics below'
+        : 'Feed stopped: reopen this page with ?debug for diagnostics';
+    }
+  };
+  const onVisibility = () => {
+    last = performance.now();
+    lastFrameCompleted = last;
+    stalled = false;
+  };
+  document.addEventListener('visibilitychange', onVisibility);
+  const watchdogTimer = window.setInterval(() => {
+    if (disposed || failed || !renderer || document.hidden || stalled) return;
+    if (performance.now() - lastFrameCompleted > 5000) {
+      stalled = true;
+      diagnostics.record('frame-stall', 'No completed animation frame for over 5 seconds while visible.');
+      diagnostics.checkpoint(snapshot, true);
+      notifyDiagnostics('The camera frame loop appears stalled. Copy diagnostics to investigate.');
+    }
+  }, 1000);
   const frame = (now: number) => {
-    if (disposed || !renderer) return;
-    // rAF timestamps can be slightly older than the performance.now() taken at boot.
-    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)) * speed;
-    last = now;
-    if (!paused) {
-      world.update(dt);
-      director.update(world, dt);
-    }
-    if (drag && (drag.agent.room !== drag.origin || (drag.active && drag.agent.leaving))) {
-      log(`Pickup cancelled: ${drag.agent.character.name} is leaving the camera.`, 'muted');
-      cancelDrag();
-    }
-    const navigationHint = updateDragCameraHover();
-    const highlights = new Map<CameraActor, string>();
-    if (selected instanceof Creature) highlights.set(selected, selected.character.tint);
-    else if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
-    if (hovered) highlights.set(hovered, '#ffffff');
-    renderer.draw(world, highlights);
-    if (drag?.active) {
-      const pointer = toRoom({ clientX: drag.client.x, clientY: drag.client.y });
-      drag.point = { x: pointer.x - drag.offset.x, y: pointer.y - drag.offset.y };
-      const target = currentDrop();
-      renderer.drawHeld(drag.agent, drag.point, target.kind !== 'invalid');
-      setDragStatus(`${drag.agent.character.name}: ${navigationHint ?? target.label}`);
-      if (carry) {
-        carry.hidden = pointer.x >= 0 && pointer.y >= 0 && pointer.x < viewed.width && pointer.y < viewed.height;
-        carry.textContent = `Carrying ${drag.agent.character.name}`;
-        carry.style.left = `${Math.max(8, Math.min(drag.client.x + 12, window.innerWidth - carry.offsetWidth - 8))}px`;
-        carry.style.top = `${Math.max(8, Math.min(drag.client.y + 12, window.innerHeight - carry.offsetHeight - 8))}px`;
+    if (disposed || failed || !renderer) return;
+    const started = performance.now();
+    try {
+      if (!document.hidden && now - last > 2000) {
+        diagnostics.record('frame-gap', `${Math.round(now - last)}ms between frames; may indicate a freeze or browser suspension.`);
       }
+      diagnostics.phase('frame-start');
+      diagnostics.checkpoint(snapshot);
+      // rAF timestamps can be slightly older than the performance.now() taken at boot.
+      const dt = Math.min(0.1, Math.max(0, (now - last) / 1000)) * speed;
+      last = now;
+      if (!paused) {
+        diagnostics.phase('world.update');
+        world.update(dt);
+        diagnostics.phase('director.update');
+        director.update(world, dt);
+      }
+      diagnostics.phase('drag-and-highlights');
+      if (drag && (drag.agent.room !== drag.origin || (drag.active && drag.agent.leaving))) {
+        log(`Pickup cancelled: ${drag.agent.character.name} is leaving the camera.`, 'muted');
+        cancelDrag();
+      }
+      const navigationHint = updateDragCameraHover();
+      const highlights = new Map<CameraActor, string>();
+      if (selected instanceof Creature) highlights.set(selected, selected.character.tint);
+      else if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
+      if (hovered) highlights.set(hovered, '#ffffff');
+      diagnostics.phase('renderer.draw');
+      renderer.draw(world, highlights);
+      diagnostics.phase('overlays');
+      if (drag?.active) {
+        const pointer = toRoom({ clientX: drag.client.x, clientY: drag.client.y });
+        drag.point = { x: pointer.x - drag.offset.x, y: pointer.y - drag.offset.y };
+        const target = currentDrop();
+        renderer.drawHeld(drag.agent, drag.point, target.kind !== 'invalid');
+        setDragStatus(`${drag.agent.character.name}: ${navigationHint ?? target.label}`);
+        if (carry) {
+          carry.hidden = pointer.x >= 0 && pointer.y >= 0 && pointer.x < viewed.width && pointer.y < viewed.height;
+          carry.textContent = `Carrying ${drag.agent.character.name}`;
+          carry.style.left = `${Math.max(8, Math.min(drag.client.x + 12, window.innerWidth - carry.offsetWidth - 8))}px`;
+          carry.style.top = `${Math.max(8, Math.min(drag.client.y + 12, window.innerHeight - carry.offsetHeight - 8))}px`;
+        }
+      }
+      if (editorPanel.editor?.active) editorPanel.editor.draw(renderer.context, renderer.scale, world.time);
+      diagnostics.phase('tags.sync');
+      tags.sync(world, renderer, {
+        viewed, showAll: showAllTags, hovered, selected,
+        heldHead: drag?.active ? { agent: drag.agent, head: drag.head } : undefined,
+      });
+      diagnostics.phase('file.render');
+      file?.render(selected, viewed);
+      diagnostics.phase('frame-complete');
+      lastFrameCompleted = performance.now();
+      stalled = false;
+      if (lastFrameCompleted - started > 1000) {
+        diagnostics.record('slow-frame', `${Math.round(lastFrameCompleted - started)}ms to update and render.`);
+        diagnostics.checkpoint(snapshot, true);
+      }
+      raf = requestAnimationFrame(frame);
+    } catch (error) {
+      fail(error);
     }
-    if (editorPanel.editor?.active) editorPanel.editor.draw(renderer.context, renderer.scale, world.time);
-    tags.sync(world, renderer, {
-      viewed, showAll: showAllTags, hovered, selected,
-      heldHead: drag?.active ? { agent: drag.agent, head: drag.head } : undefined,
-    });
-    file?.render(selected, viewed);
-    raf = requestAnimationFrame(frame);
   };
 
+  diagnostics.phase('load-assets');
+  diagnostics.checkpoint(snapshot, true);
   loadAssets(config.assets).then((assets) => {
     if (disposed) return;
+    diagnostics.phase('renderer-init');
     renderer = new Renderer(canvas, assets, viewed);
     world.particles.setEmissionSampler(new PropEmissionSampler(assets).sample);
     propPicker = new PropPicker(assets);
     renderer.resize();
-    if (debugMode) editorPanel.editor = new PropEditor(assets, viewed, editorPanel.render, (door) => world.passageDoorFor(door));
+    if (debugPanel && debugMode) editorPanel.editor = new PropEditor(assets, viewed, editorPanel.render, (door) => world.passageDoorFor(door));
+    diagnostics.phase('world.populate');
     world.populate();
     updateCameraCounts();
     log(`A1oS camera link established: ${rooms.length} feed${rooms.length === 1 ? '' : 's'} online.`, 'ok');
     if (status) status.hidden = true;
     root.classList.add('is-live');
     last = performance.now();
+    lastFrameCompleted = last;
+    diagnostics.phase('ready');
+    diagnostics.checkpoint(snapshot, true);
     raf = requestAnimationFrame(frame);
-  }).catch(() => {
-    if (status) status.textContent = 'Feed unavailable';
+  }).catch((error: unknown) => {
+    if (!disposed) fail(error);
   });
 
   return () => {
@@ -629,6 +737,8 @@ export function initMonitor(root: HTMLElement): () => void {
     delete root.dataset.monitorActive;
     cancelAnimationFrame(raf);
     window.clearInterval(clockTimer);
+    window.clearInterval(watchdogTimer);
+    document.removeEventListener('visibilitychange', onVisibility);
     window.clearTimeout(toastTimer);
     window.clearTimeout(staticTimer);
     editorPanel.dispose();
