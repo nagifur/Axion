@@ -506,7 +506,7 @@ test('particles render faded, mirrored, and in front of their emitting prop', (t
   const assets = { character: { width: 1, height: 1 }, glass: pane, [particle.asset]: image, 'room:test': backdrop };
   const renderer = new Renderer(canvas, assets, room);
   calls.length = 0;
-  renderer.draw({ particles: system, agentsIn: () => [], elevatorFor: () => undefined, time: 0 }, new Map());
+  renderer.draw({ particles: system, actorsIn: () => [], elevatorFor: () => undefined, time: 0 }, new Map());
   const draws = calls.filter((entry) => entry[0] === 'draw');
   assert.deepEqual(draws.map((entry) => entry[1]), [backdrop, pane, image]);
   assert.ok(Math.abs(draws[2][2] - 0.5) < 1e-10);

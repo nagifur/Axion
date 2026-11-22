@@ -75,6 +75,23 @@ export const IDLE_CYCLES: Record<Facing, readonly FrameName[]> = {
   right: IDLE_RIGHT,
   left: IDLE_RIGHT,
 };
+
+/** Creature art uses the character grid, but unfinished poses keep their facing's idle art. */
+export function creatureFrame(name: FrameName, painted: (frame: Frame) => boolean): Frame {
+  const frame = CHARACTER_FRAMES[name];
+  if (painted(frame)) return frame;
+  const facing = name.includes('Right') ? 'right' : name.includes('Back') ? 'back' : 'front';
+  const phase = (frame.x / frame.w) % 2;
+  for (const direction of [facing, 'front', 'right'] as const) {
+    const cycle = IDLE_CYCLES[direction];
+    for (const index of [phase, 1 - phase]) {
+      const idle = CHARACTER_FRAMES[cycle[index]];
+      if (painted(idle)) return idle;
+    }
+  }
+  throw new Error(`Creature sheet needs an idle pose for "${name}".`);
+}
+
 const SIT_RIGHT: FrameName[] = ['sitRight1', 'sitRight2'];
 export const SIT_CYCLES: Record<Facing, readonly FrameName[]> = {
   front: ['sitFront1', 'sitFront2'],

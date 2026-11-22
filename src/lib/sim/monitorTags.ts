@@ -1,9 +1,10 @@
 import type { Agent } from './agent.ts';
+import { Creature } from './creature.ts';
 import { el } from './monitorDom.ts';
 import type { Renderer } from './render.ts';
 import type { Point, Room } from './room.ts';
 import { STATUS_EFFECTS } from './statusEffects.ts';
-import type { World } from './world.ts';
+import type { CameraActor, World } from './world.ts';
 
 /** A tag to place: anchored at a head position in room pixels, measured in layer pixels. */
 export interface TagBox {
@@ -55,54 +56,62 @@ interface Tag {
 export interface TagState {
   viewed: Room;
   showAll: boolean;
-  hovered: Agent | null;
-  selected: Agent | null;
+  hovered: CameraActor | null;
+  selected: CameraActor | null;
   /** Head position override for the agent being dragged. */
   heldHead?: { agent: Agent; head: Point };
 }
 
-/** Clickable name tags with speech and status popups over every visible agent. */
+interface TagEvents {
+  select(actor: CameraActor): void;
+  hover(actor: CameraActor | null): void;
+  hovered(): CameraActor | null;
+}
+
+/** Clickable name tags with speech and status popups over visible actors. */
 export class NameTags {
-  private readonly tags = new Map<Agent, Tag>();
+  private readonly tags = new Map<CameraActor, Tag>();
   private readonly layer: HTMLElement;
-  private readonly events: { select(agent: Agent): void; hover(agent: Agent | null): void; hovered(): Agent | null };
+  private readonly events: TagEvents;
 
   constructor(
     layer: HTMLElement,
-    events: { select(agent: Agent): void; hover(agent: Agent | null): void; hovered(): Agent | null },
+    events: TagEvents,
   ) {
     this.layer = layer;
     this.events = events;
   }
 
   /** The agent whose (visible, not held) tag contains `element`. */
-  agentFor(element: Element | null): Agent | null {
+  actorFor(element: Element | null): CameraActor | null {
     if (!element) return null;
     for (const [agent, tag] of this.tags) {
-      if (!agent.held && !tag.button.hidden && tag.button.contains(element)) return agent;
+      if ((agent instanceof Creature || !agent.held) && !tag.button.hidden && tag.button.contains(element)) return agent;
     }
     return null;
   }
 
   sync(world: World, renderer: Renderer, state: TagState) {
+    const actors = world.actorsIn(state.viewed);
     for (const [agent, tag] of this.tags) {
-      if (!world.agents.includes(agent)) {
+      if (!actors.includes(agent)) {
         tag.button.remove();
         this.tags.delete(agent);
       }
     }
 
-    const visible: { agent: Agent; button: HTMLButtonElement; head: Point }[] = [];
-    for (const agent of world.agents) {
+    const visible: { agent: CameraActor; button: HTMLButtonElement; head: Point }[] = [];
+    for (const agent of actors) {
       const tag = this.tags.get(agent) ?? this.create(agent);
-      const revealed = agent.revealed && agent.impostor;
-      const label = revealed ? `${agent.impostor!.name} "${agent.impostor!.nickname}"` : agent.character.name;
+      const creature = agent instanceof Creature;
+      const revealed = !creature && agent.revealed && agent.impostor;
+      const label = revealed ? `${revealed.name} "${revealed.nickname}"` : agent.character.name;
       if (tag.label !== label) {
         tag.label = label;
         tag.name.textContent = label;
         tag.button.style.setProperty('--tag-tint', revealed ? 'var(--neon-red)' : agent.character.tint);
       }
-      const popups = agent.statuses.active.flatMap(({ id, label }) => {
+      const popups = creature ? [] : agent.statuses.active.flatMap(({ id, label }) => {
         const popup = STATUS_EFFECTS[id]?.popup;
         return popup ? [{ id, label, ...popup }] : [];
       });
@@ -124,17 +133,18 @@ export class NameTags {
       }
       const ariaLabel = [label, ...popups.map((popup) => popup.label), 'Open file'].join('. ');
       if (tag.button.getAttribute('aria-label') !== ariaLabel) tag.button.setAttribute('aria-label', ariaLabel);
-      const bubble = agent.bubble ?? '';
+      const bubble = creature ? '' : agent.bubble ?? '';
       if (tag.bubble.textContent !== bubble) tag.bubble.textContent = bubble;
 
-      const shown = renderer.isVisible(agent, world) || (agent.held && agent.room === state.viewed);
+      const held = !creature && agent.held;
+      const shown = renderer.isVisible(agent, world) || (held && agent.room === state.viewed);
       const highlighted = agent === state.hovered || agent === state.selected;
       tag.button.hidden = !shown;
-      tag.button.classList.toggle('is-held', agent.held);
+      tag.button.classList.toggle('is-held', held);
       tag.button.classList.toggle('is-quiet', !state.showAll && !highlighted);
       tag.button.classList.toggle('is-active', highlighted);
       if (shown) {
-        const head = agent.held && state.heldHead?.agent === agent ? state.heldHead.head : renderer.headPosition(agent);
+        const head = held && state.heldHead?.agent === agent ? state.heldHead.head : renderer.headPosition(agent);
         visible.push({ agent, button: tag.button, head });
       }
     }
@@ -150,7 +160,7 @@ export class NameTags {
     });
   }
 
-  private create(agent: Agent): Tag {
+  private create(agent: CameraActor): Tag {
     const button = el('button', 'monitor-tag');
     button.type = 'button';
     const bubble = el('span', 'monitor-tag-bubble');

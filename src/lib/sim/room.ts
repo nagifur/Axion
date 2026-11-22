@@ -118,7 +118,7 @@ export class Room {
   power: LevelPower = 'normal';
   readonly id: string;
   readonly templateId?: string;
-  /** Assigned per simulation session; creatures are not yet implemented. */
+  /** Assigned per session; stays reserved while a shapeshifter is away. */
   readonly cell?: { creatureId: string | null };
   readonly name: string;
   readonly level: number;

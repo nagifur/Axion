@@ -1,26 +1,28 @@
 import type { Agent } from './agent.ts';
+import { Creature } from './creature.ts';
 import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
 import { bindDebugPanel } from './monitorDebug.ts';
 import { clock, el } from './monitorDom.ts';
 import { EditorPanel } from './monitorEditor.ts';
-import { PersonnelFile } from './monitorFile.ts';
+import { MonitorFile } from './monitorFile.ts';
 import { loadProgress, saveProgress } from './monitorProgress.ts';
 import { NameTags } from './monitorTags.ts';
 import { PropEditor } from './propEditor.ts';
 import { PropEmissionSampler, PropPicker, Renderer, loadAssets } from './render.ts';
-import type { SimCharacter, SimImpostor } from './roster.ts';
+import type { SimCharacter, SimCreature, SimImpostor } from './roster.ts';
 import { Room, type Point, type RoomData } from './room.ts';
-import { World, type LogTone } from './world.ts';
+import { World, type CameraActor, type LogTone } from './world.ts';
 
 export interface MonitorConfig {
   roster: SimCharacter[];
+  creatureRoster: SimCreature[];
   impostors: SimImpostor[];
   /** Every room on camera, in floor-plan order. */
   rooms: RoomData[];
   /** Room shown when nobody has picked a camera yet. */
   initialRoom: string;
-  /** Image URLs by name: "room:<id>", "character", prop names, "item:<type>", and "particle:<file>". */
+  /** Image URLs by name: "room:<id>", "character", "creature", prop names, "item:<type>", and "particle:<file>". */
   assets: Record<string, string>;
 }
 
@@ -69,7 +71,7 @@ export function initMonitor(root: HTMLElement): () => void {
   const rooms = config.rooms.map((data) => new Room(data));
   // Milliseconds added to the real clock by the debug time override (0 = live).
   let clockOffset = 0;
-  const world = new World({ roster: config.roster, rooms, now: () => new Date(Date.now() + clockOffset) });
+  const world = new World({ roster: config.roster, creatureRoster: config.creatureRoster, rooms, now: () => new Date(Date.now() + clockOffset) });
   const director = new EventDirector(config.impostors);
   const progress = loadProgress();
   const unlocked = new Set(progress.achievements);
@@ -84,8 +86,8 @@ export function initMonitor(root: HTMLElement): () => void {
   let paused = false;
   let speed = 1;
   let showAllTags = true;
-  let hovered: Agent | null = null;
-  let selected: Agent | null = null;
+  let hovered: CameraActor | null = null;
+  let selected: CameraActor | null = null;
   let renderer: Renderer | null = null;
   let propPicker: PropPicker | null = null;
   let drag: {
@@ -171,7 +173,7 @@ export function initMonitor(root: HTMLElement): () => void {
         staticTimer = window.setTimeout(() => screen.classList.remove('is-switching'), SWITCH_STATIC_MS);
       }
     }
-    canvas.setAttribute('aria-label', `Live camera feed of the ${room.label} ${room.name}. Use the name tags to open personnel files.`);
+    canvas.setAttribute('aria-label', `Live camera feed of the ${room.label} ${room.name}. Use the name tags to open database files.`);
     if (camTitle) camTitle.textContent = `${room.camera} · ${room.label} · ${room.name}`;
     for (const button of cameraButtons) {
       const active = button.dataset.monitorCamera === room.id;
@@ -223,21 +225,23 @@ export function initMonitor(root: HTMLElement): () => void {
     for (const button of cameraButtons) {
       const room = world.room(button.dataset.monitorCamera ?? '');
       const count = button.querySelector('[data-monitor-camera-count]');
-      if (room && count) count.textContent = String(world.agentsIn(room).length);
+      if (room && count) count.textContent = String(world.actorsIn(room).length);
     }
     for (const button of levelButtons) {
       const level = Number(button.dataset.monitorLevel);
       const count = button.querySelector('[data-monitor-level-count]');
-      if (count) count.textContent = String(world.agents.filter((agent) => agent.room.level === level).length);
+      if (count) count.textContent = String(world.agents.filter((agent) => agent.room.level === level).length +
+        world.creatures.filter((creature) => !creature.away && creature.room.level === level).length);
     }
   };
 
   // --- Personnel file & selection ---------------------------------------
 
-  const file = fileNode ? new PersonnelFile(fileNode, world, (room) => switchCamera(room)) : null;
+  const file = fileNode ? new MonitorFile(fileNode, world, (room) => switchCamera(room)) : null;
 
-  const select = (agent: Agent) => {
+  const select = (agent: CameraActor) => {
     selected = agent;
+    if (agent instanceof Creature) return;
     world.interact(agent);
     if (!agent.impostor) {
       identified.add(agent.character.id);
@@ -267,8 +271,8 @@ export function initMonitor(root: HTMLElement): () => void {
     };
   };
 
-  const agentAt = (event: { clientX: number; clientY: number }, point: Point) => {
-    return tags.agentFor(document.elementFromPoint(event.clientX, event.clientY))
+  const actorAt = (event: { clientX: number; clientY: number }, point: Point) => {
+    return tags.actorFor(document.elementFromPoint(event.clientX, event.clientY))
       ?? renderer?.hitTest(world, point.x, point.y) ?? null;
   };
 
@@ -279,7 +283,8 @@ export function initMonitor(root: HTMLElement): () => void {
     if (pointer.x < 0 || pointer.y < 0 || pointer.x >= viewed.width || pointer.y >= viewed.height) {
       return { kind: 'invalid', label: 'Drop inside the camera feed' };
     }
-    const partner = agentAt(event, pointer);
+    const partner = actorAt(event, pointer);
+    if (partner instanceof Creature) return { kind: 'invalid', label: 'Cannot drop an agent onto a contained creature' };
     const prop = partner ? null : propPicker?.at(viewed, pointer, world.time);
     return dropTarget(world, drag.agent, partner || prop ? pointer : drag.point, partner, prop, viewed);
   };
@@ -381,7 +386,7 @@ export function initMonitor(root: HTMLElement): () => void {
       return;
     }
     hovered = renderer.hitTest(world, point.x, point.y);
-    canvas.style.cursor = hovered ? (hovered.draggable ? 'grab' : 'pointer') : '';
+    canvas.style.cursor = hovered ? (!(hovered instanceof Creature) && hovered.draggable ? 'grab' : 'pointer') : '';
   };
   const onPointerLeave = () => {
     if (drag) return;
@@ -413,8 +418,8 @@ export function initMonitor(root: HTMLElement): () => void {
       return;
     }
     const point = toRoom(event);
-    const agent = agentAt(event, point);
-    if (!agent) return;
+    const agent = actorAt(event, point);
+    if (!agent || agent instanceof Creature) return;
     drag = {
       agent, pointerId: event.pointerId, start: { x: event.clientX, y: event.clientY },
       client: { x: event.clientX, y: event.clientY },
@@ -573,8 +578,9 @@ export function initMonitor(root: HTMLElement): () => void {
       cancelDrag();
     }
     const navigationHint = updateDragCameraHover();
-    const highlights = new Map<Agent, string>();
-    if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
+    const highlights = new Map<CameraActor, string>();
+    if (selected instanceof Creature) highlights.set(selected, selected.character.tint);
+    else if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
     if (hovered) highlights.set(hovered, '#ffffff');
     renderer.draw(world, highlights);
     if (drag?.active) {

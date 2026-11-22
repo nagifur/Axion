@@ -28,7 +28,7 @@ test('a room instance draws its shared template image', (t) => {
   const room = { id: 'cell-01', templateId: 'cell-template', width: 200, height: 100, props: [], doors: [] };
   const renderer = new Renderer(document.createElement('canvas'), { character: { width: 1, height: 1 }, 'room:cell-template': image }, room);
   draws.length = 0;
-  renderer.draw({ time: 0, agentsIn: () => [], elevatorFor() {}, particles: { in: () => [] } }, new Map());
+  renderer.draw({ time: 0, actorsIn: () => [], elevatorFor() {}, particles: { in: () => [] } }, new Map());
   assert.deepEqual(draws, [image]);
 });
 
@@ -110,7 +110,7 @@ test('backup power keeps the scene dim and tints it red, with emergency lights g
   const renderer = new Renderer(canvas, {
     character: { width: 576, height: 1152 }, 'room:room': {}, light: { width: 192, height: 288 },
   }, room);
-  const world = { time: 0, agentsIn: () => [], elevatorFor() {}, particles: { in: () => [] } };
+  const world = { time: 0, actorsIn: () => [], elevatorFor() {}, particles: { in: () => [] } };
   renderer.draw(world, new Map());
   const dimAt = fills.findIndex((fill) => fill.style === 'rgba(0, 0, 0, 0.55)');
   assert.deepEqual(fills[dimAt], { style: 'rgba(0, 0, 0, 0.55)', composite: 'source-over', rect: [0, 0, 200, 100] });
@@ -265,7 +265,7 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
   seated.spot = { id: 'chair', kind: 'chair', x: 110, y: 135, facing: 'right', propDepth: 138 };
   seated.update({}, 0);
   const standing = new Agent(character, room, { x: 110, y: 136 });
-  const world = { agents: [seated, standing], agentsIn() { return this.agents; }, elevatorFor() {}, particles: { in() { return []; } } };
+  const world = { agents: [seated, standing], actorsIn() { return [...this.agents]; }, elevatorFor() {}, particles: { in() { return []; } } };
   renderer.draw(world, new Map());
   const images = canvas.draws.map((draw) => draw[0]);
   const sheet = renderer.sheet(1);

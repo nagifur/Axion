@@ -1,6 +1,8 @@
 import { Agent } from './agent.ts';
+import type { Creature } from './creature.ts';
+import { assignCellOccupants } from './cellOccupants.ts';
 import { enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './transport.ts';
-import { canVisitLevel, type SimCharacter, type SimImpostor } from './roster.ts';
+import { canVisitLevel, type SimCharacter, type SimCreature, type SimImpostor } from './roster.ts';
 import { directionTo, type Door, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
 import type { Prop } from './prop.ts';
@@ -18,6 +20,7 @@ import { LevelState, type LevelDefinitions } from './levelState.ts';
 import { LEVEL_DEFINITIONS, LEVEL_EVENTS } from './levels.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
+export type CameraActor = Agent | Creature;
 
 /** Seconds the car takes between floors on camera: a fixed part plus a part per level travelled. */
 const RIDE_SECONDS = { base: 2, perLevel: 2 };
@@ -31,6 +34,7 @@ const CHAT_RANGE = 260;
 
 export interface WorldOptions {
   roster: SimCharacter[];
+  creatureRoster?: SimCreature[];
   rooms: Room[];
   now?: () => Date;
   levels?: LevelDefinitions;
@@ -62,6 +66,7 @@ export class World {
   time = 0;
   /** People in a room on camera. */
   agents: Agent[] = [];
+  readonly creatures: readonly Creature[];
   readonly roster: SimCharacter[];
   readonly rooms: Room[];
   readonly now: () => Date;
@@ -79,6 +84,7 @@ export class World {
   constructor(options: WorldOptions) {
     this.roster = options.roster;
     this.rooms = options.rooms;
+    this.creatures = assignCellOccupants(options.creatureRoster ?? [], this.rooms);
     this.now = options.now ?? (() => new Date());
     const definitions = options.levels ?? LEVEL_DEFINITIONS;
     const roomsByLevel = new Map<number, Room[]>();
@@ -187,6 +193,16 @@ export class World {
     return this.agents.filter((agent) => agent.room === room);
   }
 
+  residentIn(room: Room) {
+    return room.cell && this.creatures.find((creature) => creature.room === room && !creature.away);
+  }
+
+  actorsIn(room: Room): CameraActor[] {
+    const resident = this.residentIn(room);
+    const agents = this.agentsIn(room);
+    return resident ? [...agents, resident] : agents;
+  }
+
   freeSpot(room: Room, kind: Spot['kind'], agent?: Agent): Spot | undefined {
     const taken = new Set(this.agents.map((agent) => agent.spot));
     const free = room.spots.filter((spot) => spot.kind === kind && !spot.prop.broken && !taken.has(spot) &&
@@ -230,6 +246,10 @@ export class World {
     agent.arrivedAt = this.time;
     agent.enteredRoomAt = this.time;
     this.agents.push(agent);
+    if (impostor) {
+      const resident = this.creatures.find((creature) => creature.character.id === impostor.id);
+      if (resident) resident.away = true;
+    }
     return agent;
   }
 
@@ -297,6 +317,10 @@ export class World {
     }
 
     const entrance = weightedPick(entrances);
+    if (!entrance && impostor) {
+      this.log(`No entrance available for ${impostor.name}'s disguise.`, 'muted');
+      return undefined;
+    }
     if (!entrance && deniedDoor && !ghost) {
       this.log(`No entrances within ${character.name}'s clearance are available.`, 'warn');
       return undefined;
@@ -386,7 +410,11 @@ export class World {
     const { room } = agent;
 
     if (agent.impostor) {
-      if (agent.revealed) this.log(`${agent.impostor.name} escaped ${room.label}. Containment team dispatched.`, 'alert');
+      const resident = this.creatures.find((creature) => creature.character.id === agent.impostor!.id);
+      if (resident) {
+        resident.away = false;
+        this.log(`Containment restored: ${resident.character.name} is back in ${resident.room.name}.`, 'ok');
+      } else if (agent.revealed) this.log(`${agent.impostor.name} escaped ${room.label}. Containment team dispatched.`, 'alert');
       else this.log(`Duplicate badge signal for ${name} lost. Subject left ${room.label} unidentified.`, 'warn');
     } else {
       this.returnAt.set(agent.character.id, this.time + range(RETURN_DELAY_SECONDS.min, RETURN_DELAY_SECONDS.max));
@@ -501,8 +529,9 @@ export class World {
       if (dt > 0 && agent.moving && agent.room === room) checkElectricalApproach(agent, this, from);
     }
 
+    for (const creature of this.creatures) creature.update(dt);
     for (const room of this.rooms) {
-      room.updateLights(this.agentsIn(room).length > 0, dt);
+      room.updateLights(!!this.residentIn(room) || this.agentsIn(room).length > 0, dt);
       for (const prop of room.props) {
         prop.updateFlicker(dt);
         const breaks = prop.takeBreaks();

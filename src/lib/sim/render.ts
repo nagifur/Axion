@@ -1,14 +1,15 @@
 import type { Agent } from './agent.ts';
+import { Creature } from './creature.ts';
 import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import type { Particle, ParticleEmissionSampler } from './particles.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, hasPropLook, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
-import type { World } from './world.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, creatureFrame, hasPropLook, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
+import type { CameraActor, World } from './world.ts';
 import type { Rect } from './navMap.ts';
 import { isPassageDoorAsset, passageDoorFrame, passagePanelFrame } from './door.ts';
 
-/** Images by name: "room:<id>", "character", prop file names, "item:<type>", and "particle:<file>". */
+/** Images by name: "room:<id>", "character", "creature", prop names, "item:<type>", and "particle:<file>". */
 export type Assets = Record<string, HTMLImageElement>;
 type Canvas = HTMLCanvasElement;
 type SizedImage = CanvasImageSource & { width: number; height: number };
@@ -39,11 +40,11 @@ const FOREGROUND_DOOR_ALPHA = 0.35;
 /** Extra pixels around the cursor that still count as clicking a character. */
 const AGENT_PICK_TOLERANCE = 2;
 
-type AssetKind = 'room' | 'character' | 'item' | 'particle' | 'prop' | 'missing-texture';
+type AssetKind = 'room' | 'character' | 'creature' | 'item' | 'particle' | 'prop' | 'missing-texture';
 
 function assetKind(name: string): AssetKind {
   if (name === 'missing-texture') return 'missing-texture';
-  if (name === 'character') return 'character';
+  if (name === 'character' || name === 'creature') return name;
   if (name.startsWith('room:')) return 'room';
   if (name.startsWith('item:')) return 'item';
   if (name.startsWith('particle:')) return 'particle';
@@ -160,7 +161,7 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
           }
           if (!isPassageDoorAsset(name)) propFrames(name, image);
         }
-        if ((kind === 'character' || kind === 'prop') && !inspectedPixels.has(image)) {
+        if ((kind === 'character' || kind === 'creature' || kind === 'prop') && !inspectedPixels.has(image)) {
           inspectedPixels.set(image, framePixels(image, { x: 0, y: 0, w: image.width, h: image.height }));
         }
         resolve([name, image]);
@@ -317,8 +318,8 @@ function recolor(image: SizedImage, from: number[], to: number[]): Canvas {
 }
 
 
-function agentDepth(agent: Agent) {
-  return agent.sitting && agent.spot ? Math.max(agent.y, agent.spot.propDepth) : agent.y;
+function actorDepth(actor: CameraActor) {
+  return !(actor instanceof Creature) && actor.sitting && actor.spot ? Math.max(actor.y, actor.spot.propDepth) : actor.y;
 }
 
 export class Renderer {
@@ -329,6 +330,7 @@ export class Renderer {
   private readonly redEyeSheet: Canvas;
   private readonly litArrows?: Canvas;
   private readonly sheets = new Map<number, ScaledSheet>();
+  private readonly creatureSheets = new Map<number, ScaledSheet>();
   private readonly outline = makeCanvas(160, 160);
   private readonly passageDoorCanvas = makeCanvas(96, 96);
   private readonly emergencySheets = new Map<string, Canvas>();
@@ -373,11 +375,12 @@ export class Renderer {
   }
 
   /** Characters are scaled by height once, at room resolution, then cached. */
-  private sheet(scale: number): ScaledSheet {
-    const cached = this.sheets.get(scale);
+  private sheet(scale: number, creature = false): ScaledSheet {
+    const cache = creature ? this.creatureSheets : this.sheets;
+    const cached = cache.get(scale);
     if (cached) return cached;
 
-    const source = this.assets.character;
+    const source = requireAsset(this.assets, creature ? 'creature' : 'character');
     const width = Math.round(Math.max(source.width, 576) * scale);
     const height = Math.round(Math.max(source.height, 1152) * scale);
     const frames = Object.fromEntries(Object.entries(CHARACTER_FRAMES).map(([name, frame]) => {
@@ -395,9 +398,10 @@ export class Renderer {
       const canvas = makeCanvas(width, height);
       const ctx = context(canvas);
       // Crop before scaling so rounded frame boundaries cannot sample neighboring rows.
-      for (const [name, frame] of Object.entries(CHARACTER_FRAMES)) {
+      for (const [name, cell] of Object.entries(CHARACTER_FRAMES)) {
         const scaled = frames[name as FrameName];
-        if (frameHasPixels(source, frame)) {
+        const frame = creature ? creatureFrame(name as FrameName, (pose) => frameHasPixels(source, pose)) : cell;
+        if (creature || frameHasPixels(source, frame)) {
           ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, scaled.x, scaled.y, scaled.w, scaled.h);
         } else {
           const missing = requireAsset(this.assets, 'missing-texture');
@@ -410,42 +414,43 @@ export class Renderer {
 
     const sheet: ScaledSheet = {
       normal,
-      redEye: draw(this.redEyeSheet),
+      redEye: creature ? normal : draw(this.redEyeSheet),
       alpha: normal.getContext('2d')!.getImageData(0, 0, width, height).data,
       width,
       frames,
     };
-    this.sheets.set(scale, sheet);
+    cache.set(scale, sheet);
     return sheet;
   }
 
   /** Where the sprite lands on screen for the agent's current pose. */
-  private placement(agent: Agent) {
-    const sheet = this.sheet(agent.character.scale);
+  private placement(agent: CameraActor) {
+    const sheet = this.sheet(agent.character.scale, agent instanceof Creature);
     const { name, flip } = agent.frame;
     const frame = sheet.frames[name];
-    const shake = agent.shake > 0 ? Math.round(Math.sin(agent.shake * 60)) : 0;
+    const shake = !(agent instanceof Creature) && agent.shake > 0 ? Math.round(Math.sin(agent.shake * 60)) : 0;
     const x = Math.round(agent.x) + shake - (flip ? frame.w - frame.anchorX : frame.anchorX);
     const y = Math.round(agent.y) - frame.h;
     return { sheet, name, frame, flip, x, y };
   }
 
   /** Point just above an agent's head, in room pixels (for name tags). */
-  headPosition(agent: Agent) {
+  headPosition(agent: CameraActor) {
     const { name, frame, flip, y } = this.placement(agent);
     const offset = TRIP_CYCLE.includes(name) ? TRIP_HEAD_OFFSET : undefined;
     const x = agent.x + (offset ? Math.round(offset.x * agent.character.scale) * (flip ? -1 : 1) : 0);
     return { x, y: y + (offset ? Math.round(offset.y * agent.character.scale) : 0), height: frame.h };
   }
 
-  isVisible(agent: Agent, world: World) {
+  isVisible(agent: CameraActor, world: World) {
+    if (agent instanceof Creature) return !agent.away && agent.room === this.room;
     if (agent.held || agent.room !== this.room || agent.alpha < 0.3) return false;
     return agent.layer === 'room' || (world.elevatorFor(this.room)?.open ?? 0) > 0.4;
   }
 
   /** Pixel-accurate picking, with a small tolerance so thin limbs are still easy to click. */
-  hitTest(world: World, px: number, py: number): Agent | null {
-    const ordered = [...world.agents].reverse().filter((agent) => this.isVisible(agent, world)).sort((a, b) => agentDepth(b) - agentDepth(a));
+  hitTest(world: World, px: number, py: number): CameraActor | null {
+    const ordered = world.actorsIn(this.room).reverse().filter((actor) => this.isVisible(actor, world)).sort((a, b) => actorDepth(b) - actorDepth(a));
     for (const agent of ordered) {
       const { sheet, frame, flip, x, y } = this.placement(agent);
       for (let oy = -AGENT_PICK_TOLERANCE; oy <= AGENT_PICK_TOLERANCE; oy++) {
@@ -461,15 +466,16 @@ export class Renderer {
     return null;
   }
 
-  private drawAgent(agent: Agent, highlight?: string) {
+  private drawAgent(agent: CameraActor, highlight?: string) {
     const ctx = this.ctx;
     const { sheet, name, frame, flip, x, y } = this.placement(agent);
-    const image = agent.eyeFlash > 0 || agent.revealed ? sheet.redEye : sheet.normal;
+    const creature = agent instanceof Creature;
+    const image = !creature && (agent.eyeFlash > 0 || agent.revealed) ? sheet.redEye : sheet.normal;
 
     ctx.save();
-    ctx.globalAlpha = agent.alpha * (agent.ghost ? 0.55 : 1);
+    ctx.globalAlpha = creature ? 1 : agent.alpha * (agent.ghost ? 0.55 : 1);
 
-    if (agent.layer === 'room') {
+    if (creature || agent.layer === 'room') {
       const width = Math.max(6, Math.round(14 * agent.character.scale));
       const fx = Math.round(agent.x);
       const fy = Math.round(agent.y);
@@ -493,10 +499,10 @@ export class Renderer {
       }
     }
 
-    const hand = itemHandAnchor(name, agent.facing);
+    const item = !creature && agent.item;
+    const hand = item && itemHandAnchor(name, agent.facing);
     const drawCarried = () => {
-      const item = agent.item;
-      if (!item) return;
+      if (!item || !hand) return;
       const itemImage = requireAsset(this.assets, item.asset);
       const scale = agent.character.scale;
       const width = Math.max(1, Math.round(item.w * scale));
@@ -507,9 +513,9 @@ export class Renderer {
         y + frame.h + Math.round(hand.y * scale) - height,
         scale, item.flip !== flip);
     };
-    if (hand.behind) drawCarried();
+    if (hand && hand.behind) drawCarried();
     drawSpriteFrame(ctx, image, frame, x, y, flip);
-    if (!hand.behind) drawCarried();
+    if (hand && !hand.behind) drawCarried();
     ctx.restore();
   }
 
@@ -523,7 +529,7 @@ export class Renderer {
   }
 
   /** The elevator car, its sliding doors and arrow lights, drawn behind the room art. */
-  private drawElevator(world: World, highlights: Map<Agent, string>) {
+  private drawElevator(world: World, highlights: ReadonlyMap<CameraActor, string>) {
     const opening = this.room.elevator;
     const elevator = world.elevatorFor(this.room);
     if (!opening || !elevator) return;
@@ -668,7 +674,7 @@ export class Renderer {
     drawSpriteFrame(this.ctx, red, visual.frame, prop.x, prop.y, prop.flip);
   }
 
-  draw(world: World, highlights: Map<Agent, string>) {
+  draw(world: World, highlights: ReadonlyMap<CameraActor, string>) {
     const ctx = this.ctx;
     const { assets, room } = this;
     ctx.setTransform(this.pixelScale, 0, 0, this.pixelScale, 0, 0);
@@ -692,9 +698,9 @@ export class Renderer {
     for (const particle of world.particles.in(room)) {
       drawables.push({ depth: particle.depth, draw: () => drawParticle(ctx, requireAsset(assets, particle.asset), particle) });
     }
-    for (const agent of world.agentsIn(room)) {
-      if (agent.held || agent.layer !== 'room') continue;
-      drawables.push({ depth: agentDepth(agent), draw: () => this.drawAgent(agent, highlights.get(agent)) });
+    for (const actor of world.actorsIn(room)) {
+      if (!(actor instanceof Creature) && (actor.held || actor.layer !== 'room')) continue;
+      drawables.push({ depth: actorDepth(actor), draw: () => this.drawAgent(actor, highlights.get(actor)) });
     }
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());
     this.drawPassageDoors(world, true);

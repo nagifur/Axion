@@ -47,6 +47,18 @@ export interface SimImpostor {
   stats: SimStats;
 }
 
+export interface SimCreature {
+  id: string;
+  name: string;
+  nickname: string;
+  containmentClass: string;
+  species: string;
+  href: string;
+  image?: string;
+  tint: string;
+  scale: number;
+}
+
 /** Unknown or redacted clearances use level 1; Admin has unrestricted access. */
 export function clearanceLevel(accessLevel: string): number {
   const clearance = accessLevel.trim();
@@ -176,6 +188,31 @@ export interface EntityInput {
     usefulAbilities: string[];
     noteableEvents: string[];
     stats?: Partial<SimStats>;
+  };
+}
+
+interface CreatureInput {
+  id: string;
+  data: {
+    title: string;
+    type: string;
+    containmentClass: string;
+    species: string;
+    nickname: string;
+    colorTint?: string;
+    height?: string;
+  };
+}
+
+export function toSimCreature(entry: CreatureInput, base = '', image?: string): SimCreature | null {
+  const { data } = entry;
+  const containmentClass = data.containmentClass.trim();
+  if (!/^creature$/i.test(data.type.trim()) || /^(?:ally|a|class a(?:\s*-\s*ally)?)$/i.test(containmentClass)) return null;
+  const id = entry.id.replace(/\.md$/, '');
+  return {
+    id, name: data.title, nickname: data.nickname, containmentClass, species: data.species,
+    href: `${base}/Entities/${id}`, image, tint: data.colorTint ?? DEFAULT_TINT,
+    scale: heightToScale(parseHeightMeters(data.height)),
   };
 }
 

@@ -4,12 +4,13 @@ import Footer from '../components/footer.astro';
 import { getImage } from 'astro:assets';
 import { getCollection } from 'astro:content';
 import type { ImageMetadata } from 'astro';
-import { toSimCharacter, toSimImpostor, type SimCharacter, type SimImpostor } from '../lib/sim/roster';
+import { toSimCharacter, toSimCreature, toSimImpostor, type SimCharacter } from '../lib/sim/roster';
 import type { MonitorConfig } from '../lib/sim/monitor';
 import { itemPreview, listPropTypes, loadFacility, propPreview } from '../lib/sim/roomLoader';
 import { particleAsset } from '../lib/sim/particles';
 import { propTypeOf } from '../lib/sim/sprites';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
+import creatureSheet from '../sim_assets/creatures/creature_spritesheet.png';
 import missingTexture from '../sim_assets/missing_texture.png';
 
 // Room folder in src/sim_assets/rooms/ shown first, before the viewer picks a camera.
@@ -93,10 +94,11 @@ const roster = (await Promise.all(personnel.map(async (entry) => {
   return toSimCharacter(entry, base, await thumbnail(id, entry.data.profileImage));
 }))).filter((character): character is SimCharacter => character !== null);
 
-const impostors = (await Promise.all(entities.map(async (entry) => {
+const entityProfiles = await Promise.all(entities.map(async (entry) => {
   const id = entry.id.replace(/\.md$/, '');
-  return toSimImpostor(entry, base, await thumbnail(id, entry.data.profileImage));
-}))).filter((impostor): impostor is SimImpostor => impostor !== null);
+  const image = await thumbnail(id, entry.data.profileImage);
+  return { creature: toSimCreature(entry, base, image), impostor: toSimImpostor(entry, base, image) };
+}));
 
 const propSources = Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src]));
 const itemSources = Object.fromEntries(Object.entries(itemImages).map(([path, image]) => [`item:${fileStem(path)}`, image.default.src]));
@@ -111,12 +113,14 @@ const propTypes = await Promise.all((await listPropTypes()).map(async (type) => 
 
 const config: MonitorConfig = {
   roster,
-  impostors,
+  creatureRoster: entityProfiles.flatMap(({ creature }) => creature ? [creature] : []),
+  impostors: entityProfiles.flatMap(({ impostor }) => impostor ? [impostor] : []),
   rooms,
   initialRoom: initialRoom.id,
   assets: {
     ...roomAssets,
     character: characterSheet.src,
+    creature: creatureSheet.src,
     'missing-texture': missingTexture.src,
     ...propSources,
     ...itemSources,
@@ -128,7 +132,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
 ---
 <Header
   title="Live Monitoring"
-  description="Live security camera feed from the Axion Labs facility. Watch personnel go about their shift."
+  description="Live security camera feed from the Axion Labs facility. Watch personnel on shift and creatures in containment."
 />
 
 <main id="main" tabindex="-1">
@@ -171,7 +175,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
                 aria-pressed={String(level === initialRoom.level)}
               >
                 <span class="monitor-floor-name">L{level}</span>
-                <span class="monitor-floor-count" title="People on this floor">
+                <span class="monitor-floor-count" title="Personnel and creatures on this floor">
                   <span data-monitor-level-count>0</span><span class="sr-only"> on this floor</span>
                 </span>
               </button>
@@ -193,7 +197,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
                 >
                   <span class="monitor-map-cam">{room.camera}</span>
                   <span class="monitor-map-name">{room.name}</span>
-                  <span class="monitor-map-count" title="People on camera">
+                  <span class="monitor-map-count" title="Personnel and creatures on camera">
                     <span data-monitor-camera-count>0</span><span class="sr-only"> on camera</span>
                   </span>
                 </button>
@@ -215,7 +219,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
                     >
                       <span class="monitor-map-cam">{room.camera}</span>
                       <span class="monitor-map-name">{room.name}</span>
-                      <span class="monitor-map-count" title="People on camera">
+                      <span class="monitor-map-count" title="Personnel and creatures on camera">
                         <span data-monitor-camera-count>0</span><span class="sr-only"> on camera</span>
                       </span>
                     </button>
@@ -236,7 +240,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
             height={initialRoom.height}
             style={`aspect-ratio:${initialRoom.width} / ${initialRoom.height}`}
             role="img"
-            aria-label={`Live camera feed of the Level ${initialRoom.level} ${initialRoom.name}. Use the name tags to open personnel files.`}
+            aria-label={`Live camera feed of the Level ${initialRoom.level} ${initialRoom.name}. Use the name tags to open database files.`}
           ></canvas>
           <div class="monitor-tags" data-monitor-tags></div>
         </div>
@@ -320,7 +324,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     </section>
 
     <div class="monitor-panels">
-      <section class="card monitor-file" data-monitor-file aria-label="Selected personnel file"></section>
+      <section class="card monitor-file" data-monitor-file aria-label="Selected database file"></section>
 
       <section class="card monitor-log-card" aria-labelledby="monitor-log-title">
         <div class="panel-kicker">

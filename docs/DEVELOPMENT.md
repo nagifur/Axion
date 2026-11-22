@@ -468,10 +468,24 @@ Each linked door has one shared state across its two views, but a separate state
 from the other cells.
 
 `containmentCell` gives each runtime room its own `cell.creatureId`, initially
-`null`. It is session state, not written to the JSON or saved across reloads;
-creature selection and random assignment are not implemented yet. Cells do not
-count towards the normal staff population and are not initial spawn or work
-rooms, though linked cells can still be visited through their doors.
+`null`. When a monitoring session starts, it shuffles the cells and the published
+entity profiles with `type: Creature`, excluding `containmentClass: Ally` (Class A).
+Each creature gets its own cell; if there are too few cells, a random subset is
+housed that session. Assignments are not written to JSON or saved across reloads.
+A shapeshifter's cell stays reserved but empty while it is posing as staff,
+including during elevator rides. It returns to that cell when the event agent leaves.
+
+Residents [pace, watch, and rest](../src/lib/sim/creature.ts) on their cell's
+walkable floor, even off camera. They count for lights and camera occupancy;
+select their sprites or name tags to see their activity and entity database link.
+They cannot be dragged, take staff jobs, or use doors and elevators. Cells do not
+count towards staff population or serve as initial spawn or work rooms, though
+staff can still visit through linked doors.
+
+[`creature_spritesheet.png`](../src/sim_assets/creatures/creature_spritesheet.png)
+uses the same 96×96, bottom-centred frame grid as the staff sheet. Empty movement
+or back-facing frames use the available idle art (side poses are mirrored for
+left). Filling in the corresponding walk or idle cells enables them automatically.
 
 #### Painting a Navigation Map
 

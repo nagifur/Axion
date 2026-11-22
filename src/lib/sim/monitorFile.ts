@@ -1,9 +1,10 @@
 import type { Agent } from './agent.ts';
+import { Creature } from './creature.ts';
 import { el } from './monitorDom.ts';
 import type { Room } from './room.ts';
 import { scheduleFor } from './schedule.ts';
 import type { AgentStats } from './stats.ts';
-import type { World } from './world.ts';
+import type { CameraActor, World } from './world.ts';
 
 const SCHEDULE_LABELS = { work: 'Working hours', lunch: 'Lunch break', break: 'Short break', free: 'Free time' } as const;
 const STAT_LABELS = [
@@ -18,9 +19,9 @@ function hasTwin(world: World, agent: Agent) {
     && ((other.impostor && !other.revealed) || (agent.impostor && !agent.revealed)));
 }
 
-/** The personnel file panel for the selected agent; only rebuilds its DOM when the file's facts change. */
-export class PersonnelFile {
-  private key = '';
+/** The selected database file; only rebuilds its DOM when the file's facts change. */
+export class MonitorFile {
+  private key?: string;
   private activityNode: HTMLElement | null = null;
   private readonly statNodes = new Map<keyof AgentStats, HTMLElement>();
 
@@ -30,30 +31,34 @@ export class PersonnelFile {
     private readonly jumpTo: (room: Room) => void,
   ) {}
 
-  render(agent: Agent | null, viewed: Room) {
+  render(actor: CameraActor | null, viewed: Room) {
     const world = this.world;
+    const creature = actor instanceof Creature ? actor : null;
+    const agent = actor instanceof Creature ? null : actor;
     const twin = agent ? hasTwin(world, agent) : false;
-    const onScreen = agent ? agent.room === viewed : false;
+    const onScreen = actor?.room === viewed;
     const period = agent ? scheduleFor(agent.character, world.now()) : 'free';
-    const key = agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}|${agent.inventory.map((item) => item.type).join(',')}` : '';
+    const key = creature ? `resident|${creature.character.id}|${onScreen}|${creature.away}` :
+      agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}|${agent.inventory.map((item) => item.type).join(',')}` : '';
     if (key === this.key) {
-      if (agent && this.activityNode) this.activityNode.textContent = agent.removed ? 'Off camera' : agent.activity;
+      if (actor && this.activityNode) this.activityNode.textContent = agent?.removed ? 'Off camera' : actor.activity;
       if (agent) this.updateStats(agent);
       return;
     }
     this.key = key;
     this.statNodes.clear();
 
-    if (!agent) {
+    if (!actor) {
       this.node.replaceChildren(el('p', 'monitor-file-empty', 'Select someone on the feed to pull up their file.'));
       this.activityNode = null;
       return;
     }
 
-    const revealed = agent.revealed && agent.impostor;
-    const character = agent.character;
+    const revealed = agent?.revealed && agent.impostor;
+    const character = actor.character;
+    const entity = creature?.character || revealed;
     const head = el('div', 'monitor-file-head');
-    const image = revealed ? agent.impostor!.image : character.image;
+    const image = entity ? entity.image : character.image;
     if (image) {
       const photo = el('img', 'monitor-file-photo');
       photo.src = image;
@@ -64,9 +69,10 @@ export class PersonnelFile {
     }
     const titleBlock = el('div', 'monitor-file-title');
     titleBlock.append(
-      el('p', 'panel-kicker', revealed ? 'Entity file · Escaped' : `Personnel file · ID ${character.employeeID}`),
-      el('h3', undefined, revealed ? `${agent.impostor!.name} "${agent.impostor!.nickname}"` : character.name),
-      el('p', 'monitor-file-role', revealed ? `Shapeshifter posing as ${character.name}` : character.position),
+      el('p', 'panel-kicker', creature ? 'Entity file · Cell resident' : revealed ? 'Entity file · Escaped' : `Personnel file · ID ${agent!.character.employeeID}`),
+      el('h3', undefined, entity ? `${entity.name} "${entity.nickname}"` : character.name),
+      el('p', 'monitor-file-role', creature ? `${creature.character.containmentClass} class` :
+        revealed ? `Shapeshifter posing as ${character.name}` : agent!.character.position),
     );
     head.append(titleBlock);
     this.node.style.setProperty('--file-tint', revealed ? 'var(--neon-red)' : character.tint);
@@ -79,39 +85,43 @@ export class PersonnelFile {
       stats.append(row);
       return dd;
     };
-    if (!revealed) {
+    if (creature) stat('Species', creature.character.species);
+    if (agent && !revealed) {
+      const character = agent.character;
       stat('Clearance', /^\d+$/.test(character.accessLevel) ? `Level ${character.accessLevel}` : character.accessLevel);
       stat('Species', character.species);
       stat('Schedule', SCHEDULE_LABELS[period]);
     }
-    this.activityNode = stat('Status', agent.removed ? 'Off camera' : agent.activity);
-    stat('Item', agent.item?.type ?? 'Empty');
-    stat('Inventory', agent.inventory.map((item) => item.type.replaceAll('_', ' ')).join(', ') || 'Empty');
-    for (const [statKey, label] of STAT_LABELS) {
-      const node = stat(label, '');
-      if (statKey === 'hunger' || statKey === 'thirst') node.title = '0 = satisfied; maximum = urgent need';
-      this.statNodes.set(statKey, node);
+    this.activityNode = stat('Status', agent?.removed ? 'Off camera' : actor.activity);
+    if (agent) {
+      stat('Item', agent.item?.type ?? 'Empty');
+      stat('Inventory', agent.inventory.map((item) => item.type.replaceAll('_', ' ')).join(', ') || 'Empty');
+      for (const [statKey, label] of STAT_LABELS) {
+        const node = stat(label, '');
+        if (statKey === 'hunger' || statKey === 'thirst') node.title = '0 = satisfied; maximum = urgent need';
+        this.statNodes.set(statKey, node);
+      }
+      this.updateStats(agent);
     }
-    this.updateStats(agent);
-    if (!agent.removed) {
-      const location = stat('Location', `${agent.room.name} · ${agent.room.camera}`);
+    if (!agent?.removed) {
+      const location = stat(creature ? 'Assigned cell' : 'Location', `${actor.room.name} · ${actor.room.camera}`);
       if (!onScreen) {
-        const jump = el('button', 'monitor-file-jump', `View ${agent.room.camera} →`);
+        const jump = el('button', 'monitor-file-jump', `View ${actor.room.camera} →`);
         jump.type = 'button';
-        jump.addEventListener('click', () => this.jumpTo(agent.room));
+        jump.addEventListener('click', () => this.jumpTo(actor.room));
         location.append(jump);
       }
     }
 
     const parts: HTMLElement[] = [head, stats];
     if (twin) parts.push(el('p', 'monitor-file-warning', 'A1: Duplicate badge signal detected for this ID.'));
-    if (!revealed && character.traits.length) {
+    if (agent && !revealed && agent.character.traits.length) {
       const traits = el('ul', 'monitor-file-traits');
-      traits.append(...character.traits.map((trait) => el('li', undefined, trait)));
+      traits.append(...agent.character.traits.map((trait) => el('li', undefined, trait)));
       parts.push(traits);
     }
     const link = el('a', 'btn monitor-file-link', 'Open database file →');
-    link.href = revealed ? agent.impostor!.href : character.href;
+    link.href = entity ? entity.href : character.href;
     parts.push(link);
     this.node.replaceChildren(...parts);
   }

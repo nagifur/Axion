@@ -44,7 +44,7 @@ function setup(t) {
   const agent = new Agent({
     name: 'Tester', tint: '#fff', scale: 1, behavior: { speed: 1 },
   }, room, { x: 200, y: 120 });
-  const world = { agents: [agent] };
+  const world = { agents: [agent], actorsIn() { return this.agents; } };
   let visible = true;
   const renderer = { isVisible: () => visible, headPosition: () => ({ x: 200, y: 50 }) };
   const state = { viewed: room, showAll: false, hovered: null, selected: null };
