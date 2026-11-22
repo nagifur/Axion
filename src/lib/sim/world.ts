@@ -172,7 +172,7 @@ export class World {
   targetPopulation() {
     const hour = this.now().getHours();
     const density = hour < 6 ? DENSITY.night : hour < 8 || hour >= 20 ? DENSITY.evening : DENSITY.day;
-    return Math.min(Math.max(1, Math.round(density * this.rooms.length)), this.roster.length);
+    return Math.min(Math.max(1, Math.round(density * this.rooms.filter((room) => !room.cell).length)), this.roster.length);
   }
 
   presentCount() {
@@ -188,8 +188,8 @@ export class World {
   }
 
   freeSpot(room: Room, kind: Spot['kind'], agent?: Agent): Spot | undefined {
-    const taken = new Set(this.agents.map((agent) => agent.spot?.id));
-    const free = room.spots.filter((spot) => spot.kind === kind && !spot.prop.broken && !taken.has(spot.id) &&
+    const taken = new Set(this.agents.map((agent) => agent.spot));
+    const free = room.spots.filter((spot) => spot.kind === kind && !spot.prop.broken && !taken.has(spot) &&
       (!agent || room.route(agent, spot, agent.ghost) !== null));
     return maybePick(free);
   }
@@ -213,13 +213,14 @@ export class World {
     for (let i = 0; i < count; i++) {
       const character = this.pickArrival();
       if (!character) break;
-      const rooms = this.rooms.filter((room) => canVisitLevel(character, room.level));
+      const rooms = this.rooms.filter((room) => !room.cell && canVisitLevel(character, room.level));
       if (!rooms.length) {
         this.log(`No rooms within ${character.name}'s clearance are available.`, 'warn');
         break;
       }
       const working = scheduleFor(character, this.now()) === 'work';
-      const room = pick(working && chance(0.85) ? this.workRooms(character) : rooms);
+      const workRooms = this.workRooms(character);
+      const room = pick(working && workRooms.length && chance(0.85) ? workRooms : rooms);
       this.spawn(character, room, room.randomFloorPoint());
     }
   }
@@ -274,7 +275,7 @@ export class World {
   arrive(character = this.pickArrival(), impostor?: SimImpostor) {
     if (!character) return undefined;
     const ghost = character.behavior.ghost && !impostor;
-    const rooms = this.rooms.filter((room) => impostor || canVisitLevel(character, room.level));
+    const rooms = this.rooms.filter((room) => !room.cell && (impostor || canVisitLevel(character, room.level)));
     if (!rooms.length) {
       this.log(`No rooms within ${character.name}'s clearance are available.`, 'warn');
       return undefined;

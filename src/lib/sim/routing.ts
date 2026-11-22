@@ -54,7 +54,7 @@ export function elevatorStops(world: World, room: Room): Room[] {
 
 /** Numeric staff work on their highest available floor; Admin has no floor preference. */
 export function workRooms(world: World, character: SimCharacter): Room[] {
-  const allowed = world.rooms.filter((room) => canVisitLevel(character, room.level));
+  const allowed = world.rooms.filter((room) => !room.cell && canVisitLevel(character, room.level));
   if (!allowed.length || /^admin$/i.test(character.accessLevel.trim())) return allowed;
   const level = Math.max(...allowed.map((room) => room.level));
   return allowed.filter((room) => room.level === level);

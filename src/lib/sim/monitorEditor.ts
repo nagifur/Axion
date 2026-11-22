@@ -44,7 +44,7 @@ export class EditorPanel {
     const prop = selected instanceof Prop ? selected : null;
     const edited = editor.isEdited();
     panel.querySelector('[data-editor-room]')!.textContent = `${room.camera} · ${room.name}${edited ? ' · unsaved changes' : ''}`;
-    panel.querySelector('[data-editor-file]')!.textContent = `src/sim_assets/rooms/${room.id}/room.json`;
+    panel.querySelector('[data-editor-file]')!.textContent = `src/sim_assets/rooms/${room.templateId ?? room.id}/room.json`;
     panel.querySelector('[data-editor-selected]')!.textContent = placing
       ? `Click the feed to place: ${placing}`
       : selectedDoor

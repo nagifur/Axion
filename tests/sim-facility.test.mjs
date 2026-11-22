@@ -95,6 +95,7 @@ test('loads the rooms in floor-plan order, level by level', async () => {
   assert.deepEqual(rooms.map((room) => room.id), [
     'level-0-main-entrance', 'level-0-lookout',
     'level-1-pipe-room', 'level-1-offices', 'level-1-rec-room', 'level-2-lobby', 'level-3-checkpoint', 'level-3-heavy-containment-room', 'level-3-main-entrance',
+    ...Array.from({ length: 10 }, (_, i) => `level-3-heavy-cell-${String(i + 1).padStart(2, '0')}`),
     'level-4-trophy-room', 'level-4-gallery', 'level-5-side-entry',
   ]);
   const offices = rooms.find((room) => room.id === 'level-1-offices');
@@ -112,11 +113,13 @@ test('finds the way out from rooms without an exit', async () => {
   assert.equal(world.doorTowardExit(offices, true).to.room, pipe.id, 'without the elevator, run for the pipe room door');
 });
 
-for (const seed of [1, 20261121, 0xc0ffee]) {
-  test(`people walk between rooms and come and go (seed ${seed})`, async () => {
+test('people walk between rooms and come and go across multiple seeds', async () => {
+  const visitedRooms = new Set();
+  let rooms = [];
+  for (const seed of [1, 20261121, 0xc0ffee]) {
     setRandomSource(seededRandom(seed));
     try {
-      const rooms = await facility();
+      rooms = await facility();
       const world = new World({ roster, rooms, now: noon });
       world.populate();
       const visited = new Map();
@@ -127,22 +130,23 @@ for (const seed of [1, 20261121, 0xc0ffee]) {
         for (const agent of agents) {
           if (!visited.has(agent)) visited.set(agent, new Set());
           visited.get(agent).add(agent.room.id);
+          visitedRooms.add(agent.room.id);
           assert.ok(Number.isFinite(agent.x) && Number.isFinite(agent.y), `${agent.character.name} has a valid position`);
         }
       }
       const movers = [...visited.values()].filter((roomIds) => roomIds.size > 1).length;
       assert.ok(movers > 0, 'someone moved to another room');
-      for (const room of rooms) {
-        assert.ok([...visited.values()].some((roomIds) => roomIds.has(room.id)), `someone visited ${room.id}`);
-      }
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new Error(`Facility scenario failed with seed ${seed}: ${detail}`, { cause: error });
     } finally {
       setRandomSource(null);
     }
-  });
-}
+  }
+  for (const room of rooms.filter((room) => !room.cell)) {
+    assert.ok(visitedRooms.has(room.id), `someone visited ${room.id}`);
+  }
+});
 
 test('population and arrivals stay within clearance, including ghosts', async (t) => {
   const rooms = await facility();

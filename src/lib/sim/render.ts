@@ -678,7 +678,7 @@ export class Renderer {
 
     // Everything visible through openings in the room art is drawn first, then the room covers it.
     this.drawElevator(world, highlights);
-    ctx.drawImage(requireAsset(assets, `room:${room.id}`), 0, 0);
+    ctx.drawImage(requireAsset(assets, `room:${room.templateId ?? room.id}`), 0, 0);
     this.drawPassageDoors(world);
 
     // Props and people share one depth-sorted pass, ordered by where they touch the floor.

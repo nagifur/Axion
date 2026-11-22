@@ -23,6 +23,9 @@ interface RoomJson {
   elevators?: unknown;
   doors?: unknown;
   disconnectedFloors?: unknown;
+  cameraGroup?: unknown;
+  containmentCell?: unknown;
+  instances?: unknown;
 }
 
 /** An exit as written in room.json; the door on the other side may be left for us to work out. */
@@ -34,6 +37,7 @@ interface DeclaredExit {
 export interface LoadedRoom {
   data: RoomData;
   exits: Map<string, DeclaredExit>;
+  instances?: { id: string; name: string; camera: string; exits: Map<string, DeclaredExit> }[];
 }
 
 const jsonLabel = (id: string) => `sim_assets/rooms/${id}/room.json`;
@@ -172,10 +176,10 @@ async function checkDoorAssets(rooms: RoomData[], assetsDir: string) {
       const side = exit.side ?? 'west';
       const layout = passageDoorLayout(side, config.big, config.style);
       required.set(passageDoorAsset(config.clearance, side, config.big, config.style), {
-        room: room.id, door: id, panel: false, cellSize: layout.cellSize, side, style: config.style, crop: layout.crop,
+        room: room.templateId ?? room.id, door: id, panel: false, cellSize: layout.cellSize, side, style: config.style, crop: layout.crop,
       });
       required.set(passagePanelAsset(side, config.style), {
-        room: room.id, door: id, panel: true, cellSize: 96, side, style: config.style,
+        room: room.templateId ?? room.id, door: id, panel: true, cellSize: 96, side, style: config.style,
       });
     }
   }
@@ -267,6 +271,37 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   if (typeof json.name !== 'string' || typeof json.level !== 'number' || typeof json.camera !== 'string') {
     throw new NavMapError(`${label}/room.json: needs "name" (text), "level" (number) and "camera" (text).`);
   }
+  if (json.cameraGroup !== undefined && (typeof json.cameraGroup !== 'string' || !json.cameraGroup.trim())) {
+    throw new NavMapError(`${label}/room.json: "cameraGroup" needs a non-empty name.`);
+  }
+  if (json.containmentCell !== undefined && typeof json.containmentCell !== 'boolean') {
+    throw new NavMapError(`${label}/room.json: "containmentCell" must be true or false.`);
+  }
+  let instances: LoadedRoom['instances'];
+  if (json.instances !== undefined) {
+    if (!Array.isArray(json.instances) || !json.instances.length || typeof json.cameraGroup !== 'string') {
+      throw new NavMapError(`${label}/room.json: "instances" needs a non-empty array and a "cameraGroup".`);
+    }
+    if (json.exits !== undefined) {
+      throw new NavMapError(`${label}/room.json: put "exits" on each instance, not on the template.`);
+    }
+    instances = json.instances.map((entry, index) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+        typeof entry.id !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(entry.id) ||
+        typeof entry.name !== 'string' || !entry.name.trim() ||
+        typeof entry.camera !== 'string' || !entry.camera.trim()) {
+        throw new NavMapError(`${label}/room.json: instance ${index + 1} needs a kebab-case "id", non-empty "name", and "camera".`);
+      }
+      for (const key of Object.keys(entry)) {
+        if (!['id', 'name', 'camera', 'exits'].includes(key)) {
+          throw new NavMapError(`${label}/room.json: instance ${index + 1} has unknown property "${key}".`);
+        }
+      }
+      return { id: entry.id, name: entry.name, camera: entry.camera, exits: readExits(entry.exits, id) };
+    });
+  } else if (json.cameraGroup !== undefined) {
+    throw new NavMapError(`${label}/room.json: "cameraGroup" requires "instances".`);
+  }
 
   const room = await imageSize(path.join(folder, 'room.png'));
   const { data, info } = await sharp(path.join(folder, 'nav_map.png')).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
@@ -349,8 +384,11 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
     data: {
       id, name: json.name, level: json.level, camera: json.camera, width: room.width, height: room.height,
       nav, props, items, links: {}, doors: readDoors(json.doors, id, nav), elevator: readElevator(json.elevators, id, nav),
+      ...(typeof json.cameraGroup === 'string' ? { cameraGroup: json.cameraGroup } : {}),
+      ...(json.containmentCell ? { containmentCell: true } : {}),
     },
     exits: readExits(json.exits, id),
+    instances,
   };
 }
 
@@ -388,13 +426,13 @@ export function linkRooms(rooms: LoadedRoom[]) {
 
   for (const { data: room, exits } of rooms) {
     for (const [door, target] of exits) {
-      const label = jsonLabel(room.id);
+      const label = jsonLabel(room.templateId ?? room.id);
       if (!doorIds(room).includes(door)) {
         throw new NavMapError(`${label}: "exits" mentions door "${door}", but nav_map.png has: ${listOr(doorIds(room), 'no doors')}.`);
       }
       const other = byId.get(target.room);
       if (!other) {
-        throw new NavMapError(`${label}: door "${door}" leads to "${target.room}", but there is no such room folder. Rooms: ${[...byId.keys()].join(', ')}.`);
+        throw new NavMapError(`${label}: door "${door}" leads to "${target.room}", but there is no such room folder or instance. Rooms: ${[...byId.keys()].join(', ')}.`);
       }
       const otherDoors = doorIds(other);
       const opposite = OPPOSITE[door];
@@ -409,8 +447,8 @@ export function linkRooms(rooms: LoadedRoom[]) {
       if (!otherDoors.includes(otherDoor)) {
         throw new NavMapError(`${label}: door "${door}" leads to door "${otherDoor}" of ${other.id}, which only has: ${listOr(otherDoors, 'no doors')}.`);
       }
-      connect(room, door, { room: other.id, door: otherDoor }, room.id);
-      connect(other, otherDoor, { room: room.id, door }, room.id);
+      connect(room, door, { room: other.id, door: otherDoor }, room.templateId ?? room.id);
+      connect(other, otherDoor, { room: room.id, door }, room.templateId ?? room.id);
     }
   }
 
@@ -421,7 +459,7 @@ export function linkRooms(rooms: LoadedRoom[]) {
       const opposite = other.doors?.[target.door];
       if (local && opposite && local.clearance !== opposite.clearance) {
         throw new NavMapError(
-          `${jsonLabel(room.id)}: door "${door}" and ${other.id}'s "${target.door}" need the same clearance.`,
+          `${jsonLabel(room.templateId ?? room.id)}: door "${door}" and ${other.id}'s "${target.door}" need the same clearance.`,
         );
       }
       if (!local && opposite) {
@@ -434,12 +472,13 @@ export function linkRooms(rooms: LoadedRoom[]) {
 
 /**
  * Places every room on a grid per level (west/east are columns, north/south are rows) by following
- * the doors that connect them, so cameras can be shown as a floor plan. Sets `room.map` and returns
- * the rooms ordered level by level, top to bottom, west to east.
+ * the doors that connect them, so cameras can be shown as a floor plan. Grouped cameras are listed
+ * separately without map positions. Returns rooms level by level, with each group after the map.
  */
 export function orderRooms(rooms: RoomData[]): RoomData[] {
-  const byId = new Map(rooms.map((room) => [room.id, room]));
-  const sorted = [...rooms].sort((a, b) => a.level - b.level || a.id.localeCompare(b.id));
+  const grouped = rooms.filter((room) => room.cameraGroup);
+  const sorted = rooms.filter((room) => !room.cameraGroup).sort((a, b) => a.level - b.level || a.id.localeCompare(b.id));
+  const byId = new Map(sorted.map((room) => [room.id, room]));
   const nextCol = new Map<number, number>();
 
   for (const start of sorted) {
@@ -473,7 +512,9 @@ export function orderRooms(rooms: RoomData[]): RoomData[] {
     nextCol.set(start.level, offset + Math.max(...cells.map((cell) => cell.col)) - minCol + 1);
   }
 
-  return sorted.sort((a, b) => a.level - b.level || a.map!.row - b.map!.row || a.map!.col - b.map!.col);
+  sorted.sort((a, b) => a.level - b.level || a.map!.row - b.map!.row || a.map!.col - b.map!.col);
+  return [...sorted, ...grouped.sort((a, b) => a.level - b.level || a.id.localeCompare(b.id))]
+    .sort((a, b) => a.level - b.level);
 }
 
 /** A shaft can only stop once per level: two of its elevators on the same floor would be two different lifts. */
@@ -499,7 +540,21 @@ export function checkShafts(rooms: RoomData[]) {
 export async function loadFacility(assetsDir = SIM_ASSETS_DIR): Promise<RoomData[]> {
   const folders = await readdir(path.join(assetsDir, 'rooms'), { withFileTypes: true });
   const ids = folders.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
-  const rooms = await Promise.all(ids.map((id) => readRoom(id, assetsDir)));
+  const templates = await Promise.all(ids.map((id) => readRoom(id, assetsDir)));
+  const rooms = templates.flatMap((template): LoadedRoom[] => template.instances
+    ? template.instances.map((instance) => ({
+      data: {
+        ...structuredClone(template.data),
+        id: instance.id, templateId: template.data.id, name: instance.name, camera: instance.camera,
+      },
+      exits: instance.exits,
+    }))
+    : [template]);
+  const seen = new Set<string>();
+  for (const room of rooms) {
+    if (seen.has(room.data.id)) throw new NavMapError(`Duplicate room ID "${room.data.id}". Each room instance needs a unique ID.`);
+    seen.add(room.data.id);
+  }
   linkRooms(rooms);
   await checkDoorAssets(rooms.map((room) => room.data), assetsDir);
   checkShafts(rooms.map((room) => room.data));

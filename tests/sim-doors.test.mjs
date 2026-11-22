@@ -131,7 +131,7 @@ test('every configured passage has matching floor-level door artwork', async () 
       }
     }
   }
-  assert.equal(count, 34);
+  assert.equal(count, 44);
   const palette = await listPropTypes();
   const passageAssets = Array.from({ length: 6 }, (_, level) => [
     `door_level${level}`,
@@ -272,7 +272,7 @@ test('all heavy containment cell doors and small panels fit their north openings
   const cells = room.doors.filter((door) => door.cell);
   assert.deepEqual(cells.map((door) => door.id), Array.from({ length: 10 }, (_, i) => `north-${i + 1}`));
   assert.deepEqual(room.outerDoors.map((door) => door.id), ['south']);
-  assert.deepEqual(room.linkedDoors.map((door) => door.id), ['east']);
+  assert.deepEqual(room.linkedDoors.map((door) => door.id), [...cells.map((door) => door.id), 'east']);
   for (const door of cells) {
     const opening = data.nav.exits.find((exit) => exit.id === door.id);
     const parts = passagePartBounds(door.side, door.appearance);
@@ -334,8 +334,11 @@ test('heavy containment sprites retain every pixel in their normal, unlocked and
 });
 
 test('unlinked cells open for authorized staff but are not facility entrances or exits', async (t) => {
-  const facility = await loadFacility();
+  const facility = (await loadFacility()).filter((room) => !room.containmentCell);
   const data = facility.find((room) => room.id === 'level-3-heavy-containment-room');
+  for (const door of Object.keys(data.links)) {
+    if (door.startsWith('north-')) delete data.links[door];
+  }
   const isolated = new World({ rooms: [new Room(data)], roster: [] });
   const cell = isolated.rooms[0].doors.find((door) => door.id === 'north-1');
   const arriveByDoor = t.mock.method(isolated, 'arriveByDoor');

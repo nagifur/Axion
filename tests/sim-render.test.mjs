@@ -5,6 +5,33 @@ import { Agent } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 
+test('a room instance draws its shared template image', (t) => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, 'document', original); else delete globalThis.document;
+  });
+  const draws = [];
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const ctx = {
+          setTransform() {}, fillRect() {}, drawImage(image) { draws.push(image); },
+          getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4) }; },
+          putImageData() {},
+        };
+        return { width: 0, height: 0, getContext() { return ctx; } };
+      },
+    },
+  });
+  const image = {};
+  const room = { id: 'cell-01', templateId: 'cell-template', width: 200, height: 100, props: [], doors: [] };
+  const renderer = new Renderer(document.createElement('canvas'), { character: { width: 1, height: 1 }, 'room:cell-template': image }, room);
+  draws.length = 0;
+  renderer.draw({ time: 0, agentsIn: () => [], elevatorFor() {}, particles: { in: () => [] } }, new Map());
+  assert.deepEqual(draws, [image]);
+});
+
 test('missing character cells, including rows beyond the sheet, use the placeholder in both scaled sheets', async (t) => {
   const originalImage = Object.getOwnPropertyDescriptor(globalThis, 'Image');
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');

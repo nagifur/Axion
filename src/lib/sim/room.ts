@@ -23,6 +23,11 @@ export interface ExitLink {
 /** Everything the browser needs to rebuild a room. Produced at build time by roomLoader.ts. */
 export interface RoomData {
   id: string;
+  /** Folder containing shared artwork and configuration, when this is a template instance. */
+  templateId?: string;
+  /** Camera group displayed separately from the floor-plan grid. */
+  cameraGroup?: string;
+  containmentCell?: boolean;
   name: string;
   level: number;
   camera: string;
@@ -112,6 +117,9 @@ const contains = (rect: Rect, point: Point) =>
 export class Room {
   power: LevelPower = 'normal';
   readonly id: string;
+  readonly templateId?: string;
+  /** Assigned per simulation session; creatures are not yet implemented. */
+  readonly cell?: { creatureId: string | null };
   readonly name: string;
   readonly level: number;
   readonly camera: string;
@@ -133,6 +141,8 @@ export class Room {
 
   constructor(data: RoomData) {
     this.id = data.id;
+    this.templateId = data.templateId;
+    if (data.containmentCell) this.cell = { creatureId: null };
     this.name = data.name;
     this.level = data.level;
     this.camera = data.camera;

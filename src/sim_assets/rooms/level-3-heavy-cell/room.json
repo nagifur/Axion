@@ -1,0 +1,21 @@
+{
+  "name": "Heavy Containment Cell",
+  "level": 3,
+  "camera": "Cell template",
+  "cameraGroup": "Heavy Containment Cells",
+  "containmentCell": true,
+  "props": [],
+  "items": [],
+  "instances": [
+    { "id": "level-3-heavy-cell-01", "name": "Cell 01", "camera": "CAM 3-03", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-1" } } },
+    { "id": "level-3-heavy-cell-02", "name": "Cell 02", "camera": "CAM 3-04", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-2" } } },
+    { "id": "level-3-heavy-cell-03", "name": "Cell 03", "camera": "CAM 3-05", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-3" } } },
+    { "id": "level-3-heavy-cell-04", "name": "Cell 04", "camera": "CAM 3-06", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-4" } } },
+    { "id": "level-3-heavy-cell-05", "name": "Cell 05", "camera": "CAM 3-07", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-5" } } },
+    { "id": "level-3-heavy-cell-06", "name": "Cell 06", "camera": "CAM 3-08", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-6" } } },
+    { "id": "level-3-heavy-cell-07", "name": "Cell 07", "camera": "CAM 3-09", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-7" } } },
+    { "id": "level-3-heavy-cell-08", "name": "Cell 08", "camera": "CAM 3-10", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-8" } } },
+    { "id": "level-3-heavy-cell-09", "name": "Cell 09", "camera": "CAM 3-11", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-9" } } },
+    { "id": "level-3-heavy-cell-10", "name": "Cell 10", "camera": "CAM 3-12", "exits": { "south": { "room": "level-3-heavy-containment-room", "door": "north-10" } } }
+  ]
+}

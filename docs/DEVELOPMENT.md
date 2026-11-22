@@ -431,6 +431,50 @@ rooms/level-1-offices/
 `-- prototype.png   # Optional mockup; not used by the site.
 ```
 
+#### Reusing a Room as Multiple Cameras
+
+When rooms have the same layout, artwork and starting props, one folder can define
+multiple independent room instances. Add `cameraGroup` and an `instances` array to
+the template's `room.json`, with a unique ID, name, camera label and exits for
+each instance. The template's own name and camera are still required, but the
+template itself is not a camera. Put exits on the instances, not the template.
+For example:
+
+```json
+{
+  "name": "Heavy Containment Cell",
+  "level": 3,
+  "camera": "Cell template",
+  "cameraGroup": "Heavy Containment Cells",
+  "containmentCell": true,
+  "instances": [
+    {
+      "id": "level-3-heavy-cell-01",
+      "name": "Cell 01",
+      "camera": "CAM 3-03",
+      "exits": {
+        "south": { "room": "level-3-heavy-containment-room", "door": "north-1" }
+      }
+    }
+  ]
+}
+```
+
+The shared image, nav map, props and items come from the template folder. Each
+instance has its own runtime props, items, doors and ID; the prop editor points
+back to the shared template, so saved placement changes apply to all instances.
+Their cameras appear in a responsive group below the normal floor-plan map.
+Each linked door has one shared state across its two views, but a separate state
+from the other cells.
+
+`containmentCell` gives each runtime room its own `cell.creatureId`, initially
+`null`. It is session state, not written to the JSON or saved across reloads;
+creature selection and random assignment are not implemented yet. Cells do not
+count towards the normal staff population and are not initial spawn or work
+rooms, though linked cells can still be visited through their doors.
+
+#### Painting a Navigation Map
+
 Paint the nav map with a hard pencil at 100% opacity, anti-aliasing off, and save
 it as PNG. Keep it as a layer in the same art file as the room so it stays aligned.
 

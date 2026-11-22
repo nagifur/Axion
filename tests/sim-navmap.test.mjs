@@ -218,7 +218,7 @@ test('every elevator opening is left transparent in its room art', async () => {
   for (const data of await loadFacility()) {
     const elevator = data.nav.exits.find((exit) => exit.kind === 'elevator');
     if (!elevator) continue;
-    const { data: pixels, info } = await sharp(path.join(SIM_ASSETS_DIR, 'rooms', data.id, 'room.png'))
+    const { data: pixels, info } = await sharp(path.join(SIM_ASSETS_DIR, 'rooms', data.templateId ?? data.id, 'room.png'))
       .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     const { x, y, w, h } = elevator.bounds;
     let opaque = 0;
