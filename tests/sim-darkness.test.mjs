@@ -119,8 +119,8 @@ test('darkness increases room departures and removes the minimum stay', (t) => {
 test('darkness encourages elevator travel and leaving through outer doors', (t) => {
   const room = makeRoom(1, [light()]);
   const next = makeRoom(0, [], { id: 'surface' });
-  room.elevator = { shaft: 'test' };
-  next.elevator = { shaft: 'test' };
+  room.elevator = { shaft: 'test', front: { x: 60, y: 40 } };
+  next.elevator = { shaft: 'test', front: { x: 60, y: 40 } };
   const world = new World({ rooms: [room, next], roster: [character()], now: () => new Date(2026, 0, 1, 12) });
   t.mock.method(world, 'freeSpot', () => undefined);
   t.mock.method(world, 'findChatPartner', () => undefined);

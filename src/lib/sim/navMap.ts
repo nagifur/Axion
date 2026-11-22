@@ -98,6 +98,8 @@ export interface NavMapData {
   height: number;
   /** Walkable floor per row, as flat [start, end) pairs: floor[y] = [x0, x1, x0, x1, ...]. */
   floor: number[][];
+  /** Separate painted floor areas, present only for rooms that opt into disconnected floors. */
+  floorAreas?: number[][][];
   exits: NavExit[];
 }
 
@@ -157,7 +159,7 @@ function average(points: Point[]): Point {
   return { x: Math.round(sum.x / points.length), y: Math.round(sum.y / points.length) };
 }
 
-export function parseNavMap(pixels: ArrayLike<number>, width: number, height: number, file = 'nav_map.png'): NavMapData {
+export function parseNavMap(pixels: ArrayLike<number>, width: number, height: number, file = 'nav_map.png', disconnectedFloors = false): NavMapData {
   if (pixels.length !== width * height * 4) {
     throw new NavMapError(`${file}: expected ${width}×${height} RGBA pixels.`);
   }
@@ -172,13 +174,17 @@ export function parseNavMap(pixels: ArrayLike<number>, width: number, height: nu
 
   const floorAreas = regions(kinds, width, height, 'floor');
   if (!floorAreas.length) throw new NavMapError(`${file}: no green floor painted.`);
-  if (floorAreas.length > 1) {
+  if (floorAreas.length > 1 && !disconnectedFloors) {
     const stray = floorAreas.sort((a, b) => b.length - a.length)[1][0];
     throw new NavMapError(
       `${file}: the floor is split into ${floorAreas.length} separate areas, so some of it can't be reached. ` +
-      `Look for stray green near (${stray % width}, ${Math.floor(stray / width)}).`,
+      `Look for stray green near (${stray % width}, ${Math.floor(stray / width)}). ` +
+      `For intentional separate areas, set "disconnectedFloors": true in room.json.`,
     );
   }
+  const areaOf = new Int32Array(kinds.length).fill(-1);
+  floorAreas.forEach((area, id) => area.forEach((index) => { areaOf[index] = id; }));
+  const accessibleAreas = new Set<number>();
 
   const floor: number[][] = [];
   for (let y = 0; y < height; y++) {
@@ -216,6 +222,11 @@ export function parseNavMap(pixels: ArrayLike<number>, width: number, height: nu
           `${file}: the ${kind} at (${bounds.x}, ${bounds.y}) doesn't touch the green floor, so nobody can walk through it.`,
         );
       }
+      const touchingAreas = new Set([...contact.keys()].map((index) => areaOf[index]));
+      if (touchingAreas.size > 1) {
+        throw new NavMapError(`${file}: the ${kind} at (${bounds.x}, ${bounds.y}) touches multiple separate floor areas. Each exit must serve just one area.`);
+      }
+      accessibleAreas.add([...touchingAreas][0]);
 
       // Side-wall doors on the slanted walls touch the floor sideways about as much as from below.
       const sideways = Math.max(touch.left, touch.right);
@@ -224,12 +235,16 @@ export function parseNavMap(pixels: ArrayLike<number>, width: number, height: nu
         : (touch.above > touch.below ? 'south' : 'north');
 
       const baseY = bounds.y + bounds.h - EXIT_BASE_ROWS;
+      const center = average([...contact.values()]);
+      const threshold = floorAreas.length > 1
+        ? [...contact.values()].reduce((best, point) => distance(point, center) < distance(best, center) ? point : best)
+        : center;
       exits.push({
         id: kind,
         kind,
         side: kind === 'door' ? side : undefined,
         bounds,
-        threshold: average([...contact.values()]),
+        threshold,
         base: average(points.filter((point) => point.y >= baseY)),
       });
     }
@@ -245,5 +260,27 @@ export function parseNavMap(pixels: ArrayLike<number>, width: number, height: nu
     door.id = sameSide.length > 1 ? `${door.side}-${sameSide.indexOf(door) + 1}` : door.side!;
   }
 
-  return { width, height, floor, exits: [...doors, ...elevators] };
+  if (floorAreas.length > 1) {
+    for (const [id, area] of floorAreas.entries()) {
+      if (accessibleAreas.has(id)) continue;
+      const index = area[0];
+      throw new NavMapError(`${file}: separate floor area near (${index % width}, ${Math.floor(index / width)}) has no door or elevator.`);
+    }
+  }
+
+  const separate = floorAreas.length > 1 ? floorAreas.map((area) => {
+    const rows: number[][] = Array.from({ length: height }, () => []);
+    for (const index of area) rows[Math.floor(index / width)].push(index % width);
+    return rows.map((xs) => {
+      xs.sort((a, b) => a - b);
+      const spans: number[] = [];
+      for (let i = 0; i < xs.length; i++) {
+        const start = xs[i];
+        while (i + 1 < xs.length && xs[i + 1] === xs[i] + 1) i++;
+        spans.push(start, xs[i] + 1);
+      }
+      return spans;
+    });
+  }) : undefined;
+  return { width, height, floor, ...(separate ? { floorAreas: separate } : {}), exits: [...doors, ...elevators] };
 }

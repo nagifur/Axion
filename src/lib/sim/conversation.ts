@@ -70,15 +70,15 @@ function listen(conversation: Conversation): Task {
   };
 }
 
-export function conversationPoint(agent: Point, partner: Agent): Point | undefined {
+export function conversationPoint(agent: Point, partner: Agent, ghost = false): Point | undefined {
   const offset = agent.x < partner.x ? -CHAT_DISTANCE : CHAT_DISTANCE;
   const spots = [{ x: partner.x + offset, y: partner.y }, { x: partner.x - offset, y: partner.y }];
-  return spots.find((spot) => partner.room.isWalkable(spot));
+  return spots.find((spot) => partner.room.sameFloorArea(partner, spot) && partner.room.canReach(agent, spot, ghost));
 }
 
 export function startConversation(agent: Agent, partner: Agent, world: World, immediate = false): Task[] | null {
   if (agent.incapacitated || partner.incapacitated) return null;
-  const meet = conversationPoint(agent, partner);
+  const meet = conversationPoint(agent, partner, agent.ghost);
   if (!meet) return null;
 
   const conversation: Conversation = { initiator: agent, partner, started: false, ended: false, elapsed: 0 };

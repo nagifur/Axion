@@ -139,6 +139,9 @@ function activityAgent(x = 0, napChance = 0) {
     props: [],
     items: [],
     route(_agent, target) { return [target]; },
+    floorArea() { return 0; },
+    sameFloorArea() { return true; },
+    canReach() { return true; },
     isWalkable() { return true; },
   };
   return agent;

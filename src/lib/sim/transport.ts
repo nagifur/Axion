@@ -12,16 +12,26 @@ import { wait, walkTo } from './tasks.ts';
 export function rideElevatorOut(destination?: Room): Task {
   let path: Point[] = [];
   let request: ElevatorRequest | undefined;
+  let unreachable = false;
   return {
     activity: 'Heading to the elevator',
     interruptible: false,
     transport: true,
-    start(agent) {
+    start(agent, world) {
       const { front } = agent.room.elevator!;
       const waitSpot = agent.room.nearestWalkable({ x: front.x + Math.round(range(-10, 10)), y: front.y });
-      path = agent.room.route(agent, waitSpot, agent.ghost);
+      const route = agent.room.route(agent, waitSpot, agent.ghost);
+      if (!route) {
+        unreachable = true;
+        world.log(`${agent.character.name} cannot reach the elevator in ${agent.room.name}.`, 'warn');
+        agent.leaving = false;
+        agent.setPlan(world, []);
+        return;
+      }
+      path = route;
     },
     update(agent, world, dt) {
+      if (unreachable) return true;
       if (path.length) {
         if (agent.moveToward(path[0], dt)) path.shift();
         return false;
@@ -93,14 +103,24 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
   let path: Point[] = [];
   let fading = false;
   let waited = 0;
+  let unreachable = false;
   return {
     activity,
     interruptible: false,
     transport: true,
-    start(agent) {
-      path = agent.room.route(agent, door.inside, agent.ghost);
+    start(agent, world) {
+      const route = agent.room.route(agent, door.inside, agent.ghost);
+      if (!route) {
+        unreachable = true;
+        world.log(`${agent.character.name} cannot reach the ${door.id} door in ${agent.room.name}.`, 'warn');
+        agent.leaving = false;
+        agent.setPlan(world, []);
+        return;
+      }
+      path = route;
     },
     update(agent, world, dt) {
+      if (unreachable) return true;
       if (!fading) {
         if (path.length && agent.moveToward(path[0], dt, speedMul)) path.shift();
         fading = path.length === 0;
@@ -215,8 +235,9 @@ export function phaseThroughWall(direction: 'in' | 'out'): Task {
 /** Tasks that take the agent out of the facility: through this room's way out, or towards the nearest room with one. */
 export function leaveFacility(agent: Agent, world: World, hurry = false): Task[] {
   const { room } = agent;
-  const doors = room.outerDoors.filter((door) => world.canAgentCross(agent, door));
-  const hasExit = !!room.elevator || doors.length > 0;
+  const doors = room.outerDoors.filter((door) => room.canReach(agent, door.inside, agent.ghost) && world.canAgentCross(agent, door));
+  const elevator = room.elevator && room.canReach(agent, room.elevator.front, agent.ghost);
+  const hasExit = !!elevator || doors.length > 0;
   const speed = hurry ? 2.2 : 1;
   agent.leaving = true;
 
@@ -239,6 +260,6 @@ export function leaveFacility(agent: Agent, world: World, hurry = false): Task[]
     agent.leaving = false;
     return [wait(2, 'Waiting for an exit')];
   }
-  if (room.elevator && (!doors.length || chance(0.65))) return [rideElevatorOut()];
+  if (elevator && (!doors.length || chance(0.65))) return [rideElevatorOut()];
   return [exitThroughDoor(pick(doors), speed)];
 }

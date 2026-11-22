@@ -1,0 +1,15 @@
+{
+  "name": "Heavy Containment",
+  "level": 3,
+  "camera": "CAM 3-02",
+  "disconnectedFloors": true,
+  
+  "props": [
+  { "type": "light", "x": 261, "y": 36 },
+  { "type": "light", "x": 754, "y": 36 }
+],
+"items": []
+ 
+
+  
+}

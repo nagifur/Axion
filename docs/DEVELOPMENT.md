@@ -1029,6 +1029,15 @@ floors shows the camera last watched there, otherwise the room on the same eleva
 shaft. Every camera uses the same pixel scale, so narrower rooms appear centred. The
 first camera shown is `INITIAL_ROOM` in [`monitoring.astro`](../src/pages/monitoring.astro).
 
+For raised platforms or other deliberately isolated floor sections, set
+`"disconnectedFloors": true` in `room.json`. Keep each section green and leave the
+gap red or transparent; do not draw a connecting green bridge. Each separate area
+must touch its own blue door or pink elevator, and an exit may touch only one area.
+Characters stay in the area they enter: walking, seats, items, conversations, and
+door/elevator routing cannot cross the gap. Ghosts still ignore floor boundaries.
+This describes navigation only; the height difference is drawn in `room.png`.
+Without this setting, disconnected green patches remain a validation error.
+
 The build stops with the file and pixel position if a nav map uses an unknown colour,
 has floor patches that can't be reached, has an exit that doesn't touch the floor, or
 doesn't match the size of `room.png`, and names the problem if an exit points to a

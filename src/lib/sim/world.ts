@@ -187,16 +187,18 @@ export class World {
     return this.agents.filter((agent) => agent.room === room);
   }
 
-  freeSpot(room: Room, kind: Spot['kind']): Spot | undefined {
+  freeSpot(room: Room, kind: Spot['kind'], agent?: Agent): Spot | undefined {
     const taken = new Set(this.agents.map((agent) => agent.spot?.id));
-    const free = room.spots.filter((spot) => spot.kind === kind && !spot.prop.broken && !taken.has(spot.id));
+    const free = room.spots.filter((spot) => spot.kind === kind && !spot.prop.broken && !taken.has(spot.id) &&
+      (!agent || room.route(agent, spot, agent.ghost) !== null));
     return maybePick(free);
   }
 
   findChatPartner(agent: Agent): Agent | undefined {
     if (agent.leaving) return undefined;
     const candidates = this.agents.filter((other) =>
-      other !== agent && other.room === agent.room && !other.busy && !other.removed && Math.abs(other.x - agent.x) < CHAT_RANGE);
+      other !== agent && other.room === agent.room && !other.busy && !other.removed && Math.abs(other.x - agent.x) < CHAT_RANGE &&
+      agent.room.canReach(agent, other, agent.ghost));
     return maybePick(candidates);
   }
 

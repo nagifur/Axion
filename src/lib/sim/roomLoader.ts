@@ -22,6 +22,7 @@ interface RoomJson {
   exits?: unknown;
   elevators?: unknown;
   doors?: unknown;
+  disconnectedFloors?: unknown;
 }
 
 /** An exit as written in room.json; the door on the other side may be left for us to work out. */
@@ -246,7 +247,10 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
       `${label}/nav_map.png is ${info.width}×${info.height} but room.png is ${room.width}×${room.height}. They must match pixel for pixel.`,
     );
   }
-  const nav = parseNavMap(data, info.width, info.height, `${label}/nav_map.png`);
+  if (json.disconnectedFloors !== undefined && typeof json.disconnectedFloors !== 'boolean') {
+    throw new NavMapError(`${label}/room.json: "disconnectedFloors" must be true or false.`);
+  }
+  const nav = parseNavMap(data, info.width, info.height, `${label}/nav_map.png`, json.disconnectedFloors === true);
 
   const props: PlacedProp[] = [];
   const entries = Array.isArray(json.props) ? json.props : [];

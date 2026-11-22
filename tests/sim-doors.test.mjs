@@ -127,7 +127,7 @@ test('every configured passage has matching floor-level door artwork', async () 
       }
     }
   }
-  assert.equal(count, 22);
+  assert.equal(count, 23);
   const palette = await listPropTypes();
   const passageAssets = Array.from({ length: 6 }, (_, level) => [
     `door_level${level}`,

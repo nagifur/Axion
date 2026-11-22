@@ -62,8 +62,11 @@ export class NavGrid {
   readonly rows: number;
   readonly cell: number;
   private readonly open: Uint8Array;
+  private readonly canConnect: (from: Point, to: Point) => boolean;
 
-  constructor(width: number, height: number, cell: number, isOpen: (point: Point) => boolean) {
+  constructor(width: number, height: number, cell: number, isOpen: (point: Point) => boolean,
+    canConnect: (from: Point, to: Point) => boolean = () => true) {
+    this.canConnect = canConnect;
     this.cell = cell;
     this.cols = Math.ceil(width / cell);
     this.rows = Math.ceil(height / cell);
@@ -86,7 +89,7 @@ export class NavGrid {
   }
 
   /** Closest open cell to a point, searching outward ring by ring. Returns -1 if there are none. */
-  nearest(point: Point): number {
+  nearest(point: Point, accepts: (point: Point) => boolean = () => true): number {
     const col = Math.min(this.cols - 1, Math.max(0, Math.floor(point.x / this.cell)));
     const row = Math.min(this.rows - 1, Math.max(0, Math.floor(point.y / this.cell)));
     const maxRadius = Math.max(this.cols, this.rows);
@@ -100,6 +103,7 @@ export class NavGrid {
           const index = r * this.cols + c;
           if (!this.open[index]) continue;
           const center = this.center(index);
+          if (!accepts(center)) continue;
           const distance = Math.hypot(center.x - point.x, center.y - point.y);
           if (distance < bestDistance) {
             best = index;
@@ -151,6 +155,7 @@ export class NavGrid {
         if (!open[next] || closed[next]) continue;
         // No cutting corners past blocked cells.
         if (dc && dr && (!open[row * cols + c] || !open[r * cols + col])) continue;
+        if (!this.canConnect(this.center(current), this.center(next))) continue;
         const nextCost = cost[current] + step;
         if (nextCost >= cost[next]) continue;
         cost[next] = nextCost;

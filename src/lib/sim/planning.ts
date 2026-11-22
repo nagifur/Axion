@@ -42,26 +42,26 @@ export function planNext(agent: Agent, world: World): Task[] {
   const workStep = working ? world.stepTowardWork(agent.character, room, agent) : undefined;
   const wandering = working ? 0.15 : period === 'free' ? 2 : 1;
 
-  const benchSpot = world.freeSpot(room, 'bench');
-  const chairSpot = world.freeSpot(room, 'chair');
+  const benchSpot = world.freeSpot(room, 'bench', agent);
+  const chairSpot = world.freeSpot(room, 'chair', agent);
   const partner = world.findChatPartner(agent);
   const linked = wanderDoors(world, agent);
   const floors = wanderFloors(world, agent);
   const dispensers = agent.item ? [] : room.props
     .filter((prop) => prop.dispensing)
     .map((prop) => ({ prop, stand: prop.standPoint(room) }))
-    .filter(({ stand }) => room.isWalkable(stand));
+    .filter(({ stand }) => room.canReach(agent, stand, agent.ghost));
   // Loose items nobody else is already heading for.
   const claimed = new Set(room.items.length ? world.agentsIn(room).map((other) => other.curiousAbout) : []);
   const looseItems = agent.item || agent.impostor ? [] : room.items
     .filter((item) => !claimed.has(item))
     .map((item) => ({ item, stand: itemPickupPoint(room, item) }))
-    .filter((found): found is { item: Item; stand: Point } => !!found.stand);
+    .filter((found): found is { item: Item; stand: Point } => !!found.stand && room.canReach(agent, found.stand, agent.ghost));
   // Staff without a card for any way out hang around a door and slip out once someone opens it.
   const stranded = isStranded(world, agent);
   const slipOut = stranded && canSlipOut(world, agent);
   const watchedDoors = stranded ? [...room.linkedDoors, ...room.outerDoors]
-    .filter((door) => world.passageDoorFor(door) && !world.passageDoorFor(door)!.broken) : [];
+    .filter((door) => room.canReach(agent, door.inside, agent.ghost) && world.passageDoorFor(door) && !world.passageDoorFor(door)!.broken) : [];
   const storedItems = agent.item || agent.impostor ? [] : agent.inventory
     .filter((item) => accessCardLevel(item) === undefined);
 
@@ -91,7 +91,7 @@ export function planNext(agent: Agent, world: World): Task[] {
     {
       weight: working ? 1 : 3,
       build: () => [
-        walkTo(room.randomFloorPoint(), working ? 'Checking the work area' : 'Walking'),
+        walkTo(room.randomFloorPoint(random, agent.ghost ? undefined : agent), working ? 'Checking the work area' : 'Walking'),
         wait(range(2, 6), working ? 'Checking the work area' : 'Looking around', pick<Facing>(['front', 'left', 'right'])),
       ],
     },
@@ -158,7 +158,7 @@ export function planNext(agent: Agent, world: World): Task[] {
       build: () => {
         const item = agent.item!;
         return [
-          walkTo(room.randomFloorPoint(), `Finding a place for the ${item.type.replaceAll('_', ' ')}`),
+          walkTo(room.randomFloorPoint(random, agent.ghost ? undefined : agent), `Finding a place for the ${item.type.replaceAll('_', ' ')}`),
           setDownItem(item),
         ];
       },

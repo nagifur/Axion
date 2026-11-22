@@ -24,7 +24,13 @@ export function walkTo(target: Point, activity = 'Walking', speedMul = 1): Task 
     activity,
     interruptible: true,
     start(agent, world) {
-      path = agent.room.route(agent, target, agent.ghost);
+      const route = agent.room.route(agent, target, agent.ghost);
+      if (!route) {
+        world.log(`${agent.character.name} cannot reach ${activity.toLowerCase()} in ${agent.room.name}.`, 'warn');
+        agent.setPlan(world, []);
+        return;
+      }
+      path = route;
     },
     update(agent, world, dt) {
       if (!path.length) return true;

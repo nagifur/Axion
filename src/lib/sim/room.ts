@@ -121,6 +121,7 @@ export class Room {
   readonly doors: Door[] = [];
   readonly elevator?: Elevator;
   private readonly floor: number[][];
+  private readonly floorAreas?: number[][][];
   private readonly blocked: Rect[] = [];
   private grid!: NavGrid;
   private openCells: number[] = [];
@@ -136,6 +137,7 @@ export class Room {
     this.width = data.width;
     this.height = data.height;
     this.floor = data.nav.floor;
+    this.floorAreas = data.nav.floorAreas;
     this.setProps(data.props);
     this.items = (data.items ?? []).map((item) => new Item(item));
 
@@ -158,7 +160,7 @@ export class Room {
         big: data.elevator?.big ?? false,
         inside: { x: centerX, y: y + h - 2 },
         thresholdY: y + h + 2,
-        front: this.nearestWalkable({ x: centerX, y: y + h + 12 }),
+        front: this.nearestWalkable({ x: centerX, y: y + h + 12 }, exit.threshold),
       };
     }
   }
@@ -195,7 +197,8 @@ export class Room {
         });
       });
     });
-    this.grid = new NavGrid(this.width, this.height, GRID_CELL, (point) => this.isWalkable(point));
+    this.grid = new NavGrid(this.width, this.height, GRID_CELL, (point) => this.isWalkable(point),
+      (from, to) => this.sameFloorArea(from, to) && this.lineClear(from, to));
     this.openCells = this.grid.openCells();
   }
 
@@ -282,20 +285,49 @@ export class Room {
     return !this.blocked.some((rect) => contains(rect, point));
   }
 
-  nearestWalkable(point: Point): Point {
-    if (this.isWalkable(point)) return { x: Math.round(point.x), y: Math.round(point.y) };
-    const cell = this.grid.nearest(point);
+  nearestWalkable(point: Point, areaFrom: Point = point): Point {
+    const area = this.floorArea(areaFrom);
+    if (this.isWalkable(point) && (area < 0 || this.floorArea(point) === area)) {
+      return { x: Math.round(point.x), y: Math.round(point.y) };
+    }
+    const cell = this.grid.nearest(point, (candidate) => area < 0 || this.floorArea(candidate) === area);
+    if (cell < 0 && this.floorAreas && area >= 0) {
+      throw new Error(`${this.id}: floor area ${area + 1} has no walkable standing point.`);
+    }
     return cell >= 0 ? this.grid.center(cell) : { x: Math.round(point.x), y: Math.round(point.y) };
   }
 
-  randomFloorPoint(rand: () => number = random): Point {
+  randomFloorPoint(rand: () => number = random, from?: Point): Point {
     if (!this.openCells.length) return { x: Math.round(this.width / 2), y: Math.round(this.height / 2) };
-    const center = this.grid.center(this.openCells[Math.floor(rand() * this.openCells.length)]);
+    const cells = from && this.floorAreas
+      ? this.openCells.filter((cell) => this.sameFloorArea(from, this.grid.center(cell)))
+      : this.openCells;
+    if (!cells.length) throw new Error(`${this.id}: no walkable cells in the current floor area.`);
+    const center = this.grid.center(cells[Math.floor(rand() * cells.length)]);
     const jittered = {
       x: center.x + Math.round((rand() - 0.5) * GRID_CELL),
       y: center.y + Math.round((rand() - 0.5) * GRID_CELL),
     };
-    return this.isWalkable(jittered) ? jittered : center;
+    return this.isWalkable(jittered) && this.sameFloorArea(center, jittered) ? jittered : center;
+  }
+
+  /** Painted area containing feet; -1 means outside the floor. */
+  floorArea(point: Point): number {
+    if (!this.floorAreas) return 0;
+    const x = Math.round(point.x);
+    const y = Math.round(point.y);
+    return this.floorAreas.findIndex((area) => {
+      const spans = area[y] ?? [];
+      for (let i = 0; i < spans.length; i += 2) {
+        if (x >= spans[i] && x < spans[i + 1]) return true;
+      }
+      return false;
+    });
+  }
+
+  sameFloorArea(from: Point, to: Point): boolean {
+    const area = this.floorArea(from);
+    return area >= 0 && area === this.floorArea(to);
   }
 
   /** Top edge of the floor in a column: where the back wall meets the floor. */
@@ -317,14 +349,16 @@ export class Room {
 
   /** Whether a task can reach its standing point without crossing solid floor boundaries. */
   canReach(from: Point, to: Point, ghost = false): boolean {
-    return this.isWalkable(to) && (ghost || this.lineClear(from, to) || this.grid.findPath(from, to) !== null);
+    return this.isWalkable(to) && (ghost || (this.sameFloorArea(from, to) &&
+      (this.lineClear(from, to) || this.grid.findPath(from, to) !== null)));
   }
 
   /** Waypoints from `from` to `to` around walls and furniture. Ghosts go straight. */
-  route(from: Point, to: Point, ghost = false): Point[] {
+  route(from: Point, to: Point, ghost = false): Point[] | null {
+    if (!ghost && !this.sameFloorArea(from, to)) return null;
     if (ghost || this.lineClear(from, to)) return [to];
     const cells = this.grid.findPath(from, to);
-    if (!cells) return [to];
+    if (!cells) return null;
 
     // Skip every waypoint that can be reached in a straight line, so paths don't zigzag.
     const points = [...cells, to];
