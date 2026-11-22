@@ -1,7 +1,7 @@
 // A prop placed in a room, with state that can change while the simulation runs
 // (lights switching on and off, furniture breaking). room.json only stores how it starts.
 
-import { hasPropLook, propTypeOf, type PropLook, type PropType } from './sprites.ts';
+import { propTypeOf, type PropLook, type PropType } from './sprites.ts';
 import type { Point, Room } from './room.ts';
 import type { Rect } from './navMap.ts';
 import { chance, range } from './random.ts';
@@ -234,12 +234,9 @@ export class Prop implements PlacedProp {
     return this.statuses.remove('broken');
   }
 
-  /**
-   * Which frames to draw. Broken props without broken artwork yet still show as broken where
-   * they can: a broken light goes dark, anything else keeps its normal look.
-   */
+  /** Which state to draw, including states whose artwork has not been made yet. */
   get look(): PropLook | undefined {
-    if (this.broken && (this.brokenLook || hasPropLook(this.asset, 'broken'))) return 'broken';
+    if (this.broken) return 'broken';
     if (!this.powered || (this.switchable && !this.lit) || this.flickerOff) return 'off';
     return undefined;
   }

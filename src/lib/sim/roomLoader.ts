@@ -53,7 +53,11 @@ async function propImage(file: string, cellSize = 96): Promise<PropSheetImage> {
 export async function propPreview(asset: string, assetsDir = SIM_ASSETS_DIR): Promise<string> {
   const file = path.join(assetsDir, 'props', `${asset}.png`);
   const frame = propFrame(asset, await propImage(file));
-  const png = await sharp(file).extract({ left: frame.x, top: frame.y, width: frame.w, height: frame.h }).png().toBuffer();
+  const crop = await sharp(file).extract({ left: frame.x, top: frame.y, width: frame.w, height: frame.h }).ensureAlpha().png().toBuffer();
+  const { channels } = await sharp(crop).stats();
+  const png = channels[channels.length - 1].max
+    ? crop
+    : await sharp(path.join(assetsDir, 'missing_texture.png')).resize(frame.w, frame.h, { kernel: 'nearest', fit: 'fill' }).png().toBuffer();
   return `data:image/png;base64,${png.toString('base64')}`;
 }
 

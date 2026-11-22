@@ -153,7 +153,7 @@ test('automatic sheets report incomplete cells instead of clipping artwork', () 
   const sparseCells = sheet([[true, true], [false, false]]);
   delete sparseCells.propCells[1][0];
   assert.throws(() => propFrames('animated_decoration', sparseCells), /populated cell data is required/);
-  assert.throws(() => propFrames('animated_decoration', sheet([[false, false], [true, false]])), /at least one frame is required/);
+  assert.deepEqual(propFrames('animated_decoration', sheet([[false, false], [true, false]])), [{ x: 0, y: 0, w: 96, h: 96 }]);
   assert.throws(() => propCellOccupancy({ width: 2, height: 2 }, new Uint8Array(15)), /RGBA data matching the image size/);
 });
 
@@ -315,8 +315,9 @@ test('invalid sheet bounds and animation time are reported', () => {
   assert.throws(() => propFrame('light', { width: 96, height: 96 }), /outside its 96x96 sheet/);
   assert.throws(() => propFrame('chair', { width: 27, height: 38 }), /outside/);
   assert.throws(() => propFrame('plant', { width: 0, height: 0 }), /outside/);
-  assert.throws(() => propFrame('light', { width: 192, height: 96 }), /outside its 192x96 sheet/);
-  assert.throws(() => propFrame('light', { width: 192, height: 192 }), /outside its 192x192 sheet/);
+  assert.equal(propFrame('light', { width: 192, height: 96 }, 0, 'off').y, 135);
+  assert.equal(propFrame('light', { width: 192, height: 192 }, 0, 'broken').y, 231);
+  assert.throws(() => propFrame('light', { width: 192, height: 140 }), /outside its 192x140 sheet/);
   assert.throws(() => propFrame('light', { width: 192, height: 192 }, -1), /finite and non-negative/);
 });
 
@@ -345,6 +346,19 @@ test('palette previews contain only the first cropped frame', async () => {
     assert.deepEqual([actual.info.width, actual.info.height], [frame.w, frame.h]);
     assert.deepEqual(actual.data, expected);
   }
+});
+
+test('palette previews use the placeholder for an empty normal frame', async (t) => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'axion-empty-preview-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await mkdir(path.join(dir, 'props'));
+  await copyFile('src/sim_assets/missing_texture.png', path.join(dir, 'missing_texture.png'));
+  await sharp({ create: { width: 96, height: 192, channels: 4, background: '#00000000' } })
+    .png().toFile(path.join(dir, 'props', 'empty.png'));
+  const preview = await propPreview('empty', dir);
+  const actual = await sharp(Buffer.from(preview.split(',')[1], 'base64')).ensureAlpha().raw().toBuffer();
+  const expected = await sharp(path.join(dir, 'missing_texture.png')).ensureAlpha().raw().toBuffer();
+  assert.deepEqual(actual, expected);
 });
 
 test('prop drawing crops and mirrors the current frame, not the whole sheet', () => {
@@ -393,9 +407,58 @@ test('broken artwork takes precedence over power and missing artwork falls back'
   const legacyImage = sheet([[true], [true]]);
   const legacy = new Prop({ type: 'legacy_fixture', asset: 'legacy_fixture', x: 0, y: 0, w: 96, h: 96, flip: false, switchable: true });
   legacy.break();
-  assert.equal(legacy.look, 'off', 'a switchable prop without broken artwork goes dark');
-  assert.equal(propFrame('legacy_fixture', legacyImage, 0, legacy.look).y, 96);
+  assert.equal(legacy.look, 'broken', 'broken state is retained even without artwork');
   assert.deepEqual(propFrame('legacy_fixture', legacyImage, 0, 'broken'), propFrame('legacy_fixture', legacyImage));
+});
+
+test('missing prop states and blank declared frames use the placeholder at the prop size', async (t) => {
+  const originalImage = Object.getOwnPropertyDescriptor(globalThis, 'Image');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (originalImage) Object.defineProperty(globalThis, 'Image', originalImage); else delete globalThis.Image;
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument); else delete globalThis.document;
+  });
+  Object.defineProperty(globalThis, 'Image', {
+    configurable: true,
+    value: class {
+      width = 192;
+      height = 288;
+      set src(_url) { this.onload(); }
+    },
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const ctx = {
+          drawImage() {},
+          getImageData(_x, _y, width, height) {
+            const data = new Uint8ClampedArray(width * height * 4);
+            data[(39 * width + 28) * 4 + 3] = 255;
+            return { data };
+          },
+        };
+        return { width: 0, height: 0, getContext() { return ctx; } };
+      },
+    },
+  });
+  const { light } = await loadAssets({ light: '/light.png' });
+  const placeholder = { width: 96, height: 96 };
+  const draws = [];
+  const ctx = { drawImage(...args) { draws.push(args); }, save() {}, restore() {}, translate() {}, scale() {} };
+  drawPropSprite(ctx, light, 'light', 10, 20, false, 0, undefined, placeholder);
+  assert.equal(draws[0][0], light, 'populated frame is unchanged');
+  drawPropSprite(ctx, light, 'light', 10, 20, false, 0.6, undefined, placeholder);
+  assert.notEqual(draws[1][0], light, 'blank declared frame uses placeholder');
+  assert.deepEqual(draws[1].slice(1), [0, 0, 40, 17, 10, 20, 40, 17]);
+  drawPropSprite(ctx, light, 'light', 10, 20, false, 0, 'broken', placeholder);
+  assert.equal(draws[2][0], draws[1][0], 'blank states reuse the sized placeholder');
+
+  const legacyImage = sheet([[true], [true]]);
+  drawPropSprite(ctx, legacyImage, 'legacy_fixture', 10, 20, false, 0, 'broken', placeholder);
+  assert.notEqual(draws[3][0], legacyImage, 'an absent state uses the placeholder');
+  assert.deepEqual(draws[3].slice(1), [0, 0, 96, 96, 10, 20, 96, 96]);
+  assert.deepEqual(propFrames('empty_normal', sheet([[false], [true]])), [{ x: 0, y: 0, w: 96, h: 96 }]);
 });
 
 test('editor placement uses one cropped frame as its footprint', async () => {

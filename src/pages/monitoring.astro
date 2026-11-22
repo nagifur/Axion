@@ -10,6 +10,7 @@ import { itemPreview, listPropTypes, loadFacility, propPreview } from '../lib/si
 import { particleAsset } from '../lib/sim/particles';
 import { propTypeOf } from '../lib/sim/sprites';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
+import missingTexture from '../sim_assets/missing_texture.png';
 
 // Room folder in src/sim_assets/rooms/ shown first, before the viewer picks a camera.
 const INITIAL_ROOM = 'level-1-offices';
@@ -110,6 +111,7 @@ const config: MonitorConfig = {
   assets: {
     ...roomAssets,
     character: characterSheet.src,
+    'missing-texture': missingTexture.src,
     ...propSources,
     ...itemSources,
     ...particleSources,

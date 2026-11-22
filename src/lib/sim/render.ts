@@ -3,7 +3,7 @@ import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import type { Particle, ParticleEmissionSampler } from './particles.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, hasPropLook, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { World } from './world.ts';
 import type { Rect } from './navMap.ts';
 import { isPassageDoorAsset, passageDoorFrame, passagePanelFrame } from './door.ts';
@@ -39,9 +39,10 @@ const FOREGROUND_DOOR_ALPHA = 0.35;
 /** Extra pixels around the cursor that still count as clicking a character. */
 const AGENT_PICK_TOLERANCE = 2;
 
-type AssetKind = 'room' | 'character' | 'item' | 'particle' | 'prop';
+type AssetKind = 'room' | 'character' | 'item' | 'particle' | 'prop' | 'missing-texture';
 
 function assetKind(name: string): AssetKind {
+  if (name === 'missing-texture') return 'missing-texture';
   if (name === 'character') return 'character';
   if (name.startsWith('room:')) return 'room';
   if (name.startsWith('item:')) return 'item';
@@ -85,6 +86,45 @@ function framePixels(image: CanvasImageSource, frame: Rect): Uint8ClampedArray {
   return ctx.getImageData(0, 0, frame.w, frame.h).data;
 }
 
+const inspectedPixels = new WeakMap<object, Uint8ClampedArray>();
+
+function frameHasPixels(image: SizedImage, frame: Rect): boolean {
+  const pixels = inspectedPixels.get(image);
+  if (!pixels) return true;
+  for (let y = frame.y; y < Math.min(frame.y + frame.h, image.height); y++) {
+    for (let x = frame.x; x < Math.min(frame.x + frame.w, image.width); x++) {
+      if (pixels[(y * image.width + x) * 4 + 3]) return true;
+    }
+  }
+  return false;
+}
+
+const missingFrames = new WeakMap<object, Map<string, Canvas>>();
+
+function placeholderFrame(image: SizedImage, width: number, height: number): Canvas {
+  let frames = missingFrames.get(image);
+  if (!frames) {
+    frames = new Map();
+    missingFrames.set(image, frames);
+  }
+  const key = `${width}:${height}`;
+  let canvas = frames.get(key);
+  if (!canvas) {
+    canvas = makeCanvas(width, height);
+    context(canvas).drawImage(image, 0, 0, image.width, image.height, 0, 0, width, height);
+    frames.set(key, canvas);
+  }
+  return canvas;
+}
+
+function visualPropFrame(asset: string, image: SizedImage & PropSheetImage, time: number, look: PropLook | undefined, placeholder?: SizedImage) {
+  const frame = propFrame(asset, image, time, look);
+  if (placeholder && ((look && !hasPropLook(asset, look, image)) || !frameHasPixels(image, frame))) {
+    return { image: placeholderFrame(placeholder, frame.w, frame.h), frame: { x: 0, y: 0, w: frame.w, h: frame.h } };
+  }
+  return { image, frame };
+}
+
 /** Opacity of each pixel in sprite frames, cached per asset frame. */
 class FrameAlphaMasks {
   private readonly masks = new Map<string, { alpha: Uint8Array; w: number; h: number }>();
@@ -114,9 +154,14 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
         if (kind === 'item') itemFrame(name.slice('item:'.length), image);
         if (kind === 'prop') {
           if (needsPropCellOccupancy(name, image)) {
-            image.propCells = propCellOccupancy(image, framePixels(image, { x: 0, y: 0, w: image.width, h: image.height }));
+            const pixels = framePixels(image, { x: 0, y: 0, w: image.width, h: image.height });
+            inspectedPixels.set(image, pixels);
+            image.propCells = propCellOccupancy(image, pixels);
           }
           if (!isPassageDoorAsset(name)) propFrames(name, image);
+        }
+        if ((kind === 'character' || kind === 'prop') && !inspectedPixels.has(image)) {
+          inspectedPixels.set(image, framePixels(image, { x: 0, y: 0, w: image.width, h: image.height }));
         }
         resolve([name, image]);
       } catch (error) {
@@ -144,9 +189,10 @@ function drawSpriteFrame(ctx: CanvasRenderingContext2D, image: CanvasImageSource
 /** Draws one artwork-sized prop frame, with mirroring around that frame rather than the sheet. */
 export function drawPropSprite(
   ctx: CanvasRenderingContext2D, image: SizedImage,
-  asset: string, x: number, y: number, flip = false, time = 0, look?: PropLook,
+  asset: string, x: number, y: number, flip = false, time = 0, look?: PropLook, placeholder?: SizedImage,
 ) {
-  drawSpriteFrame(ctx, image, propFrame(asset, image, time, look), x, y, flip);
+  const visual = visualPropFrame(asset, image, time, look, placeholder);
+  drawSpriteFrame(ctx, visual.image, visual.frame, x, y, flip);
 }
 
 /** Draws a spinning, mirrored particle, with its rotated bounds above its floor position. */
@@ -213,8 +259,10 @@ export class PropPicker {
       point.x >= prop.x && point.x < prop.x + prop.w && point.y >= prop.y && point.y < prop.y + prop.h);
     const solid = inBox.find((prop) => {
       const image = requireAsset(this.assets, prop.asset);
-      const frame = prop instanceof Item ? itemFrame(prop.type, image) : propFrame(prop.asset, image, time, prop.look);
-      const mask = this.masks.get(prop.asset, image, frame);
+      const visual = prop instanceof Item
+        ? { image, frame: itemFrame(prop.type, image) }
+        : visualPropFrame(prop.asset, image, time, prop.look, this.assets['missing-texture']);
+      const mask = this.masks.get(visual.image === image ? prop.asset : 'missing-texture', visual.image, visual.frame);
       let lx = Math.floor(point.x - prop.x);
       const ly = Math.floor(point.y - prop.y);
       if (prop.flip) lx = prop.w - 1 - lx;
@@ -235,7 +283,8 @@ export class PropEmissionSampler {
 
   readonly sample: ParticleEmissionSampler = (prop, area, time) => {
     const image = requireAsset(this.assets, prop.asset);
-    const mask = this.masks.get(prop.asset, image, propFrame(prop.asset, image, time, prop.look));
+    const visual = visualPropFrame(prop.asset, image, time, prop.look, this.assets['missing-texture']);
+    const mask = this.masks.get(visual.image === image ? prop.asset : 'missing-texture', visual.image, visual.frame);
 
     const points: { x: number; y: number }[] = [];
     for (let py = 0; py < mask.h; py++) {
@@ -329,8 +378,8 @@ export class Renderer {
     if (cached) return cached;
 
     const source = this.assets.character;
-    const width = Math.round(source.width * scale);
-    const height = Math.round(source.height * scale);
+    const width = Math.round(Math.max(source.width, 576) * scale);
+    const height = Math.round(Math.max(source.height, 1152) * scale);
     const frames = Object.fromEntries(Object.entries(CHARACTER_FRAMES).map(([name, frame]) => {
       const x = Math.round(frame.x * scale);
       const y = Math.round(frame.y * scale);
@@ -348,7 +397,12 @@ export class Renderer {
       // Crop before scaling so rounded frame boundaries cannot sample neighboring rows.
       for (const [name, frame] of Object.entries(CHARACTER_FRAMES)) {
         const scaled = frames[name as FrameName];
-        ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, scaled.x, scaled.y, scaled.w, scaled.h);
+        if (frameHasPixels(source, frame)) {
+          ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, scaled.x, scaled.y, scaled.w, scaled.h);
+        } else {
+          const missing = requireAsset(this.assets, 'missing-texture');
+          ctx.drawImage(missing, 0, 0, missing.width, missing.height, scaled.x, scaled.y, scaled.w, scaled.h);
+        }
       }
       return canvas;
     };
@@ -588,7 +642,12 @@ export class Renderer {
   private drawProp(prop: Prop, time: number) {
     const image = requireAsset(this.assets, prop.asset);
     if (!prop.emergency) {
-      drawPropSprite(this.ctx, image, prop.asset, prop.x, prop.y, prop.flip, time, prop.look);
+      drawPropSprite(this.ctx, image, prop.asset, prop.x, prop.y, prop.flip, time, prop.look, this.assets['missing-texture']);
+      return;
+    }
+    const visual = visualPropFrame(prop.asset, image, time, prop.look, this.assets['missing-texture']);
+    if (visual.image !== image) {
+      drawSpriteFrame(this.ctx, visual.image, visual.frame, prop.x, prop.y, prop.flip);
       return;
     }
     let red = this.emergencySheets.get(prop.asset);
@@ -606,7 +665,7 @@ export class Renderer {
       ctx.putImageData(pixels, 0, 0);
       this.emergencySheets.set(prop.asset, red);
     }
-    drawSpriteFrame(this.ctx, red, propFrame(prop.asset, image, time, prop.look), prop.x, prop.y, prop.flip);
+    drawSpriteFrame(this.ctx, red, visual.frame, prop.x, prop.y, prop.flip);
   }
 
   draw(world: World, highlights: Map<Agent, string>) {

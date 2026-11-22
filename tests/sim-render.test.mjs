@@ -1,9 +1,54 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Renderer } from '../src/lib/sim/render.ts';
+import { loadAssets, Renderer } from '../src/lib/sim/render.ts';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
+
+test('missing character cells, including rows beyond the sheet, use the placeholder in both scaled sheets', async (t) => {
+  const originalImage = Object.getOwnPropertyDescriptor(globalThis, 'Image');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (originalImage) Object.defineProperty(globalThis, 'Image', originalImage); else delete globalThis.Image;
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument); else delete globalThis.document;
+  });
+  Object.defineProperty(globalThis, 'Image', {
+    configurable: true,
+    value: class {
+      width = 192;
+      height = 96;
+      set src(_url) { this.onload(); }
+    },
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const draws = [];
+        const ctx = {
+          drawImage(...args) { draws.push(args); },
+          getImageData(_x, _y, width, height) {
+            const data = new Uint8ClampedArray(width * height * 4);
+            data[3] = 255;
+            return { data };
+          },
+          putImageData() {},
+        };
+        return { width: 0, height: 0, draws, getContext() { return ctx; } };
+      },
+    },
+  });
+  const assets = await loadAssets({ character: '/character.png', 'missing-texture': '/missing.png' });
+  const renderer = new Renderer(document.createElement('canvas'), assets, {});
+  const sheet = renderer.sheet(0.8);
+  for (const canvas of [sheet.normal, sheet.redEye]) {
+    assert.notEqual(canvas.draws[0][0], assets['missing-texture']);
+    assert.equal(canvas.draws[1][0], assets['missing-texture'], 'transparent cell');
+    assert.equal(canvas.draws[4][0], assets['missing-texture'], 'row outside the image');
+    assert.deepEqual(canvas.draws[4].slice(5), [0, 77, 77, 77]);
+    assert.ok(sheet.frames.useRight6.y + sheet.frames.useRight6.h <= canvas.height);
+  }
+});
 
 test('backup power keeps the scene dim and tints it red, with emergency lights glowing above', (t) => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');

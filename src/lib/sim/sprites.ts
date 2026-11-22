@@ -249,7 +249,7 @@ function automaticPropSprite(asset: string, image: PropSheetImage): PropSprite {
   const off = framesInRow(1);
   const broken = framesInRow(2);
   return {
-    frames,
+    frames: frames.length ? frames : [{ x: 0, y: 0, w, h }],
     states: {
       ...(off.length ? { off: { frames: [off[0]] } } : {}),
       ...(broken.length ? { broken: { frames: broken } } : {}),
@@ -273,7 +273,8 @@ export function propFrames(asset: string, image: PropSheetImage, look?: PropLook
     for (const frame of frames) {
       if (![frame.x, frame.y, frame.w, frame.h].every(Number.isInteger) ||
         frame.x < 0 || frame.y < 0 || frame.w <= 0 || frame.h <= 0 ||
-        frame.x + frame.w > image.width || frame.y + frame.h > image.height) {
+        ((frame.x + frame.w > image.width || frame.y + frame.h > image.height) &&
+          (frames === sprite.frames || (frame.x < image.width && frame.y < image.height)))) {
         throw new Error(`Prop sprite "${asset}": frame (${frame.x}, ${frame.y}, ${frame.w}, ${frame.h}) is outside its ${image.width}x${image.height} sheet.`);
       }
       if (frame.w !== size.w || frame.h !== size.h) {

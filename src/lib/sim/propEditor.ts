@@ -312,7 +312,7 @@ export class PropEditor {
     if (ghost) {
       ctx.globalAlpha = 0.65;
       if (ghost.asset.startsWith('item:')) drawItemSprite(ctx, this.assets[ghost.asset], ghost);
-      else drawPropSprite(ctx, this.assets[ghost.asset], ghost.asset, ghost.x, ghost.y, ghost.flip, time);
+      else drawPropSprite(ctx, this.assets[ghost.asset], ghost.asset, ghost.x, ghost.y, ghost.flip, time, undefined, this.assets['missing-texture']);
       ctx.globalAlpha = 1;
       this.outline(ctx, ghost, COLORS.ghost, scale);
     }

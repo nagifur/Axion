@@ -337,6 +337,9 @@ unless a standing character is holding an item.
 Frame coordinates and timing are defined in [`sprites.ts`](../src/lib/sim/sprites.ts).
 The renderer crops each frame before scaling it, so neighboring animation rows cannot
 bleed into characters or their highlight outlines at fractional sizes.
+Expected character cells that are transparent or outside the image use
+[`missing_texture.png`](../src/sim_assets/missing_texture.png) at the same size and anchor.
+Unused cells outside the listed animations are ignored.
 
 #### Floor Events and Variables
 
@@ -705,9 +708,12 @@ light: {
 They follow the same rules as `frames` and must be cropped to the same size. Put them
 on their own row of the sheet: the first row is normal or powered on, the second is
 powered off, and the third is broken. Broken artwork takes precedence over power;
-repairing the prop restores its previous on/off state. A prop whose sheet has no art
-for a look keeps its normal frames; a broken switchable prop without broken artwork
-uses its off look instead.
+repairing the prop restores its previous on/off state. A missing or fully transparent
+expected frame or state displays `missing_texture.png` scaled to the prop's frame,
+without changing the prop's capabilities or placement. Entirely absent state rows in
+explicit metadata can be added later; partially cropped frames remain an error.
+Passage doors and panels have separate, stricter asset validation and still require
+their documented frames when loading a facility.
 
 Include the row offset in `y` for explicit metadata. Elevator door and arrow sprites
 have their own crops in the same registry. The editor palette uses
@@ -719,6 +725,8 @@ left to right along the first row at the same default speed as lights. The first
 populated cell in row two supplies a still off look; populated cells in row three
 animate as the broken look. Fully transparent cells are skipped, so an empty second
 row does not make a prop switchable and blank columns do not cause flickering.
+If the whole normal row is empty, the placeholder is shown instead. Automatic sheets
+do not infer an animation frame count from empty columns.
 An off look enables manual/editor power controls and `"on": false` in `room.json`;
 a broken look enables breakage, the editor's broken control, and `"broken": true`.
 An off look does not enable automatic power switching: vending machines and other
