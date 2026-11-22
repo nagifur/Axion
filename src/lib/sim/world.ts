@@ -248,6 +248,9 @@ export class World {
   }
 
   arriveByDoor(character: SimCharacter, room: Room, door: Door, impostor?: SimImpostor) {
+    if (door.cell) {
+      throw new Error(`${character.name} cannot enter ${room.name} through ${door.id}: containment cells are not facility entrances.`);
+    }
     if (this.passageDoorFor(door)?.blocked || (!impostor && !this.canUsePassage(character, door))) {
       throw new Error(`${character.name} cannot enter ${room.name} through ${door.id}: door blocked or insufficient clearance.`);
     }
@@ -307,8 +310,11 @@ export class World {
 
   /** Moves an agent through a door that leads to another room on camera. */
   transfer(agent: Agent, door: Door) {
-    if (!this.canAgentCross(agent, door)) {
-      this.log(`Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
+    const unlinkedCell = door.cell && !door.to;
+    if (unlinkedCell || !this.canAgentCross(agent, door)) {
+      this.log(unlinkedCell
+        ? `${agent.character.name} cannot enter the ${door.id} cell in ${agent.room.name}: no cell room is connected.`
+        : `Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
       agent.x = door.inside.x;
       agent.y = door.inside.y;
       agent.alpha = 1;

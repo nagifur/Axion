@@ -27,7 +27,7 @@ const LIGHT_OFF = [70, 42, 25];
 const LIGHT_ON = [255, 177, 91];
 /** Passage-door panel indicator light: offset inside the panel artwork and glow radius, in room pixels. */
 const DOOR_INDICATOR = {
-  sideWall: { x: 8, y: 17 }, facing: { x: 9.5, y: 9.5 },
+  sideWall: { x: 8, y: 17 }, facing: { x: 9.5, y: 9.5 }, small: { x: 5.5, y: 5 },
   radius: 12, darkRadius: 32, alpha: 0.3, darkAlpha: 0.4,
 };
 /** Hue applied to the dimmed scene while backup power runs the emergency lights. */
@@ -574,7 +574,7 @@ export class Renderer {
       if (!state) throw new Error(`Missing door state for ${this.room.id}/${door.id}.`);
       const image = requireAsset(this.assets, art.asset);
       const panel = requireAsset(this.assets, art.panelAsset);
-      const frame = passageDoorFrame(door.side, state.broken, art.big);
+      const frame = passageDoorFrame(door.side, state.broken, art.big, art.style);
       fitCanvas(this.passageDoorCanvas, frame.w, frame.h);
       const slide = Math.round(state.open * frame.h);
       mask.globalCompositeOperation = 'source-over';
@@ -587,7 +587,7 @@ export class Renderer {
       if (foreground) ctx.globalAlpha *= FOREGROUND_DOOR_ALPHA;
       drawSpriteFrame(ctx, this.passageDoorCanvas, { x: 0, y: 0, w: frame.w, h: frame.h }, art.x, art.y, false);
       if (!state.powered) ctx.filter = 'grayscale(1) brightness(0.25)';
-      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.powered && state.unlocked, world.time, state.panelBroken, panel), art.panel.x, art.panel.y, art.panelFlip);
+      drawSpriteFrame(ctx, panel, passagePanelFrame(door.side, state.powered && state.unlocked, world.time, state.panelBroken, panel, art.style), art.panel.x, art.panel.y, art.panelFlip);
       ctx.restore();
     }
   }
@@ -601,8 +601,8 @@ export class Renderer {
       if (!state) throw new Error(`Missing door state for ${this.room.id}/${door.id}.`);
       if (!state.powered || state.panelBroken) continue;
       const sideWall = door.side === 'west' || door.side === 'east';
-      const panel = passagePanelFrame(door.side, state.unlocked, world.time);
-      const indicator = sideWall ? DOOR_INDICATOR.sideWall : DOOR_INDICATOR.facing;
+      const panel = passagePanelFrame(door.side, state.unlocked, world.time, false, undefined, art.style);
+      const indicator = art.style === 'heavy_containment' ? DOOR_INDICATOR.small : sideWall ? DOOR_INDICATOR.sideWall : DOOR_INDICATOR.facing;
       const radius = DOOR_INDICATOR.radius + (DOOR_INDICATOR.darkRadius - DOOR_INDICATOR.radius) * darkness;
       const alpha = DOOR_INDICATOR.alpha + (DOOR_INDICATOR.darkAlpha - DOOR_INDICATOR.alpha) * darkness;
       const x = art.panel.x + (art.panelFlip ? panel.w - indicator.x : indicator.x);

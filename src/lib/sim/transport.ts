@@ -98,7 +98,7 @@ export function rideElevatorIn(request: ElevatorRequest): Task {
   };
 }
 
-/** Walks out through a door: into the next room if it leads to one, otherwise off camera. */
+/** Walks through a linked door or out of the facility; an unlinked cell cannot be entered. */
 export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading out'): Task {
   let path: Point[] = [];
   let fading = false;
@@ -109,6 +109,13 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
     interruptible: false,
     transport: true,
     start(agent, world) {
+      if (door.cell && !door.to) {
+        unreachable = true;
+        world.log(`${agent.character.name} cannot enter the ${door.id} cell in ${agent.room.name}: no cell room is connected.`, 'warn');
+        agent.leaving = false;
+        agent.setPlan(world, []);
+        return;
+      }
       const route = agent.room.route(agent, door.inside, agent.ghost);
       if (!route) {
         unreachable = true;

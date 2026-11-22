@@ -60,8 +60,10 @@ export interface Door {
   inside: Point;
   /** Point inside the doorway where characters fade out. */
   outside: Point;
-  /** Set when the door leads to another room on camera; otherwise it leads off camera. */
+  /** Set when the door leads to another room on camera; other non-cell doors lead off camera. */
   to?: ExitLink;
+  /** An unlinked containment cell is not an entrance to or exit from the facility. */
+  cell?: boolean;
   /** Optional door and panel artwork for this view of the passage. */
   appearance?: DoorAppearance;
 }
@@ -148,6 +150,7 @@ export class Room {
         const config = data.doors?.[exit.id];
         this.doors.push({
           id: exit.id, side, inside, outside: doorwayPoint(side, inside, exit.base), to: data.links?.[exit.id],
+          ...(config?.cell ? { cell: true } : {}),
           ...(config ? { appearance: doorAppearance(side, exit.bounds, config) } : {}),
         });
         continue;
@@ -250,9 +253,9 @@ export class Room {
     return this.floor;
   }
 
-  /** Doors that lead off camera (to the rest of the facility). */
+  /** Doors that lead off camera to the rest of the facility, excluding unlinked cells. */
   get outerDoors() {
-    return this.doors.filter((door) => !door.to);
+    return this.doors.filter((door) => !door.to && !door.cell);
   }
 
   /** Doors that lead to another room on camera. */

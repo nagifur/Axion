@@ -203,8 +203,8 @@ test('unreachable walking and transport cancel explicitly instead of crossing th
   }
 });
 
-test('the new containment room has one isolated area served only by the south door', async () => {
-  const room = new Room(await loadRoom('level-3-containment-room'));
+test('the heavy containment room has one isolated area served only by the south door', async () => {
+  const room = new Room(await loadRoom('level-3-heavy-containment-room'));
   const south = room.doors.find((door) => door.id === 'south');
   const east = room.doors.find((door) => door.id === 'east');
   assert.ok(south && east);

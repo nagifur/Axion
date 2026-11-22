@@ -8,13 +8,18 @@ import { StatusEffects } from './statusEffects.ts';
 export interface DoorConfig {
   clearance: number;
   big?: boolean;
+  style?: DoorStyle;
+  cell?: boolean;
   offset?: Point;
   panelOffset?: Point;
 }
 
+export type DoorStyle = 'heavy_containment';
+
 export interface DoorAppearance {
   clearance: number;
   big: boolean;
+  style?: DoorStyle;
   asset: string;
   panelAsset: string;
   x: number;
@@ -42,52 +47,66 @@ const DOOR_LAYOUTS = {
     straight: { x: 52, y: 28, w: 92, h: 138 },
     angled: { x: 53, y: 22, w: 86, h: 160 },
   },
+  heavyContainment: {
+    cellSize: 96,
+    straight: { x: 18, y: 20, w: 60, h: 61 },
+  },
 } as const;
 
-export function passageDoorLayout(side: DoorSide, big = false): { cellSize: number; crop: Rect } {
+export function passageDoorLayout(side: DoorSide, big = false, style?: DoorStyle): { cellSize: number; crop: Rect } {
+  if (style === 'heavy_containment') return { cellSize: DOOR_LAYOUTS.heavyContainment.cellSize, crop: DOOR_LAYOUTS.heavyContainment.straight };
   const layout = big ? DOOR_LAYOUTS.big : DOOR_LAYOUTS.normal;
   return { cellSize: layout.cellSize, crop: angled(side) ? layout.angled : layout.straight };
 }
 
-export const passageDoorAsset = (clearance: number, side: DoorSide, big = false) =>
-  `${big ? 'big_' : ''}door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
-export const passagePanelAsset = (side: DoorSide) => `door_panel${angled(side) ? '_angle' : ''}`;
+export const passageDoorAsset = (clearance: number, side: DoorSide, big = false, style?: DoorStyle) =>
+  style === 'heavy_containment' ? 'door_heavy_containment'
+    : `${big ? 'big_' : ''}door_${angled(side) ? 'angle_' : ''}level${clearance}${side === 'east' ? '_east' : ''}`;
+export const passagePanelAsset = (side: DoorSide, style?: DoorStyle) =>
+  style === 'heavy_containment' ? 'door_panel_small' : `door_panel${angled(side) ? '_angle' : ''}`;
 
-export function passageDoorFrame(side: DoorSide, broken = false, big = false): Rect {
-  const { cellSize, crop } = passageDoorLayout(side, big);
+export function passageDoorFrame(side: DoorSide, broken = false, big = false, style?: DoorStyle): Rect {
+  const { cellSize, crop } = passageDoorLayout(side, big, style);
   return { ...crop, y: crop.y + (broken ? 2 * cellSize : 0) };
 }
 
-export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: number, broken = false, image?: PropSheetImage): Rect {
+export function passagePanelFrame(side: DoorSide, unlocked: boolean, time: number, broken = false, image?: PropSheetImage, style?: DoorStyle): Rect {
   const columns = broken ? image?.propCells?.[2]?.flatMap((populated, column) => populated ? [column] : []) ?? [0] : [0, 1];
   if (!columns.length) throw new Error('Passage panel is missing broken artwork.');
   const column = columns[Math.floor(time / DOOR_PANEL_FRAME_SECONDS) % columns.length];
   const row = broken ? 2 : unlocked ? 3 : 0;
+  if (style === 'heavy_containment') {
+    return { x: 43 + column * 96, y: row * 96 + (row === 3 ? 38 : 36), w: 11, h: 17 };
+  }
   return angled(side)
     ? { x: 39 + column * 96, y: row * 96, w: 17, h: 84 }
     : { x: 39 + column * 96, y: row * 96 + 14, w: 20, h: 69 };
 }
 
 export function isPassageDoorAsset(asset: string): boolean {
-  return /^(?:big_)?door_(?:level\d+|angle_level\d+(?:_east)?)$/.test(asset) || asset === 'door_panel' || asset === 'door_panel_angle';
+  return /^(?:big_)?door_(?:level\d+|angle_level\d+(?:_east)?)$/.test(asset) ||
+    asset === 'door_heavy_containment' || asset === 'door_panel' || asset === 'door_panel_angle' || asset === 'door_panel_small';
 }
 
 /** Align the door with the nav opening and put its panel alongside it on the wall. */
 export function doorAppearance(side: DoorSide, bounds: Rect, config: DoorConfig): DoorAppearance {
-  const door = passageDoorFrame(side, false, config.big);
-  const panel = passagePanelFrame(side, false, 0);
+  const door = passageDoorFrame(side, false, config.big, config.style);
+  const panel = passagePanelFrame(side, false, 0, false, undefined, config.style);
   const x = Math.round(bounds.x + (bounds.w - door.w) / 2) + (config.offset?.x ?? 0);
   const y = bounds.y + bounds.h - door.h + (config.offset?.y ?? 0);
   const gap = 3;
   const panelX = side === 'south' ? x - panel.w - gap : x + door.w + gap;
   // The side walls slope in opposite directions, one pixel per horizontal pixel.
   const wallOffsetY = side === 'west' ? -door.w - gap - 1 : side === 'east' ? panel.w + gap - 1 : 0;
-  const panelY = y + door.h - panel.h + wallOffsetY;
+  const panelY = config.style === 'heavy_containment'
+    ? y + Math.round((door.h - panel.h) / 2)
+    : y + door.h - panel.h + wallOffsetY;
   return {
     clearance: config.clearance,
     big: config.big ?? false,
-    asset: passageDoorAsset(config.clearance, side, config.big),
-    panelAsset: passagePanelAsset(side),
+    ...(config.style ? { style: config.style } : {}),
+    asset: passageDoorAsset(config.clearance, side, config.big, config.style),
+    panelAsset: passagePanelAsset(side, config.style),
     x, y,
     panel: { x: panelX + (config.panelOffset?.x ?? 0), y: panelY + (config.panelOffset?.y ?? 0) },
     panelFlip: side === 'east',
@@ -98,8 +117,8 @@ export type PassagePart = 'door' | 'panel';
 
 /** Room-pixel boxes of a passage's door and panel artwork. */
 export function passagePartBounds(side: DoorSide, art: DoorAppearance): Record<PassagePart, Rect> {
-  const door = passageDoorFrame(side, false, art.big);
-  const panel = passagePanelFrame(side, false, 0);
+  const door = passageDoorFrame(side, false, art.big, art.style);
+  const panel = passagePanelFrame(side, false, 0, false, undefined, art.style);
   return {
     door: { x: art.x, y: art.y, w: door.w, h: door.h },
     panel: { x: art.panel.x, y: art.panel.y, w: panel.w, h: panel.h },

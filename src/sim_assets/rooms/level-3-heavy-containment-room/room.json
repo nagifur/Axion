@@ -1,0 +1,29 @@
+{
+  "name": "Heavy Containment",
+  "level": 3,
+  "camera": "CAM 3-02",
+  "disconnectedFloors": true,
+
+  "props": [
+  { "type": "light", "x": 261, "y": 36 },
+  { "type": "light", "x": 754, "y": 36 }
+  ],
+
+  "doors": {
+    "south": { "clearance": 3 },
+    "north-1": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-2": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-3": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-4": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-5": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-6": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-7": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-8": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-9": { "clearance": 3, "style": "heavy_containment", "cell": true },
+    "north-10": { "clearance": 3, "style": "heavy_containment", "cell": true }
+  },
+"items": []
+ 
+
+  
+}

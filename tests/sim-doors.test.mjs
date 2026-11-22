@@ -115,8 +115,12 @@ test('every configured passage has matching floor-level door artwork', async () 
       assert.equal(door.appearance.clearance, room.level, `${room.id}/${door.id}`);
       const angled = door.side === 'west' || door.side === 'east';
       assert.equal(door.appearance.big, facility[index].doors[door.id].big ?? false);
-      assert.equal(door.appearance.asset, `${door.appearance.big ? 'big_' : ''}door_${angled ? 'angle_' : ''}level${room.level}${door.side === 'east' ? '_east' : ''}`);
-      assert.equal(door.appearance.panelAsset, `door_panel${angled ? '_angle' : ''}`);
+      assert.equal(door.appearance.style, facility[index].doors[door.id].style);
+      assert.equal(door.appearance.asset, door.appearance.style === 'heavy_containment'
+        ? 'door_heavy_containment'
+        : `${door.appearance.big ? 'big_' : ''}door_${angled ? 'angle_' : ''}level${room.level}${door.side === 'east' ? '_east' : ''}`);
+      assert.equal(door.appearance.panelAsset, door.appearance.style === 'heavy_containment'
+        ? 'door_panel_small' : `door_panel${angled ? '_angle' : ''}`);
       const { panel } = passagePartBounds(door.side, door.appearance);
       assert.ok(panel.x >= 0 && panel.y >= 0 && panel.x + panel.w <= room.width && panel.y + panel.h <= room.height,
         `${room.id}/${door.id} panel fits in the camera`);
@@ -127,13 +131,16 @@ test('every configured passage has matching floor-level door artwork', async () 
       }
     }
   }
-  assert.equal(count, 23);
+  assert.equal(count, 34);
   const palette = await listPropTypes();
   const passageAssets = Array.from({ length: 6 }, (_, level) => [
     `door_level${level}`,
     `door_angle_level${level}`,
     `door_angle_level${level}_east`,
-  ]).flat().concat(['door_panel', 'door_panel_angle', 'big_door_angle_level3', 'big_door_angle_level3_east']);
+  ]).flat().concat([
+    'door_panel', 'door_panel_angle', 'big_door_angle_level3', 'big_door_angle_level3_east',
+    'door_heavy_containment', 'door_panel_small',
+  ]);
   for (const asset of passageAssets) {
     assert.ok(!palette.includes(asset), `${asset} is a passage assembly, not an ordinary prop`);
   }
@@ -153,6 +160,11 @@ test('linked door configuration propagates to the other view and rejects mismatc
   const large = loaded('large', 'west', { west: { clearance: 1, big: true } });
   linkRooms([small, large]);
   assert.equal(small.data.doors.east.big, false, 'explicit camera-specific artwork is preserved');
+
+  const cells = loaded('cells', 'north', { north: { clearance: 3, style: 'heavy_containment', cell: true } }, { north: 'interior' });
+  const interior = loaded('interior', 'south', {});
+  linkRooms([cells, interior]);
+  assert.deepEqual(interior.data.doors.south, { clearance: 3 }, 'cell classification and artwork are specific to their camera');
 
   const c = loaded('c', 'east', { east: { clearance: 0 } }, { east: 'd' });
   const d = loaded('d', 'west', { west: { clearance: 1 } });
@@ -185,6 +197,14 @@ test('door configuration and missing or incomplete artwork report useful errors'
   for (const big of [null, 1, 'true', {}]) {
     await assert.rejects(load({ west: { clearance: 1, big } }), /"big" must be true or false/);
   }
+  for (const cell of [null, 1, 'true', {}]) {
+    await assert.rejects(load({ west: { clearance: 1, cell } }), /"cell" must be true or false/);
+  }
+  for (const style of [null, 1, 'other', {}]) {
+    await assert.rejects(load({ west: { clearance: 1, style } }), /"style" must be "heavy_containment"/);
+  }
+  await assert.rejects(load({ west: { clearance: 1, style: 'heavy_containment' } }), /only supports north-facing, non-big doors/);
+  assert.equal((await load({ west: { clearance: 1, cell: false } })).doors.west.cell, false);
   assert.equal((await load({ west: { clearance: 1, big: false } })).doors.west.big, false);
   await assert.rejects(load({ west: { clearance: 1, big: true } }), /needs sim_assets\/props\/big_door_angle_level1.png/);
   const bigFile = path.join(assets, 'props', 'big_door_angle_level1.png');
@@ -217,6 +237,157 @@ test('door configuration and missing or incomplete artwork report useful errors'
   await sharp({ create: { width: 96, height: 96, channels: 4, background: '#ff0000' } })
     .png().toFile(panelFile);
   await assert.rejects(load({ west: { clearance: 1 } }), /two red and two green panel frames/);
+
+  await cp('src/sim_assets/rooms/level-3-heavy-containment-room', path.join(assets, 'rooms', 'cells'), { recursive: true });
+  const cellFile = path.join(assets, 'rooms', 'cells', 'room.json');
+  const cellJson = JSON.parse(await readFile(cellFile, 'utf8'));
+  cellJson.props = [];
+  const loadCell = async (config) => {
+    cellJson.doors = { 'north-1': config };
+    await writeFile(cellFile, JSON.stringify(cellJson));
+    return loadRoom('cells', assets);
+  };
+  const cell = { clearance: 3, style: 'heavy_containment', cell: true };
+  assert.deepEqual((await loadCell(cell)).doors['north-1'], cell);
+  await assert.rejects(loadCell({ ...cell, big: true }), /only supports north-facing, non-big doors/);
+
+  const heavyFile = path.join(assets, 'props', 'door_heavy_containment.png');
+  await rm(heavyFile);
+  await assert.rejects(loadCell(cell), /needs sim_assets\/props\/door_heavy_containment.png/);
+  await cp('src/sim_assets/props/door_heavy_containment.png', heavyFile);
+  const smallPanelFile = path.join(assets, 'props', 'door_panel_small.png');
+  await rm(smallPanelFile);
+  await assert.rejects(loadCell(cell), /needs sim_assets\/props\/door_panel_small.png/);
+  await cp('src/sim_assets/props/door_panel_small.png', smallPanelFile);
+  const smallPixels = await sharp(smallPanelFile).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  smallPixels.data[((3 * 96 * smallPixels.info.width) + 96) * 4 + 3] = 255;
+  await sharp(smallPixels.data, { raw: smallPixels.info }).png().toFile(smallPanelFile);
+  await assert.rejects(loadCell(cell), /door_panel_small.png has visible artwork at \(0, 0\) in row 4, column 2, outside crop/);
+});
+
+test('all heavy containment cell doors and small panels fit their north openings', async () => {
+  const data = (await loadFacility()).find((room) => room.id === 'level-3-heavy-containment-room');
+  const room = new Room(data);
+  const world = new World({ rooms: [room], roster: [] });
+  const cells = room.doors.filter((door) => door.cell);
+  assert.deepEqual(cells.map((door) => door.id), Array.from({ length: 10 }, (_, i) => `north-${i + 1}`));
+  assert.deepEqual(room.outerDoors.map((door) => door.id), ['south']);
+  assert.deepEqual(room.linkedDoors.map((door) => door.id), ['east']);
+  for (const door of cells) {
+    const opening = data.nav.exits.find((exit) => exit.id === door.id);
+    const parts = passagePartBounds(door.side, door.appearance);
+    assert.equal(door.side, 'north');
+    assert.equal(door.appearance.clearance, 3);
+    assert.equal(door.appearance.asset, 'door_heavy_containment');
+    assert.equal(door.appearance.panelAsset, 'door_panel_small');
+    assert.deepEqual(parts.door, opening.bounds, `${door.id} fills its opening without scaling`);
+    assert.deepEqual(parts.panel, {
+      x: parts.door.x + parts.door.w + 3,
+      y: parts.door.y + 22,
+      w: 11,
+      h: 17,
+    }, `${door.id} has a centered panel to its right`);
+    assert.ok(world.passageDoorFor(door), `${door.id} has independent physical door state`);
+  }
+  assert.equal(new Set(cells.map((door) => world.passageDoorFor(door))).size, 10);
+});
+
+test('heavy containment sprites retain every pixel in their normal, unlocked and broken frames', async () => {
+  const assertFrame = (pixels, info, frame, row, column) => {
+    let total = 0;
+    let included = 0;
+    for (let y = row * 96; y < (row + 1) * 96; y++) {
+      for (let x = column * 96; x < (column + 1) * 96; x++) {
+        if (!pixels[(y * info.width + x) * 4 + 3]) continue;
+        total++;
+        if (x >= frame.x && x < frame.x + frame.w && y >= frame.y && y < frame.y + frame.h) included++;
+      }
+    }
+    assert.ok(total > 0);
+    assert.equal(included, total, `row ${row + 1}, column ${column + 1} is not clipped`);
+  };
+  const door = await sharp('src/sim_assets/props/door_heavy_containment.png').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  for (const broken of [false, true]) {
+    const frame = passageDoorFrame('north', broken, false, 'heavy_containment');
+    assert.deepEqual(frame, { x: 18, y: broken ? 212 : 20, w: 60, h: 61 });
+    assertFrame(door.data, door.info, frame, broken ? 2 : 0, 0);
+  }
+  const panel = await sharp('src/sim_assets/props/door_panel_small.png').ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  for (const [row, unlocked, broken, columns] of [[0, false, false, [0, 1]], [3, true, false, [0, 1]], [2, false, true, [0]]]) {
+    for (const column of columns) {
+      const frame = passagePanelFrame('north', unlocked, column * DOOR_PANEL_FRAME_SECONDS, broken, undefined, 'heavy_containment');
+      assert.deepEqual(frame, { x: 43 + column * 96, y: row * 96 + (unlocked ? 38 : 36), w: 11, h: 17 });
+      assertFrame(panel.data, panel.info, frame, row, column);
+      if (!broken) {
+        let colored = 0;
+        for (let y = frame.y; y < frame.y + frame.h; y++) {
+          for (let x = frame.x; x < frame.x + frame.w; x++) {
+            const i = (y * panel.info.width + x) * 4;
+            const [r, g, b, a] = panel.data.subarray(i, i + 4);
+            if (a && (unlocked ? g > r * 1.35 && g > b * 1.1 && g > 150 : r > g * 1.35 && r > b * 1.1 && r > 150)) colored++;
+          }
+        }
+        assert.ok(colored > 10, `the ${unlocked ? 'green' : 'red'} indicator is visible`);
+      }
+    }
+  }
+});
+
+test('unlinked cells open for authorized staff but are not facility entrances or exits', async (t) => {
+  const facility = await loadFacility();
+  const data = facility.find((room) => room.id === 'level-3-heavy-containment-room');
+  const isolated = new World({ rooms: [new Room(data)], roster: [] });
+  const cell = isolated.rooms[0].doors.find((door) => door.id === 'north-1');
+  const arriveByDoor = t.mock.method(isolated, 'arriveByDoor');
+  assert.ok(isolated.arrive(staff('3', 'arrival')));
+  assert.equal(arriveByDoor.mock.calls[0].arguments[2].id, 'south', 'random arrivals use the real exterior exit');
+  assert.throws(() => isolated.arriveByDoor(staff('3'), isolated.rooms[0], cell), /containment cells are not facility entrances/);
+
+  const world = new World({ rooms: facility.map((room) => new Room(room)), roster: [] });
+  const room = world.room('level-3-heavy-containment-room');
+  const door = room.doors.find((candidate) => candidate.id === 'north-1');
+  const state = world.passageDoorFor(door);
+  stay(world, staff('2', 'denied'), room, door.inside);
+  world.update(PASSAGE_DOOR_SECONDS / 2);
+  assert.equal(state.open, 0, 'staff without clearance cannot open the cell');
+  const allowed = stay(world, staff('3', 'allowed'), room, door.inside);
+  world.update(PASSAGE_DOOR_SECONDS / 2);
+  assert.equal(state.open, 0.5);
+  assert.equal(state.unlocked, true);
+  world.update(PASSAGE_DOOR_SECONDS / 2);
+  assert.equal(state.open, 1);
+  assert.equal(world.doorTowardExit(room, false, allowed).id, 'east', 'departures route toward the real connected entrance');
+  assert.match(leaveFacility(allowed, world, true)[0].activity, /Main Entrance/);
+
+  const logs = [];
+  world.hooks.log = (text) => logs.push(text);
+  const task = exitThroughDoor(door);
+  task.start(allowed, world);
+  assert.equal(task.update(allowed, world, 1), true);
+  assert.equal(allowed.removed, false);
+  assert.equal(allowed.leaving, false);
+  assert.ok(logs.some((text) => text.includes('no cell room is connected')));
+  world.transfer(allowed, door);
+  assert.equal(allowed.removed, false, 'direct transfer cannot remove someone through an unlinked cell');
+  assert.equal(allowed.alpha, 1);
+});
+
+test('a containment cell becomes traversable when its interior is linked', () => {
+  const outsideData = roomData('outside', 3, 'north', 3, { room: 'interior', door: 'south' });
+  outsideData.doors.north = { clearance: 3, style: 'heavy_containment', cell: true };
+  const insideData = roomData('interior', 3, 'south', 3, { room: 'outside', door: 'north' });
+  const outside = new Room(outsideData);
+  const inside = new Room(insideData);
+  const world = new World({ rooms: [outside, inside], roster: [] });
+  const door = outside.doors[0];
+  assert.deepEqual(outside.outerDoors, []);
+  assert.deepEqual(outside.linkedDoors, [door]);
+  assert.equal(world.passageDoorFor(door), world.passageDoorFor(inside.doors[0]));
+  assert.throws(() => world.arriveByDoor(staff('3'), outside, door), /not facility entrances/);
+  const agent = stay(world, staff('3'), outside, door.inside);
+  agent.setPlan(world, [exitThroughDoor(door)]);
+  for (let i = 0; i < 200 && agent.room === outside; i++) world.update(0.1);
+  assert.equal(agent.room, inside);
 });
 
 test('door artwork aligns with openings and offsets move the door and panel independently', () => {
@@ -820,7 +991,11 @@ test('a doorless passage still transfers without waiting for a physical door', (
   assert.equal(agent.room, b);
 });
 
-for (const big of [false, true]) for (const side of ['north', 'south', 'west', 'east']) test(`${side} ${big ? 'big ' : ''}renderer slides the door and selects the panel state`, (t) => {
+const renderingCases = [false, true].flatMap((big) =>
+  ['north', 'south', 'west', 'east'].map((side) => ({ side, big })))
+  .concat([{ side: 'north', big: false, style: 'heavy_containment' }]);
+
+for (const { side, big, style } of renderingCases) test(`${side} ${style ? 'heavy containment ' : big ? 'big ' : ''}renderer slides the door and selects the panel state`, (t) => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
   t.after(() => {
     if (original) Object.defineProperty(globalThis, 'document', original);
@@ -886,6 +1061,7 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   });
   const data = roomData('entry', 0, side, 0);
   data.doors[side].big = big;
+  if (style) data.doors[side].style = style;
   const room = new Room(data);
   const world = new World({ rooms: [room], roster: [] });
   const door = room.doors[0];
@@ -899,9 +1075,9 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   }, room);
   const mask = canvases.find((candidate) => candidate.width === 96 && candidate.height === 96);
   renderer.draw(world, new Map());
-  const frame = passageDoorFrame(side, false, big);
+  const frame = passageDoorFrame(side, false, big, style);
   const sideWall = side === 'west' || side === 'east';
-  const panelFrame = passagePanelFrame(side, false, 0);
+  const panelFrame = passagePanelFrame(side, false, 0, false, undefined, style);
   const doorIndex = canvas.draws.findIndex((draw) => draw[0] === mask);
   const panelIndex = canvas.draws.findIndex((draw) => draw[0] === panel);
   const characterIndex = canvas.draws.findIndex((draw) => draw[0] === renderer.sheet(1).normal);
@@ -923,8 +1099,8 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   assert.equal(canvas.drawFlips[canvas.draws.findIndex((draw) => draw[0] === mask)], false, 'door artwork is never mirrored');
   assert.equal(canvas.drawFlips[canvas.draws.findIndex((draw) => draw[0] === panel)], side === 'east', 'only the east panel is mirrored');
   assert.deepEqual(canvas.gradientCenters[0], [
-    door.appearance.panel.x + (sideWall ? side === 'east' ? 9 : 8 : 9.5),
-    door.appearance.panel.y + (sideWall ? 17 : 9.5),
+    door.appearance.panel.x + (style ? 5.5 : sideWall ? side === 'east' ? 9 : 8 : 9.5),
+    door.appearance.panel.y + (style ? 5 : sideWall ? 17 : 9.5),
   ], 'the indicator glow follows the panel orientation');
   assert.ok(canvas.gradients[0][0][1].includes('255, 35, 65'), 'locked panel glows red');
   assert.equal(canvas.gradientRadii[0], 12, 'lit rooms keep the small indicator glow');
@@ -935,7 +1111,8 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   world.time = DOOR_PANEL_FRAME_SECONDS;
   renderer.draw(world, new Map());
   assert.equal(mask.draws[2][6], -Math.round(frame.h / 2), 'half-open door slides upward');
-  assert.deepEqual(canvas.draws.filter((draw) => draw[0] === panel).at(-1).slice(1, 5), [135, sideWall ? 288 : 302, panelFrame.w, panelFrame.h]);
+  const greenFrame = passagePanelFrame(side, true, DOOR_PANEL_FRAME_SECONDS, false, undefined, style);
+  assert.deepEqual(canvas.draws.filter((draw) => draw[0] === panel).at(-1).slice(1, 5), [greenFrame.x, greenFrame.y, greenFrame.w, greenFrame.h]);
   assert.ok(canvas.gradients.at(-1)[0][1].includes('40, 255, 115'), 'unlocked panel glows green');
 
   Object.defineProperty(room, 'darkness', { configurable: true, value: 1 });
@@ -973,13 +1150,14 @@ for (const big of [false, true]) for (const side of ['north', 'south', 'west', '
   state.breakPanel();
   const glows = canvas.gradients.length;
   renderer.draw(world, new Map());
-  assert.deepEqual(canvas.draws.filter((draw) => draw[0] === panel).at(-1).slice(1, 5), [39, sideWall ? 192 : 206, panelFrame.w, panelFrame.h]);
+  const brokenPanelFrame = passagePanelFrame(side, false, 0, true, undefined, style);
+  assert.deepEqual(canvas.draws.filter((draw) => draw[0] === panel).at(-1).slice(1, 5), [brokenPanelFrame.x, brokenPanelFrame.y, brokenPanelFrame.w, brokenPanelFrame.h]);
   assert.equal(canvas.gradients.length, glows, 'a broken panel does not emit a working indicator glow');
   assert.equal(mask.draws.at(-2)[6], -Math.round(frame.h / 2), 'panel damage preserves the door position');
 
   state.break();
   renderer.draw(world, new Map());
-  const brokenFrame = passageDoorFrame(side, true, big);
+  const brokenFrame = passageDoorFrame(side, true, big, style);
   assert.deepEqual(mask.draws.at(-2), [image, brokenFrame.x, brokenFrame.y, frame.w, frame.h, 0, -0, frame.w, frame.h]);
   assert.equal(canvas.drawFlips[canvas.draws.findLastIndex((draw) => draw[0] === mask)], false, 'broken artwork is not mirrored');
 });
@@ -1200,4 +1378,33 @@ test('debug editor selects passage doors and panels and breaks or repairs them l
   editor.pointerDown({ x: 70, y: 99 });
   assert.equal(editor.selectedDoor, null);
   assert.ok(changes.length > 0);
+});
+
+test('the editor and panel sparks use the small containment artwork bounds', async () => {
+  const room = new Room(await loadRoom('level-3-heavy-containment-room'));
+  const world = new World({ rooms: [room], roster: [] });
+  const door = room.doors.find((candidate) => candidate.id === 'north-1');
+  const state = world.passageDoorFor(door);
+  const bounds = passagePartBounds(door.side, door.appearance);
+  const center = (rect) => ({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
+  const editor = new PropEditor({}, room, () => {}, (selected) => world.passageDoorFor(selected));
+
+  editor.pointerDown(center(bounds.panel));
+  assert.deepEqual([editor.selectedDoor?.door, editor.selectedDoor?.part], [door, 'panel']);
+  editor.toggleBroken();
+  assert.equal(state.panelBroken, true);
+  world.update(0);
+  const sparks = world.particles.in(room);
+  assert.ok(sparks.length > 0);
+  assert.ok(sparks.every((particle) => particle.x >= bounds.panel.x && particle.x <= bounds.panel.x + bounds.panel.w
+    && particle.y >= bounds.panel.y && particle.y <= bounds.panel.y + bounds.panel.h));
+  editor.toggleBroken();
+  assert.equal(state.panelBroken, false);
+
+  editor.pointerDown(center(bounds.door));
+  assert.deepEqual([editor.selectedDoor?.door, editor.selectedDoor?.part], [door, 'door']);
+  editor.toggleBroken();
+  assert.equal(state.broken, true);
+  editor.toggleBroken();
+  assert.equal(state.broken, false);
 });

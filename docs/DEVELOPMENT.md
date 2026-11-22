@@ -896,8 +896,9 @@ The short form (`"west": "level-1-pipe-room"`) comes out of the other room's opp
 door (`east` for `west`, `south` for `north`), or its only door. Use the long form for
 numbered doors or anything else. A connection only needs to be written in one of the
 two rooms; the way back is added automatically, and the build stops if the two rooms
-disagree. Doors without an exit lead off camera to the rest of the facility, so people
-still arrive and leave through them (as they do through elevators).
+disagree. Doors without an exit normally lead off camera to the rest of the facility, so
+people still arrive and leave through them (as they do through elevators). A
+door marked `"cell": true` is an exception, as described below.
 
 People step into north doors facing away from the camera and walk out of the picture
 through south doors facing it, using the back and front walking animations.
@@ -919,7 +920,7 @@ door to its id:
 ```
 
 `clearance` is a non-negative whole number and selects both the access requirement
-and the numbered door artwork. The door and panel are positioned from the nav-map
+and, by default, the numbered door artwork. The door and panel are positioned from the nav-map
 opening; the optional whole-pixel `offset` moves both, while `panelOffset` moves only
 the panel. Set `"big": true` to use a door sheet with 192x192 cells and larger
 door crops; the panel remains normal-sized. Panels sit on an approaching character's right: screen-right on north and
@@ -928,10 +929,26 @@ and their sprites are mirrored automatically on east walls. The debug prop edito
 does not edit these passage assemblies, but it can break and repair them live
 (see [Placing Props and Items With the Editor](#placing-props-and-items-with-the-editor)).
 
+For a north-facing heavy containment cell, configure its blue opening as:
+
+```json
+"north-1": { "clearance": 3, "style": "heavy_containment", "cell": true }
+```
+
+The style uses `door_heavy_containment.png` and `door_panel_small.png` instead of
+the numbered artwork, without changing clearance or door behavior. It supports
+north-facing normal-size doors only. The small panel sits to the right, vertically
+centered alongside the door. The `cell` flag is independent of the style: an
+unlinked cell is not a facility entrance or exit, so staff cannot arrive or depart
+through it. Authorized staff nearby can still open it, and its door and panel can
+break and be repaired. Once linked to an on-camera cell room, it can be traversed
+like any other connected passage.
+
 For connected rooms, configuring either side creates a matching door on the other
 camera and both views share one lock and animation. If both rooms configure it,
-their clearance must match, but their size and offsets can differ per camera.
-An automatically created counterpart inherits `big` as well as clearance.
+their clearance must match, but their size, style, cell designation and offsets
+can differ per camera. An automatically created counterpart inherits `big` as
+well as clearance, but not the camera-specific style or cell designation.
 Remove the entries on both
 sides to make the connected passage doorless again. Off-camera passages may also
 have doors. Every current facility passage on Levels 0 through 5 has a physical
@@ -992,6 +1009,9 @@ in the third 192px row. They slide at their native size, without scaling down.
 The loader checks that every visible pixel in the closed and broken door cells
 falls inside the configured crop; update the layout metadata when adding artwork
 with different bounds.
+Heavy containment doors use a `(18, 20, 60, 61)` crop in each 96px cell. Their
+small panels use `(43, 36, 11, 17)` for red and broken frames and
+`(43, 38, 11, 17)` for green frames; the loader also checks these panel crops.
 Add the numbered door sheets for another
 clearance before configuring it; missing or incomplete artwork is reported at build
 time.

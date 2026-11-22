@@ -4,7 +4,7 @@
   "camera": "CAM 3-01",
   "elevators": { "shaft": "main", "big": true },
   "exits": {
-    "west": { "room": "level-3-containment-room" }
+    "west": { "room": "level-3-heavy-containment-room" }
   },
   "doors": {
     "west": { "clearance": 3, "big": true },
