@@ -231,7 +231,7 @@ export function initMonitor(root: HTMLElement): () => void {
       const level = Number(button.dataset.monitorLevel);
       const count = button.querySelector('[data-monitor-level-count]');
       if (count) count.textContent = String(world.agents.filter((agent) => agent.room.level === level).length +
-        world.creatures.filter((creature) => !creature.away && creature.room.level === level).length);
+        world.creatures.filter((creature) => creature.onCamera && creature.room.level === level).length);
     }
   };
 

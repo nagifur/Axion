@@ -443,7 +443,7 @@ export class Renderer {
   }
 
   isVisible(agent: CameraActor, world: World) {
-    if (agent instanceof Creature) return !agent.away && agent.room === this.room;
+    if (agent instanceof Creature) return agent.onCamera && agent.room === this.room && agent.alpha >= 0.3;
     if (agent.held || agent.room !== this.room || agent.alpha < 0.3) return false;
     return agent.layer === 'room' || (world.elevatorFor(this.room)?.open ?? 0) > 0.4;
   }
@@ -473,7 +473,7 @@ export class Renderer {
     const image = !creature && (agent.eyeFlash > 0 || agent.revealed) ? sheet.redEye : sheet.normal;
 
     ctx.save();
-    ctx.globalAlpha = creature ? 1 : agent.alpha * (agent.ghost ? 0.55 : 1);
+    ctx.globalAlpha = creature ? agent.alpha : agent.alpha * (agent.ghost ? 0.55 : 1);
 
     if (creature || agent.layer === 'room') {
       const width = Math.max(6, Math.round(14 * agent.character.scale));

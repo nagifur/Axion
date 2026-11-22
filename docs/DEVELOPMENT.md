@@ -478,9 +478,22 @@ including during elevator rides. It returns to that cell when the event agent le
 Residents [pace, watch, and rest](../src/lib/sim/creature.ts) on their cell's
 walkable floor, even off camera. They count for lights and camera occupancy;
 select their sprites or name tags to see their activity and entity database link.
-They cannot be dragged, take staff jobs, or use doors and elevators. Cells do not
+They cannot be dragged, take staff jobs, or use elevators. Cells do not
 count towards staff population or serve as initial spawn or work rooms, though
 staff can still visit through linked doors.
+
+Creatures watch their cell's physical doors. Each time one swings fully open
+(cleared staff walking past, or stuck open after a power cut), the resident rolls
+once to dash for it: `ESCAPE_CHANCE` gives Maximum Containment (M) creatures a 40%
+chance, Containment (C, also used for unknown classes such as Unassigned) 6%, and
+Safe (S) 3%. A door that is still at least half open can be squeezed through, and a
+creature in the doorway keeps it from closing; if it shuts first, the creature gives
+up after two seconds. Once out, a loose creature keeps its cell reservation and roams
+any room on camera through passable doors (open archways, or doors at least half
+open), never entering a cell. Leaving through an off-camera exit makes it
+`escaped`: it is on no camera and only `World.recontain(creature)` brings it back.
+That hook is meant for future security teams; it also returns loose creatures still
+on camera. A loose shapeshifter is not chosen for impostor events.
 
 [`creature_spritesheet.png`](../src/sim_assets/creatures/creature_spritesheet.png)
 uses the same 96×96, bottom-centred frame grid as the staff sheet. Empty movement

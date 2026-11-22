@@ -79,9 +79,9 @@ export class PassageNetwork {
         }
       }
       this.users.set(state, users);
-      const occupied = world.agents.some((agent) =>
-        !agent.removed && !agent.held && agent.layer === 'room' && agent.alpha < 1 &&
-        endpoints.some(({ room, door }) => agent.room === room && distanceToDoorway(agent, door) <= DOORWAY_OCCUPIED));
+      const occupied = [...world.agents.filter((agent) => !agent.removed && !agent.held && agent.layer === 'room'),
+        ...world.creatures.filter((creature) => creature.onCamera)].some((body) => body.alpha < 1 &&
+        endpoints.some(({ room, door }) => body.room === room && distanceToDoorway(body, door) <= DOORWAY_OCCUPIED));
       state.update(users.size > 0, dt, occupied);
     }
   }

@@ -73,7 +73,10 @@ export class EventDirector {
     if (!victims.length) return false;
 
     const victim = pick(victims).character;
-    const impostor = weightedPick(this.impostors)!;
+    // A creature that broke out is already loose; it can't also walk in disguised.
+    const impostor = weightedPick(this.impostors.filter((candidate) =>
+      world.creatures.every((creature) => creature.character.id !== candidate.id || creature.contained)));
+    if (!impostor) return false;
 
     const agent = world.arrive(victim, impostor);
     if (!agent) return false;

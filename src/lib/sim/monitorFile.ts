@@ -38,7 +38,7 @@ export class MonitorFile {
     const twin = agent ? hasTwin(world, agent) : false;
     const onScreen = actor?.room === viewed;
     const period = agent ? scheduleFor(agent.character, world.now()) : 'free';
-    const key = creature ? `resident|${creature.character.id}|${onScreen}|${creature.away}` :
+    const key = creature ? `resident|${creature.character.id}|${onScreen}|${creature.away}|${creature.escaped}|${creature.room.id}` :
       agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}|${agent.inventory.map((item) => item.type).join(',')}` : '';
     if (key === this.key) {
       if (actor && this.activityNode) this.activityNode.textContent = agent?.removed ? 'Off camera' : actor.activity;
@@ -69,7 +69,7 @@ export class MonitorFile {
     }
     const titleBlock = el('div', 'monitor-file-title');
     titleBlock.append(
-      el('p', 'panel-kicker', creature ? 'Entity file · Cell resident' : revealed ? 'Entity file · Escaped' : `Personnel file · ID ${agent!.character.employeeID}`),
+      el('p', 'panel-kicker', creature ? `Entity file · ${creature.contained || creature.away ? 'Cell resident' : 'Containment breach'}` : revealed ? 'Entity file · Escaped' : `Personnel file · ID ${agent!.character.employeeID}`),
       el('h3', undefined, entity ? `${entity.name} "${entity.nickname}"` : character.name),
       el('p', 'monitor-file-role', creature ? `${creature.character.containmentClass} class` :
         revealed ? `Shapeshifter posing as ${character.name}` : agent!.character.position),
@@ -103,8 +103,11 @@ export class MonitorFile {
       }
       this.updateStats(agent);
     }
-    if (!agent?.removed) {
-      const location = stat(creature ? 'Assigned cell' : 'Location', `${actor.room.name} · ${actor.room.camera}`);
+    const loose = creature && !creature.contained && !creature.away;
+    if (loose) stat('Assigned cell', `${creature.home.name} · ${creature.home.camera}`);
+    if (creature?.escaped) stat('Location', 'Outside the facility');
+    else if (!agent?.removed) {
+      const location = stat(creature && !loose ? 'Assigned cell' : 'Location', `${actor.room.name} · ${actor.room.camera}`);
       if (!onScreen) {
         const jump = el('button', 'monitor-file-jump', `View ${actor.room.camera} →`);
         jump.type = 'button';

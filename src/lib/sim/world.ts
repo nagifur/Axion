@@ -193,14 +193,21 @@ export class World {
     return this.agents.filter((agent) => agent.room === room);
   }
 
-  residentIn(room: Room) {
-    return room.cell && this.creatures.find((creature) => creature.room === room && !creature.away);
+  /** Creatures physically in `room`: a cell's resident, or any that broke out and roamed here. */
+  creaturesIn(room: Room) {
+    return this.creatures.filter((creature) => creature.onCamera && creature.room === room);
   }
 
   actorsIn(room: Room): CameraActor[] {
-    const resident = this.residentIn(room);
-    const agents = this.agentsIn(room);
-    return resident ? [...agents, resident] : agents;
+    return [...this.agentsIn(room), ...this.creaturesIn(room)];
+  }
+
+  /** Returns a creature that broke out to its cell (the hook for security teams to recapture it). */
+  recontain(creature: Creature) {
+    if (creature.contained) return;
+    const from = creature.escaped ? 'outside the facility' : `the ${creature.room.name}`;
+    creature.returnHome();
+    this.log(`Containment restored: ${creature.character.name} was returned to ${creature.home.name} from ${from}.`, 'ok');
   }
 
   freeSpot(room: Room, kind: Spot['kind'], agent?: Agent): Spot | undefined {
@@ -248,7 +255,7 @@ export class World {
     this.agents.push(agent);
     if (impostor) {
       const resident = this.creatures.find((creature) => creature.character.id === impostor.id);
-      if (resident) resident.away = true;
+      if (resident?.contained) resident.away = true;
     }
     return agent;
   }
@@ -410,7 +417,7 @@ export class World {
     const { room } = agent;
 
     if (agent.impostor) {
-      const resident = this.creatures.find((creature) => creature.character.id === agent.impostor!.id);
+      const resident = this.creatures.find((creature) => creature.character.id === agent.impostor!.id && creature.away);
       if (resident) {
         resident.away = false;
         this.log(`Containment restored: ${resident.character.name} is back in ${resident.room.name}.`, 'ok');
@@ -529,9 +536,9 @@ export class World {
       if (dt > 0 && agent.moving && agent.room === room) checkElectricalApproach(agent, this, from);
     }
 
-    for (const creature of this.creatures) creature.update(dt);
+    for (const creature of this.creatures) creature.update(this, dt);
     for (const room of this.rooms) {
-      room.updateLights(!!this.residentIn(room) || this.agentsIn(room).length > 0, dt);
+      room.updateLights(this.actorsIn(room).length > 0, dt);
       for (const prop of room.props) {
         prop.updateFlicker(dt);
         const breaks = prop.takeBreaks();
