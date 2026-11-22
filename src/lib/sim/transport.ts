@@ -54,8 +54,8 @@ export function rideElevatorOut(destination?: Room): Task {
       return false;
     },
     end(agent) {
-      // Plans changed before boarding (e.g. an impostor was unmasked): let the car go without them.
-      if (request && !request.ready) {
+      // Replacing a departure after boarding must still remove the rider from the car's request.
+      if (request) {
         request.cancelled = true;
         agent.layer = 'room';
       }

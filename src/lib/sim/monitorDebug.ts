@@ -3,6 +3,7 @@ import type { EventDirector } from './events.ts';
 import { nap, trip } from './tasks.ts';
 import type { LogTone, World } from './world.ts';
 import type { Room } from './room.ts';
+import type { EventListeners } from './monitorDom.ts';
 
 /** What the debug buttons (shown with ?debug) can poke at. */
 export interface DebugControls {
@@ -30,7 +31,7 @@ const TIME_PRESETS: { label: string; hour?: number; minute?: number }[] = [
   { label: '02:00 Night', hour: 2, minute: 0 },
 ];
 
-export function bindDebugPanel(panel: HTMLElement, controls: DebugControls): () => void {
+export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, listeners?: EventListeners): () => void {
   const { world, director, log } = controls;
   panel.hidden = false;
   // Debug actions pick someone on the camera being watched.
@@ -101,9 +102,11 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls): () 
     'event-start': () => changeEvent(true),
     'event-stop': () => changeEvent(false),
   };
-  panel.addEventListener('click', (event) => {
+  const onClick = (event: MouseEvent) => {
     const action = (event.target as HTMLElement).closest<HTMLElement>('[data-debug]')?.dataset.debug;
     if (action) actions[action]?.();
-  });
+  };
+  if (listeners) listeners.listen(panel, 'click', onClick);
+  else panel.addEventListener('click', onClick);
   return refreshEvents;
 }

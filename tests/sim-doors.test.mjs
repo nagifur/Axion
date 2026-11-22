@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import { wait } from '../src/lib/sim/tasks.ts';
-import { enterThroughDoor, exitThroughDoor, leaveFacility } from '../src/lib/sim/transport.ts';
+import { enterThroughDoor, exitThroughDoor, leaveFacility, rideElevatorOut } from '../src/lib/sim/transport.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
 import {
   DOOR_PANEL_FRAME_SECONDS, PASSAGE_DOOR_HOLD_SECONDS, PASSAGE_DOOR_RANGE, PASSAGE_DOOR_SECONDS,
@@ -1007,6 +1007,32 @@ test('an elevator arrival redirected before its first update can open an exit do
   assert.equal(elevator.busy, false, 'the unstarted elevator request was cancelled');
   for (let i = 0; i < 600 && !agent.removed; i++) world.update(0.1);
   assert.equal(agent.removed, true);
+});
+
+test('replacing a boarded elevator departure cancels the rider', async () => {
+  const room = new Room(await loadRoom('level-0-main-entrance'));
+  const destination = new Room(await loadRoom('level-3-main-entrance'));
+  const world = new World({ rooms: [room, destination], roster: [] });
+  const impostor = { id: 'fake', name: 'Fake', nickname: '', href: '', weight: 1 };
+  const agent = world.spawn(staff('1'), room, room.elevator.front, impostor);
+  const elevator = world.elevatorFor(room);
+  let departure;
+  const request = elevator.request.bind(elevator);
+  elevator.request = (...args) => {
+    const result = request(...args);
+    if (args[0] === 'depart') departure = result;
+    return result;
+  };
+  agent.setPlan(world, [rideElevatorOut(destination)]);
+  for (let i = 0; i < 1000 && !departure?.ready; i++) world.update(0.1);
+  assert.ok(departure?.ready, 'the rider has boarded');
+
+  assert.equal(world.interact(agent), 'revealed');
+  assert.equal(departure.cancelled, true);
+  assert.equal(agent.layer, 'room');
+  for (let i = 0; i < 100 && elevator.busy; i++) world.update(0.1);
+  assert.equal(world.isRiding(agent), false);
+  assert.equal(agent.room, room, 'the cancelled request cannot take the unmasked rider away');
 });
 
 test('a doorless passage still transfers without waiting for a physical door', () => {

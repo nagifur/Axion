@@ -30,8 +30,16 @@ export function maybePick<T>(items: readonly T[]): T | undefined {
 }
 
 export function weightedPick<T extends { weight: number }>(items: readonly T[]): T | undefined {
-  let roll = random() * items.reduce((sum, item) => sum + item.weight, 0);
-  return items.find((item) => (roll -= item.weight) <= 0) ?? items.at(-1);
+  const total = items.reduce((sum, item) => sum + (Number.isFinite(item.weight) ? Math.max(0, item.weight) : 0), 0);
+  if (total <= 0) return undefined;
+  let roll = random() * total;
+  for (const item of items) {
+    const weight = Number.isFinite(item.weight) ? Math.max(0, item.weight) : 0;
+    if (weight === 0) continue;
+    if (roll <= weight) return item;
+    roll -= weight;
+  }
+  return undefined;
 }
 
 /** Small, fast deterministic generator (mulberry32). */

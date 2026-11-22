@@ -188,6 +188,12 @@ export class Room {
    * Prop objects keep their current state.
    */
   setProps(props: PlacedProp[]) {
+    const previousSpots = new Map<Prop, Spot[]>();
+    for (const spot of this.spots) {
+      const spots = previousSpots.get(spot.prop) ?? [];
+      spots.push(spot);
+      previousSpots.set(spot.prop, spots);
+    }
     this.props = props.map((prop) => (prop instanceof Prop ? prop : new Prop(prop)));
     this.spots.length = 0;
     this.blocked.length = 0;
@@ -199,15 +205,23 @@ export class Room {
         this.blocked.push({ ...rect, x: prop.x + rect.x, y: prop.y + rect.y });
       }
       type?.seats?.forEach((seat, seatIndex) => {
-        this.spots.push({
+        const spot = previousSpots.get(prop)?.[seatIndex] ?? {
           id: `${prop.type}-${propIndex}-${seatIndex}`,
           kind: prop.type,
           prop,
-          x: prop.x + (prop.flip ? prop.w - 1 - seat.x : seat.x),
-          y: prop.y + seat.y,
-          facing: prop.flip ? FLIPPED[seat.facing] : seat.facing,
-          propDepth: prop.y + prop.h,
-        });
+          x: 0,
+          y: 0,
+          facing: seat.facing,
+          propDepth: 0,
+        };
+        spot.id = `${prop.type}-${propIndex}-${seatIndex}`;
+        spot.kind = prop.type;
+        spot.prop = prop;
+        spot.x = prop.x + (prop.flip ? prop.w - 1 - seat.x : seat.x);
+        spot.y = prop.y + seat.y;
+        spot.facing = prop.flip ? FLIPPED[seat.facing] : seat.facing;
+        spot.propDepth = prop.y + prop.h;
+        this.spots.push(spot);
       });
     });
     this.grid = new NavGrid(this.width, this.height, GRID_CELL, (point) => this.isWalkable(point),

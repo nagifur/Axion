@@ -291,7 +291,7 @@ export class Agent {
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const distance = Math.hypot(dx, dy);
-    const step = BASE_SPEED * this.character.behavior.speed * speedMul * Math.max(0, dt);
+    const step = this.movementSpeed(speedMul) * Math.max(0, dt);
     const travelled = Math.min(step, distance);
     if (travelled > 0) {
       this.walkDistance += travelled;
@@ -306,6 +306,10 @@ export class Agent {
     this.x += (dx / distance) * step;
     this.y += (dy / distance) * step;
     return false;
+  }
+
+  movementSpeed(speedMul = 1): number {
+    return BASE_SPEED * this.character.behavior.speed * speedMul;
   }
 
   update(world: World, dt: number, blockedSeconds = 0) {

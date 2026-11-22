@@ -63,6 +63,7 @@ export class PropEditor {
   /** Original room layouts, for change detection and reset. */
   private readonly original = new Map<Room, Prop[]>();
   private readonly originalItems = new Map<Room, Item[]>();
+  private readonly authoredItems = new Map<Room, Set<Item>>();
   private readonly assets: Assets;
   private readonly onChange: () => void;
   private readonly doorState: (door: Door) => PassageDoor | undefined;
@@ -78,7 +79,10 @@ export class PropEditor {
 
   setRoom(room: Room) {
     if (!this.original.has(room)) this.original.set(room, clone(room.props));
-    if (!this.originalItems.has(room)) this.originalItems.set(room, room.items.map((item) => new Item(item.toData())));
+    if (!this.originalItems.has(room)) {
+      this.originalItems.set(room, room.items.map((item) => new Item(item.toData())));
+      this.authoredItems.set(room, new Set(room.items));
+    }
     this.room = room;
     this.selected = null;
     this.selectedDoor = null;
@@ -90,12 +94,14 @@ export class PropEditor {
   isEdited(room = this.room) {
     const original = this.original.get(room);
     const items = this.originalItems.get(room);
+    const authoredItems = this.authoredItems.get(room);
     return !!original && (propsSnippet(original) !== propsSnippet(room.props) ||
-      itemsSnippet(items ?? []) !== itemsSnippet(room.items));
+      itemsSnippet(items ?? []) !== itemsSnippet(room.items.filter((item) => authoredItems?.has(item))));
   }
 
   snippet() {
-    return `${propsSnippet(this.room.props)},\n${itemsSnippet(this.room.items)}`;
+    const authoredItems = this.authoredItems.get(this.room);
+    return `${propsSnippet(this.room.props)},\n${itemsSnippet(this.room.items.filter((item) => authoredItems?.has(item)))}`;
   }
 
   /** Puts the room back the way room.json has it. */
@@ -103,7 +109,11 @@ export class PropEditor {
     const original = this.original.get(this.room);
     if (!original) return;
     this.room.setProps(clone(original));
-    this.room.items = (this.originalItems.get(this.room) ?? []).map((item) => new Item(item.toData()));
+    const authoredItems = this.authoredItems.get(this.room);
+    const runtimeItems = this.room.items.filter((item) => !authoredItems?.has(item));
+    const restoredItems = (this.originalItems.get(this.room) ?? []).map((item) => new Item(item.toData()));
+    this.room.items = [...runtimeItems, ...restoredItems];
+    this.authoredItems.set(this.room, new Set(restoredItems));
     this.selected = null;
     this.selectedDoor = null;
     this.placing = null;
@@ -147,7 +157,10 @@ export class PropEditor {
 
   remove() {
     if (!this.selected) return;
-    if (this.selected instanceof Item) this.room.items = this.room.items.filter((item) => item !== this.selected);
+    if (this.selected instanceof Item) {
+      this.room.items = this.room.items.filter((item) => item !== this.selected);
+      this.authoredItems.get(this.room)?.delete(this.selected);
+    }
     else this.room.props = this.room.props.filter((prop) => prop !== this.selected);
     this.selected = null;
     this.commit();
@@ -165,7 +178,10 @@ export class PropEditor {
       // Same whole-pixel position as the preview that followed the cursor.
       const data = this.ghost(this.placing, { x: Math.floor(point.x), y: Math.floor(point.y) });
       const prop = this.placing.startsWith('item:') ? new Item(data) : new Prop(data);
-      if (prop instanceof Item) this.room.items.push(prop);
+      if (prop instanceof Item) {
+        this.room.items.push(prop);
+        this.authoredItems.get(this.room)?.add(prop);
+      }
       else this.room.props = [...this.room.props, prop];
       this.selected = prop;
       this.selectedDoor = null;

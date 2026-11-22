@@ -4,7 +4,7 @@ import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, EventDirector } from './events.ts';
 import { bindDebugPanel } from './monitorDebug.ts';
 import { bindMonitorDiagnostics, diagnosticError, type MonitorDiagnostics } from './monitorDiagnostics.ts';
-import { clock, el } from './monitorDom.ts';
+import { clock, el, EventListeners } from './monitorDom.ts';
 import { EditorPanel } from './monitorEditor.ts';
 import { MonitorFile } from './monitorFile.ts';
 import { loadProgress, saveProgress } from './monitorProgress.ts';
@@ -88,6 +88,7 @@ function bootMonitor(
   const dragStatus = root.querySelector<HTMLElement>('[data-monitor-drag-status]');
   const carry = root.querySelector<HTMLElement>('[data-monitor-carry]');
   const inputSurface = stage ?? canvas;
+  const listeners = new EventListeners();
   const camTitle = root.querySelector<HTMLElement>('[data-monitor-cam-title]');
   const cameraButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-camera]')];
   const levelButtons = [...root.querySelectorAll<HTMLButtonElement>('[data-monitor-level]')];
@@ -252,7 +253,7 @@ function bootMonitor(
     const room = id && world.room(id);
     if (room) switchCamera(room);
   };
-  for (const button of cameraButtons) button.addEventListener('click', onCameraClick);
+  for (const button of cameraButtons) listeners.listen(button, 'click', onCameraClick);
 
   // Changing floor shows the camera last watched there, else the one on the same elevator shaft
   // as the current camera (so "down" from the Offices lands in the room below), else the first one.
@@ -265,7 +266,7 @@ function bootMonitor(
     const target = cameraOnLevel(Number((event.currentTarget as HTMLElement).dataset.monitorLevel));
     if (target) switchCamera(target);
   };
-  for (const button of levelButtons) button.addEventListener('click', onLevelClick);
+  for (const button of levelButtons) listeners.listen(button, 'click', onLevelClick);
 
   const updateCameraCounts = () => {
     for (const button of cameraButtons) {
@@ -514,22 +515,22 @@ function bootMonitor(
     if (!editor?.active || target?.closest('input, textarea')) return;
     if (editor.key(event)) event.preventDefault();
   };
-  inputSurface.addEventListener('pointermove', onPointerMove);
-  inputSurface.addEventListener('pointerleave', onPointerLeave);
-  inputSurface.addEventListener('click', onClick, true);
-  inputSurface.addEventListener('pointerdown', onPointerDown);
-  inputSurface.addEventListener('pointerup', onPointerUp);
-  inputSurface.addEventListener('pointercancel', onPointerCancel);
-  inputSurface.addEventListener('lostpointercapture', onPointerCancel);
-  window.addEventListener('blur', onPointerCancel);
-  window.addEventListener('keydown', onKeyDown);
+  listeners.listen(inputSurface, 'pointermove', onPointerMove);
+  listeners.listen(inputSurface, 'pointerleave', onPointerLeave);
+  listeners.listen(inputSurface, 'click', onClick, true);
+  listeners.listen(inputSurface, 'pointerdown', onPointerDown);
+  listeners.listen(inputSurface, 'pointerup', onPointerUp);
+  listeners.listen(inputSurface, 'pointercancel', onPointerCancel);
+  listeners.listen(inputSurface, 'lostpointercapture', onPointerCancel);
+  listeners.listen(window, 'blur', onPointerCancel);
+  listeners.listen(window, 'keydown', onKeyDown);
 
-  tagsToggle?.addEventListener('click', () => {
+  if (tagsToggle) listeners.listen(tagsToggle, 'click', () => {
     showAllTags = !showAllTags;
     tagsToggle.setAttribute('aria-pressed', String(showAllTags));
     tagsToggle.textContent = showAllTags ? 'Name tags: On' : 'Name tags: Hover';
   });
-  pauseToggle?.addEventListener('click', () => {
+  if (pauseToggle) listeners.listen(pauseToggle, 'click', () => {
     paused = !paused;
     diagnostics.record('pause', String(paused));
     pauseToggle.setAttribute('aria-pressed', String(paused));
@@ -574,7 +575,7 @@ function bootMonitor(
         saveProgress(progress);
         renderAchievements();
       },
-    });
+    }, listeners);
   }
 
   // --- Clock & status ------------------------------------------------------
@@ -632,7 +633,7 @@ function bootMonitor(
     lastFrameCompleted = last;
     stalled = false;
   };
-  document.addEventListener('visibilitychange', onVisibility);
+  listeners.listen(document, 'visibilitychange', onVisibility);
   const watchdogTimer = window.setInterval(() => {
     if (disposed || failed || !renderer || document.hidden || stalled) return;
     if (performance.now() - lastFrameCompleted > 5000) {
@@ -739,21 +740,10 @@ function bootMonitor(
     cancelAnimationFrame(raf);
     window.clearInterval(clockTimer);
     window.clearInterval(watchdogTimer);
-    document.removeEventListener('visibilitychange', onVisibility);
+    listeners.dispose();
     window.clearTimeout(toastTimer);
     window.clearTimeout(staticTimer);
     editorPanel.dispose();
     resizeObserver.disconnect();
-    inputSurface.removeEventListener('pointermove', onPointerMove);
-    inputSurface.removeEventListener('pointerleave', onPointerLeave);
-    inputSurface.removeEventListener('click', onClick, true);
-    inputSurface.removeEventListener('pointerdown', onPointerDown);
-    inputSurface.removeEventListener('pointerup', onPointerUp);
-    inputSurface.removeEventListener('pointercancel', onPointerCancel);
-    inputSurface.removeEventListener('lostpointercapture', onPointerCancel);
-    window.removeEventListener('blur', onPointerCancel);
-    window.removeEventListener('keydown', onKeyDown);
-    for (const button of cameraButtons) button.removeEventListener('click', onCameraClick);
-    for (const button of levelButtons) button.removeEventListener('click', onLevelClick);
   };
 }

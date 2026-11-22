@@ -11,6 +11,8 @@ import { exitThroughDoor, rideElevatorOut } from '../src/lib/sim/transport.ts';
 import { wait, walkTo } from '../src/lib/sim/tasks.ts';
 import { conversationPoint } from '../src/lib/sim/conversation.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
+import { Agent } from '../src/lib/sim/agent.ts';
+import { seededRandom } from '../src/lib/sim/random.ts';
 
 const color = (kind) => [...NAV_COLORS.find((entry) => entry.kind === kind).rgb, 255];
 const CLEAR = [0, 0, 0, 0];
@@ -200,6 +202,41 @@ test('unreachable walking and transport cancel explicitly instead of crossing th
     assert.deepEqual({ x: agent.x, y: agent.y }, { x: 30, y: 40 });
     assert.ok(logs.some((text) => text.includes('cannot reach')));
     assert.deepEqual(wanderFloors(world, agent), []);
+  }
+});
+
+test('walking carries leftover frame time across path waypoints', async (t) => {
+  t.mock.method(Math, 'random', () => 0.99);
+  const room = new Room(await loadRoom('level-1-offices'));
+  const random = seededRandom(42);
+  let route;
+  for (let i = 0; i < 100; i++) {
+    const from = room.randomFloorPoint(random);
+    const to = room.randomFloorPoint(random);
+    const path = room.route(from, to);
+    if (path?.length > 1) {
+      route = { from, to, path };
+      break;
+    }
+  }
+  assert.ok(route, 'the room fixture has a route with multiple waypoints');
+  const expected = [route.from, ...route.path].reduce((seconds, point, index, points) =>
+    index === 0 ? seconds : seconds + Math.hypot(point.x - points[index - 1].x, point.y - points[index - 1].y) / 28, 0);
+
+  const elapsedAt = (dt) => {
+    const agent = new Agent({ scale: 1, behavior: { speed: 1 }, stats: {} }, room, route.from);
+    const world = { log() {} };
+    const task = walkTo(route.to);
+    task.start(agent, world);
+    let elapsed = 0;
+    for (let frames = 0; frames < 1000; frames++) {
+      elapsed += dt;
+      if (task.update(agent, world, dt)) return elapsed;
+    }
+    assert.fail('walking task did not finish');
+  };
+  for (const dt of [1 / 144, 1 / 60, 1 / 30, 0.1, 0.4]) {
+    assert.ok(Math.abs(elapsedAt(dt) - expected) <= dt + 1e-9, `dt=${dt} should only add at most one frame of rounding`);
   }
 });
 

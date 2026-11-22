@@ -4,7 +4,7 @@ import type { World } from './world.ts';
 import type { Item } from './item.ts';
 import { accessCardLevel, itemActions } from './item.ts';
 import { scheduleFor } from './schedule.ts';
-import { pick, random, range } from './random.ts';
+import { pick, random, range, weightedPick } from './random.ts';
 import { rest, wait, walkTo } from './tasks.ts';
 import { getFromDispenser, itemPickupPoint, pickUp, retrieveItem, setDownItem, storeItem, useItem } from './itemTasks.ts';
 import { startConversation } from './conversation.ts';
@@ -191,15 +191,5 @@ export function planNext(agent: Agent, world: World): Task[] {
     },
   ];
 
-  const total = options.reduce((sum, option) => sum + option.weight, 0);
-  let roll = random() * total;
-  for (const option of options) {
-    roll -= option.weight;
-    if (option.weight > 0 && roll <= 0) {
-      const tasks = option.build();
-      if (tasks) return tasks;
-      break;
-    }
-  }
-  return [wait(2, 'Standing around')];
+  return weightedPick(options)?.build() ?? [wait(2, 'Standing around')];
 }

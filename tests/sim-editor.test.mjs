@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { propsSnippet } from '../src/lib/sim/propEditor.ts';
+import { PropEditor, propsSnippet } from '../src/lib/sim/propEditor.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { listPropTypes, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { placeablePropTypes, propTypeOf } from '../src/lib/sim/sprites.ts';
+import { World } from '../src/lib/sim/world.ts';
+import { wait } from '../src/lib/sim/tasks.ts';
 
 const prop = (type, x, y, flip = false) => ({ type, asset: type, x, y, w: 10, h: 10, flip });
 
@@ -56,4 +58,29 @@ test('moving a prop live moves its seats and blocked floor too', async () => {
 
   room.setProps(room.props.filter((p) => p !== chair));
   assert.equal(room.spots.length, 4);
+});
+
+test('seat reservations survive layout rebuilds and are released when the seat is removed', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const world = new World({ roster: [], rooms: [room] });
+  const character = {
+    id: 'seat-test', name: 'Seat test', tint: '#fff', scale: 1, position: 'Test', species: 'Human',
+    accessLevel: '1', employeeID: '1', traits: [], weight: 1, stats: {},
+    behavior: { speed: 1, napChance: 0, clumsy: false, social: 0, ghost: false },
+  };
+  const seat = room.spots.find((spot) => spot.kind === 'chair');
+  const agent = world.spawn(character, room, seat);
+  agent.setPlan(world, [wait(1000, 'Sitting')]);
+  agent.spot = seat;
+
+  const light = room.props.find((prop) => prop.type === 'light');
+  const editor = new PropEditor({}, room, () => {});
+  editor.selected = light;
+  editor.nudge(1, 0);
+  assert.equal(agent.spot, seat);
+  assert.notEqual(world.freeSpot(room, 'chair')?.prop, seat.prop, 'the occupied seat stays reserved');
+
+  room.setProps(room.props.filter((prop) => prop !== seat.prop));
+  world.update(0.1);
+  assert.equal(agent.spot, undefined, 'removing the seat releases the stale reservation');
 });

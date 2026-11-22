@@ -39,7 +39,18 @@ export function walkTo(target: Point, activity = 'Walking', speedMul = 1): Task 
         agent.interrupt(world, trip());
         return false;
       }
-      if (agent.moveToward(path[0], dt, speedMul)) path.shift();
+      const speed = agent.movementSpeed(speedMul);
+      let remaining = dt;
+      while (path.length) {
+        const distance = Math.hypot(path[0].x - agent.x, path[0].y - agent.y);
+        if (agent.moveToward(path[0], remaining, speedMul)) {
+          path.shift();
+          remaining = Math.max(0, remaining - distance / speed);
+          if (remaining === 0) break;
+        } else {
+          break;
+        }
+      }
       return path.length === 0;
     },
   };

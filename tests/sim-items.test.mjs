@@ -418,6 +418,23 @@ test('editor places, drags, nudges, flips, removes and resets items without affe
   assert.equal(editor.isEdited(), false);
 });
 
+test('runtime items do not change authored editor state or appear in its export', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const editor = new PropEditor({ 'item:can': { width: 96, height: 96 } }, room, () => {});
+  const runtimeItem = can();
+  room.items.push(runtimeItem);
+  assert.equal(editor.isEdited(), false);
+  assert.deepEqual(JSON.parse(`{${editor.snippet()}}`).items, []);
+
+  editor.add('item:can');
+  editor.pointerDown({ x: 200, y: 140 });
+  assert.equal(editor.isEdited(), true);
+  assert.deepEqual(JSON.parse(`{${editor.snippet()}}`).items, [{ type: 'can', x: 197, y: 130 }]);
+  editor.reset();
+  assert.deepEqual(room.items, [runtimeItem], 'reset restores the layout without deleting runtime items');
+  assert.equal(editor.isEdited(), false);
+});
+
 test('elevator travel retains the carried item and leaving takes it off camera', async () => {
   const data = await loadRoom('level-1-offices');
   const source = new Room(data);
