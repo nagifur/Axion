@@ -29,12 +29,19 @@ const SQUEEZE_OPENING = 0.5;
 /** Seconds spent at a door that closed in its face before giving up. */
 const DOOR_WAIT_SECONDS = 2;
 
+export type ContainmentTier = keyof typeof ESCAPE_CHANCE;
+
+/** Maximum Containment (Class M), Safe (Class S), and everything else as Containment (Class C). */
+export function containmentTier(containmentClass: string): ContainmentTier {
+  const name = containmentClass.trim().toLowerCase().replace(/^class\s+/, '');
+  if (name === 'm' || name.startsWith('maximum')) return 'maximum';
+  if (name === 's' || name.startsWith('safe')) return 'safe';
+  return 'containment';
+}
+
 /** Maximum Containment (Class M) creatures try far more often than Containment (C) or Safe (S) ones. */
 export function escapeChance(containmentClass: string): number {
-  const name = containmentClass.trim().toLowerCase().replace(/^class\s+/, '');
-  if (name === 'm' || name.startsWith('maximum')) return ESCAPE_CHANCE.maximum;
-  if (name === 's' || name.startsWith('safe')) return ESCAPE_CHANCE.safe;
-  return ESCAPE_CHANCE.containment;
+  return ESCAPE_CHANCE[containmentTier(containmentClass)];
 }
 
 export class Creature {
@@ -110,6 +117,14 @@ export class Creature {
     this.walking = false;
     this.noticed.clear();
     this.plan = { action: 'watch', remaining: range(2, 6) };
+  }
+
+  /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash for a door. */
+  hold(seconds: number, toward: Point) {
+    if (this.escaping) return;
+    this.walking = false;
+    this.plan = { action: 'watch', remaining: seconds };
+    if (Math.abs(toward.x - this.x) >= 2) this.facing = toward.x < this.x ? 'left' : 'right';
   }
 
   /** Never into a cell (its own included: getting back in is security's job), nor somewhere it can't reach. */

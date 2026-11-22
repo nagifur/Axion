@@ -495,6 +495,26 @@ open), never entering a cell. Leaving through an off-camera exit makes it
 That hook is meant for future security teams; it also returns loose creatures still
 on camera. A loose shapeshifter is not chosen for impostor events.
 
+Staff react to a loose creature in their room
+([`creatureReactions.ts`](../src/lib/sim/creatureReactions.ts)) once per sighting;
+the sighting resets when either of them leaves the room. Impostors and agents that
+are leaving or held don't react; napping agents, those in transport, and those
+busy with a non-interruptible task react once they're free. `CREATURE_REACTIONS` weights the choice:
+
+- **Scared** (65%): the agent gets the `scared` status, shouts `!`, and flees
+  through the reachable linked door farthest from the creature. If the creature is
+  closer to that door, or there is none, they run for the facility exit instead;
+  with no way out, they cower in the corner farthest from it.
+- **Look** (20%): they creep to about 36 room pixels away and watch it for a few
+  seconds. A quarter of the time (`LOOK_STARTLE_CHANCE`) it startles them anyway.
+- **Pet** (15%): they walk right up, the creature holds still
+  (`Creature.hold`), and `PET_CHANCE` decides by class (M 20%, C 45%, S 70%).
+  Success logs a petting and shows `♥`; failure means it snapped at them, and
+  they get scared.
+
+Curious agents follow a moving creature, give up after 20 seconds, and stop at
+the closest point they can reach when it's on another floor area of the room.
+
 [`creature_spritesheet.png`](../src/sim_assets/creatures/creature_spritesheet.png)
 uses the same 96×96, bottom-centred frame grid as the staff sheet. Empty movement
 or back-facing frames use the available idle art (side poses are mirrored for
@@ -690,6 +710,16 @@ The reach, chances and grace duration are exported constants in
 [`electrical.ts`](../src/lib/sim/electrical.ts). Use
 `agent.statuses.apply('shocked')` for scripted shocks; normal electrical exposure
 also logs a warning and applies the recovery grace.
+
+##### Scared
+
+`scared` is an agent-only effect lasting ten simulation seconds (`SCARED_SECONDS`).
+It shows a white-bordered popup with
+[`scared.svg`](../src/sim_assets/icons/scared.svg) (white artwork) and a brief
+shake. Unlike shock, it doesn't block actions: frightened staff are busy running
+away. Staff get it when they see a loose creature, are startled while watching
+one, or get snapped at while trying to pet one (see the creature section above).
+Use `agent.statuses.apply('scared')` for scripted scares.
 
 #### Breakage Particles
 

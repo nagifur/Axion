@@ -12,7 +12,7 @@ import { StatusEffects } from './statusEffects.ts';
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
 
-export type Bubble = 'zZ' | '!' | '…' | '?' | 'Meow!' | null;
+export type Bubble = 'zZ' | '!' | '…' | '?' | '♥' | 'Meow!' | null;
 
 /** A unit of behaviour. Agents run one task at a time from their plan. */
 export interface Task {
@@ -196,6 +196,11 @@ export class Agent {
 
   get busy() {
     return this.incapacitated || this.held || !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
+  }
+
+  /** Between tasks, or in one that can be dropped for something more pressing. */
+  get interruptible() {
+    return !this.task || this.task.interruptible;
   }
 
   get draggable() {

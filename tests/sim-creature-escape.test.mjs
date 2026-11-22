@@ -8,6 +8,8 @@ import { World } from '../src/lib/sim/world.ts';
 import { EventDirector } from '../src/lib/sim/events.ts';
 import { ESCAPE_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
+import { CREATURE_REACTIONS, LOOK_STARTLE_CHANCE, PET_CHANCE } from '../src/lib/sim/creatureReactions.ts';
+import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
 
 const staff = { id: 'guard', name: 'Guard', href: '', tint: '#fff', scale: 1, position: 'Test', species: 'Human',
   accessLevel: '3', employeeID: '1', traits: [], weight: 1,
@@ -124,4 +126,77 @@ test('an escaped shapeshifter cannot also walk in disguised', async (t) => {
   const director = new EventDirector([{ ...creature.character, weight: 1 }]);
   assert.equal(director.triggerImpostor(world), false);
   assert.equal(creature.away, false);
+});
+
+async function looseInHall(t, seed, reactions) {
+  const scene = await setup(t, seed);
+  const original = { reactions: { ...CREATURE_REACTIONS }, pet: { ...PET_CHANCE }, startle: LOOK_STARTLE_CHANCE };
+  Object.assign(CREATURE_REACTIONS, { scared: 0, look: 0, pet: 0 }, reactions);
+  t.after(() => {
+    Object.assign(CREATURE_REACTIONS, original.reactions);
+    Object.assign(PET_CHANCE, original.pet);
+  });
+  const { world, creature, door, state, hall } = scene;
+  // Stand on the cells' side of the hall, but out of the door's sensor range.
+  const outside = hall.doors.find(({ id }) => id === door.to.door).inside;
+  let at = hall.randomFloorPoint();
+  while (hall.floorArea(at) !== hall.floorArea(outside) || Math.hypot(at.x - outside.x, at.y - outside.y) < 80) at = hall.randomFloorPoint();
+  const guard = world.spawn(staff, hall, at);
+  guard.setPlan(world, [wait(600, 'Guarding')]);
+  for (let i = 0; i < 100; i++) world.update(0.1);
+  assert.ok(!guard.statuses.has('scared'), 'a creature behind its cell door is no reason to panic');
+  hall.power = 'off';
+  state.open = 1;
+  for (let i = 0; i < 300 && (creature.contained || creature.alpha < 1); i++) world.update(0.1);
+  assert.equal(creature.room, hall);
+  world.update(0.05); // Agents update before creatures, so they notice it on the next tick.
+  return { ...scene, guard };
+}
+
+test('staff who see a loose creature get the white "scared" status and flee, once per sighting', async (t) => {
+  const { world, logs, creature, guard, hall } = await looseInHall(t, 11, { scared: 1 });
+  assert.equal(STATUS_EFFECTS.scared.popup.color, '#ffffff');
+  assert.match(STATUS_EFFECTS.scared.popup.icon, /scared\.svg/);
+  assert.ok(guard.statuses.has('scared'));
+  assert.equal(guard.bubble, '!');
+  assert.equal(guard.activity, `Fleeing from the ${creature.character.name}`);
+  assert.ok(logs.some(({ text, tone }) => tone === 'warn' && text.includes('panicked')));
+
+  // Without a card for any door out, the guard backs into the far corner instead.
+  const before = Math.hypot(guard.x - creature.x, guard.y - creature.y);
+  guard.statuses.remove('scared');
+  let cowered = false;
+  for (let i = 0; i < 300 && !cowered; i++) {
+    world.update(0.1);
+    cowered = guard.activity === 'Cowering in fear';
+    assert.ok(!guard.statuses.has('scared'), 'no second panic for the same sighting');
+  }
+  assert.ok(cowered);
+  assert.ok(Math.hypot(guard.x - creature.x, guard.y - creature.y) > before);
+});
+
+test('curious staff creep closer or try to pet a loose creature, which can go either way', async (t) => {
+  const petted = await looseInHall(t, 11, { pet: 1 });
+  PET_CHANCE.maximum = 1;
+  assert.equal(petted.guard.bubble, '?');
+  for (let i = 0; i < 200 && !petted.logs.some(({ text }) => text.includes('petted')); i++) petted.world.update(0.1);
+  assert.ok(petted.logs.some(({ text, tone }) => tone === 'ok' && text.includes('petted the loose')));
+  assert.equal(petted.guard.bubble, '♥');
+  assert.ok(!petted.guard.statuses.has('scared'));
+
+  const bitten = await looseInHall(t, 11, { pet: 1 });
+  PET_CHANCE.maximum = 0;
+  for (let i = 0; i < 200 && !bitten.guard.statuses.has('scared'); i++) bitten.world.update(0.1);
+  assert.ok(bitten.logs.some(({ text, tone }) => tone === 'warn' && text.includes('snapped at')));
+  assert.ok(bitten.guard.statuses.has('scared'));
+
+  const watcher = await looseInHall(t, 11, { look: 1 });
+  const name = watcher.creature.character.name;
+  let watched = false;
+  for (let i = 0; i < 200 && !watched; i++) {
+    watcher.world.update(0.1);
+    watched = watcher.guard.activity === `Watching the ${name}`;
+  }
+  assert.ok(watched);
+  assert.ok(Math.hypot(watcher.guard.x - watcher.creature.x, watcher.guard.y - watcher.creature.y) <= 60);
 });

@@ -16,6 +16,7 @@ import { chance, maybePick, pick, range, weightedPick } from './random.ts';
 import { accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
+import { reactToCreatures } from './creatureReactions.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
 import { LEVEL_DEFINITIONS, LEVEL_EVENTS } from './levels.ts';
 
@@ -532,6 +533,7 @@ export class World {
       }
       const from = { x: agent.x, y: agent.y };
       const room = agent.room;
+      reactToCreatures(agent, this);
       agent.update(this, dt, blockedSeconds.get(agent) ?? 0);
       if (dt > 0 && agent.moving && agent.room === room) checkElectricalApproach(agent, this, from);
     }

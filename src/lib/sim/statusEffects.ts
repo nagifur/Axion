@@ -29,6 +29,7 @@ export interface StatusEffectDefinition {
 }
 
 export const SHOCK_SECONDS = 2;
+export const SCARED_SECONDS = 10;
 
 /** Add effects here; no artwork is required for simulation-only effects. */
 export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
@@ -50,6 +51,18 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
       if (target.kind !== 'agent') return;
       target.entity.moving = false;
       target.entity.shake = SHOCK_SECONDS;
+    },
+  },
+  scared: {
+    label: 'Scared',
+    targets: ['agent'],
+    duration: SCARED_SECONDS,
+    popup: {
+      icon: new URL('../../sim_assets/icons/scared.svg', import.meta.url).href,
+      color: '#ffffff',
+    },
+    onApply(target) {
+      if (target.kind === 'agent') target.entity.shake = 0.6;
     },
   },
 };
