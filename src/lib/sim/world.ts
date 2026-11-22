@@ -140,10 +140,10 @@ export class World {
       (state.stuckOpen || !!agent.impostor || agent.hasAccessCard(state.clearance)));
   }
 
-  /** Opening needs a card; anyone may slip through a door that is already fully open. */
+  /** Opening needs a card; anyone may slip through a door that is at least half open. */
   canAgentCross(agent: Agent, door: Door): boolean {
     const state = this.passageDoorFor(door);
-    return this.canAgentUsePassage(agent, door) || (!!state && !state.blocked && state.open === 1);
+    return this.canAgentUsePassage(agent, door) || (!!state && state.passable);
   }
 
   /** Other rooms on camera that `room`'s elevator stops at, ordered by level. */

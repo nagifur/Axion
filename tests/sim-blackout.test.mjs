@@ -113,6 +113,11 @@ test('unpowered doors freeze safely, and editor-added props inherit the floor po
   panel.open = 0.5;
   world.update(1);
   assert.equal(panel.open, 0.5);
+  assert.equal(panel.blocked, false);
+  assert.equal(world.canUsePassage(character, a.doors[0]), true, 'a half-open unpowered door remains passable');
+  panel.open = 0.49;
+  world.update(1);
+  assert.equal(panel.open, 0.49);
   assert.equal(panel.blocked, true);
   a.setProps([placed('light'), placed('vending_machine')]);
   assert.equal(a.props[0].lit, false);

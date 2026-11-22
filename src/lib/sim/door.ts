@@ -177,12 +177,16 @@ export class PassageDoor {
     else this.repairPanel();
   }
 
+  get passable(): boolean {
+    return !this.broken && this.open >= 0.5;
+  }
+
   get blocked(): boolean {
-    return this.broken || ((this.panelBroken || !this.powered) && this.open < 1);
+    return this.broken || ((this.panelBroken || !this.powered) && !this.passable);
   }
 
   get stuckOpen(): boolean {
-    return !this.broken && (this.panelBroken || !this.powered) && this.open === 1;
+    return (this.panelBroken || !this.powered) && this.passable;
   }
 
   break(): boolean {

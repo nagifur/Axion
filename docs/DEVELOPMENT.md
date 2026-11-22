@@ -441,7 +441,7 @@ pending restore delay.
 Emergency lights cannot be manually switched, and a vending interaction already
 in progress cannot dispense while its supply is down. Unpowered electrical props
 do not spark or shock. Unpowered door panels cannot open doors; doors freeze in
-place, so fully open doors remain passable. Linked camera views share the same
+place, so doors at least half open remain passable. Linked camera views share the same
 door power state (a blackout on either endpoint cuts its supply). Backup power
 does not bypass clearance or repair broken doors/panels.
 
@@ -1087,15 +1087,15 @@ A nearby authorized agent (within 40 room pixels of the passage threshold) turns
 the panel green and opens the door upward in 0.7 simulation seconds, or 2 seconds
 for big doors. Closing takes the same duration as opening. If either connected
 camera uses big artwork, both views share the slower timing. Agents wait
-until it is fully open; anyone authorized inside the doorway keeps it open. If it
-closes mid-crossing, the agent steps back to the threshold, fully visible, and
+until it is at least half open; anyone authorized inside the doorway keeps it open. If it
+closes below halfway mid-crossing, the agent steps back to the threshold, fully visible, and
 gives up after 5 seconds without an open door, dropping the trip so they can be
 picked up again. Once no authorized agent is nearby, it holds for 1.5 seconds,
 then closes and the panel returns to red. Only a card opens a door, but anyone may
-slip through one that is already fully open, and a door never closes on someone
+slip through one that is already at least half open, and a door never closes on someone
 standing in its doorway (that keeps it open without turning the panel green).
 Planned work and departure routes still only count doors the agent's cards open,
-except a fully open door out of the current room. Staff with no card-permitted way
+except a door at least half open out of the current room. Staff with no card-permitted way
 out of their room wait near a door and leave as soon as someone else opens it.
 Working panels cast a faint red/green halo over nearby room art, props, and people
 after the darkness pass. In dark rooms its radius grows from 12 to 32 room pixels
@@ -1109,9 +1109,9 @@ and behind the room's props and characters.
 Each authorized agent approaching a passage rolls the same 1% break chance for
 the panel and door independently, once per approach rather than per tick. Both
 camera views share damage. A broken door immediately gets stuck closed. A broken
-panel goes dark and freezes the door exactly where it was; a fully open door
-then lets anyone through without clearance, while a partially open or closed
-door cannot be crossed. Door damage takes priority if both components break.
+panel goes dark and freezes the door exactly where it was; a door at least half open
+then lets anyone through without clearance, while a door less than half open
+cannot be crossed. Door damage takes priority if both components break.
 Damage logs a warning and shows an exclamation bubble. Runtime damage lasts until
 `world.passageDoorFor(door).repair()` or `.repairPanel()` is called; repairs are
 independent and do not change room configuration.

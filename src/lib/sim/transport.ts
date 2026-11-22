@@ -139,7 +139,7 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
         world.log(`Access denied: ${agent.character.name} cannot use the ${door.id} door in ${agent.room.name}.`, 'warn');
         return true;
       }
-      if (physical && physical.open < 1) {
+      if (physical && !physical.passable) {
         // Never stay half-faded in a closing doorway: wait visibly at the threshold instead.
         agent.x = door.inside.x;
         agent.y = door.inside.y;
@@ -194,7 +194,7 @@ export function enterThroughDoor(door: Door): Task {
         if (agent.alpha < 1) world.remove(agent, door.id);
         return true;
       }
-      if (physical && physical.open < 1) return false;
+      if (physical && !physical.passable) return false;
       const total = Math.max(1, distance(door.outside, door.inside));
       const reached = agent.moveToward(door.inside, dt);
       poseInDoorway(agent, door, 'in');

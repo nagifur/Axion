@@ -672,7 +672,7 @@ test('a departure interrupted by a relocked door restores pickup and cancels que
   assert.ok(agent.alpha < 1, 'the agent has started crossing the stuck-open door');
   assert.equal(agent.draggable, false);
   state.repairPanel();
-  state.open = 0.5;
+  state.open = 0.49;
   world.update(0.1);
   assert.equal(agent.room, a);
   assert.notEqual(agent.room, b);
@@ -709,7 +709,7 @@ test('a door closing in front of a crossing agent returns them to the threshold 
   agent.setPlan(world, [exitThroughDoor(east)]);
   for (let i = 0; i < 20 && agent.alpha === 1; i++) world.update(0.1);
   assert.ok(agent.alpha < 1, 'the agent has started crossing');
-  state.open = 0.5;
+  state.open = 0.49;
   world.update(0);
   assert.deepEqual({ x: agent.x, y: agent.y, alpha: agent.alpha }, { ...east.inside, alpha: 1 },
     'nobody stays half-faded in a closing doorway');
@@ -821,6 +821,33 @@ test('outer-door departures require an access card and authorized departures sti
     for (let i = 0; i < 30 && !agent.removed; i++) world.update(0.1);
     assert.equal(agent.removed, level === '4');
     if (level === '3') assert.equal(world.passageDoorFor(door).open, 0);
+  }
+});
+
+test('agents enter and exit at exactly half open, including without clearance', () => {
+  for (const access of ['1', '2']) {
+    for (const direction of ['in', 'out']) {
+      const { world, a, b, east } = connectedRooms();
+      const state = world.passageDoorFor(east);
+      const agent = stay(world, staff(access), a, direction === 'in' ? east.outside : east.inside);
+      agent.alpha = direction === 'in' ? 0 : 1;
+      const task = direction === 'in' ? enterThroughDoor(east) : exitThroughDoor(east);
+      task.start?.(agent, world);
+      state.open = 0.49;
+      assert.equal(world.canAgentCross(agent, east), access === '2');
+      if (access === '2') {
+        for (let i = 0; i < 3; i++) task.update(agent, world, 0.1);
+        assert.equal(agent.alpha, direction === 'in' ? 0 : 1, 'authorized agents still wait below half open');
+      }
+      state.open = 0.5;
+      assert.equal(world.canAgentCross(agent, east), true);
+      let done = false;
+      for (let i = 0; i < 100 && !done; i++) done = task.update(agent, world, 0.1);
+      assert.equal(done, true, `${access}/${direction} crosses at exactly half open`);
+      assert.equal(state.open, 0.5, 'crossing does not require the door to open further');
+      if (direction === 'out') assert.equal(agent.room, b);
+      else assert.equal(agent.alpha, 1);
+    }
   }
 });
 
@@ -1195,7 +1222,7 @@ test('doors and panels each have an independent, exclusive 1% break-on-use chanc
 });
 
 test('broken panels freeze the exact door position and door damage always forces it closed', () => {
-  for (const open of [0, 0.5, 1]) {
+  for (const open of [0, 0.49, 0.5, 1]) {
     const state = new PassageDoor(1);
     state.update(true, open * PASSAGE_DOOR_SECONDS);
     assert.equal(state.breakPanel(), true);
@@ -1203,8 +1230,8 @@ test('broken panels freeze the exact door position and door damage always forces
     for (const nearby of [true, false]) state.update(nearby, 100);
     assert.equal(state.open, open);
     assert.equal(state.unlocked, false);
-    assert.equal(state.blocked, open < 1);
-    assert.equal(state.stuckOpen, open === 1);
+    assert.equal(state.blocked, open < 0.5);
+    assert.equal(state.stuckOpen, open >= 0.5);
     assert.equal(state.break(), true);
     assert.equal(state.open, 0);
     state.update(true, 100);
