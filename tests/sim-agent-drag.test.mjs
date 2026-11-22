@@ -8,6 +8,9 @@ import { loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { LIGHTS_OFF_SECONDS, Room } from '../src/lib/sim/room.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
+import { Creature } from '../src/lib/sim/creature.ts';
+import { CREATURE_REACTIONS } from '../src/lib/sim/creatureReactions.ts';
+import { toSimCreature } from '../src/lib/sim/roster.ts';
 
 beforeEach((t) => t.mock.method(Prop.prototype, 'breakOnUse', () => false));
 
@@ -124,6 +127,51 @@ test('fast falls cannot skip a single green pixel row or land on a lower floor f
   assert.deepEqual([agent.x, agent.y], [100, 80]);
   assert.equal(agent.activity, 'Picking themselves up');
 });
+
+for (const reaction of ['scared', 'look', 'pet']) {
+  test(`air drops finish falling and recovering before a ${reaction} creature reaction`, (t) => {
+    const original = { ...CREATURE_REACTIONS };
+    Object.assign(CREATURE_REACTIONS, { scared: 0, look: 0, pet: 0 }, { [reaction]: 1 });
+    t.after(() => Object.assign(CREATURE_REACTIONS, original));
+    t.mock.method(Math, 'random', () => 0.5);
+    const { world, room, agent, logs } = fallingSetup();
+    const creature = new Creature(toSimCreature({ id: 'loose', data: {
+      title: 'Loose', containmentClass: 'Safe', type: 'Creature', species: 'Lizard',
+    } }), fallingSetup().room);
+    creature.room = room;
+    creature.x = 150;
+    creature.y = 150;
+    creature.hold(60, agent);
+    world.creatures.push(creature);
+    const noticed = () => logs.filter((text) => /panicked|spotted the loose/.test(text));
+
+    placeAgent(world, agent, dropTarget(world, agent, { x: 100, y: 10 }));
+    world.update(0);
+    assert.equal(agent.activity, 'Falling', 'a queued fall cannot be replaced by a reaction');
+    assert.deepEqual([agent.x, agent.y], [100, 10]);
+    world.update(0.1);
+    assert.equal(agent.activity, 'Falling');
+    assert.equal(agent.x, 100, 'falling stays vertical instead of walking outside the nav map');
+    assert.ok(agent.y > 10 && agent.y < 100);
+    assert.equal(noticed().length, 0);
+    world.update(1);
+    assert.deepEqual([agent.x, agent.y], [100, 112]);
+    assert.equal(room.isWalkable(agent), true);
+    assert.equal(agent.activity, 'Picking themselves up');
+    world.update(0.5);
+    assert.equal(agent.activity, 'Picking themselves up');
+    assert.equal(noticed().length, 0, 'recovery cannot be interrupted either');
+    world.update(1);
+    assert.equal(noticed().length, 0);
+    world.update(0);
+    assert.equal(noticed().length, 1, 'the sighting is still available after recovery');
+    for (let i = 0; i < 10; i++) {
+      world.update(0.1);
+      assert.equal(room.isWalkable(agent), true, 'reaction movement stays on the nav map');
+    }
+    assert.equal(noticed().length, 1);
+  });
+}
 
 test('air drops vary landing depth within the first 24 pixels of continuous green floor', (t) => {
   let roll = 0;

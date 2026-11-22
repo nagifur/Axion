@@ -211,6 +211,8 @@ green floor below, then play the usual trip reaction. The depth is chosen once p
 fall and limited by that floor's edge, so thin floor strips are never skipped.
 If there is no green below, they fall fully out of view and respawn on
 nearby walkable floor. Falling agents cannot be picked up or pulled into chats.
+Creature reactions wait until the fall and trip recovery finish, including when
+the fall is queued but has not started yet.
 Broken or occupied props, blocked floor, and drops outside the feed are rejected
 without changing the original task or position. Hold over a floor or camera button for
 450ms to switch feeds while carrying an agent, then drop into the new room.

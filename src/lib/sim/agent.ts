@@ -198,9 +198,9 @@ export class Agent {
     return this.incapacitated || this.held || !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
   }
 
-  /** Between tasks, or in one that can be dropped for something more pressing. */
+  /** The current or next queued task can be dropped for something more pressing. */
   get interruptible() {
-    return !this.task || this.task.interruptible;
+    return (this.task ?? this.plan[0])?.interruptible ?? true;
   }
 
   get draggable() {
