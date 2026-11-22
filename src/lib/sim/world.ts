@@ -6,7 +6,9 @@ import { canVisitLevel, type SimCharacter, type SimCreature, type SimImpostor } 
 import { directionTo, type Door, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
 import type { Prop } from './prop.ts';
-import { scheduleFor } from './schedule.ts';
+import { scheduleFor, securitySchedule } from './schedule.ts';
+import { generateNpc } from './npc.ts';
+import { postPoint } from './security.ts';
 import { passagePartBounds, type PassageDoor } from './door.ts';
 import type { Rect } from './navMap.ts';
 import { Elevator } from './elevator.ts';
@@ -81,6 +83,7 @@ export class World {
   /** Earliest time each off-camera character may come back. */
   private returnAt = new Map<string, number>();
   private nextArrival = 3;
+  private nextNpcBadge = 1;
 
   constructor(options: WorldOptions) {
     this.roster = options.roster;
@@ -183,7 +186,7 @@ export class World {
   }
 
   presentCount() {
-    return this.everyone().filter((agent) => !agent.impostor && !agent.leaving).length;
+    return this.everyone().filter((agent) => !agent.security && !agent.impostor && !agent.leaving).length;
   }
 
   isPresent(characterId: string) {
@@ -203,12 +206,14 @@ export class World {
     return [...this.agentsIn(room), ...this.creaturesIn(room)];
   }
 
-  /** Returns a creature that broke out to its cell (the hook for security teams to recapture it). */
+  /** Completes an escort, or restores an off-camera escapee to its assigned cell. */
   recontain(creature: Creature) {
     if (creature.contained) return;
+    const escort = creature.escort;
     const from = creature.escaped ? 'outside the facility' : `the ${creature.room.name}`;
-    creature.returnHome();
-    this.log(`Containment restored: ${creature.character.name} was returned to ${creature.home.name} from ${from}.`, 'ok');
+    creature.returnHome(this);
+    this.log(escort ? `Containment restored: ${escort.character.name} escorted ${creature.character.name} back to ${creature.home.name}.`
+      : `Containment restored: ${creature.character.name} was returned to ${creature.home.name} from ${from}.`, 'ok');
   }
 
   freeSpot(room: Room, kind: Spot['kind'], agent?: Agent): Spot | undefined {
@@ -221,7 +226,7 @@ export class World {
   findChatPartner(agent: Agent): Agent | undefined {
     if (agent.leaving) return undefined;
     const candidates = this.agents.filter((other) =>
-      other !== agent && other.room === agent.room && !other.busy && !other.removed && Math.abs(other.x - agent.x) < CHAT_RANGE &&
+      other !== agent && !other.security && other.room === agent.room && !other.busy && !other.removed && Math.abs(other.x - agent.x) < CHAT_RANGE &&
       agent.room.canReach(agent, other, agent.ghost));
     return maybePick(candidates);
   }
@@ -247,6 +252,19 @@ export class World {
       const room = pick(working && workRooms.length && chance(0.85) ? workRooms : rooms);
       this.spawn(character, room, room.randomFloorPoint());
     }
+    for (const room of this.elevators.keys()) if (!room.cell) this.staffSecurityPost(room);
+  }
+
+  staffSecurityPost(post: Room) {
+    const assigned = this.everyone().find((agent) => agent.security?.post === post && !agent.security.relieved);
+    if (assigned) return assigned;
+    const character = generateNpc(this.nextNpcBadge++, {
+      position: 'Security guard', accessLevel: String(post.level), schedule: securitySchedule(this.now()),
+    });
+    const guard = this.spawn(character, post, postPoint(post));
+    guard.security = { post, relieved: false };
+    guard.activity = 'Guarding the elevator';
+    return guard;
   }
 
   spawn(character: SimCharacter, room: Room, at: { x: number; y: number }, impostor?: SimImpostor) {
@@ -417,7 +435,12 @@ export class World {
     const name = agent.character.name;
     const { room } = agent;
 
-    if (agent.impostor) {
+    if (agent.security) {
+      if (agent.security.target?.escort === agent) agent.security.target.releaseEscort();
+      agent.security.target = undefined;
+      this.staffSecurityPost(agent.security.post);
+      this.log(`${name} left security duty via the ${via}.`, 'muted');
+    } else if (agent.impostor) {
       const resident = this.creatures.find((creature) => creature.character.id === agent.impostor!.id && creature.away);
       if (resident) {
         resident.away = false;

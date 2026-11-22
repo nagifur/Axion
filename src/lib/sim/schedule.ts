@@ -15,6 +15,13 @@ export const DEFAULT_SCHEDULE: readonly ScheduleBlock[] = [
   { start: '08:00', end: '17:00', period: 'work' },
 ];
 
+const DAY_WATCH: readonly ScheduleBlock[] = [{ start: '06:00', end: '18:00', period: 'work' }];
+const NIGHT_WATCH: readonly ScheduleBlock[] = [{ start: '18:00', end: '06:00', period: 'work' }];
+
+export function securitySchedule(date: Date): readonly ScheduleBlock[] {
+  return scheduleAt(DAY_WATCH, date) === 'work' ? DAY_WATCH : NIGHT_WATCH;
+}
+
 /** Keys are personnel filename slugs. An override replaces the shared schedule. */
 export const SCHEDULE_OVERRIDES: Record<string, readonly ScheduleBlock[]> = {};
 
@@ -39,7 +46,8 @@ export function scheduleAt(schedule: readonly ScheduleBlock[], date: Date): Sche
     start < end ? minute >= start && minute < end : minute >= start || minute < end)?.period ?? 'free';
 }
 
-export function scheduleFor(character: { id: string }, date: Date): SchedulePeriod {
+export function scheduleFor(character: { id: string; schedule?: readonly ScheduleBlock[] }, date: Date): SchedulePeriod {
+  if (character.schedule) return scheduleAt(character.schedule, date);
   const schedule = Object.hasOwn(SCHEDULE_OVERRIDES, character.id) ? SCHEDULE_OVERRIDES[character.id] : DEFAULT_SCHEDULE;
   return scheduleAt(schedule, date);
 }

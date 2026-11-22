@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { generateNpc } from '../src/lib/sim/npc.ts';
+import { seededRandom, setRandomSource } from '../src/lib/sim/random.ts';
 import {
   behaviorFromTraits,
   canVisitLevel,
@@ -11,6 +13,24 @@ import {
 } from '../src/lib/sim/roster.ts';
 
 const close = (actual, expected) => assert.ok(Math.abs(actual - expected) < 0.01, `${actual} ≉ ${expected}`);
+
+test('procedural personnel get reproducible names, traits and capacities independently of their job', (t) => {
+  t.after(() => setRandomSource(null));
+  const batch = () => {
+    setRandomSource(seededRandom(29));
+    return Array.from({ length: 12 }, (_, i) => generateNpc(i + 1, { position: 'Caretaker', accessLevel: '2' }));
+  };
+  const crew = batch();
+  assert.deepEqual(crew, batch());
+  for (const key of ['name', 'traits', 'stats']) {
+    assert.ok(new Set(crew.map((npc) => JSON.stringify(npc[key]))).size > 1, key);
+  }
+  for (const npc of crew) {
+    assert.equal(npc.position, 'Caretaker');
+    assert.equal(npc.href, undefined);
+    assert.deepEqual(npc.behavior, behaviorFromTraits(npc.traits, npc.species));
+  }
+});
 
 test('parses the height formats used in profiles', () => {
   close(parseHeightMeters('{{5\'7"|1.70 m}}'), 1.7);

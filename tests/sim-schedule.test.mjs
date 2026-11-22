@@ -72,6 +72,45 @@ test('schedule mistakes fail explicitly, including mistakes in unmatched blocks'
   assert.throws(() => scheduleAt(DEFAULT_SCHEDULE, new Date(NaN)), /invalid date/);
 });
 
+test('each elevator has its own generated watch, even with no roster and across shift changes', async () => {
+  let clock = at(12, 30);
+  const world = new World({ rooms: (await loadFacility()).map((data) => new Room(data)), roster: [], now: () => clock });
+  const posts = world.rooms.filter((room) => room.elevator);
+  world.populate();
+  world.populate();
+  const firstWatch = [...world.agents];
+  const badges = firstWatch.map((guard) => guard.character.employeeID);
+  assert.equal(new Set(badges).size, posts.length);
+  assert.equal(firstWatch.length, posts.length, 'populating twice does not double-post guards');
+  assert.equal(world.targetPopulation(), 0);
+  assert.equal(world.presentCount(), 0);
+  for (const room of posts) {
+    const [guard] = world.agentsIn(room);
+    assert.equal(guard.security.post, room);
+    assert.ok(room.canReach(room.elevator.front, guard));
+    assert.ok(Math.hypot(guard.x - room.elevator.front.x, guard.y - room.elevator.front.y) <= room.elevator.w / 2 + 12);
+    assert.equal(guard.character.href, undefined);
+    assert.ok(guard.hasAccessCard(room.level));
+    assert.equal(scheduleFor(guard.character, clock), 'work', 'on watch through the ordinary staff lunch');
+  }
+  const positions = firstWatch.map(({ x, y }) => [x, y]);
+  for (let i = 0; i < 100; i++) world.update(0.2);
+  assert.deepEqual(firstWatch.map(({ x, y }) => [x, y]), positions, 'guards stand watch rather than wandering');
+
+  for (const hour of [18, 0, 6]) {
+    clock = at(hour);
+    for (let i = 0; i < 200; i++) world.update(0.2);
+    for (const room of posts) {
+      const onPost = world.agentsIn(room);
+      assert.equal(onPost.length, 1, 'the relieved guard left and exactly one remains');
+      assert.equal(scheduleFor(onPost[0].character, clock), 'work');
+      assert.equal(onPost[0].activity, 'Guarding the elevator');
+      assert.ok(!badges.includes(onPost[0].character.employeeID));
+    }
+  }
+  assert.ok(firstWatch.every((guard) => guard.removed));
+});
+
 test('work floors use available clearance levels, including unknown and Admin clearances', () => {
   const rooms = [makeRoom('surface', 0), makeRoom('one', 1), makeRoom('three', 3), makeRoom('five', 5)];
   const world = new World({ rooms, roster: [] });
@@ -205,7 +244,7 @@ test('staff spend most of a simulated work period on their work floors in the re
       world.update(0.2);
       if (world.time < 300) continue;
       for (const agent of world.agents) {
-        if (agent.leaving) continue;
+        if (agent.leaving || agent.security) continue;
         samples++;
         if (world.workRooms(agent.character).includes(agent.room)) onWorkFloor++;
       }

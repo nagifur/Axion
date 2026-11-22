@@ -38,7 +38,7 @@ export class MonitorFile {
     const twin = agent ? hasTwin(world, agent) : false;
     const onScreen = actor?.room === viewed;
     const period = agent ? scheduleFor(agent.character, world.now()) : 'free';
-    const key = creature ? `resident|${creature.character.id}|${onScreen}|${creature.away}|${creature.escaped}|${creature.room.id}` :
+    const key = creature ? `resident|${creature.character.id}|${onScreen}|${creature.contained}|${creature.away}|${creature.escaped}|${creature.room.id}` :
       agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}|${agent.inventory.map((item) => item.type).join(',')}` : '';
     if (key === this.key) {
       if (actor && this.activityNode) this.activityNode.textContent = agent?.removed ? 'Off camera' : actor.activity;
@@ -69,7 +69,7 @@ export class MonitorFile {
     }
     const titleBlock = el('div', 'monitor-file-title');
     titleBlock.append(
-      el('p', 'panel-kicker', creature ? `Entity file · ${creature.contained || creature.away ? 'Cell resident' : 'Containment breach'}` : revealed ? 'Entity file · Escaped' : `Personnel file · ID ${agent!.character.employeeID}`),
+      el('p', 'panel-kicker', creature ? `Entity file · ${creature.contained || creature.away ? 'Cell resident' : 'Containment breach'}` : revealed ? 'Entity file · Escaped' : `${character.href ? 'Personnel file' : 'Facility badge'} · ID ${agent!.character.employeeID}`),
       el('h3', undefined, entity ? `${entity.name} "${entity.nickname}"` : character.name),
       el('p', 'monitor-file-role', creature ? `${creature.character.containmentClass} class` :
         revealed ? `Shapeshifter posing as ${character.name}` : agent!.character.position),
@@ -90,7 +90,9 @@ export class MonitorFile {
       const character = agent.character;
       stat('Clearance', /^\d+$/.test(character.accessLevel) ? `Level ${character.accessLevel}` : character.accessLevel);
       stat('Species', character.species);
-      stat('Schedule', SCHEDULE_LABELS[period]);
+      const shift = agent.security && character.schedule?.[0];
+      stat('Schedule', shift ? `Security watch ${shift.start}–${shift.end}` : SCHEDULE_LABELS[period]);
+      if (agent.security) stat('Assigned post', `${agent.security.post.name} · ${agent.security.post.camera}`);
     }
     this.activityNode = stat('Status', agent?.removed ? 'Off camera' : actor.activity);
     if (agent) {
@@ -123,9 +125,12 @@ export class MonitorFile {
       traits.append(...agent.character.traits.map((trait) => el('li', undefined, trait)));
       parts.push(traits);
     }
-    const link = el('a', 'btn monitor-file-link', 'Open database file →');
-    link.href = entity ? entity.href : character.href;
-    parts.push(link);
+    const href = entity ? entity.href : character.href;
+    if (href) {
+      const link = el('a', 'btn monitor-file-link', 'Open database file →');
+      link.href = href;
+      parts.push(link);
+    }
     this.node.replaceChildren(...parts);
   }
 

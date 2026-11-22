@@ -4,6 +4,7 @@ import type { Door, Facing, Point, Room } from './room.ts';
 import type { World } from './world.ts';
 import { distance } from './navMap.ts';
 import { IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './sprites.ts';
+import type { Agent } from './agent.ts';
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
@@ -58,6 +59,7 @@ export class Creature {
   away = false;
   /** Fled off camera through a way out of the facility; only `World.recontain` brings it back. */
   escaped = false;
+  escort?: Agent;
   private plan: Plan = { action: 'watch', remaining: range(1, 5) };
   private elapsed = 0;
   private distance = 0;
@@ -79,12 +81,16 @@ export class Creature {
 
   /** In its own cell (possibly on its way out of the door). */
   get contained() {
-    return !this.escaped && this.room === this.home;
+    return !this.escort && !this.escaped && this.room === this.home;
   }
 
   /** Physically on some camera: not disguised as staff and not gone from the facility. */
   get onCamera() {
     return !this.away && !this.escaped;
+  }
+
+  get loose() {
+    return this.onCamera && !this.contained && !this.escort;
   }
 
   get escaping() {
@@ -94,6 +100,7 @@ export class Creature {
   get activity() {
     if (this.away) return 'Away from cell';
     if (this.escaped) return 'Escaped the facility';
+    if (this.escort) return `Being escorted to ${this.home.name}`;
     if (this.plan.action === 'escape') return this.contained ? 'Escaping the cell' : 'Slipping through a door';
     if (this.plan.action === 'enter') return 'Slipping through a door';
     return (this.contained ? CONTAINED_LABELS : LOOSE_LABELS)[this.plan.action];
@@ -106,22 +113,38 @@ export class Creature {
   }
 
   /** Puts the creature back in its cell, e.g. when security recaptures it. */
-  returnHome() {
+  returnHome(world: World) {
+    const delivered = this.escort && this.room === this.home;
+    this.releaseEscort();
     this.room = this.home;
     this.layout = this.home.props;
-    const point = this.home.randomFloorPoint();
+    const point = delivered ? this.home.nearestWalkable(this) : this.home.randomFloorPoint();
     this.x = point.x;
     this.y = point.y;
     this.alpha = 1;
     this.escaped = false;
     this.walking = false;
     this.noticed.clear();
+    // The guard's open door is not a new opportunity to escape.
+    for (const door of this.home.doors) if (world.passageDoorFor(door)?.open === 1) this.noticed.add(door);
     this.plan = { action: 'watch', remaining: range(2, 6) };
+  }
+
+  releaseEscort() {
+    if (!this.escort) return;
+    if (this.escort.security?.target === this) this.escort.security.target = undefined;
+    this.escort = undefined;
+    const point = this.room.nearestWalkable(this);
+    this.x = point.x;
+    this.y = point.y;
+    this.alpha = 1;
+    this.walking = false;
+    this.plan = { action: 'watch', remaining: 2 };
   }
 
   /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash for a door. */
   hold(seconds: number, toward: Point) {
-    if (this.escaping) return;
+    if (this.escort || this.escaping) return;
     this.walking = false;
     this.plan = { action: 'watch', remaining: seconds };
     if (Math.abs(toward.x - this.x) >= 2) this.facing = toward.x < this.x ? 'left' : 'right';
@@ -251,6 +274,20 @@ export class Creature {
     if (!this.onCamera || !dt) return;
     this.elapsed += dt;
     this.walking = false;
+    if (this.escort) {
+      const guard = this.escort;
+      this.room = guard.room;
+      // Walk alongside on open floor; share the guard's path through narrow thresholds.
+      const beside = { x: guard.x - 14, y: guard.y + 2 };
+      const point = guard.alpha === 1 && this.room.isWalkable(beside) && this.room.sameFloorArea(guard, beside) ? beside : guard;
+      this.x = point.x;
+      this.y = point.y;
+      this.alpha = guard.alpha;
+      this.facing = guard.facing;
+      this.walking = guard.moving;
+      this.distance = guard.walkDistance;
+      return;
+    }
     // Live prop edits invalidate both the path and potentially the current standing point.
     if (this.layout !== this.room.props && !this.escaping) {
       this.layout = this.room.props;

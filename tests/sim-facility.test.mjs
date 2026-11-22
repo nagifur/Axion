@@ -154,8 +154,8 @@ test('population and arrivals stay within clearance, including ghosts', async (t
   const world = new World({ roster: staff, rooms, now: noon });
   t.mock.method(Math, 'random', () => 0.99);
   world.populate();
-  assert.ok(world.agents.length > 0);
-  assert.ok(world.agents.every((agent) => agent.room.level <= 3));
+  assert.ok(world.presentCount() > 0);
+  assert.ok(world.agents.filter((agent) => !agent.security).every((agent) => agent.room.level <= 3));
 
   const doorArrival = world.arrive(staff[0]);
   assert.ok(doorArrival.room.level <= 3);
@@ -187,7 +187,7 @@ test('reports when no room is within clearance instead of spawning on a restrict
   world.hooks.log = (text, tone) => warnings.push({ text, tone });
   world.populate();
   assert.equal(world.arrive(staff), undefined);
-  assert.equal(world.agents.length, 0);
+  assert.equal(world.presentCount(), 0);
   assert.equal(warnings.length, 2);
   assert.ok(warnings.every(({ text, tone }) => tone === 'warn' && text.includes('clearance')));
 });

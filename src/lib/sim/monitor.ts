@@ -23,7 +23,7 @@ export interface MonitorConfig {
   rooms: RoomData[];
   /** Room shown when nobody has picked a camera yet. */
   initialRoom: string;
-  /** Image URLs by name: "room:<id>", "character", "creature", prop names, "item:<type>", and "particle:<file>". */
+  /** Image URLs by name: room, actor and prop sheets, "item:<type>", and "particle:<file>". */
   assets: Record<string, string>;
 }
 
@@ -219,7 +219,7 @@ function bootMonitor(
         staticTimer = window.setTimeout(() => screen.classList.remove('is-switching'), SWITCH_STATIC_MS);
       }
     }
-    canvas.setAttribute('aria-label', `Live camera feed of the ${room.label} ${room.name}. Use the name tags to open database files.`);
+    canvas.setAttribute('aria-label', `Live camera feed of the ${room.label} ${room.name}. Use the name tags to inspect personnel and entities.`);
     if (camTitle) camTitle.textContent = `${room.camera} · ${room.label} · ${room.name}`;
     for (const button of cameraButtons) {
       const active = button.dataset.monitorCamera === room.id;
@@ -289,6 +289,7 @@ function bootMonitor(
     selected = agent;
     if (agent instanceof Creature) return;
     world.interact(agent);
+    if (!agent.character.href) return;
     if (!agent.impostor) {
       identified.add(agent.character.id);
       progress.identified = [...identified];
@@ -411,7 +412,7 @@ function bootMonitor(
       drag.client = { x: event.clientX, y: event.clientY };
       if (!drag.active && Math.hypot(event.clientX - drag.start.x, event.clientY - drag.start.y) >= DRAG_START_PX) {
         if (!drag.agent.draggable) {
-          log(`${drag.agent.character.name} cannot be picked up while incapacitated or during a doorway or elevator transition.`, 'warn');
+          log(`${drag.agent.character.name} cannot be picked up during this activity.`, 'warn');
           cancelDrag();
           suppressClick = true;
           return;

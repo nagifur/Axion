@@ -7,7 +7,7 @@ import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { EventDirector } from '../src/lib/sim/events.ts';
-import { CHARACTER_FRAMES, WALK_CYCLES, IDLE_CYCLES, creatureFrame } from '../src/lib/sim/sprites.ts';
+import { CHARACTER_FRAMES, frameWithIdleFallback } from '../src/lib/sim/sprites.ts';
 
 const data = { title: 'C-100', nickname: 'Echo', containmentClass: 'Containment', type: 'Creature', species: 'Lizard' };
 const profile = (id) => toSimCreature({ id, data });
@@ -89,8 +89,8 @@ test('residents pace around furniture, rest and observe, without using staff tas
   assert.deepEqual(world.agents, []);
 });
 
-test('all walking and idle poses resolve to painted pixels in the creature sheet', async () => {
-  const { data, info: { width } } = await sharp('src/sim_assets/creatures/creature_spritesheet.png')
+for (const sheet of ['creatures/creature', 'characters/security']) test(`missing poses fall back to painted pixels in the ${sheet} sheet`, async () => {
+  const { data, info: { width } } = await sharp(`src/sim_assets/${sheet}_spritesheet.png`)
     .ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const painted = ({ x, y, w, h }) => {
     for (let row = y; row < y + h; row++) {
@@ -98,17 +98,15 @@ test('all walking and idle poses resolve to painted pixels in the creature sheet
     }
     return false;
   };
-  for (const cycles of [WALK_CYCLES, IDLE_CYCLES]) {
-    for (const name of Object.values(cycles).flat()) {
-      const frame = creatureFrame(name, painted);
-      assert.ok(painted(frame), name);
-      if (painted(CHARACTER_FRAMES[name])) assert.equal(frame, CHARACTER_FRAMES[name]);
-    }
+  for (const [name, cell] of Object.entries(CHARACTER_FRAMES)) {
+    const frame = frameWithIdleFallback(name, painted);
+    assert.ok(painted(frame), name);
+    if (painted(cell)) assert.equal(frame, cell);
   }
   const only = (...frames) => (frame) => frames.includes(frame);
   const { idleRight2, idleFront1, walkRight4 } = CHARACTER_FRAMES;
-  assert.equal(creatureFrame('walkRight4', only(idleFront1, idleRight2)), idleRight2);
-  assert.equal(creatureFrame('walkRight4', only(idleFront1, idleRight2, walkRight4)), walkRight4);
+  assert.equal(frameWithIdleFallback('walkRight4', only(idleFront1, idleRight2)), idleRight2);
+  assert.equal(frameWithIdleFallback('walkRight4', only(idleFront1, idleRight2, walkRight4)), walkRight4);
 });
 
 test('a failed impostor arrival does not vacate the cell or spawn an extra employee', () => {

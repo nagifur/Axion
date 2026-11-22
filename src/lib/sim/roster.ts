@@ -1,6 +1,7 @@
 // Build-time helpers that turn database profiles into simulation characters.
 // Kept free of Astro imports so it can be unit tested directly with node:test.
 import { resolveStats, type SimStats } from './stats.ts';
+import type { ScheduleBlock } from './schedule.ts';
 
 export interface SimBehavior {
   /** Walking speed multiplier (1 = normal). */
@@ -18,7 +19,8 @@ export interface SimBehavior {
 export interface SimCharacter {
   id: string;
   name: string;
-  href: string;
+  /** Generated personnel have a live badge but no database file. */
+  href?: string;
   tint: string;
   /** Sprite scale relative to the base character sprite. */
   scale: number;
@@ -32,6 +34,7 @@ export interface SimCharacter {
   weight: number;
   behavior: SimBehavior;
   stats: SimStats;
+  schedule?: readonly ScheduleBlock[];
   /** Additional item types placed in personal storage on each spawn, alongside the access card. */
   startingItems?: readonly string[];
 }

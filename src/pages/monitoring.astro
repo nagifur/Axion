@@ -10,6 +10,7 @@ import { itemPreview, listPropTypes, loadFacility, propPreview } from '../lib/si
 import { particleAsset } from '../lib/sim/particles';
 import { propTypeOf } from '../lib/sim/sprites';
 import characterSheet from '../sim_assets/characters/char_spritesheet.png';
+import securitySheet from '../sim_assets/characters/security_spritesheet.png';
 import creatureSheet from '../sim_assets/creatures/creature_spritesheet.png';
 import missingTexture from '../sim_assets/missing_texture.png';
 
@@ -120,6 +121,7 @@ const config: MonitorConfig = {
   assets: {
     ...roomAssets,
     character: characterSheet.src,
+    security: securitySheet.src,
     creature: creatureSheet.src,
     'missing-texture': missingTexture.src,
     ...propSources,
@@ -150,7 +152,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
       <h1>Live Monitoring <span class="cursor" aria-hidden="true"></span></h1>
       <p>
         Monitoring sector relay of the facility security cameras. Switch between feeds and select anyone on
-        camera to pull up their database file. Report anything unusual. All activity is logged by A1.
+        camera to inspect their badge or entity file. Report anything unusual. All activity is logged by A1.
       </p>
     </header>
 
@@ -240,7 +242,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
             height={initialRoom.height}
             style={`aspect-ratio:${initialRoom.width} / ${initialRoom.height}`}
             role="img"
-            aria-label={`Live camera feed of the Level ${initialRoom.level} ${initialRoom.name}. Use the name tags to open database files.`}
+            aria-label={`Live camera feed of the Level ${initialRoom.level} ${initialRoom.name}. Use the name tags to inspect personnel and entities.`}
           ></canvas>
           <div class="monitor-tags" data-monitor-tags></div>
         </div>
@@ -324,7 +326,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     </section>
 
     <div class="monitor-panels">
-      <section class="card monitor-file" data-monitor-file aria-label="Selected database file"></section>
+      <section class="card monitor-file" data-monitor-file aria-label="Selected personnel or entity"></section>
 
       <section class="card monitor-log-card" aria-labelledby="monitor-log-title">
         <div class="panel-kicker">

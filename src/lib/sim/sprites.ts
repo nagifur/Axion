@@ -76,8 +76,8 @@ export const IDLE_CYCLES: Record<Facing, readonly FrameName[]> = {
   left: IDLE_RIGHT,
 };
 
-/** Creature art uses the character grid, but unfinished poses keep their facing's idle art. */
-export function creatureFrame(name: FrameName, painted: (frame: Frame) => boolean): Frame {
+/** Partial actor sheets keep their facing's idle art until a missing pose is painted. */
+export function frameWithIdleFallback(name: FrameName, painted: (frame: Frame) => boolean): Frame {
   const frame = CHARACTER_FRAMES[name];
   if (painted(frame)) return frame;
   const facing = name.includes('Right') ? 'right' : name.includes('Back') ? 'back' : 'front';
@@ -89,7 +89,7 @@ export function creatureFrame(name: FrameName, painted: (frame: Frame) => boolea
       if (painted(idle)) return idle;
     }
   }
-  throw new Error(`Creature sheet needs an idle pose for "${name}".`);
+  throw new Error(`Actor sheet needs an idle pose for "${name}".`);
 }
 
 const SIT_RIGHT: FrameName[] = ['sitRight1', 'sitRight2'];

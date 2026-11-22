@@ -144,7 +144,7 @@ node scripts/pixel-png-to-svg.mjs public/Level_0.png public/facility/level-0.svg
 
 [`/monitoring`](../src/pages/monitoring.astro) is a small in-browser simulation of the
 facility, watched through security cameras. Every room folder becomes a camera; all
-rooms are simulated at once and people walk between connected rooms. Characters are
+rooms are simulated at once and people walk between connected rooms. Roster staff are
 built at build time from non-draft personnel files:
 height sets sprite size, `colorTint` colours the name tag, and traits such as *Sleepy*,
 *Clumsy*, *Anti-Social*, or *Can phase through objects* change how they behave.
@@ -276,6 +276,20 @@ interrupting doorways, elevator rides, or conversations. Darkness and emergency
 exits still take priority; impostors are not compelled to follow staff work floors.
 Schedules do not change the existing time-based population targets.
 
+Every non-cell elevator room also gets a security post on reachable floor beside
+the lift. Generated guards work separate 06:00–18:00 and 18:00–06:00 watches.
+They stay at their post unless responding to a breach or moved by the player.
+At shift change the guard finishes any escort, returns to post, hands over to a
+new guard, and leaves by elevator. Guards count on camera, but not towards the
+staff population target, duplicate-badge events, or roster identification.
+Select a guard to see their badge, shift, assigned post, traits and live stats;
+there is no database page.
+
+[`generateNpc`](../src/lib/sim/npc.ts) takes a session-unique badge number and a
+job (position, clearance and optional schedule). It builds a normal `SimCharacter`
+with a random name, traits, trait-derived behavior and stat capacities. Only
+security uses it for population today; the generator does not assign guard AI.
+
 With `?debug`, the **Time** button cycles the clock through Live, 09:00 work,
 10:05 break, 12:30 lunch, 18:00 free time, and 02:00 night. The overridden
 clock keeps running from the chosen time and affects schedules, population, and
@@ -311,6 +325,7 @@ never flicker.
 | [`src/lib/sim/schedule.ts`](../src/lib/sim/schedule.ts) | Editable daily routine, breaks, and per-character schedule overrides. |
 | [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, personal inventory, and its task queue. |
 | [`src/lib/sim/planning.ts`](../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
+| [`src/lib/sim/security.ts`](../src/lib/sim/security.ts) | Elevator watch, same-floor breach response, and escorts back to assigned cells. |
 | [`src/lib/sim/tasks.ts`](../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, napping, falling, tripping, and prop breakage. |
 | [`src/lib/sim/repairs.ts`](../src/lib/sim/repairs.ts) | Maintenance staff noticing, claiming, and repairing damaged equipment. |
 | [`src/lib/sim/itemTasks.ts`](../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
@@ -520,8 +535,15 @@ up after two seconds. Once out, a loose creature keeps its cell reservation and 
 any room on camera through passable doors (open archways, or doors at least half
 open), never entering a cell. Leaving through an off-camera exit makes it
 `escaped`: it is on no camera and only `World.recontain(creature)` brings it back.
-That hook is meant for future security teams; it also returns loose creatures still
-on camera. A loose shapeshifter is not chosen for impostor events.
+Security responds while a creature is still physically in the facility. One
+available guard on the same floor claims the call if there is a reachable route
+to the creature's floor area. The guard follows through linked doors and must
+get within 14 room pixels to catch it. The creature then moves with the guard
+through the actual doors to its reserved cell; the guard waits rather than
+crossing a blocked passage. `World.recontain` completes delivery inside the cell
+and the guard returns to the elevator. Disguised residents and off-camera
+escapees are not dispatch targets. A loose or escorted shapeshifter is not
+chosen for impostor events.
 
 Staff react to a loose creature in their room
 ([`creatureReactions.ts`](../src/lib/sim/creatureReactions.ts)) once per sighting;
@@ -547,6 +569,8 @@ the closest point they can reach when it's on another floor area of the room.
 uses the same 96×96, bottom-centred frame grid as the staff sheet. Empty movement
 or back-facing frames use the available idle art (side poses are mirrored for
 left). Filling in the corresponding walk or idle cells enables them automatically.
+[`security_spritesheet.png`](../src/sim_assets/characters/security_spritesheet.png)
+uses the same grid and idle fallback for missing poses.
 
 #### Painting a Navigation Map
 

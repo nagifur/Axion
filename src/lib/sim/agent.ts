@@ -8,6 +8,7 @@ import { isSpeaking, type Conversation } from './conversation.ts';
 import { planNext } from './planning.ts';
 import { planRepair, type RepairTarget } from './repairs.ts';
 import { StatusEffects } from './statusEffects.ts';
+import type { SecurityDuty } from './security.ts';
 
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
@@ -48,6 +49,7 @@ export class Agent {
   readonly character: SimCharacter;
   readonly impostor?: SimImpostor;
   readonly stats: AgentStats;
+  security?: SecurityDuty;
   revealed = false;
   /** The room this agent is currently in. */
   room: Room;
@@ -204,7 +206,7 @@ export class Agent {
   }
 
   get draggable() {
-    return !this.incapacitated && !this.removed && !this.leaving && !this.held && this.layer === 'room' && this.alpha >= 1 &&
+    return !this.incapacitated && !this.removed && !this.leaving && !this.held && !this.security?.target && this.layer === 'room' && this.alpha >= 1 &&
       !this.task?.transport && !this.task?.falling && !this.plan[0]?.falling;
   }
 

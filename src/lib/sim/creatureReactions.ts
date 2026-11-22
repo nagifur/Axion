@@ -29,7 +29,7 @@ function creatureName(creature: Creature) {
 }
 
 function visibleTo(agent: Agent, creature: Creature) {
-  return !creature.contained && creature.onCamera && creature.room === agent.room && creature.alpha >= 1;
+  return creature.loose && creature.room === agent.room && creature.alpha >= 1;
 }
 
 function canReact(agent: Agent) {
@@ -42,6 +42,7 @@ function canReact(agent: Agent) {
  * Returns true when the agent's plan was replaced by a reaction.
  */
 export function reactToCreatures(agent: Agent, world: World): boolean {
+  if (agent.security) return false;
   let seen = sightings.get(agent);
   if (seen) for (const creature of seen) if (!visibleTo(agent, creature)) seen.delete(creature);
   if (agent.impostor || !canReact(agent)) return false;
@@ -100,7 +101,7 @@ function cower(agent: Agent, creature: Creature, activity: string): Task[] {
 }
 
 /** Follows a (moving) creature until within `reach`, re-routing as it wanders. */
-function approach(creature: Creature, reach: number, activity: string): Task {
+export function approachCreature(creature: Creature, reach: number, activity: string, speed = 1): Task {
   let path: Point[] = [];
   let reroute = 0;
   let elapsed = 0;
@@ -133,7 +134,7 @@ function approach(creature: Creature, reach: number, activity: string): Task {
         // Out of reach (e.g. across a barrier): carry on from where they stand.
         if (!path.length) return true;
       }
-      if (agent.moveToward(path[0], dt)) path.shift();
+      if (agent.moveToward(path[0], dt, speed)) path.shift();
       return false;
     },
   };
@@ -162,7 +163,7 @@ function watch(creature: Creature, seconds: number, activity: string, done?: (ag
 function lookAt(creature: Creature): Task[] {
   const name = creatureName(creature);
   return [
-    approach(creature, LOOK_DISTANCE, `Creeping closer to the ${name}`),
+    approachCreature(creature, LOOK_DISTANCE, `Creeping closer to the ${name}`),
     watch(creature, range(3, 6), `Watching the ${name}`, (agent, world) => {
       if (chance(LOOK_STARTLE_CHANCE)) scare(agent, world, creature, `The ${name} startled ${agent.character.name}.`);
     }),
@@ -172,7 +173,7 @@ function lookAt(creature: Creature): Task[] {
 function tryToPet(creature: Creature): Task[] {
   const name = creatureName(creature);
   return [
-    approach(creature, PET_REACH, `Approaching the ${name}`),
+    approachCreature(creature, PET_REACH, `Approaching the ${name}`),
     watch(creature, 2, `Trying to pet the ${name}`, (agent, world) => {
       if (distance(agent, creature) > PET_REACH * 2) {
         world.log(`${agent.character.name} could not get close enough to pet the ${name}.`, 'muted');

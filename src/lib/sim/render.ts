@@ -4,12 +4,12 @@ import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import type { Particle, ParticleEmissionSampler } from './particles.ts';
-import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, creatureFrame, hasPropLook, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
+import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, frameWithIdleFallback, hasPropLook, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { CameraActor, World } from './world.ts';
 import type { Rect } from './navMap.ts';
 import { isPassageDoorAsset, passageDoorFrame, passagePanelFrame } from './door.ts';
 
-/** Images by name: "room:<id>", "character", "creature", prop names, "item:<type>", and "particle:<file>". */
+/** Images by name: room, actor and prop sheets, "item:<type>", and "particle:<file>". */
 export type Assets = Record<string, HTMLImageElement>;
 type Canvas = HTMLCanvasElement;
 type SizedImage = CanvasImageSource & { width: number; height: number };
@@ -40,11 +40,12 @@ const FOREGROUND_DOOR_ALPHA = 0.35;
 /** Extra pixels around the cursor that still count as clicking a character. */
 const AGENT_PICK_TOLERANCE = 2;
 
-type AssetKind = 'room' | 'character' | 'creature' | 'item' | 'particle' | 'prop' | 'missing-texture';
+type ActorSheet = 'character' | 'creature' | 'security';
+type AssetKind = 'room' | 'actor' | 'item' | 'particle' | 'prop' | 'missing-texture';
 
 function assetKind(name: string): AssetKind {
   if (name === 'missing-texture') return 'missing-texture';
-  if (name === 'character' || name === 'creature') return name;
+  if (name === 'character' || name === 'creature' || name === 'security') return 'actor';
   if (name.startsWith('room:')) return 'room';
   if (name.startsWith('item:')) return 'item';
   if (name.startsWith('particle:')) return 'particle';
@@ -161,7 +162,7 @@ export function loadAssets(urls: Record<string, string>): Promise<Assets> {
           }
           if (!isPassageDoorAsset(name)) propFrames(name, image);
         }
-        if ((kind === 'character' || kind === 'creature' || kind === 'prop') && !inspectedPixels.has(image)) {
+        if ((kind === 'actor' || kind === 'prop') && !inspectedPixels.has(image)) {
           inspectedPixels.set(image, framePixels(image, { x: 0, y: 0, w: image.width, h: image.height }));
         }
         resolve([name, image]);
@@ -329,8 +330,7 @@ export class Renderer {
   private room: Room;
   private readonly redEyeSheet: Canvas;
   private readonly litArrows?: Canvas;
-  private readonly sheets = new Map<number, ScaledSheet>();
-  private readonly creatureSheets = new Map<number, ScaledSheet>();
+  private readonly sheets = new Map<string, ScaledSheet>();
   private readonly outline = makeCanvas(160, 160);
   private readonly passageDoorCanvas = makeCanvas(96, 96);
   private readonly emergencySheets = new Map<string, Canvas>();
@@ -375,12 +375,12 @@ export class Renderer {
   }
 
   /** Characters are scaled by height once, at room resolution, then cached. */
-  private sheet(scale: number, creature = false): ScaledSheet {
-    const cache = creature ? this.creatureSheets : this.sheets;
-    const cached = cache.get(scale);
+  private sheet(scale: number, kind: ActorSheet = 'character'): ScaledSheet {
+    const key = `${kind}:${scale}`;
+    const cached = this.sheets.get(key);
     if (cached) return cached;
 
-    const source = requireAsset(this.assets, creature ? 'creature' : 'character');
+    const source = requireAsset(this.assets, kind);
     const width = Math.round(Math.max(source.width, 576) * scale);
     const height = Math.round(Math.max(source.height, 1152) * scale);
     const frames = Object.fromEntries(Object.entries(CHARACTER_FRAMES).map(([name, frame]) => {
@@ -400,8 +400,8 @@ export class Renderer {
       // Crop before scaling so rounded frame boundaries cannot sample neighboring rows.
       for (const [name, cell] of Object.entries(CHARACTER_FRAMES)) {
         const scaled = frames[name as FrameName];
-        const frame = creature ? creatureFrame(name as FrameName, (pose) => frameHasPixels(source, pose)) : cell;
-        if (creature || frameHasPixels(source, frame)) {
+        const frame = kind === 'character' ? cell : frameWithIdleFallback(name as FrameName, (pose) => frameHasPixels(source, pose));
+        if (kind !== 'character' || frameHasPixels(source, frame)) {
           ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, scaled.x, scaled.y, scaled.w, scaled.h);
         } else {
           const missing = requireAsset(this.assets, 'missing-texture');
@@ -414,18 +414,18 @@ export class Renderer {
 
     const sheet: ScaledSheet = {
       normal,
-      redEye: creature ? normal : draw(this.redEyeSheet),
+      redEye: kind === 'character' ? draw(this.redEyeSheet) : normal,
       alpha: normal.getContext('2d')!.getImageData(0, 0, width, height).data,
       width,
       frames,
     };
-    cache.set(scale, sheet);
+    this.sheets.set(key, sheet);
     return sheet;
   }
 
   /** Where the sprite lands on screen for the agent's current pose. */
   private placement(agent: CameraActor) {
-    const sheet = this.sheet(agent.character.scale, agent instanceof Creature);
+    const sheet = this.sheet(agent.character.scale, agent instanceof Creature ? 'creature' : agent.security ? 'security' : 'character');
     const { name, flip } = agent.frame;
     const frame = sheet.frames[name];
     const shake = !(agent instanceof Creature) && agent.shake > 0 ? Math.round(Math.sin(agent.shake * 60)) : 0;

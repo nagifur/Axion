@@ -7,6 +7,7 @@ import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { EventDirector } from '../src/lib/sim/events.ts';
 import { ESCAPE_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
+import { PassageDoor } from '../src/lib/sim/door.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
 import { CREATURE_REACTIONS, LOOK_STARTLE_CHANCE, PET_CHANCE } from '../src/lib/sim/creatureReactions.ts';
 import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
@@ -114,6 +115,53 @@ test('closed doors and unlucky rolls keep creatures in, and each opening is only
   ESCAPE_CHANCE.safe = 1;
   for (let i = 0; i < 100; i++) world.update(0.1);
   assert.ok(creature.contained, 'the same opening is not reconsidered');
+});
+
+test('one same-floor guard pursues a breach, escorts through working doors, then returns to post', async (t) => {
+  const { world, logs, creature, state, hall } = await setup(t, 42);
+  t.mock.method(world, 'now', () => new Date(2026, 0, 1, 12));
+  t.mock.method(PassageDoor.prototype, 'breakOnUse', () => []); // Only the scripted door failure interrupts this run.
+  world.populate();
+  const post = world.room('level-3-main-entrance');
+  const [guard] = world.agentsIn(post);
+  const at = [guard.x, guard.y];
+  const until = (predicate, seconds = 90) => {
+    for (let i = 0; i < seconds * 10 && !predicate(); i++) world.update(0.1);
+    assert.ok(predicate(), `${guard.activity} in ${guard.room.name}; ${creature.activity} in ${creature.room.name}`);
+  };
+  state.open = 1;
+  state.breakPanel();
+  until(() => creature.loose);
+  assert.equal(creature.home.cell.creatureId, creature.character.id);
+  state.repairPanel();
+  ESCAPE_CHANCE.maximum = 0;
+  until(() => !!guard.security.target);
+  assert.equal(guard.room, post, 'dispatched before the creature reaches the elevator room');
+  until(() => creature.escort === guard);
+  assert.equal(guard.room, hall);
+  assert.equal(creature.room, hall, 'capture is not a teleport back to the cell');
+  assert.equal(guard.draggable, false);
+  assert.ok(!guard.statuses.has('scared'));
+  assert.equal(logs.filter(({ text }) => text.includes('dispatched to')).length, 1);
+
+  state.break(); // The return route is cut while the creature is already in custody.
+  until(() => guard.activity.includes('Waiting for a passage'));
+  for (let i = 0; i < 40; i++) world.update(0.1);
+  assert.equal(creature.room, hall);
+  assert.equal(creature.escort, guard);
+  assert.ok(world.actorsIn(hall).includes(creature));
+
+  state.repair();
+  until(() => creature.room === creature.home);
+  assert.equal(creature.escort, guard, 'they cross the actual threshold together');
+  assert.equal(creature.alpha, guard.alpha);
+  until(() => creature.contained);
+  assert.equal(creature.escort, undefined);
+  assert.ok(creature.home.isWalkable(creature));
+  assert.ok(logs.some(({ text, tone }) => tone === 'ok' && text.includes(`back to ${creature.home.name}`)));
+  until(() => guard.room === post && guard.activity === 'Guarding the elevator');
+  assert.deepEqual([guard.x, guard.y], at);
+  assert.equal(guard.security.target, undefined);
 });
 
 test('an escaped shapeshifter cannot also walk in disguised', async (t) => {

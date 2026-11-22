@@ -64,6 +64,17 @@ export function workRooms(world: World, character: SimCharacter): Room[] {
 export function stepTowardWork(world: World, character: SimCharacter, room: Room, agent?: Agent): Door | Room | undefined {
   const targets = new Set(workRooms(world, character));
   if (targets.has(room)) return undefined;
+  return travelStep(world, character, room, agent, (next) => targets.has(next.room));
+}
+
+/** Route to the right floor area, not just to any entrance of the destination room. */
+export function stepTowardRoom(world: World, agent: Agent, destination: Room, point?: Point, sameLevelOnly = false) {
+  return travelStep(world, agent.character, agent.room, agent,
+    (next) => next.room === destination && (!point || reachable(next, point, agent)), sameLevelOnly);
+}
+
+function travelStep(world: World, character: SimCharacter, room: Room, agent: Agent | undefined,
+  goal: (location: Location) => boolean, sameLevelOnly = false): Door | Room | undefined {
   return firstStepToward<Door | Room>({ room, point: agent?.ghost ? undefined : agent }, (location) => {
     const current = location.room;
     const steps: { next: Location; step: Door | Room }[] = [];
@@ -74,13 +85,13 @@ export function stepTowardWork(world: World, character: SimCharacter, room: Room
         steps.push({ next, step: door });
       }
     }
-    if (current.elevator && reachable(location, current.elevator.front, agent)) {
+    if (!sameLevelOnly && current.elevator && reachable(location, current.elevator.front, agent)) {
       for (const next of elevatorStops(world, current)) {
         steps.push({ next: { room: next, point: agent && !agent.ghost ? next.elevator!.front : undefined }, step: next });
       }
     }
-    return steps.filter(({ next }) => canVisitLevel(character, next.room.level));
-  }, (next) => targets.has(next.room));
+    return steps.filter(({ next }) => (!sameLevelOnly || next.room.level === room.level) && canVisitLevel(character, next.room.level));
+  }, goal);
 }
 
 /**
