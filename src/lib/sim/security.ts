@@ -52,6 +52,7 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
   if (target?.escort === agent) {
     if (agent.room !== target.home) return [escortHome(agent, world, target)];
     world.recontain(target);
+    duty.target = undefined;
   } else if (target) {
     if (target.loose && target.room.level === post.level) {
       if (target.alpha < 1) return [wait(0.5, `Tracking ${target.character.name}`)];
@@ -66,6 +67,10 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
     duty.target = undefined;
   }
 
+  // Open calls outrank the walk back and the shift change: guards take the next loose creature wherever they are.
+  const call = dispatch(agent, world, duty);
+  if (call) return [call];
+
   const at = postPoint(post);
   if (agent.room !== post || !post.canReach(agent, at)) {
     const step = stepTowardRoom(world, agent, post, at);
@@ -79,16 +84,18 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
     world.log(`${agent.character.name} was relieved at the ${post.name} elevator.`, 'muted');
     return [rideElevatorOut()];
   }
+  return [wait(1, 'Guarding the elevator', 'front')];
+}
 
+function dispatch(agent: Agent, world: World, duty: SecurityDuty): Task | undefined {
   for (const creature of world.creatures) {
-    if (!creature.loose || creature.alpha < 1 || creature.room.level !== post.level ||
+    if (!creature.loose || creature.alpha < 1 || creature.room.level !== duty.post.level ||
         world.agents.some((other) => other.security?.target === creature)) continue;
     const chase = pursue(agent, world, creature);
     if (!chase) continue;
     duty.target = creature;
     agent.say('!');
     world.log(`${agent.character.name} dispatched to the ${creature.room.name} for ${creature.character.name}.`, 'warn');
-    return [chase];
+    return chase;
   }
-  return [wait(1, 'Guarding the elevator', 'front')];
 }

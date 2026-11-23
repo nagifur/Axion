@@ -279,6 +279,8 @@ Schedules do not change the existing time-based population targets.
 Every non-cell elevator room also gets a security post on reachable floor beside
 the lift. Generated guards work separate 06:00–18:00 and 18:00–06:00 watches.
 They stay at their post unless responding to a breach or moved by the player.
+Breach calls outrank the walk back: a guard returning to post (or due for
+handover) takes the next unclaimed loose creature on their floor wherever they are.
 At shift change the guard finishes any escort, returns to post, hands over to a
 new guard, and leaves by elevator. Guards count on camera, but not towards the
 staff population target, duplicate-badge events, or roster identification.

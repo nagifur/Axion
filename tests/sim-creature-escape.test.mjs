@@ -9,6 +9,7 @@ import { EventDirector } from '../src/lib/sim/events.ts';
 import { ESCAPE_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
 import { PassageDoor } from '../src/lib/sim/door.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
+import { planSecurity } from '../src/lib/sim/security.ts';
 import { CREATURE_REACTIONS, LOOK_STARTLE_CHANCE, PET_CHANCE } from '../src/lib/sim/creatureReactions.ts';
 import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
 
@@ -307,6 +308,20 @@ test('one same-floor guard pursues a breach, escorts through working doors, then
   until(() => guard.room === post && guard.activity === 'Guarding the elevator');
   assert.deepEqual([guard.x, guard.y], at);
   assert.equal(guard.security.target, undefined);
+});
+
+test('a guard walking back to post takes a new breach call instead of finishing the walk', async (t) => {
+  const { world, creature, hall } = await setup(t, 42);
+  const post = world.room('level-3-main-entrance');
+  const guard = world.spawn(staff, hall, hall.randomFloorPoint());
+  guard.security = { post, relieved: false };
+  assert.match(planSecurity(guard, world, guard.security)[0].activity ?? '', /Returning to the elevator post/);
+
+  Object.assign(creature, { room: hall, ...hall.nearestWalkable({ x: guard.x + 40, y: guard.y }, guard) });
+  assert.ok(creature.loose);
+  planSecurity(guard, world, guard.security);
+  assert.equal(guard.security.target, creature, 'dispatched from the hall, not only once back at the post');
+  assert.notEqual(guard.room, post);
 });
 
 test('an escaped shapeshifter cannot also walk in disguised', async (t) => {
