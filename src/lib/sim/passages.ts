@@ -62,12 +62,14 @@ export class PassageNetwork {
     return this.states.get(door);
   }
 
-  /** Opens doors for authorized agents nearby; each new approach may break the door or its panel. */
+  /** Cell doors require an intentional crossing; other doors open for authorized agents nearby. */
   update(world: World, dt: number) {
     for (const [state, endpoints] of this.endpoints) {
+      const cell = endpoints.some(({ door }) => door.cell);
       const users = new Set(world.agents.filter((agent) =>
         !agent.removed && !agent.held && agent.layer === 'room' &&
         endpoints.some(({ room, door }) => agent.room === room && world.canAgentUsePassage(agent, door) &&
+          (!cell || agent.passageDoor === door) &&
           distanceToDoorway(agent, door) <= PASSAGE_DOOR_RANGE)));
       const previous = this.users.get(state);
       for (const agent of users) {

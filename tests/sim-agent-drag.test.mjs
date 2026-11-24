@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
-import { dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
+import { cellDoorAt, dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
 import { nap, wait } from '../src/lib/sim/tasks.ts';
 import { startConversation } from '../src/lib/sim/conversation.ts';
 import { enterThroughDoor } from '../src/lib/sim/transport.ts';
@@ -11,6 +11,8 @@ import { Prop } from '../src/lib/sim/prop.ts';
 import { Creature } from '../src/lib/sim/creature.ts';
 import { CREATURE_REACTIONS } from '../src/lib/sim/creatureReactions.ts';
 import { toSimCreature } from '../src/lib/sim/roster.ts';
+import { PassageDoor, PASSAGE_DOOR_HOLD_SECONDS, passagePartBounds } from '../src/lib/sim/door.ts';
+import { Item } from '../src/lib/sim/item.ts';
 
 beforeEach((t) => t.mock.method(Prop.prototype, 'breakOnUse', () => false));
 
@@ -338,6 +340,122 @@ test('lights toggle on task start and other props are inspected without changing
   assert.equal(agent.activity, 'Inspect table');
   assert.equal(agent.bubble, '?');
   assert.equal(table.broken, false);
+});
+
+function cellSetup(t, linked = true) {
+  t.mock.method(PassageDoor.prototype, 'breakOnUse', () => []);
+  const data = (id, exits, doors, links = {}) => ({
+    id, name: id, level: 3, camera: id, width: 300, height: 200,
+    nav: { floor: Array.from({ length: 200 }, () => [0, 300]), exits },
+    props: [], doors, links,
+  });
+  const exit = (id, side, x) => ({
+    id, kind: 'door', side, bounds: { x: x - 30, y: 20, w: 60, h: 81 },
+    threshold: { x, y: 100 }, base: { x, y: 80 },
+  });
+  const hall = new Room(data('hall', [exit('cell', 'north', 100), exit('other-cell', 'north', 200)],
+    { cell: { clearance: 3, cell: true }, 'other-cell': { clearance: 3, cell: true } },
+    linked ? { cell: { room: 'interior', door: 'south' } } : {}));
+  const interior = new Room(data('interior', [exit('south', 'south', 100)], { south: { clearance: 3 } },
+    { south: { room: 'hall', door: 'cell' } }));
+  const world = new World({ rooms: linked ? [hall, interior] : [hall], roster: [] });
+  world.arrive = () => undefined;
+  const agent = world.spawn({ ...character('opener'), accessLevel: '3' }, hall, { x: 150, y: 150 });
+  agent.setPlan(world, [wait(60, 'Original task')]);
+  world.update(0);
+  const door = hall.doors[0];
+  const state = world.passageDoorFor(door);
+  const bounds = passagePartBounds(door.side, door.appearance);
+  const point = { x: bounds.door.x + bounds.door.w / 2, y: bounds.door.y + 5 };
+  return { world, hall, interior, agent, door, state, bounds, point };
+}
+
+for (const part of ['door', 'panel']) {
+  test(`dropping on cell ${part} opens only that door, stays outside, and releases the hold`, (t) => {
+    const { world, hall, agent, door, state, bounds } = cellSetup(t);
+    const point = { x: bounds[part].x + bounds[part].w / 2, y: bounds[part].y + 5 };
+    const target = dropTarget(world, agent, point);
+    assert.equal(target.kind, 'door');
+    assert.equal(target.door, door);
+    assert.equal(state.open, 0, 'preview has no opening side effects');
+    assert.deepEqual([agent.x, agent.y], [150, 150]);
+    placeAgent(world, agent, target);
+    assert.deepEqual([agent.x, agent.y], [door.inside.x, door.inside.y]);
+    assert.equal(state.open, 0, 'a paused drop queues the action');
+    world.update(0);
+    world.update(state.motionSeconds);
+    assert.equal(state.open, 1);
+    assert.equal(agent.room, hall);
+    assert.equal(agent.alpha, 1);
+    assert.equal(world.passageDoorFor(hall.doors[1]).open, 0);
+    agent.setPlan(world, [wait(60, 'Staying outside')]);
+    world.update(PASSAGE_DOOR_HOLD_SECONDS);
+    world.update(state.motionSeconds);
+    assert.equal(state.open, 0, 'remaining at the threshold does not keep opening it');
+    assert.equal(state.unlocked, false);
+  });
+}
+
+test('cell-door drops also work from the unmarked interior view and for unlinked cells', (t) => {
+  const { world, interior, agent, state } = cellSetup(t);
+  const door = interior.doors[0];
+  const bounds = passagePartBounds(door.side, door.appearance).panel;
+  const point = { x: bounds.x + bounds.w / 2, y: bounds.y + 5 };
+  assert.equal(cellDoorAt(world, interior, point), door);
+  const target = dropTarget(world, agent, point, null, null, interior);
+  assert.equal(target.kind, 'door');
+  assert.equal(agent.room.id, 'hall', 'cross-camera preview does not transfer');
+  placeAgent(world, agent, target);
+  world.update(0);
+  world.update(state.motionSeconds);
+  assert.equal(state.open, 1);
+  assert.equal(agent.room, interior, 'opening does not cross back into the hall');
+
+  const unlinked = cellSetup(t, false);
+  placeAgent(unlinked.world, unlinked.agent, dropTarget(unlinked.world, unlinked.agent, unlinked.point));
+  unlinked.world.update(0);
+  unlinked.world.update(unlinked.state.motionSeconds);
+  assert.equal(unlinked.state.open, 1);
+  assert.equal(unlinked.agent.room, unlinked.hall);
+  assert.equal(unlinked.agent.removed, false);
+});
+
+test('unusable cell-door drops reject without replacing the task, and access follows cards', (t) => {
+  const { world, hall, agent, state, point } = cellSetup(t);
+  const logs = [];
+  world.hooks.log = (text) => logs.push(text);
+  const original = [agent.x, agent.y, agent.activity];
+  for (const part of ['broken', 'panelBroken', 'power']) {
+    if (part === 'power') hall.power = 'off';
+    else state[part] = true;
+    const target = dropTarget(world, agent, point);
+    assert.equal(target.kind, 'invalid');
+    assert.equal(placeAgent(world, agent, target), false);
+    assert.deepEqual([agent.x, agent.y, agent.activity], original);
+    if (part === 'power') hall.power = 'normal';
+    else state[part] = false;
+  }
+  const denied = world.spawn(character('denied'), hall, { x: 150, y: 150 });
+  assert.equal(dropTarget(world, denied, point).kind, 'invalid');
+  denied.receiveStoredItem(Item.create('card_level3'));
+  assert.equal(dropTarget(world, denied, point).kind, 'door');
+  assert.equal(logs.length, 3);
+});
+
+test('a queued door-opening action rechecks power and releases its intent on failure', (t) => {
+  const { world, hall, agent, state, point } = cellSetup(t);
+  const logs = [];
+  world.hooks.log = (text) => logs.push(text);
+  placeAgent(world, agent, dropTarget(world, agent, point));
+  hall.power = 'off';
+  world.update(0.1);
+  assert.equal(state.open, 0);
+  assert.equal(agent.passageDoor, undefined);
+  assert.ok(logs.some((text) => text.includes('cannot open')));
+  hall.power = 'normal';
+  agent.setPlan(world, [wait(60, 'Standing')]);
+  world.update(1);
+  assert.equal(state.open, 0);
 });
 
 test('agents in transitions, leaving, removed, or inside the elevator cannot be picked up', async () => {

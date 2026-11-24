@@ -333,7 +333,7 @@ test('heavy containment sprites retain every pixel in their normal, unlocked and
   }
 });
 
-test('unlinked cells open for authorized staff but are not facility entrances or exits', async (t) => {
+test('unlinked cells stay closed near authorized staff and are not facility entrances or exits', async (t) => {
   const facility = (await loadFacility()).filter((room) => !room.containmentCell);
   const data = facility.find((room) => room.id === 'level-3-heavy-containment-room');
   for (const door of Object.keys(data.links)) {
@@ -355,10 +355,10 @@ test('unlinked cells open for authorized staff but are not facility entrances or
   assert.equal(state.open, 0, 'staff without clearance cannot open the cell');
   const allowed = stay(world, staff('3', 'allowed'), room, door.inside);
   world.update(PASSAGE_DOOR_SECONDS / 2);
-  assert.equal(state.open, 0.5);
-  assert.equal(state.unlocked, true);
+  assert.equal(state.open, 0);
+  assert.equal(state.unlocked, false);
   world.update(PASSAGE_DOOR_SECONDS / 2);
-  assert.equal(state.open, 1);
+  assert.equal(state.open, 0);
   assert.equal(world.doorTowardExit(room, false, allowed).id, 'east', 'departures route toward the real connected entrance');
   assert.match(leaveFacility(allowed, world, true)[0].activity, /Main Entrance/);
 
@@ -375,7 +375,7 @@ test('unlinked cells open for authorized staff but are not facility entrances or
   assert.equal(allowed.alpha, 1);
 });
 
-test('a containment cell becomes traversable when its interior is linked', () => {
+test('linked cells only open for their active crossing and close near idle staff on either side', (t) => {
   const outsideData = roomData('outside', 3, 'north', 3, { room: 'interior', door: 'south' });
   outsideData.doors.north = { clearance: 3, style: 'heavy_containment', cell: true };
   const insideData = roomData('interior', 3, 'south', 3, { room: 'outside', door: 'north' });
@@ -387,10 +387,55 @@ test('a containment cell becomes traversable when its interior is linked', () =>
   assert.deepEqual(outside.linkedDoors, [door]);
   assert.equal(world.passageDoorFor(door), world.passageDoorFor(inside.doors[0]));
   assert.throws(() => world.arriveByDoor(staff('3'), outside, door), /not facility entrances/);
+  const state = world.passageDoorFor(door);
+  const breakOnUse = t.mock.method(state, 'breakOnUse', () => []);
+  const bystander = stay(world, staff('3', 'bystander'), inside, inside.doors[0].inside);
   const agent = stay(world, staff('3'), outside, door.inside);
+  agent.setPlan(world, [wait(1000, 'Waiting'), exitThroughDoor(door)]);
+  world.update(1);
+  assert.equal(state.open, 0, 'neither side opens from proximity or a queued crossing');
+  assert.equal(breakOnUse.mock.callCount(), 0, 'bystanders do not use or break cell doors');
+
   agent.setPlan(world, [exitThroughDoor(door)]);
   for (let i = 0; i < 200 && agent.room === outside; i++) world.update(0.1);
   assert.equal(agent.room, inside);
+  for (let i = 0; i < 200 && agent.alpha < 1; i++) world.update(0.1);
+  assert.equal(agent.alpha, 1, 'the interior arrival task keeps the cell door open');
+  agent.setPlan(world, [wait(1000, 'Standing')]);
+  world.update(PASSAGE_DOOR_HOLD_SECONDS);
+  world.update(PASSAGE_DOOR_SECONDS);
+  assert.equal(state.open, 0, 'idle authorized occupants do not hold the cell open');
+  assert.equal(state.unlocked, false);
+  assert.equal(bystander.room, inside);
+
+  agent.setPlan(world, [exitThroughDoor(inside.doors[0])]);
+  for (let i = 0; i < 200 && agent.room === inside; i++) world.update(0.1);
+  assert.equal(agent.room, outside, 'intentional exit opens the unmarked interior endpoint');
+  agent.setPlan(world, [wait(1000, 'Standing')]);
+  agent.alpha = 1;
+  world.update(PASSAGE_DOOR_HOLD_SECONDS);
+  world.update(PASSAGE_DOOR_SECONDS);
+  assert.equal(state.open, 0, 'replacing a crossing drops its opening intent');
+});
+
+test('crossing a nearby hallway door does not open or use a cell door', (t) => {
+  const data = roomData('hall', 3, 'east', 3, { room: 'next', door: 'west' });
+  data.nav.exits.push({ ...data.nav.exits[0], id: 'cell' });
+  data.doors.cell = { clearance: 3, cell: true };
+  const hall = new Room(data);
+  const next = new Room(roomData('next', 3, 'west', 3, { room: 'hall', door: 'east' }));
+  const world = new World({ rooms: [hall, next], roster: [] });
+  const passage = hall.doors.find((door) => door.id === 'east');
+  const cell = hall.doors.find((door) => door.id === 'cell');
+  const state = world.passageDoorFor(cell);
+  const breakOnUse = t.mock.method(state, 'breakOnUse', () => []);
+  const agent = stay(world, staff('3'), hall, passage.inside);
+  agent.setPlan(world, [exitThroughDoor(passage)]);
+  for (let i = 0; i < 200 && agent.room === hall; i++) world.update(0.1);
+  assert.equal(agent.room, next);
+  assert.equal(state.open, 0);
+  assert.equal(state.unlocked, false);
+  assert.equal(breakOnUse.mock.callCount(), 0);
 });
 
 test('door artwork aligns with openings and offsets move the door and panel independently', () => {

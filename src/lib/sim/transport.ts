@@ -108,6 +108,7 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
     activity,
     interruptible: false,
     transport: true,
+    passageDoor: door,
     start(agent, world) {
       if (door.cell && !door.to) {
         unreachable = true;
@@ -167,6 +168,28 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
 /** Longest an agent waits at a closed passage before abandoning the crossing. */
 const DOOR_WAIT_LIMIT = 5;
 
+/** Intentionally opens a passage without crossing it. */
+export function openPassageDoor(door: Door): Task {
+  return {
+    activity: `Open ${door.id} cell door`,
+    interruptible: false,
+    passageDoor: door,
+    start(agent) {
+      agent.facing = 'back';
+      agent.face(door.outside);
+    },
+    update(agent, world) {
+      const state = world.passageDoorFor(door);
+      if (!state || !state.powered || state.broken || state.panelBroken || !world.canAgentUsePassage(agent, door)) {
+        world.log(`${agent.character.name} cannot open the ${door.id} cell door in ${agent.room.name}: check power, damage, and access.`, 'warn');
+        agent.say('?', 1.5);
+        return true;
+      }
+      return state.open >= 1;
+    },
+  };
+}
+
 /** Puts the agent back at the threshold, visible and pickable, and drops the failed trip. */
 function giveUpOnDoor(agent: Agent, world: World, door: Door) {
   agent.x = door.inside.x;
@@ -187,6 +210,7 @@ export function enterThroughDoor(door: Door): Task {
     activity: 'Arriving',
     interruptible: false,
     transport: true,
+    passageDoor: door,
     update(agent, world, dt) {
       const physical = door.appearance || door.to ? world.passageDoorFor(door) : undefined;
       if (physical && !world.canAgentCross(agent, door)) {

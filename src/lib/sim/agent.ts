@@ -1,5 +1,5 @@
 import type { SimCharacter, SimImpostor } from './roster.ts';
-import type { Facing, Point, Room, Spot } from './room.ts';
+import type { Door, Facing, Point, Room, Spot } from './room.ts';
 import { CHARACTER_FRAMES, HOLD_ITEM_CYCLE, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { World } from './world.ts';
 import { accessCardLevel, ITEM_REACH, Item, startingItemTypes } from './item.ts';
@@ -24,6 +24,8 @@ export interface Task {
   sitting?: boolean;
   /** Door/elevator transitions cannot be picked up midway. */
   transport?: boolean;
+  /** The specific passage this task intentionally opens or crosses. */
+  passageDoor?: Door;
   falling?: boolean;
   /** Finish recovering before abandoning a broken seat. */
   tripping?: boolean;
@@ -220,6 +222,10 @@ export class Agent {
 
   get repairTarget(): RepairTarget | undefined {
     return this.task?.repairTarget ?? this.plan.find((task) => task.repairTarget)?.repairTarget;
+  }
+
+  get passageDoor(): Door | undefined {
+    return this.task?.passageDoor;
   }
 
   get frame(): { name: FrameName; flip: boolean } {

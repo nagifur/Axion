@@ -204,7 +204,13 @@ Only the immediately preceding session is retained, so copy it after the first r
 Drag a sprite or name tag to physically pick up an agent. Dropping on open floor
 repositions them, on a free chair or bench seat starts the usual seated activity,
 and on another agent starts a conversation. Lights can be toggled; other unseated
-props are inspected. The held agent pauses while the rest of the facility continues.
+props are inspected. Dropping on a cell door or its panel places the agent at its
+threshold and intentionally opens that specific door without entering the cell.
+This works from either camera view, including unlinked cell doors. The agent needs
+the usual access card; broken doors/panels, unpowered doors, and blocked thresholds
+reject the drop. Opening uses normal animation and break-on-use checks, then the
+usual hold timer lets the door close even if the agent remains nearby.
+The held agent pauses while the rest of the facility continues.
 Dropping above non-green nav-map pixels makes the agent fall straight down with
 gravity and land at a randomly chosen depth of 0-24 pixels into the first continuous
 green floor below, then play the usual trip reaction. The depth is chosen once per
@@ -1127,9 +1133,11 @@ the numbered artwork, without changing clearance or door behavior. It supports
 north-facing normal-size doors only. The small panel sits to the right, vertically
 centered alongside the door. The `cell` flag is independent of the style: an
 unlinked cell is not a facility entrance or exit, so staff cannot arrive or depart
-through it. Authorized staff nearby can still open it, and its door and panel can
-break and be repaired. Once linked to an on-camera cell room, it can be traversed
-like any other connected passage.
+through it. Proximity alone never opens a cell door, including from its linked
+interior camera. Once linked to an on-camera cell room, authorized staff open it
+only while actively crossing that specific passage, such as entering the cell or
+escorting a creature home. Its door and panel can still break on intentional use
+and be repaired; containment-failure events can still force it open.
 
 For connected rooms, configuring either side creates a matching door on the other
 camera and both views share one lock and animation. If both rooms configure it,
@@ -1143,12 +1151,15 @@ door configured with that level's clearance and artwork.
 
 A nearby authorized agent (within 40 room pixels of the passage threshold) turns
 the panel green and opens the door upward in 0.7 simulation seconds, or 2 seconds
-for big doors. Closing takes the same duration as opening. If either connected
+for big doors. Cell doors additionally require the agent's active door-crossing
+or explicit player-directed opening task to target that passage; walking past, waiting nearby, or crossing a different
+door does not open them or roll breakage. This applies to both views if either
+endpoint is marked `cell`. Closing takes the same duration as opening. If either connected
 camera uses big artwork, both views share the slower timing. Agents wait
 until it is at least half open; anyone authorized inside the doorway keeps it open. If it
 closes below halfway mid-crossing, the agent steps back to the threshold, fully visible, and
 gives up after 5 seconds without an open door, dropping the trip so they can be
-picked up again. Once no authorized agent is nearby, it holds for 1.5 seconds,
+picked up again. Once no authorized opener remains nearby, it holds for 1.5 seconds,
 then closes and the panel returns to red. Only a card opens a door, but anyone may
 slip through one that is already at least half open, and a door never closes on someone
 standing in its doorway (that keeps it open without turning the panel green).

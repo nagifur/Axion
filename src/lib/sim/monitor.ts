@@ -1,6 +1,6 @@
 import type { Agent } from './agent.ts';
 import { Creature } from './creature.ts';
-import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
+import { cellDoorAt, dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, FacilityEventDirector } from './facilityEvents.ts';
 import { bindDebugPanel } from './monitorDebug.ts';
 import { bindMonitorDiagnostics, diagnosticError, type MonitorDiagnostics } from './monitorDiagnostics.ts';
@@ -30,7 +30,7 @@ export interface MonitorConfig {
 const MAX_LOG_LINES = 40;
 const SWITCH_STATIC_MS = 220;
 const DRAG_CAMERA_HOVER_MS = 450;
-const DRAG_HELP = 'Drag an agent to open floor, a prop, or another agent. Hold over a floor or camera to switch. Esc cancels.';
+const DRAG_HELP = 'Drag an agent to open floor, a prop, a cell door, or another agent. Hold over a floor or camera to switch. Esc cancels.';
 const TOAST_MS = 4000;
 const DRAG_START_PX = 5;
 const DEBUG_FAST_SPEED = 4;
@@ -334,7 +334,8 @@ function bootMonitor(
     const partner = actorAt(event, pointer);
     if (partner instanceof Creature) return { kind: 'invalid', label: 'Cannot drop an agent onto a contained creature' };
     const prop = partner ? null : propPicker?.at(viewed, pointer, world.time);
-    return dropTarget(world, drag.agent, partner || prop ? pointer : drag.point, partner, prop, viewed);
+    const door = partner || prop ? undefined : cellDoorAt(world, viewed, pointer);
+    return dropTarget(world, drag.agent, partner || prop || door ? pointer : drag.point, partner, prop, viewed, door);
   };
 
   const setDragStatus = (text: string) => {

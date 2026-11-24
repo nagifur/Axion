@@ -3,10 +3,12 @@ import { breakPropOnUse, fall, rest, wait } from './tasks.ts';
 import { getFromDispenser } from './itemTasks.ts';
 import { conversationPoint, startConversation } from './conversation.ts';
 import type { Prop } from './prop.ts';
-import type { Point, Room, Spot } from './room.ts';
+import type { Door, Point, Room, Spot } from './room.ts';
 import { scheduleFor } from './schedule.ts';
 import type { World } from './world.ts';
 import { tryElectricalShock } from './electrical.ts';
+import { passagePartBounds } from './door.ts';
+import { openPassageDoor } from './transport.ts';
 
 export type DropTarget =
   | { kind: 'invalid'; label: string }
@@ -14,11 +16,24 @@ export type DropTarget =
   | { kind: 'fall'; room: Room; point: Point; label: string }
   | { kind: 'seat'; room: Room; point: Spot; label: string }
   | { kind: 'agent'; room: Room; point: Point; partner: Agent; label: string }
+  | { kind: 'door'; room: Room; point: Point; door: Door; label: string }
   | { kind: 'prop'; room: Room; point: Point; prop: Prop; label: string };
+
+/** Cell artwork is a drop target in either camera view, including its panel. */
+export function cellDoorAt(world: World, room: Room, point: Point): Door | undefined {
+  return room.doors.find((door) => {
+    const link = door.to;
+    if (!door.appearance || !(door.cell || (link && world.room(link.room)?.doors.some(
+      (other) => other.id === link.door && other.cell)))) return false;
+    return Object.values(passagePartBounds(door.side, door.appearance)).some((bounds) =>
+      point.x >= bounds.x && point.x < bounds.x + bounds.w && point.y >= bounds.y && point.y < bounds.y + bounds.h);
+  });
+}
 
 /** Resolves a drop without changing the simulation, also used for the live preview. */
 export function dropTarget(
   world: World, agent: Agent, point: Point, partner?: Agent | null, prop?: Prop | null, room: Room = agent.room,
+  door: Door | undefined = cellDoorAt(world, room, point),
 ): DropTarget {
   if (agent.incapacitated) return { kind: 'invalid', label: 'That agent is incapacitated' };
   if (point.x < 0 || point.y < 0 || point.x >= room.width || point.y >= room.height) {
@@ -59,13 +74,22 @@ export function dropTarget(
     }
     return { kind: 'prop', room, point: stand, prop, label: prop.switchable ? `Switch ${prop.type} ${prop.on ? 'off' : 'on'}` : `Inspect ${prop.type}` };
   }
+  if (door) {
+    const state = world.passageDoorFor(door);
+    if (!room.doors.includes(door) || !state) return { kind: 'invalid', label: 'That door is not in this room' };
+    if (!state.powered) return { kind: 'invalid', label: 'The cell door has no power' };
+    if (state.broken || state.panelBroken) return { kind: 'invalid', label: 'The cell door or panel is broken' };
+    if (!world.canAgentUsePassage(agent, door)) return { kind: 'invalid', label: 'The agent lacks clearance for this cell door' };
+    if (!room.isWalkable(door.inside)) return { kind: 'invalid', label: 'Cannot reach the cell door' };
+    return { kind: 'door', room, point: door.inside, door, label: `Open ${door.id} cell door` };
+  }
   const floor = { x: Math.min(room.width - 1, Math.round(point.x)), y: Math.min(room.height - 1, Math.round(point.y)) };
   if (!room.isFloor(floor.x, floor.y)) {
     return { kind: 'fall', room, point: floor, label: 'Drop agent and fall to the floor' };
   }
   return room.isWalkable(floor)
     ? { kind: 'floor', room, point: floor, label: 'Place agent here' }
-    : { kind: 'invalid', label: 'Drop on open floor, a prop, or an agent' };
+    : { kind: 'invalid', label: 'Drop on open floor, a prop, a cell door, or an agent' };
 }
 
 /** Applies a freshly resolved drop; invalid drops leave the original task and position intact. */
@@ -101,6 +125,8 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
   } else if (target.kind === 'agent') {
     const tasks = startConversation(agent, target.partner, world, true);
     if (!tasks) throw new Error('Validated conversation drop has no meeting point');
+  } else if (target.kind === 'door') {
+    agent.setPlan(world, [openPassageDoor(target.door)]);
   } else if (target.kind === 'prop' && target.prop.dispensing) {
     agent.setPlan(world, [getFromDispenser(target.prop)]);
   } else if (target.kind === 'prop') {

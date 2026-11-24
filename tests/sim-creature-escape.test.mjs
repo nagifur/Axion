@@ -9,6 +9,7 @@ import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
 import { ESCAPE_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
 import { PassageDoor } from '../src/lib/sim/door.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
+import { exitThroughDoor } from '../src/lib/sim/transport.ts';
 import { planSecurity } from '../src/lib/sim/security.ts';
 import { CREATURE_REACTIONS, LOOK_STARTLE_CHANCE, PET_CHANCE } from '../src/lib/sim/creatureReactions.ts';
 import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
@@ -411,12 +412,20 @@ test('a creature that sees its cell door stuck open breaks out, roams, and can b
   assert.equal(logs.at(-1).tone, 'ok');
 });
 
-test('staff opening the cell door tempt the creature, but a door that seals in time stops it', async (t) => {
+test('nearby staff leave residents contained; intentional entry can tempt escape until the door seals', async (t) => {
   const { world, creature, door, state, hall } = await setup(t, 5);
-  const guard = world.spawn(staff, hall, world.room(door.to.room).doors.find(({ id }) => id === door.to.door).inside);
+  const entrance = hall.doors.find(({ id }) => id === door.to.door);
+  const guard = world.spawn(staff, hall, entrance.inside);
   guard.setPlan(world, [wait(30, 'Guarding')]);
+  for (let i = 0; i < 40; i++) world.update(0.05);
+  assert.equal(state.open, 0);
+  assert.ok(creature.contained);
+  assert.equal(creature.escaping, false);
+
+  t.mock.method(state, 'breakOnUse', () => []);
+  guard.setPlan(world, [exitThroughDoor(entrance)]);
   for (let i = 0; i < 40 && creature.activity !== 'Escaping the cell'; i++) world.update(0.05);
-  assert.equal(state.open, 1);
+  assert.ok(state.passable);
   assert.equal(creature.activity, 'Escaping the cell');
   world.remove(guard, 'east');
   hall.power = 'off';
