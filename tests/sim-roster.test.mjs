@@ -8,6 +8,7 @@ import {
   heightToScale,
   parseHeightMeters,
   toSimCharacter,
+  toSimCreature,
   toSimImpostor,
   SIM_OVERRIDES,
 } from '../src/lib/sim/roster.ts';
@@ -28,6 +29,7 @@ test('procedural personnel get reproducible names, traits and capacities indepen
   for (const npc of crew) {
     assert.equal(npc.position, 'Caretaker');
     assert.equal(npc.href, undefined);
+    assert.equal(npc.scale, heightToScale(null));
     assert.deepEqual(npc.behavior, behaviorFromTraits(npc.traits, npc.species));
   }
 });
@@ -44,10 +46,27 @@ test('parses the height formats used in profiles', () => {
 });
 
 test('clamps sprite scale so giants and tiny staff stay readable', () => {
-  assert.equal(heightToScale(1.9), 1);
+  assert.equal(heightToScale(1.9), 0.85);
   assert.equal(heightToScale(6.12), 1.2);
-  assert.equal(heightToScale(0.45), 0.75);
-  assert.equal(heightToScale(null), 1);
+  assert.equal(heightToScale(0.45), 0.5);
+  for (const height of [null, 0, NaN, Infinity]) {
+    assert.equal(heightToScale(height), 0.85);
+  }
+});
+
+test('short, typical and tall profiles stay distinct for both staff and creatures', () => {
+  const scales = [1.2, 1.7, 1.9, 2.13, 2.6].map((meters) => {
+    const height = `${meters} m`;
+    const staff = toSimCharacter(personnel('test', { height }));
+    const creature = toSimCreature({
+      id: 'test',
+      data: { title: 'Test', type: 'Creature', containmentClass: 'Containment', species: 'Human', nickname: '', height },
+    });
+    assert.equal(creature.scale, staff.scale);
+    return staff.scale;
+  });
+  assert.deepEqual(scales, [0.54, 0.76, 0.85, 0.95, 1.16]);
+  assert.ok(scales.at(-1) / scales[0] > 2, 'tall and short profiles differ by more than 2x');
 });
 
 test('derives behaviour from profile traits', () => {

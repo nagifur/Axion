@@ -151,6 +151,11 @@ height sets sprite size, `colorTint` colours the name tag, and traits such as *S
 Wanted characters are left out. Entities with a *Shapeshifting* ability can sneak in
 disguised as staff.
 
+Staff and creatures share proportional height scaling: 1.90 m uses 85% of the base
+sprite size, with a 50% minimum for readability and the existing 120% maximum so
+giants cannot overwhelm a room. Unknown heights and generated staff use 85%.
+This leaves more visible separation between very short and very tall profiles.
+
 Double-click a sprite or name tag to follow that specific agent, security guard, or
 creature between cameras. The **Follow selected** control also starts
 following; **Stop following**, double-clicking the same actor again, Esc, or manually

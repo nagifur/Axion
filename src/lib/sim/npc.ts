@@ -1,5 +1,5 @@
 import { pick, range } from './random.ts';
-import { behaviorFromTraits, type SimCharacter } from './roster.ts';
+import { behaviorFromTraits, heightToScale, type SimCharacter } from './roster.ts';
 import { resolveStats } from './stats.ts';
 
 const GIVEN_NAMES = ['Alex', 'Cleo', 'Ellis', 'Iris', 'Jules', 'Kai', 'Mika', 'Morgan', 'Ren', 'Sam', 'Tess', 'Vale'];
@@ -13,7 +13,7 @@ export function generateNpc(badge: number, job: Pick<SimCharacter, 'position' | 
     ...job,
     id: `npc:${badge}`, employeeID: `NPC-${String(badge).padStart(4, '0')}`,
     name: `${pick(GIVEN_NAMES)} ${pick(SURNAMES)}`,
-    species: 'Human', tint: pick(['#9bc4ff', '#a7dbdb', '#c4b7ee']), scale: 1, weight: 1,
+    species: 'Human', tint: pick(['#9bc4ff', '#a7dbdb', '#c4b7ee']), scale: heightToScale(null), weight: 1,
     traits, behavior: behaviorFromTraits(traits, 'Human'),
     stats: resolveStats({
       hp: Math.round(range(85, 120)), stamina: Math.round(range(85, 125)),
