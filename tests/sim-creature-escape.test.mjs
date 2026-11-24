@@ -511,6 +511,62 @@ test('a guard walking back to post takes a new breach call instead of finishing 
   assert.notEqual(guard.room, post);
 });
 
+for (const pursuing of [false, true]) test(`security prioritizes the nearest local escapee ${pursuing ? 'over an existing distant pursuit' : 'when dispatched'}`, async (t) => {
+  const { world, hall } = await setup(t, 42, undefined, 3);
+  const post = world.room('level-3-main-entrance');
+  const guard = world.spawn(staff, hall, hall.nearestWalkable({ x: hall.width / 2, y: hall.height / 2 }));
+  const [remote, farther, nearest] = world.creatures;
+  Object.assign(remote, { room: post, ...post.randomFloorPoint() });
+  Object.assign(farther, { room: hall, ...hall.nearestWalkable({ x: guard.x + 60, y: guard.y }, guard) });
+  Object.assign(nearest, { room: hall, x: guard.x, y: guard.y });
+  assert.ok(Math.hypot(farther.x - guard.x, farther.y - guard.y) > 14);
+  assert.ok(world.creatures.every((creature) => creature.loose));
+  guard.security = { post, relieved: false, target: pursuing ? remote : undefined };
+
+  const [task] = planSecurity(guard, world, guard.security);
+  assert.equal(guard.security.target, nearest);
+  assert.equal(task.activity, `Pursuing ${nearest.character.name}`);
+  planSecurity(guard, world, guard.security);
+  assert.equal(nearest.escort, guard, 'the creature beside the guard is caught before leaving the room');
+  assert.equal(remote.escort, undefined);
+});
+
+test('local dispatch skips claimed, fading, and unreachable creatures', async (t) => {
+  const { world, hall } = await setup(t, 42, undefined, 4);
+  const post = world.room('level-3-main-entrance');
+  const guard = world.spawn(staff, hall, hall.randomFloorPoint());
+  guard.security = { post, relieved: false };
+  const [claimed, fading, unreachable, available] = world.creatures;
+  for (const creature of world.creatures) Object.assign(creature, { room: hall, x: guard.x, y: guard.y });
+  const other = world.spawn({ ...staff, id: 'other-guard' }, hall, guard);
+  other.security = { post, relieved: false, target: claimed };
+  fading.alpha = 0.5;
+  const canReach = hall.canReach.bind(hall);
+  t.mock.method(hall, 'canReach', (from, to, ghost) => to !== unreachable && canReach(from, to, ghost));
+
+  planSecurity(guard, world, guard.security);
+  assert.equal(guard.security.target, available);
+  assert.equal(other.security.target, claimed);
+});
+
+test('security finishes its local pursuit and escort rather than switching to a closer escapee', async (t) => {
+  const { world, hall } = await setup(t, 42, undefined, 2);
+  const post = world.room('level-3-main-entrance');
+  const guard = world.spawn(staff, hall, hall.nearestWalkable({ x: hall.width / 2, y: hall.height / 2 }));
+  const [target, closer] = world.creatures;
+  Object.assign(target, { room: hall, ...hall.nearestWalkable({ x: guard.x + 60, y: guard.y }, guard) });
+  Object.assign(closer, { room: hall, x: guard.x, y: guard.y });
+  guard.security = { post, relieved: false, target };
+
+  assert.equal(planSecurity(guard, world, guard.security)[0].activity, `Pursuing ${target.character.name}`);
+  assert.equal(guard.security.target, target);
+  target.escort = guard;
+  assert.match(planSecurity(guard, world, guard.security)[0].activity, /Escorting/);
+  assert.equal(guard.security.target, target);
+  assert.equal(target.escort, guard);
+  assert.equal(closer.escort, undefined);
+});
+
 test('an escaped shapeshifter cannot also walk in disguised', async (t) => {
   const { world, creature, state, hall } = await setup(t, 3);
   hall.power = 'off';

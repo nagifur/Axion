@@ -44,7 +44,7 @@ function escortHome(agent: Agent, world: World, creature: Creature): Task {
     : wait(2, `Waiting for a passage to ${creature.home.name}`);
 }
 
-/** Pick up calls at the post. Keep the claim through door transitions and finish a call before changing shift. */
+/** Prioritize local calls, keep claims through door transitions, and finish escorts before changing shift. */
 export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Task[] {
   const { post, target } = duty;
   if (duty.relieved) return [rideElevatorOut()];
@@ -54,6 +54,10 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
     world.recontain(target);
     duty.target = undefined;
   } else if (target) {
+    if (target.room !== agent.room || !agent.room.canReach(agent, target)) {
+      const local = dispatch(agent, world, duty, true);
+      if (local) return [local];
+    }
     if (target.loose && target.room.level === post.level) {
       if (target.alpha < 1) return [wait(0.5, `Tracking ${target.character.name}`)];
       if (target.room === agent.room && distance(agent, target) <= CAPTURE_REACH && agent.room.canReach(agent, target)) {
@@ -87,10 +91,17 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
   return [wait(1, 'Guarding the elevator', 'front')];
 }
 
-function dispatch(agent: Agent, world: World, duty: SecurityDuty): Task | undefined {
-  for (const creature of world.creatures) {
-    if (!creature.loose || creature.alpha < 1 || creature.room.level !== duty.post.level ||
-        world.agents.some((other) => other.security?.target === creature)) continue;
+function dispatch(agent: Agent, world: World, duty: SecurityDuty, localOnly = false): Task | undefined {
+  const local = (creature: Creature) => creature.room === agent.room && agent.room.canReach(agent, creature);
+  const candidates = world.creatures.filter((creature) =>
+    creature.loose && creature.alpha >= 1 && creature.room.level === duty.post.level &&
+    !world.agents.some((other) => other.security?.target === creature) && (!localOnly || local(creature)));
+  candidates.sort((a, b) => {
+    const aLocal = local(a);
+    const bLocal = local(b);
+    return aLocal && bLocal ? distance(agent, a) - distance(agent, b) : Number(bLocal) - Number(aLocal);
+  });
+  for (const creature of candidates) {
     const chase = pursue(agent, world, creature);
     if (!chase) continue;
     duty.target = creature;
