@@ -4,7 +4,8 @@ import { Agent } from '../src/lib/sim/agent.ts';
 import { leaveFacility } from '../src/lib/sim/transport.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { loadFacility } from '../src/lib/sim/roomLoader.ts';
+import { loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
+import { postPoint } from '../src/lib/sim/security.ts';
 import { DEFAULT_SCHEDULE, SCHEDULE_OVERRIDES, scheduleAt, scheduleFor } from '../src/lib/sim/schedule.ts';
 import { World } from '../src/lib/sim/world.ts';
 
@@ -110,6 +111,36 @@ test('each elevator has its own generated watch, even with no roster and across 
   }
   assert.ok(firstWatch.every((guard) => guard.removed));
 });
+
+for (const roomId of ['level-0-main-entrance', 'level-0-lookout']) {
+  for (const jump of [false, true]) {
+    test(`replacement guards arrive and walk to post in ${roomId} after a ${jump ? 'debug time jump' : 'live shift boundary'}`, async () => {
+      let clock = jump ? at(8) : at(17, 59);
+      const room = new Room(await loadRoom(roomId));
+      const world = new World({ rooms: [room], roster: [], now: () => clock });
+      world.populate();
+      const [outgoing] = world.agents;
+      const tickUntil = (predicate) => {
+        for (let i = 0; i < 600 && !predicate(); i++) world.update(0.1);
+        assert.ok(predicate(), 'guard did not complete the expected transition');
+      };
+      tickUntil(() => outgoing.activity === 'Guarding the elevator' && !outgoing.busy);
+      clock = at(18);
+      if (jump) outgoing.setPlan(world, []);
+      tickUntil(() => world.agents.some((agent) => agent !== outgoing));
+      const incoming = world.agents.find((agent) => agent !== outgoing);
+      assert.equal(incoming.layer, 'inside', 'replacement waits inside the arriving elevator, not at the post');
+      assert.notDeepEqual([incoming.x, incoming.y], [postPoint(room).x, postPoint(room).y]);
+      assert.equal(world.staffSecurityPost(room), incoming, 'a queued arrival already owns the post');
+      tickUntil(() => incoming.activity === 'Returning to the elevator post');
+      assert.equal(incoming.layer, 'room');
+      assert.ok(incoming.walkDistance > 0, 'replacement stepped out of the car');
+      tickUntil(() => outgoing.removed && incoming.activity === 'Guarding the elevator');
+      assert.deepEqual([incoming.x, incoming.y], [postPoint(room).x, postPoint(room).y]);
+      assert.deepEqual(world.agents, [incoming]);
+    });
+  }
+}
 
 test('work floors use available clearance levels, including unknown and Admin clearances', () => {
   const rooms = [makeRoom('surface', 0), makeRoom('one', 1), makeRoom('three', 3), makeRoom('five', 5)];

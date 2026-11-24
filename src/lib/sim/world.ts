@@ -253,18 +253,18 @@ export class World {
       const room = pick(working && workRooms.length && chance(0.85) ? workRooms : rooms);
       this.spawn(character, room, room.randomFloorPoint());
     }
-    for (const room of this.elevators.keys()) if (!room.cell) this.staffSecurityPost(room);
+    for (const room of this.elevators.keys()) if (!room.cell) this.staffSecurityPost(room, true);
   }
 
-  staffSecurityPost(post: Room) {
+  staffSecurityPost(post: Room, initial = false) {
     const assigned = this.everyone().find((agent) => agent.security?.post === post && !agent.security.relieved);
     if (assigned) return assigned;
     const character = generateNpc(this.nextNpcBadge++, {
       position: 'Security guard', accessLevel: String(post.level), schedule: securitySchedule(this.now()),
     });
-    const guard = this.spawn(character, post, postPoint(post));
+    const guard = initial ? this.spawn(character, post, postPoint(post)) : this.arriveByElevator(character, post);
     guard.security = { post, relieved: false };
-    guard.activity = 'Guarding the elevator';
+    guard.activity = initial ? 'Guarding the elevator' : 'Arriving by elevator';
     return guard;
   }
 
