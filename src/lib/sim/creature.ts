@@ -7,6 +7,7 @@ import { IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './spr
 import type { Agent } from './agent.ts';
 import { wait } from './tasks.ts';
 import { createLiveStats, hasMagic, type LiveStats } from './stats.ts';
+import { StatusEffects } from './statusEffects.ts';
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
@@ -50,6 +51,7 @@ export function escapeChance(containmentClass: string): number {
 }
 
 export class Creature {
+  readonly statuses = new StatusEffects({ kind: 'creature', entity: this });
   readonly character: SimCreature;
   readonly stats: LiveStats;
   /** The cell the creature is assigned to; it stays reserved while the creature is out. */
@@ -75,7 +77,7 @@ export class Creature {
 
   constructor(character: SimCreature, room: Room) {
     this.character = character;
-    this.stats = createLiveStats(character.stats);
+    this.stats = createLiveStats(character.stats, () => this.statuses.apply('dead'));
     this.home = room;
     this.room = room;
     this.layout = room.props;
@@ -99,15 +101,20 @@ export class Creature {
     return hasMagic(this.stats);
   }
 
+  get dead(): boolean {
+    return this.statuses.has('dead');
+  }
+
   get loose() {
-    return this.onCamera && !this.contained && !this.escort;
+    return !this.dead && this.onCamera && !this.contained && !this.escort;
   }
 
   get escaping() {
-    return this.plan.action === 'escape' || this.plan.action === 'enter';
+    return !this.dead && (this.plan.action === 'escape' || this.plan.action === 'enter');
   }
 
   get activity() {
+    if (this.dead) return 'Dead';
     if (this.away) return 'Away from cell';
     if (this.escaped) return 'Escaped the facility';
     if (this.escort) return `Being escorted to ${this.home.name}`;
@@ -118,6 +125,7 @@ export class Creature {
   }
 
   get frame() {
+    if (this.dead) return { name: IDLE_CYCLES[this.facing][0], flip: this.facing === 'left' };
     const cycle = (this.walking ? WALK_CYCLES : IDLE_CYCLES)[this.facing];
     const phase = this.walking ? this.distance / WALK_STRIDE : this.elapsed / IDLE_FRAME_SECONDS;
     return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
@@ -125,6 +133,7 @@ export class Creature {
 
   /** Puts the creature back in its cell, e.g. when security recaptures it. */
   returnHome(world: World) {
+    if (this.dead) return;
     const delivered = this.escort && this.room === this.home;
     this.releaseEscort();
     this.room = this.home;
@@ -158,12 +167,15 @@ export class Creature {
     this.layout = this.room.props;
     this.noticed.clear();
     guard.stats.hp.current = Math.max(0, guard.stats.hp.current - 10);
+    guard.finishDeath(world);
     guard.moving = false;
-    guard.shake = 0.6;
-    guard.say('!', 3);
     const activity = `Recovering from ${this.character.name}'s attack`;
-    guard.setPlan(world, [{ ...wait(3, activity), interruptible: false }]);
-    guard.activity = activity;
+    if (!guard.dead) {
+      guard.shake = 0.6;
+      guard.say('!', 3);
+      guard.setPlan(world, [{ ...wait(3, activity), interruptible: false }]);
+      guard.activity = activity;
+    }
     world.log(`${this.character.name} broke free from ${guard.character.name}'s grasp in the ${this.room.name}, injuring the guard!`, 'alert');
 
     const doors = this.room.doors.filter((door) => this.canUse(world, door) && this.passable(world, door));
@@ -186,7 +198,7 @@ export class Creature {
 
   /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash. */
   hold(seconds: number, toward: Point) {
-    if (this.escort || this.escaping || this.plan.action === 'flee') return;
+    if (this.dead || this.escort || this.escaping || this.plan.action === 'flee') return;
     this.walking = false;
     this.plan = { action: 'watch', remaining: seconds };
     if (Math.abs(toward.x - this.x) >= 2) this.facing = toward.x < this.x ? 'left' : 'right';
@@ -314,7 +326,7 @@ export class Creature {
   }
 
   update(world: World, dt: number) {
-    if (!this.onCamera || !dt) return;
+    if (this.dead || !this.onCamera || !dt) return;
     this.elapsed += dt;
     this.walking = false;
     if (this.escort) {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Agent } from '../src/lib/sim/agent.ts';
+import { Creature } from '../src/lib/sim/creature.ts';
 import { PassageDoor } from '../src/lib/sim/door.ts';
 import { Item } from '../src/lib/sim/item.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
@@ -277,4 +278,88 @@ test('all entity collections start empty, and item placement exports exclude liv
   item.statuses.apply(id);
   assert.deepEqual(item.toData(), data);
   assert.deepEqual(new Item(item.toData()).statuses.active, []);
+});
+
+test('zero and negative HP immediately kill staff and security permanently and release their plans', () => {
+  for (const hp of [0, -5]) {
+    const room = makeRoom();
+    const world = new World({ rooms: [room], roster: [] });
+    const agent = world.spawn(character, room, { x: 30, y: 80 });
+    if (hp < 0) agent.security = { post: room, relieved: false };
+    let updates = 0;
+    let ends = 0;
+    let cancellations = 0;
+    agent.setPlan(world, [{
+      activity: 'Working', interruptible: false,
+      update: () => { updates++; return false; },
+      end: () => { ends++; },
+    }, {
+      activity: 'Queued', interruptible: true, update: () => false,
+      cancel: () => { cancellations++; },
+    }]);
+    agent.update(world, 0.1);
+    agent.moving = true;
+    agent.stats.hp.current = hp;
+    assert.equal(agent.dead, true);
+    assert.equal(agent.stats.hp.current, 0);
+    assert.equal(agent.activity, 'Dead');
+    assert.equal(agent.moving, false);
+    assert.equal(agent.draggable, false);
+    assert.deepEqual(agent.statuses.get('dead'), { id: 'dead', label: 'Dead', remaining: null });
+    assert.equal(agent.statuses.remove('dead'), false);
+    agent.statuses.clear();
+    assert.equal(agent.dead, true);
+    assert.throws(() => agent.statuses.apply('dead', 1), /irreversible.*duration/);
+    agent.stats.hp.current = 100;
+    assert.equal(agent.stats.hp.current, 0, 'healing cannot revive a dead actor');
+    const position = { x: agent.x, y: agent.y };
+    assert.equal(agent.moveToward({ x: 70, y: 80 }, 1), false);
+    agent.held = true;
+    world.update(1);
+    world.update(1);
+    assert.deepEqual({ x: agent.x, y: agent.y }, position);
+    assert.equal(updates, 1);
+    assert.equal(ends, 1);
+    assert.equal(cancellations, 1);
+    assert.equal(agent.removed, false);
+    assert.ok(world.actorsIn(room).includes(agent));
+    assert.equal(agent.statuses.get('dead').remaining, null);
+  }
+  assert.equal(Item.create('can').statuses.apply('dead'), false);
+});
+
+test('dead creatures stop wandering, stay on camera, and release escort claims', () => {
+  const home = makeRoom();
+  const room = makeRoom('other');
+  const creature = new Creature({
+    id: 'resident', name: 'Resident', nickname: 'Test', containmentClass: 'Maximum Containment',
+    tint: '#fff', scale: 1,
+  }, home);
+  const world = new World({ rooms: [home, room], roster: [] });
+  world.creatures.push(creature);
+  creature.room = room;
+  const guard = world.spawn(character, room, { x: 30, y: 80 });
+  guard.security = { post: room, relieved: false, target: creature };
+  creature.escort = guard;
+  creature.stats.hp.current = -1;
+  assert.equal(creature.dead, true);
+  assert.equal(creature.escort, undefined);
+  assert.equal(guard.security.target, undefined);
+  assert.equal(creature.loose, false);
+  assert.equal(creature.escaping, false);
+  assert.equal(creature.activity, 'Dead');
+  const position = { x: creature.x, y: creature.y };
+  const frame = creature.frame;
+  guard.held = true;
+  world.update(20);
+  creature.hold(10, { x: 0, y: 0 });
+  world.recontain(creature);
+  assert.equal(creature.room, room);
+  assert.deepEqual({ x: creature.x, y: creature.y }, position);
+  assert.deepEqual(creature.frame, frame);
+  assert.ok(world.actorsIn(room).includes(creature));
+  creature.statuses.clear();
+  creature.stats.hp.current = 100;
+  assert.equal(creature.stats.hp.current, 0);
+  assert.equal(creature.statuses.get('dead').remaining, null);
 });

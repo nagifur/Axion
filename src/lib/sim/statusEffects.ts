@@ -1,4 +1,5 @@
 import type { Agent } from './agent.ts';
+import type { Creature } from './creature.ts';
 import type { PassageDoor } from './door.ts';
 import type { Item } from './item.ts';
 import type { Prop } from './prop.ts';
@@ -6,6 +7,7 @@ import type { World } from './world.ts';
 
 export type StatusTarget =
   | { kind: 'agent'; entity: Agent }
+  | { kind: 'creature'; entity: Creature }
   | { kind: 'prop'; entity: Prop }
   | { kind: 'item'; entity: Item }
   | { kind: 'door' | 'panel'; entity: PassageDoor };
@@ -21,6 +23,8 @@ export interface StatusEffectDefinition {
   blocksActions?: boolean;
   /** Simulation seconds; omitted means permanent until removed. */
   duration?: number;
+  /** Cannot expire, be removed, or receive a duration override. */
+  irreversible?: boolean;
   canApply?(target: StatusTarget): boolean;
   onApply?(target: StatusTarget): void;
   /** Receives only the part of the frame for which the effect is still active. */
@@ -33,6 +37,29 @@ export const SCARED_SECONDS = 10;
 
 /** Add effects here; no artwork is required for simulation-only effects. */
 export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
+  dead: {
+    label: 'Dead',
+    targets: ['agent', 'creature'],
+    blocksActions: true,
+    irreversible: true,
+    popup: {
+      icon: new URL('../../sim_assets/icons/dead.svg', import.meta.url).href,
+      color: '#ffffff',
+    },
+    onApply(target) {
+      if (target.kind !== 'agent' && target.kind !== 'creature') return;
+      target.entity.stats.hp.current = 0;
+      if (target.kind === 'agent') {
+        target.entity.moving = false;
+        target.entity.napping = false;
+        target.entity.bubble = null;
+        target.entity.shake = 0;
+        target.entity.eyeFlash = 0;
+      } else {
+        target.entity.releaseEscort();
+      }
+    },
+  },
   broken: {
     label: 'Broken',
     targets: ['prop', 'door', 'panel'],
@@ -123,6 +150,9 @@ export class StatusEffects {
   apply(id: string, duration?: number): boolean {
     const definition = Object.hasOwn(STATUS_EFFECTS, id) ? STATUS_EFFECTS[id] : undefined;
     if (!definition) throw new Error(`Unknown status effect "${id}". Add it to STATUS_EFFECTS first.`);
+    if (definition.irreversible && (duration !== undefined || definition.duration !== undefined)) {
+      throw new Error(`Status effect "${id}" is irreversible and cannot have a duration.`);
+    }
     const seconds = duration ?? definition.duration;
     validateDuration(seconds);
     if (!definition.targets.includes(this.target.kind) || definition.canApply?.(this.target) === false) return false;
@@ -146,7 +176,7 @@ export class StatusEffects {
 
   private removeEffect(id: string, reason: StatusRemovalReason): boolean {
     const effect = this.effects.get(id);
-    if (!effect) return false;
+    if (!effect || effect.definition.irreversible) return false;
     this.effects.delete(id);
     this.changed?.(id, false);
     effect.definition.onRemove?.(this.target, reason);

@@ -107,7 +107,7 @@ test('invalid capacities fail explicitly rather than silently defaulting', () =>
   assert.equal(resolveStats({ magic: 0 }).magic, 0);
 });
 
-test('updates do not automatically drain, restore, or apply stat gameplay effects', () => {
+test('updates do not automatically drain or restore live stat pools', () => {
   const agent = new Agent(toSimCharacter(personnel()), {}, { x: 0, y: 0 });
   agent.stats.hp.current = 0;
   agent.stats.stamina.current = 20;

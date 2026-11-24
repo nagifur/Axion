@@ -88,12 +88,13 @@ export class Agent {
   private plan: Task[] = [];
   private carriedItem: Item | null = null;
   private readonly storedItems: Item[] = [];
+  private deathHandled = false;
 
   constructor(character: SimCharacter, room: Room, at: Point, impostor?: SimImpostor) {
     this.character = character;
     this.room = room;
     this.impostor = impostor;
-    this.stats = createLiveStats(impostor?.stats ?? character.stats);
+    this.stats = createLiveStats(impostor?.stats ?? character.stats, () => this.statuses.apply('dead'));
     this.x = at.x;
     this.y = at.y;
     for (const type of startingItemTypes(character)) this.storedItems.push(Item.create(type));
@@ -107,8 +108,12 @@ export class Agent {
     return this.statuses.actionBlockRemaining > 0;
   }
 
+  get dead(): boolean {
+    return this.statuses.has('dead');
+  }
+
   get activity(): string {
-    return this.statuses.has('shocked') ? 'Shocked' : this.currentActivity;
+    return this.dead ? 'Dead' : this.statuses.has('shocked') ? 'Shocked' : this.currentActivity;
   }
 
   set activity(activity: string) {
@@ -285,6 +290,7 @@ export class Agent {
 
   /** Pauses the current task to run another one first, then resumes. */
   interrupt(world: World, task: Task) {
+    if (this.dead) return;
     if (this.task) this.plan.unshift(this.task);
     this.task = task;
     this.taskElapsed = 0;
@@ -333,6 +339,7 @@ export class Agent {
   }
 
   update(world: World, dt: number, blockedSeconds = 0) {
+    this.finishDeath(world);
     this.moving = false;
     if (this.bubbleTimer > 0) {
       this.bubbleTimer -= dt;
@@ -364,5 +371,16 @@ export class Agent {
     }
     if (task && this.task === task && !this.incapacitated) this.taskElapsed += Math.max(0, dt);
     this.idleElapsed = this.moving ? 0 : (this.idleElapsed + Math.max(0, dt)) % (IDLE_FRAME_SECONDS * 2);
+  }
+
+  /** World also calls this for held agents and off-camera riders. */
+  finishDeath(world: World) {
+    if (!this.dead || this.deathHandled) return;
+    this.deathHandled = true;
+    this.setPlan(world, []);
+    if (this.security) {
+      if (this.security.target?.escort === this) this.security.target.releaseEscort();
+      this.security.target = undefined;
+    }
   }
 }

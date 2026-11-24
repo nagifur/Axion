@@ -500,7 +500,7 @@ test('one same-floor guard pursues a breach, escorts through working doors, then
   assert.equal(guard.security.target, undefined);
 });
 
-for (const hp of [100, 5]) test(`an escorted creature breaks free, damages a guard with ${hp} HP, and runs while the guard recovers`, async (t) => {
+for (const hp of [100, 5]) test(`an escorted creature breaks free from a guard with ${hp} HP; only surviving guards recover`, async (t) => {
   const { world, creature, hall, logs } = await setup(t, 42);
   const post = world.room('level-3-main-entrance');
   const guard = world.spawn(staff, hall, hall.nearestWalkable({ x: hall.width / 2, y: hall.height / 2 }));
@@ -519,7 +519,12 @@ for (const hp of [100, 5]) test(`an escorted creature breaks free, damages a gua
   assert.equal(creature.room, hall);
   assert.equal(creature.home.cell.creatureId, creature.character.id);
   assert.ok(hall.isWalkable(creature));
-  assert.match(guard.activity, /Recovering/);
+  if (hp > 10) assert.match(guard.activity, /Recovering/);
+  else {
+    assert.equal(guard.activity, 'Dead');
+    assert.equal(guard.statuses.get('dead').remaining, null);
+    assert.equal(guard.bubble, null);
+  }
   assert.ok(logs.some(({ text, tone }) => tone === 'alert' && text.includes('broke free') && text.includes('injuring')));
 
   creature.hold(30, guard); // A nearby staff member trying to pet it must not stop the getaway.
@@ -534,7 +539,7 @@ for (const hp of [100, 5]) test(`an escorted creature breaks free, damages a gua
   assert.ok(Math.hypot(creature.x - guard.x, creature.y - guard.y) > 14, 'the creature runs out of capture reach');
   assert.equal(guard.stats.hp.current, Math.max(0, hp - 10), 'damage occurs only on the break');
   for (let i = 0; i < 12; i++) guard.update(world, 0.1);
-  assert.equal(guard.security.target, creature, 'security resumes pursuit after recovering');
+  assert.equal(guard.security.target, hp > 10 ? creature : undefined, 'only surviving security resumes pursuit');
 });
 
 test('resistance uses elapsed time, preserves unlucky escorts, and pauses during fades and delivery', async (t) => {

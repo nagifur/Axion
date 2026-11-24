@@ -208,7 +208,7 @@ export class World {
 
   /** Completes an escort, or restores an off-camera escapee to its assigned cell. */
   recontain(creature: Creature) {
-    if (creature.contained) return;
+    if (creature.dead || creature.contained) return;
     const escort = creature.escort;
     const from = creature.escaped ? 'outside the facility' : `the ${creature.room.name}`;
     creature.returnHome(this);
@@ -257,7 +257,7 @@ export class World {
   }
 
   staffSecurityPost(post: Room, initial = false) {
-    const assigned = this.everyone().find((agent) => agent.security?.post === post && !agent.security.relieved);
+    const assigned = this.everyone().find((agent) => !agent.dead && agent.security?.post === post && !agent.security.relieved);
     if (assigned) return assigned;
     const character = generateNpc(this.nextNpcBadge++, {
       position: 'Security guard', accessLevel: String(post.level), schedule: securitySchedule(this.now()),
@@ -422,6 +422,10 @@ export class World {
     agent.alpha = 1;
     agent.enteredRoomAt = this.time;
     this.agents.push(agent);
+    if (agent.dead) {
+      agent.layer = 'room';
+      return;
+    }
     const request = elevator.request('arrive', agent, { direction: directionTo(from, to) });
     const onward = agent.leaving ? leaveFacility(agent, this, agent.revealed) : [];
     agent.setPlan(this, [rideElevatorIn(request), ...onward]);
@@ -461,6 +465,7 @@ export class World {
 
   /** Player clicked someone on the feed. */
   interact(agent: Agent): 'revealed' | 'woke' | 'verified' | null {
+    if (agent.dead) return null;
     if (agent.impostor && !agent.revealed) {
       agent.revealed = true;
       agent.say('!', 3);
@@ -513,11 +518,13 @@ export class World {
     const blockedSeconds = new Map<Agent, number>();
     for (const agent of this.everyone()) {
       if (agent.removed) continue;
+      agent.finishDeath(this);
       blockedSeconds.set(agent, Math.min(dt, agent.statuses.actionBlockRemaining));
       statuses.add(agent.statuses);
       if (agent.item) statuses.add(agent.item.statuses);
       for (const item of agent.inventory) statuses.add(item.statuses);
     }
+    for (const creature of this.creatures) statuses.add(creature.statuses);
     for (const room of this.rooms) {
       for (const prop of room.props) statuses.add(prop.statuses);
       for (const item of room.items) statuses.add(item.statuses);
@@ -529,6 +536,7 @@ export class World {
       }
     }
     for (const effects of statuses) effects.update(this, dt);
+    for (const agent of this.everyone()) agent.finishDeath(this);
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
     this.passages.update(this, dt);
 
@@ -545,7 +553,7 @@ export class World {
     }
 
     for (const agent of [...this.agents]) {
-      if (agent.removed || agent.held) continue;
+      if (agent.removed || agent.held || agent.dead) continue;
       if (agent.spot && !agent.room.spots.includes(agent.spot)) {
         agent.setPlan(this, []);
       }

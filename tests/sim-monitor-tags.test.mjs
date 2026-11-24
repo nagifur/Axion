@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { access } from 'node:fs/promises';
 import { Agent } from '../src/lib/sim/agent.ts';
+import { Creature } from '../src/lib/sim/creature.ts';
+import { Room } from '../src/lib/sim/room.ts';
 import { NameTags } from '../src/lib/sim/monitorTags.ts';
 import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
 
@@ -53,7 +55,7 @@ function setup(t) {
   sync();
   const button = layer.children[0];
   return {
-    agent, world, button, sync, state,
+    agent, world, button, sync, state, layer,
     statuses: button.children[0], bubble: button.children[1],
     hide: () => { visible = false; },
   };
@@ -141,4 +143,29 @@ test('status tags share character visibility, dragging and removed-agent cleanup
   world.agents = [];
   sync();
   assert.equal(button.removed, true);
+});
+
+test('Dead artwork and accessible popup persist for both staff and creatures', async (t) => {
+  await access(new URL(STATUS_EFFECTS.dead.popup.icon));
+  const { agent, world, button, statuses, sync, layer } = setup(t);
+  agent.stats.hp.current = 0;
+  sync();
+  assert.equal(statuses.children[0].children[0].src, STATUS_EFFECTS.dead.popup.icon);
+  assert.equal(statuses.children[0].children[0].alt, 'Dead');
+  assert.equal(button.getAttribute('aria-label'), 'Tester. Dead. Open file');
+  const room = new Room({
+    id: 'cell', name: 'Cell', camera: 'cell', level: 0, width: 140, height: 100,
+    nav: { floor: Array.from({ length: 100 }, () => [0, 140]), exits: [] }, props: [], links: {},
+  });
+  const creature = new Creature({ name: 'Resident', tint: '#fff', scale: 1 }, room);
+  creature.stats.hp.current = -5;
+  world.agents = [creature];
+  sync();
+  assert.equal(button.removed, true);
+  const creatureButton = layer.children.at(-1);
+  assert.equal(creatureButton.children[0].children[0].children[0].src, STATUS_EFFECTS.dead.popup.icon);
+  assert.equal(creatureButton.getAttribute('aria-label'), 'Resident. Dead. Open file');
+  creature.statuses.update({}, 100);
+  sync();
+  assert.equal(creatureButton.children[0].children.length, 1);
 });
