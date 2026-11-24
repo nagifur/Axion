@@ -60,6 +60,7 @@ export interface SimCreature {
   image?: string;
   tint: string;
   scale: number;
+  stats: SimStats;
 }
 
 /** Unknown or redacted clearances use level 1; Admin has unrestricted access. */
@@ -204,6 +205,7 @@ interface CreatureInput {
     nickname: string;
     colorTint?: string;
     height?: string;
+    stats?: Partial<SimStats>;
   };
 }
 
@@ -216,6 +218,7 @@ export function toSimCreature(entry: CreatureInput, base = '', image?: string): 
     id, name: data.title, nickname: data.nickname, containmentClass, species: data.species,
     href: `${base}/Entities/${id}`, image, tint: data.colorTint ?? DEFAULT_TINT,
     scale: heightToScale(parseHeightMeters(data.height)),
+    stats: resolveStats(data.stats),
   };
 }
 

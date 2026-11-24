@@ -27,9 +27,9 @@ thirst start at 0 (satisfied), with their maximum meaning an urgent need.
 Magic is disabled at 0; set a positive capacity only for magic users.
 Other capacities must be positive finite numbers. Unknown stat names are rejected.
 The monitoring panel shows live values, but stats do not drain or affect behavior
-yet. Stats reset on a new agent spawn or page reload and are not saved.
-Only personnel and shapeshifting entities currently spawn in monitoring; synthetic
-stats are accepted for future use.
+yet. Stats reset on a new spawn or page reload and are not saved.
+Personnel, contained creatures, and shapeshifting entities currently spawn in
+monitoring; synthetic stats are accepted for future use.
 
 ## Importing a submission from a zip
 

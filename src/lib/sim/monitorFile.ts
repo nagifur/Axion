@@ -3,7 +3,7 @@ import { Creature } from './creature.ts';
 import { el } from './monitorDom.ts';
 import type { Room } from './room.ts';
 import { scheduleFor } from './schedule.ts';
-import type { AgentStats } from './stats.ts';
+import type { LiveStats } from './stats.ts';
 import type { CameraActor, World } from './world.ts';
 
 const SCHEDULE_LABELS = { work: 'Working hours', lunch: 'Lunch break', break: 'Short break', free: 'Free time' } as const;
@@ -23,7 +23,7 @@ function hasTwin(world: World, agent: Agent) {
 export class MonitorFile {
   private key?: string;
   private activityNode: HTMLElement | null = null;
-  private readonly statNodes = new Map<keyof AgentStats, HTMLElement>();
+  private readonly statNodes = new Map<keyof LiveStats, HTMLElement>();
 
   constructor(
     private readonly node: HTMLElement,
@@ -42,7 +42,7 @@ export class MonitorFile {
       agent ? `${agent.uid}|${agent.revealed}|${agent.removed}|${twin}|${agent.room.id}|${onScreen}|${period}|${agent.item?.type ?? ''}|${agent.inventory.map((item) => item.type).join(',')}` : '';
     if (key === this.key) {
       if (actor && this.activityNode) this.activityNode.textContent = agent?.removed ? 'Off camera' : actor.activity;
-      if (agent) this.updateStats(agent);
+      if (actor) this.updateStats(actor);
       return;
     }
     this.key = key;
@@ -98,13 +98,13 @@ export class MonitorFile {
     if (agent) {
       stat('Item', agent.item?.type ?? 'Empty');
       stat('Inventory', agent.inventory.map((item) => item.type.replaceAll('_', ' ')).join(', ') || 'Empty');
-      for (const [statKey, label] of STAT_LABELS) {
-        const node = stat(label, '');
-        if (statKey === 'hunger' || statKey === 'thirst') node.title = '0 = satisfied; maximum = urgent need';
-        this.statNodes.set(statKey, node);
-      }
-      this.updateStats(agent);
     }
+    for (const [statKey, label] of STAT_LABELS) {
+      const node = stat(label, '');
+      if (statKey === 'hunger' || statKey === 'thirst') node.title = '0 = satisfied; maximum = urgent need';
+      this.statNodes.set(statKey, node);
+    }
+    this.updateStats(actor);
     const loose = creature && !creature.contained && !creature.away;
     if (loose) stat('Assigned cell', `${creature.home.name} · ${creature.home.camera}`);
     if (creature?.escaped) stat('Location', 'Outside the facility');
@@ -134,10 +134,10 @@ export class MonitorFile {
     this.node.replaceChildren(...parts);
   }
 
-  private updateStats(agent: Agent) {
+  private updateStats(actor: CameraActor) {
     for (const [key, node] of this.statNodes) {
-      const { current, max } = agent.stats[key];
-      node.textContent = key === 'magic' && !agent.hasMagic ? 'None' : `${Math.round(current)} / ${max}`;
+      const { current, max } = actor.stats[key];
+      node.textContent = key === 'magic' && !actor.hasMagic ? 'None' : `${Math.round(current)} / ${max}`;
     }
   }
 }

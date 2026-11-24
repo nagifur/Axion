@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Agent } from '../src/lib/sim/agent.ts';
-import { DEFAULT_STATS, createAgentStats, resolveStats } from '../src/lib/sim/stats.ts';
-import { toSimCharacter, toSimImpostor } from '../src/lib/sim/roster.ts';
+import { Creature } from '../src/lib/sim/creature.ts';
+import { Room } from '../src/lib/sim/room.ts';
+import { DEFAULT_STATS, createLiveStats, resolveStats } from '../src/lib/sim/stats.ts';
+import { toSimCharacter, toSimCreature, toSimImpostor } from '../src/lib/sim/roster.ts';
 
 const personnel = (stats) => ({
   id: 'test.md',
@@ -77,12 +79,30 @@ test('impostors use entity capacities even while disguised as staff', () => {
   assert.equal(agent.hasMagic, true);
 });
 
+test('creatures get independent live pools from their entity profile capacities', () => {
+  const data = { title: 'C-100', nickname: 'Echo', containmentClass: 'Containment', type: 'Creature', species: 'Lizard' };
+  const creature = toSimCreature({ id: 'c-100.md', data: { ...data, stats: { hp: 300, thirst: 40 } } });
+  assert.deepEqual(creature.stats, { ...DEFAULT_STATS, hp: 300, thirst: 40 });
+  const cell = new Room({
+    id: 'cell', name: 'cell', camera: 'cell', level: 3, width: 240, height: 160, containmentCell: true,
+    nav: { floor: Array.from({ length: 160 }, () => [0, 240]), exits: [] }, props: [], links: {},
+  });
+  const first = new Creature(creature, cell);
+  const second = new Creature(creature, cell);
+  assert.deepEqual(first.stats.hp, { current: 300, max: 300 });
+  assert.deepEqual(first.stats.thirst, { current: 0, max: 40 });
+  assert.equal(first.hasMagic, false);
+  first.stats.hp.current = 10;
+  assert.equal(second.stats.hp.current, 300);
+  assert.throws(() => toSimCreature({ id: 'bad.md', data: { ...data, stats: { hp: 0 } } }), /Invalid stat "hp"/);
+});
+
 test('invalid capacities fail explicitly rather than silently defaulting', () => {
   for (const key of ['hp', 'stamina', 'magic', 'hunger', 'thirst']) {
     for (const value of [-1, NaN, Infinity, -Infinity, '100', null, undefined]) {
       assert.throws(() => resolveStats({ [key]: value }), new RegExp(`Invalid stat "${key}"`));
     }
-    if (key !== 'magic') assert.throws(() => createAgentStats({ [key]: 0 }), /Invalid stat/);
+    if (key !== 'magic') assert.throws(() => createLiveStats({ [key]: 0 }), /Invalid stat/);
   }
   assert.equal(resolveStats({ magic: 0 }).magic, 0);
 });

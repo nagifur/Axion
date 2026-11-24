@@ -8,6 +8,7 @@ import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
 import { CHARACTER_FRAMES, frameWithIdleFallback } from '../src/lib/sim/sprites.ts';
+import { DEFAULT_STATS } from '../src/lib/sim/stats.ts';
 
 const data = { title: 'C-100', nickname: 'Echo', containmentClass: 'Containment', type: 'Creature', species: 'Lizard' };
 const profile = (id) => toSimCreature({ id, data });
@@ -24,7 +25,7 @@ test('entity eligibility uses profile type and containment class, independent of
   const convert = (changes) => toSimCreature({ id: 'custom.md', data: { ...data, ...changes } }, '/base', 'portrait.webp');
   assert.deepEqual(convert({ type: ' creature ', height: '1.9 m', colorTint: '#abcdef', wanted: { status: 'Escaped' } }), {
     id: 'custom', name: 'C-100', nickname: 'Echo', containmentClass: 'Containment', species: 'Lizard',
-    href: '/base/Entities/custom', image: 'portrait.webp', tint: '#abcdef', scale: 1,
+    href: '/base/Entities/custom', image: 'portrait.webp', tint: '#abcdef', scale: 1, stats: DEFAULT_STATS,
   });
   for (const containmentClass of ['Ally', ' A ', 'Class A', 'Class A - Ally']) assert.equal(convert({ containmentClass }), null);
   for (const type of ['Artifact', 'Plant']) assert.equal(convert({ type }), null);

@@ -6,6 +6,7 @@ import { distance } from './navMap.ts';
 import { IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './sprites.ts';
 import type { Agent } from './agent.ts';
 import { wait } from './tasks.ts';
+import { createLiveStats, hasMagic, type LiveStats } from './stats.ts';
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
@@ -50,6 +51,7 @@ export function escapeChance(containmentClass: string): number {
 
 export class Creature {
   readonly character: SimCreature;
+  readonly stats: LiveStats;
   /** The cell the creature is assigned to; it stays reserved while the creature is out. */
   readonly home: Room;
   /** Where the creature is now: its cell, or wherever it roamed to after a breach. */
@@ -73,6 +75,7 @@ export class Creature {
 
   constructor(character: SimCreature, room: Room) {
     this.character = character;
+    this.stats = createLiveStats(character.stats);
     this.home = room;
     this.room = room;
     this.layout = room.props;
@@ -90,6 +93,10 @@ export class Creature {
   /** Physically on some camera: not disguised as staff and not gone from the facility. */
   get onCamera() {
     return !this.away && !this.escaped;
+  }
+
+  get hasMagic() {
+    return hasMagic(this.stats);
   }
 
   get loose() {

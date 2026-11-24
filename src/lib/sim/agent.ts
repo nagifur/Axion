@@ -3,7 +3,7 @@ import type { Door, Facing, Point, Room, Spot } from './room.ts';
 import { CHARACTER_FRAMES, HOLD_ITEM_CYCLE, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { World } from './world.ts';
 import { accessCardLevel, ITEM_REACH, Item, startingItemTypes } from './item.ts';
-import { createAgentStats, type AgentStats } from './stats.ts';
+import { createLiveStats, hasMagic, type LiveStats } from './stats.ts';
 import { isSpeaking, type Conversation } from './conversation.ts';
 import { planNext } from './planning.ts';
 import { planRepair, type RepairTarget } from './repairs.ts';
@@ -50,7 +50,7 @@ export class Agent {
   readonly uid = nextUid++;
   readonly character: SimCharacter;
   readonly impostor?: SimImpostor;
-  readonly stats: AgentStats;
+  readonly stats: LiveStats;
   security?: SecurityDuty;
   revealed = false;
   /** The room this agent is currently in. */
@@ -93,7 +93,7 @@ export class Agent {
     this.character = character;
     this.room = room;
     this.impostor = impostor;
-    this.stats = createAgentStats(impostor?.stats ?? character.stats);
+    this.stats = createLiveStats(impostor?.stats ?? character.stats);
     this.x = at.x;
     this.y = at.y;
     for (const type of startingItemTypes(character)) this.storedItems.push(Item.create(type));
@@ -116,7 +116,7 @@ export class Agent {
   }
 
   get hasMagic() {
-    return this.stats.magic.max > 0;
+    return hasMagic(this.stats);
   }
 
   get item(): Item | null {

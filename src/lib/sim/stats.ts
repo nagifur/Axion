@@ -26,14 +26,20 @@ export function resolveStats(overrides: Partial<SimStats> = {}): SimStats {
   return stats;
 }
 
-export interface AgentStat {
+export interface LiveStat {
   current: number;
   readonly max: number;
 }
 
-export type AgentStats = { [K in keyof SimStats]: AgentStat };
+/** Mutable per-instance pools shared by staff agents and creatures alike. */
+export type LiveStats = { [K in keyof SimStats]: LiveStat };
 
-export function createAgentStats(overrides?: Partial<SimStats>): AgentStats {
+/** Magic capability comes from capacity, so a depleted pool still counts. */
+export function hasMagic(stats: LiveStats): boolean {
+  return stats.magic.max > 0;
+}
+
+export function createLiveStats(overrides?: Partial<SimStats>): LiveStats {
   const max = resolveStats(overrides);
   return {
     hp: { current: max.hp, max: max.hp },

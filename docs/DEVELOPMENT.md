@@ -161,13 +161,17 @@ an agent leaves the facility. Camera switching is suspended while dragging an ag
 Character frontmatter supports optional `stats` capacity overrides; see the
 [stats authoring reference](../templates/README.md#optional-simulation-stats).
 [`stats.ts`](../src/lib/sim/stats.ts) defines the defaults: HP and stamina 100,
-magic 0 (disabled), hunger and thirst 100. Each spawned agent gets its own
-`stats` pools with `current` and `max`; HP/stamina/magic start full and needs
-start at zero. `agent.hasMagic` is true only with a positive magic capacity.
+magic 0 (disabled), hunger and thirst 100. Each spawned agent and creature gets its own
+`stats` pools (`LiveStats`) with `current` and `max`; HP/stamina/magic start full and needs
+start at zero. `hasMagic` is true only with a positive magic capacity.
+Stats are shared by composition: `Agent` and `Creature` each own a `LiveStats` value
+rather than inheriting from a common base class, so code that only needs stats can
+accept any `{ stats: LiveStats }`.
 Impostors use their entity profile's stats, not the copied staff profile's.
-The selected-agent panel updates live values without rebuilding the file.
+Contained creatures use the same entity profile's stats.
+The selected-agent or creature panel updates live values without rebuilding the file.
 There is no automatic drain, recovery, damage, death, or AI behavior change yet;
-values last only for that agent instance, not across spawns or reloads.
+values last only for that agent or creature instance, not across spawns or reloads.
 All three character collections validate optional stat blocks, including
 synthetics that do not yet spawn in monitoring.
 
