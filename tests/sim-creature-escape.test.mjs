@@ -5,7 +5,7 @@ import { toSimCreature } from '../src/lib/sim/roster.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
-import { EventDirector } from '../src/lib/sim/events.ts';
+import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
 import { ESCAPE_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
 import { PassageDoor } from '../src/lib/sim/door.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
@@ -509,7 +509,7 @@ test('an escaped shapeshifter cannot also walk in disguised', async (t) => {
   for (let i = 0; i < 300 && creature.contained; i++) world.update(0.1);
   assert.ok(!creature.contained);
   world.spawn(staff, hall, hall.randomFloorPoint());
-  const director = new EventDirector([{ ...creature.character, weight: 1 }]);
+  const director = new FacilityEventDirector([{ ...creature.character, weight: 1 }]);
   assert.equal(director.triggerImpostor(world), false);
   assert.equal(creature.away, false);
 });

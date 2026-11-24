@@ -1,7 +1,7 @@
 import type { Agent } from './agent.ts';
 import { Creature } from './creature.ts';
 import { dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
-import { ACHIEVEMENTS, EventDirector } from './events.ts';
+import { ACHIEVEMENTS, FacilityEventDirector } from './facilityEvents.ts';
 import { bindDebugPanel } from './monitorDebug.ts';
 import { bindMonitorDiagnostics, diagnosticError, type MonitorDiagnostics } from './monitorDiagnostics.ts';
 import { clock, el, EventListeners } from './monitorDom.ts';
@@ -98,7 +98,7 @@ function bootMonitor(
   // Milliseconds added to the real clock by the debug time override (0 = live).
   let clockOffset = 0;
   const world = new World({ roster: config.roster, creatureRoster: config.creatureRoster, rooms, now: () => new Date(Date.now() + clockOffset) });
-  const director = new EventDirector(config.impostors);
+  const director = new FacilityEventDirector(config.impostors);
   const progress = loadProgress();
   const unlocked = new Set(progress.achievements);
   const identified = new Set(progress.identified);

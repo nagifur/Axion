@@ -3,7 +3,7 @@ import test from 'node:test';
 import { dropTarget } from '../src/lib/sim/agentDrag.ts';
 import { getFromDispenser } from '../src/lib/sim/itemTasks.ts';
 import { tryElectricalShock } from '../src/lib/sim/electrical.ts';
-import { BLACKOUT_BACKUP_SECONDS, BLACKOUT_RESTORE_SECONDS } from '../src/lib/sim/levels.ts';
+import { BLACKOUT_BACKUP_SECONDS, BLACKOUT_RESTORE_SECONDS } from '../src/lib/sim/levelEvents.ts';
 import { bindDebugPanel } from '../src/lib/sim/monitorDebug.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { wait } from '../src/lib/sim/tasks.ts';

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { EventDirector } from '../src/lib/sim/events.ts';
+import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
 import { Item } from '../src/lib/sim/item.ts';
 import { exitThroughDoor, leaveFacility, rideElevatorOut } from '../src/lib/sim/transport.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
@@ -256,7 +256,7 @@ test('an unmasked impostor escapes through another room if needed', async () => 
   const rooms = await facility();
   const world = new World({ roster, rooms, now: noon });
   world.populate();
-  const director = new EventDirector([{ id: 'm-779', name: 'M-779', nickname: 'Carny', href: '/Entities/m-779', weight: 1 }]);
+  const director = new FacilityEventDirector([{ id: 'm-779', name: 'M-779', nickname: 'Carny', href: '/Entities/m-779', weight: 1 }]);
   assert.ok(director.triggerImpostor(world));
   const impostor = world.agents.find((agent) => agent.impostor);
   for (let t = 0; t < 3 && impostor.alpha < 1; t += 0.1) world.update(0.1);

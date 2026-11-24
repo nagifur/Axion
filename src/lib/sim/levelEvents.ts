@@ -57,7 +57,7 @@ function setPower(level: LevelState, power: LevelPower) {
   for (const room of level.rooms) room.power = power;
 }
 
-/** Events available on every loaded floor. Nothing triggers them automatically. */
+/** Shared floor events; nothing triggers them automatically. */
 export const LEVEL_EVENTS: Readonly<Record<string, LevelEventDefinition>> = {
   blackout: {
     label: 'Blackout',

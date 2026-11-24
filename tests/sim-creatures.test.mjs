@@ -6,7 +6,7 @@ import { toSimCharacter, toSimCreature } from '../src/lib/sim/roster.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
-import { EventDirector } from '../src/lib/sim/events.ts';
+import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
 import { CHARACTER_FRAMES, frameWithIdleFallback } from '../src/lib/sim/sprites.ts';
 
 const data = { title: 'C-100', nickname: 'Echo', containmentClass: 'Containment', type: 'Creature', species: 'Lizard' };
@@ -129,7 +129,7 @@ test('a disguised shapeshifter vacates its reserved cell, including between floo
     title: 'Employee', species: 'Human', height: '', position: '', accessLevel: '3', employeeID: '1',
     positiveTraits: [], negativeTraits: [],
   } });
-  const director = new EventDirector([{ ...residentProfile, weight: 1 }]);
+  const director = new FacilityEventDirector([{ ...residentProfile, weight: 1 }]);
   world.spawn(employee, hall, hall.randomFloorPoint());
   assert.ok(director.triggerImpostor(world));
   const disguise = world.agents.find((agent) => agent.impostor);

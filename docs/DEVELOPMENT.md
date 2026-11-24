@@ -338,7 +338,9 @@ never flicker.
 | [`src/lib/sim/elevator.ts`](../src/lib/sim/elevator.ts) | Elevator cars: requests, door timing, and passenger layout. |
 | [`src/lib/sim/passages.ts`](../src/lib/sim/passages.ts) | Live state of passage doors between rooms (locks, panels, who is passing). |
 | [`src/lib/sim/random.ts`](../src/lib/sim/random.ts) | The single source of randomness (`random`, `chance`, `pick`, ...). Use it instead of `Math.random`; `setRandomSource` swaps in a seeded generator. |
-| [`src/lib/sim/events.ts`](../src/lib/sim/events.ts) | Random events, A1 announcements, and achievements. |
+| [`src/lib/sim/facilityEvents.ts`](../src/lib/sim/facilityEvents.ts) | Facility-wide timed events and A1 announcements, plus achievement definitions. |
+| [`src/lib/sim/levelEvents.ts`](../src/lib/sim/levelEvents.ts) | Floor event definitions and floor-specific simulation rules. |
+| [`src/lib/sim/levelState.ts`](../src/lib/sim/levelState.ts) | Per-floor state and event lifecycle. |
 | [`src/lib/sim/render.ts`](../src/lib/sim/render.ts) | Asset loading and drawing a camera feed onto a canvas. |
 | [`src/lib/sim/monitor.ts`](../src/lib/sim/monitor.ts) | Boots the monitoring page: cameras, drag and drop, and the frame loop. Its panels live in `monitorFile.ts` (personnel file), `monitorTags.ts` (name tags), `monitorDebug.ts` and `monitorEditor.ts` (`?debug` tools), and `monitorProgress.ts` (saved progress). |
 
@@ -388,12 +390,15 @@ Unused cells outside the listed animations are ignored.
 
 #### Floor Events and Variables
 
-Register floor-specific rules in `LEVEL_DEFINITIONS` in [`levels.ts`](../src/lib/sim/levels.ts), keyed by
-the numeric `level` from `room.json`. Every room on that floor reads the same
+Register floor-specific rules in `LEVEL_DEFINITIONS` in [`levelEvents.ts`](../src/lib/sim/levelEvents.ts),
+keyed by the numeric `level` from `room.json`. Every room on that floor reads the same
 state through `world.level(room.level)`. Even floors without rules have their own
 state; floors with no loaded rooms return `undefined`. Variables are
 booleans, numbers, strings, or `null`, and each world gets a fresh copy of the
 defaults. Floor state is not saved on reload.
+
+Facility-wide timed announcements and impostor arrivals are instead handled by
+`FacilityEventDirector` in [`facilityEvents.ts`](../src/lib/sim/facilityEvents.ts).
 
 `LEVEL_EVENTS` defines events available on every floor. Floor-specific event
 definitions override shared events with the same ID. `level.availableEvents`

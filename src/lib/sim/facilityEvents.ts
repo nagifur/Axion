@@ -32,7 +32,7 @@ const ANNOUNCEMENTS: ((roster: SimCharacter[]) => string)[] = [
   (roster) => `Employee of the week: ${pick(roster).name}. Keep up the good work.`,
 ];
 
-export class EventDirector {
+export class FacilityEventDirector {
   private nextImpostor = range(90, 180);
   private nextAnnouncement = range(20, 40);
   readonly impostors: SimImpostor[];

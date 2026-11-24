@@ -1,5 +1,5 @@
 import type { Agent } from './agent.ts';
-import type { EventDirector } from './events.ts';
+import type { FacilityEventDirector } from './facilityEvents.ts';
 import { nap, trip } from './tasks.ts';
 import type { LogTone, World } from './world.ts';
 import type { Room } from './room.ts';
@@ -8,7 +8,7 @@ import type { EventListeners } from './monitorDom.ts';
 /** What the debug buttons (shown with ?debug) can poke at. */
 export interface DebugControls {
   world: World;
-  director: EventDirector;
+  director: FacilityEventDirector;
   log(text: string, tone?: LogTone): void;
   /** Agents on the camera being watched. */
   onCamera(): Agent[];

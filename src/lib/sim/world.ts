@@ -20,7 +20,7 @@ import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
 import { reactToCreatures } from './creatureReactions.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
-import { LEVEL_DEFINITIONS, LEVEL_EVENTS, restoreCellContainment } from './levels.ts';
+import { LEVEL_DEFINITIONS, LEVEL_EVENTS, restoreCellContainment } from './levelEvents.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 export type CameraActor = Agent | Creature;
