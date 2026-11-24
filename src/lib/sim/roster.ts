@@ -90,7 +90,8 @@ export const SIM_OVERRIDES: Record<string, SimOverride> = {
 
 export const DEFAULT_TINT = '#7ef5ff';
 const BASE_HEIGHT_M = 1.90;
-const MIN_SCALE = 0.75;
+const DEFAULT_SCALE = 0.85;
+const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.2;
 
 /** Parses profile heights like `{{5'7"|1.70 m}}`, `172 cm`, or `5'5` into metres. */
@@ -116,8 +117,8 @@ export function parseHeightMeters(raw: unknown): number | null {
 }
 
 export function heightToScale(meters: number | null): number {
-  if (!meters || !Number.isFinite(meters)) return 1;
-  const scale = meters / BASE_HEIGHT_M;
+  if (!meters || !Number.isFinite(meters)) return DEFAULT_SCALE;
+  const scale = (meters / BASE_HEIGHT_M) * DEFAULT_SCALE;
   return Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale)) * 100) / 100;
 }
 
