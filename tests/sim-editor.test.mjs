@@ -82,5 +82,6 @@ test('seat reservations survive layout rebuilds and are released when the seat i
 
   room.setProps(room.props.filter((prop) => prop !== seat.prop));
   world.update(0.1);
-  assert.equal(agent.spot, undefined, 'removing the seat releases the stale reservation');
+  assert.notEqual(agent.spot, seat, 'removing the seat releases the stale reservation');
+  assert.ok(!agent.spot || room.spots.includes(agent.spot), 'an immediate new reservation belongs to the rebuilt room');
 });

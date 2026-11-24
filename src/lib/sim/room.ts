@@ -2,6 +2,7 @@
 // the nav map decides where feet can go and where the exits are, room.json places the props.
 
 import type { DoorSide, NavMapData, Point, Rect } from './navMap.ts';
+import { segmentIntersectsRect } from './navMap.ts';
 import { NavGrid } from './pathfinding.ts';
 import { Prop, type PlacedProp } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
@@ -73,7 +74,7 @@ export interface Door {
   appearance?: DoorAppearance;
 }
 
-export interface Elevator extends Rect {
+export interface ElevatorOpening extends Rect {
   /** Name shared by every stop of the same lift, if it is connected to other rooms on camera. */
   shaft?: string;
   big: boolean;
@@ -129,7 +130,7 @@ export class Room {
   items: Item[] = [];
   readonly spots: Spot[] = [];
   readonly doors: Door[] = [];
-  readonly elevator?: Elevator;
+  readonly elevator?: ElevatorOpening;
   private readonly floor: number[][];
   private readonly floorAreas?: number[][][];
   private readonly blocked: Rect[] = [];
@@ -321,11 +322,12 @@ export class Room {
     if (cell < 0 && this.floorAreas && area >= 0) {
       throw new Error(`${this.id}: floor area ${area + 1} has no walkable standing point.`);
     }
-    return cell >= 0 ? this.grid.center(cell) : { x: Math.round(point.x), y: Math.round(point.y) };
+    if (cell < 0) throw new Error(`${this.id}: no walkable standing point.`);
+    return this.grid.center(cell);
   }
 
   randomFloorPoint(rand: () => number = random, from?: Point): Point {
-    if (!this.openCells.length) return { x: Math.round(this.width / 2), y: Math.round(this.height / 2) };
+    if (!this.openCells.length) throw new Error(`${this.id}: no walkable standing point.`);
     const cells = from && this.floorAreas
       ? this.openCells.filter((cell) => this.sameFloorArea(from, this.grid.center(cell)))
       : this.openCells;
@@ -366,6 +368,8 @@ export class Room {
   }
 
   private lineClear(from: Point, to: Point): boolean {
+    if (!this.isWalkable(from) || !this.isWalkable(to)) return false;
+    if (this.blocked.some((rect) => segmentIntersectsRect(from, to, rect))) return false;
     const steps = Math.ceil(Math.hypot(to.x - from.x, to.y - from.y) / 2);
     for (let i = 1; i < steps; i++) {
       const t = i / steps;
@@ -376,29 +380,40 @@ export class Room {
 
   /** Whether a task can reach its standing point without crossing solid floor boundaries. */
   canReach(from: Point, to: Point, ghost = false): boolean {
-    return this.isWalkable(to) && (ghost || (this.sameFloorArea(from, to) &&
-      (this.lineClear(from, to) || this.grid.findPath(from, to) !== null)));
+    if (!this.isWalkable(to)) return false;
+    if (ghost) return true;
+    if (!this.sameFloorArea(from, to)) return false;
+    const start = this.isWalkable(from) ? from : this.nearestWalkable(from);
+    return this.lineClear(start, to) || this.grid.findPath(start, to) !== null;
   }
 
-  /** Waypoints from `from` to `to` around walls and furniture. Ghosts go straight. */
+  /** Waypoints around walls and furniture; a seat's final step enters its prop. Ghosts go straight. */
   route(from: Point, to: Point, ghost = false): Point[] | null {
-    if (!ghost && !this.sameFloorArea(from, to)) return null;
-    if (ghost || this.lineClear(from, to)) return [to];
-    const cells = this.grid.findPath(from, to);
+    if (ghost) return [to];
+    const seat = this.spots.find((spot) => spot === to);
+    if ((!seat && !this.isWalkable(to)) || !this.sameFloorArea(from, to)) return null;
+    // Falls and interrupted arrivals can start outside standing clearance; first return to floor.
+    const start = this.isWalkable(from) ? from : this.nearestWalkable(from);
+    const goal = seat ? this.nearestWalkable(to) : to;
+    const finish = seat ? [goal, to] : [to];
+    const path: Point[] = start === from ? [] : [start];
+    if (this.lineClear(start, goal)) return [...path, ...finish];
+    const cells = this.grid.findPath(start, goal);
     if (!cells) return null;
 
     // Skip every waypoint that can be reached in a straight line, so paths don't zigzag.
-    const points = [...cells, to];
-    const path: Point[] = [];
-    let current = from;
+    const points = [...cells, goal];
+    let current = start;
     let i = 0;
     while (i < points.length) {
       let j = points.length - 1;
       while (j > i && !this.lineClear(current, points[j])) j--;
+      if (!this.lineClear(current, points[j])) return null;
       path.push(points[j]);
       current = points[j];
       i = j + 1;
     }
+    if (seat) path.push(to);
     return path;
   }
 }

@@ -23,8 +23,7 @@ export function distanceToRect(point: Point, rect: Rect): number {
   );
 }
 
-/** Includes the swept path, so a long simulation frame cannot skip a nearby hazard. */
-export function segmentDistanceToRect(from: Point, to: Point, rect: Rect): number {
+function segmentRectInterval(from: Point, to: Point, rect: Rect): readonly [number, number] | null {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   let enter = 0;
@@ -34,18 +33,33 @@ export function segmentDistanceToRect(from: Point, to: Point, rect: Rect): numbe
     [from.y, dy, rect.y, rect.y + rect.h],
   ]) {
     if (delta === 0) {
-      if (start < min || start > max) {
-        enter = Infinity;
-        break;
-      }
+      if (start < min || start > max) return null;
     } else {
       const a = (min - start) / delta;
       const b = (max - start) / delta;
       enter = Math.max(enter, Math.min(a, b));
       exit = Math.min(exit, Math.max(a, b));
     }
+    if (enter > exit) return null;
   }
-  if (enter <= exit) return 0;
+  return [enter, exit];
+}
+
+/** Intersects the same half-open bounds used for furniture occupancy. */
+export function segmentIntersectsRect(from: Point, to: Point, rect: Rect): boolean {
+  const interval = segmentRectInterval(from, to, rect);
+  if (!interval) return false;
+  const t = (interval[0] + interval[1]) / 2;
+  const x = from.x + (to.x - from.x) * t;
+  const y = from.y + (to.y - from.y) * t;
+  return x >= rect.x && x < rect.x + rect.w && y >= rect.y && y < rect.y + rect.h;
+}
+
+/** Includes the swept path, so a long simulation frame cannot skip a nearby hazard. */
+export function segmentDistanceToRect(from: Point, to: Point, rect: Rect): number {
+  if (segmentRectInterval(from, to, rect)) return 0;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
   let distance = Math.min(distanceToRect(from, rect), distanceToRect(to, rect));
   const lengthSquared = dx * dx + dy * dy;
   if (lengthSquared === 0) return distance;

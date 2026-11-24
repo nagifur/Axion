@@ -13,6 +13,7 @@ import { conversationPoint } from '../src/lib/sim/conversation.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { seededRandom } from '../src/lib/sim/random.ts';
+import { PROP_TYPES } from '../src/lib/sim/sprites.ts';
 
 const color = (kind) => [...NAV_COLORS.find((entry) => entry.kind === kind).rgb, 255];
 const CLEAR = [0, 0, 0, 0];
@@ -132,6 +133,58 @@ test('floor areas isolate walking and random destinations, while ghosts cross', 
   assert.equal(room.floorArea(room.nearestWalkable(to, from)), 0, 'exit snapping keeps its serving area');
 });
 
+test('routes reject thin furniture barriers and blocked destinations', (t) => {
+  PROP_TYPES.route_wall_test = { asset: 'route_wall_test', blocks: { x: 0, y: 0, w: 1, h: 80 } };
+  t.after(() => { delete PROP_TYPES.route_wall_test; });
+  const room = areaRoom('barrier', false);
+  room.setProps([{ type: 'route_wall_test', asset: 'route_wall_test', x: 21, y: 0, w: 1, h: 80, flip: false }]);
+  for (const [from, to] of [
+    [{ x: 18, y: 40 }, { x: 22, y: 40 }],
+    [{ x: 20.4, y: 40 }, { x: 80, y: 40 }],
+    [{ x: 18, y: 40 }, { x: 21, y: 40 }],
+  ]) {
+    assert.equal(room.canReach(from, to), false);
+    assert.equal(room.route(from, to), null, `no route from ${from.x} to ${to.x}`);
+    assert.deepEqual(room.route(from, to, true), [to], 'ghosts still ignore furniture');
+  }
+  assert.deepEqual(room.route({ x: 18, y: 40 }, { x: 20.4, y: 40 }), [{ x: 20.4, y: 40 }]);
+  assert.equal(room.canReach({ x: 22, y: 40 }, { x: 80, y: 40 }), true, 'the exclusive right edge is not blocked');
+  assert.deepEqual(room.route({ x: 80, y: 40 }, { x: 22, y: 40 }), [{ x: 22, y: 40 }]);
+});
+
+test('routes recover standing clearance after falls and interrupted arrivals', () => {
+  const room = areaRoom('recover', false);
+  const from = { x: 30, y: 0 };
+  const to = { x: 60, y: 40 };
+  const path = room.route(from, to);
+  assert.equal(room.canReach(from, to), true);
+  assert.deepEqual(path[0], room.nearestWalkable(from));
+  assert.deepEqual(path.at(-1), to);
+  assert.ok(path.every((point) => room.isWalkable(point)));
+});
+
+test('seat routes approach on standing floor before entering their own furniture', () => {
+  const room = areaRoom('seats', false);
+  room.setProps([{ type: 'chair', asset: 'chair', x: 50, y: 0, w: 54, h: 55, flip: false }]);
+  const seat = room.spots[0];
+  const from = { x: 30, y: 40 };
+  assert.equal(room.isWalkable(seat), false, 'the seat is deliberately inside the chair blocker');
+  const path = room.route(from, seat);
+  assert.equal(path.at(-1), seat);
+  assert.ok(path.slice(0, -1).every((point) => room.isWalkable(point)));
+  assert.equal(room.route(from, { x: seat.x, y: seat.y }), null, 'ordinary targets cannot enter furniture');
+});
+
+test('rooms without standing space report placement failures instead of returning blocked points', () => {
+  // Painted floor can exist without enough clearance around the feet for a standing point.
+  const narrow = new Room({
+    id: 'narrow', name: 'Narrow', level: 0, camera: 'test', width: 12, height: 80, props: [], links: {},
+    nav: { width: 12, height: 80, floor: Array.from({ length: 80 }, () => [0, 12]), exits: [] },
+  });
+  assert.throws(() => narrow.nearestWalkable({ x: 6, y: 40 }), /narrow:.*no walkable standing point/);
+  assert.throws(() => narrow.randomFloorPoint(), /narrow:.*no walkable standing point/);
+});
+
 test('routine plans ignore seats, dispensers, and conversation partners on another area', (t) => {
   const room = areaRoom('split', true);
   room.setProps([
@@ -237,6 +290,39 @@ test('walking carries leftover frame time across path waypoints', async (t) => {
   };
   for (const dt of [1 / 144, 1 / 60, 1 / 30, 0.1, 0.4]) {
     assert.ok(Math.abs(elapsedAt(dt) - expected) <= dt + 1e-9, `dt=${dt} should only add at most one frame of rounding`);
+  }
+});
+
+test('door and elevator approaches preserve walking speed across path waypoints', (t) => {
+  t.mock.method(Math, 'random', () => 0.5);
+  const room = areaRoom('transport', false);
+  const from = { x: 30, y: 40 };
+  const target = { x: 110, y: 40 };
+  const waypoints = Array.from({ length: 20 }, (_, index) => ({ x: from.x + (index + 1) * 4, y: 40 }));
+  t.mock.method(room, 'route', () => waypoints.map((point) => ({ ...point })));
+  room.elevator = { front: target };
+  const door = { id: 'east', inside: target, outside: { x: 130, y: 40 } };
+  for (const [taskOf, speedMul] of [
+    [() => exitThroughDoor(door), 1],
+    [() => exitThroughDoor(door, 2.2), 2.2],
+    [() => rideElevatorOut(), 1],
+  ]) {
+    for (const dt of [1 / 144, 1 / 60, 0.1, 0.4]) {
+      const agent = new Agent(areaStaff, room, from);
+      const task = taskOf();
+      const world = { log() {} };
+      task.start(agent, world);
+      let elapsed = 0;
+      while (agent.x !== target.x && elapsed < 20) {
+        task.update(agent, world, dt);
+        elapsed += dt;
+      }
+      const expected = (target.x - from.x) / agent.movementSpeed(speedMul);
+      assert.equal(agent.x, target.x, 'approach reaches the threshold');
+      assert.ok(Math.abs(elapsed - expected) <= dt + 1e-9, `dt=${dt}, speed=${speedMul}: ${elapsed} vs ${expected}`);
+      assert.equal(agent.alpha, 1, 'approach does not fade or board within the same frame');
+      assert.equal(agent.layer, 'room');
+    }
   }
 });
 

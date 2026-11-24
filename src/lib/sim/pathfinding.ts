@@ -7,7 +7,7 @@ const NEIGHBOURS = [
 ] as const;
 
 /** Min-heap of cell indices. Each entry keeps the priority it was pushed with. */
-class Heap {
+class MinHeap {
   private items: number[] = [];
   private keys: number[] = [];
 
@@ -88,7 +88,7 @@ export class NavGrid {
     return cells;
   }
 
-  /** Closest open cell to a point, searching outward ring by ring. Returns -1 if there are none. */
+  /** Closest accepted open cell on the first available ring; -1 if no cell qualifies. */
   nearest(point: Point, accepts: (point: Point) => boolean = () => true): number {
     const col = Math.min(this.cols - 1, Math.max(0, Math.floor(point.x / this.cell)));
     const row = Math.min(this.rows - 1, Math.max(0, Math.floor(point.y / this.cell)));
@@ -96,10 +96,14 @@ export class NavGrid {
     for (let radius = 0; radius < maxRadius; radius++) {
       let best = -1;
       let bestDistance = Infinity;
-      for (let r = row - radius; r <= row + radius; r++) {
-        for (let c = col - radius; c <= col + radius; c++) {
-          const onRing = Math.abs(r - row) === radius || Math.abs(c - col) === radius;
-          if (!onRing || r < 0 || c < 0 || r >= this.rows || c >= this.cols) continue;
+      // Visit only the perimeter; scanning each ring's interior makes failed searches cubic.
+      for (let r = Math.max(0, row - radius); r <= Math.min(this.rows - 1, row + radius); r++) {
+        const edgeRow = Math.abs(r - row) === radius;
+        const firstCol = edgeRow ? Math.max(0, col - radius) : col - radius;
+        const lastCol = edgeRow ? Math.min(this.cols - 1, col + radius) : col + radius;
+        const stride = edgeRow ? 1 : radius * 2;
+        for (let c = firstCol; c <= lastCol; c += stride) {
+          if (c < 0 || c >= this.cols) continue;
           const index = r * this.cols + c;
           if (!this.open[index]) continue;
           const center = this.center(index);
@@ -116,10 +120,10 @@ export class NavGrid {
     return -1;
   }
 
-  /** Cell centres from the cell nearest `from` to the cell nearest `to`, or null if unreachable. */
+  /** Cell centres connected to both endpoints, or null if unreachable. */
   findPath(from: Point, to: Point): Point[] | null {
-    const start = this.nearest(from);
-    const goal = this.nearest(to);
+    const start = this.nearest(from, (point) => this.canConnect(from, point));
+    const goal = this.nearest(to, (point) => this.canConnect(point, to));
     if (start < 0 || goal < 0) return null;
 
     const { cols, rows, open } = this;
@@ -135,7 +139,7 @@ export class NavGrid {
       return Math.max(dx, dy) + (SQRT2 - 1) * Math.min(dx, dy);
     };
 
-    const heap = new Heap();
+    const heap = new MinHeap();
     cost[start] = 0;
     heap.push(start, estimate(start));
 
