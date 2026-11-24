@@ -432,8 +432,10 @@ Open `/monitoring?debug`, switch to the floor you want, and use the **Floor even
 picker with **Trigger event** or **End event**. These controls always target the
 current camera's floor, even if no agents are on camera.
 
-The shared **Containment failure** event (`containment-failure`) holds all cell
-doors on that floor fully open, including empty cells and unlinked cell doors.
+The shared **Containment failure** event (`containment-failure`) slides all cell
+doors on that floor open at their normal speed (0.7 simulation seconds, or 2
+seconds for big doors), then holds them fully open, including empty cells and
+unlinked cell doors.
 Every resident present in its cell actively tries to escape, regardless of its
 normal containment-class escape chance. Residents away in disguise remain
 pending until they return and can escape. Already-loose residents are included;

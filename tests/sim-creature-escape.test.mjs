@@ -66,7 +66,8 @@ test('containment failure forces escape attempts and holds only the affected flo
       const destination = door.to && world.room(door.to.room);
       const affected = room.level === level.number && (room.cell || door.cell || destination?.cell);
       assert.equal(physical.forcedOpen, !!affected, `${room.id}/${door.id}`);
-      if (affected) assert.equal(physical.open, 1);
+      if (affected) assert.equal(physical.open, physical === state ? 1 : 0,
+        'starting the event preserves the current opening');
     }
   }
   world.update(0.1);
@@ -107,7 +108,7 @@ test('each delivered resident releases its cell, not at capture, and the last de
   assert.equal(level.hasEvent('containment-failure'), false);
   assert.equal(otherState.forcedOpen, false);
   level.startEvent('containment-failure');
-  world.update(0.1);
+  world.update(state.motionSeconds);
   assert.equal(creature.escaping, true, 'a new failure affects previously returned residents again');
 });
 
@@ -158,6 +159,9 @@ test('containment failure opens broken cell doors without repairing them, and th
   level.startEvent('containment-failure');
   world.update(0.1);
   assert.equal(state.broken, true);
+  assert.ok(state.open > 0 && state.open < 0.5, 'the broken door slides open instead of disappearing');
+  assert.equal(state.passable, false);
+  world.update(state.motionSeconds);
   assert.equal(state.open, 1);
   assert.equal(state.passable, true);
   assert.equal(state.blocked, false);

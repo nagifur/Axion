@@ -542,6 +542,36 @@ test('authorized proximity opens and holds one shared door, then it closes and r
   assert.equal(state.open, 0);
 });
 
+test('forced opening animates normal and big doors even without power and with damage', () => {
+  for (const big of [false, true]) {
+    const state = new PassageDoor(1, big);
+    const owner = {};
+    state.break();
+    state.breakPanel();
+    state.setPowerSource(() => false);
+    state.forceOpen(owner);
+    assert.equal(state.open, 0, 'requesting the override does not skip the animation');
+    assert.equal(state.unlocked, true);
+    state.update(false, 0);
+    state.update(false, -1);
+    assert.equal(state.open, 0, 'paused or negative time does not advance the animation');
+    state.update(false, state.motionSeconds / 4);
+    assert.equal(state.open, 0.25);
+    assert.equal(state.passable, false);
+    state.forceOpen({});
+    assert.equal(state.open, 0.25, 'another override does not jump or restart the animation');
+    state.update(false, state.motionSeconds / 4);
+    assert.equal(state.open, 0.5);
+    assert.equal(state.passable, true);
+    state.update(false, state.motionSeconds);
+    assert.equal(state.open, 1, 'opening is clamped at fully open');
+    state.update(false, PASSAGE_DOOR_HOLD_SECONDS + state.motionSeconds);
+    assert.equal(state.open, 1, 'the override keeps the door open');
+    assert.equal(state.broken, true);
+    assert.equal(state.panelBroken, true);
+  }
+});
+
 test('big doors take two seconds to open and close without changing the hold time', () => {
   const state = new PassageDoor(1, true);
   assert.equal(state.motionSeconds, 2);

@@ -153,7 +153,6 @@ export class PassageDoor {
 
   forceOpen(owner: object) {
     this.openOverrides.add(owner);
-    this.open = 1;
     this.unlocked = true;
   }
 
@@ -247,7 +246,7 @@ export class PassageDoor {
   update(authorizedNearby: boolean, dt: number, occupied = false) {
     // Overrides hold even damaged doors open; the damage remains once released.
     if (this.forcedOpen) {
-      this.open = 1;
+      this.open = Math.min(1, this.open + Math.max(0, dt) / this.motionSeconds);
       this.unlocked = true;
       return;
     }
