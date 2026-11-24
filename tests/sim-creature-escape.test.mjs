@@ -6,7 +6,7 @@ import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
-import { ESCAPE_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
+import { ESCAPE_CHANCE, RESIST_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
 import { PassageDoor } from '../src/lib/sim/door.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
 import { exitThroughDoor } from '../src/lib/sim/transport.ts';
@@ -25,10 +25,13 @@ const profile = (id, containmentClass = 'Maximum Containment') => toSimCreature(
 function setup(t, seed, containmentClass, count = 1) {
   setRandomSource(seededRandom(seed));
   const original = { ...ESCAPE_CHANCE };
+  const resistance = { ...RESIST_CHANCE };
   ESCAPE_CHANCE.maximum = 1;
+  Object.assign(RESIST_CHANCE, { maximum: 0, containment: 0, safe: 0 });
   t.after(() => {
     setRandomSource(null);
     Object.assign(ESCAPE_CHANCE, original);
+    Object.assign(RESIST_CHANCE, resistance);
   });
   return loadFacility().then((data) => {
     const world = new World({ rooms: data.map((room) => new Room(room)), roster: [],
@@ -495,6 +498,94 @@ test('one same-floor guard pursues a breach, escorts through working doors, then
   until(() => guard.room === post && guard.activity === 'Guarding the elevator');
   assert.deepEqual([guard.x, guard.y], at);
   assert.equal(guard.security.target, undefined);
+});
+
+for (const hp of [100, 5]) test(`an escorted creature breaks free, damages a guard with ${hp} HP, and runs while the guard recovers`, async (t) => {
+  const { world, creature, hall, logs } = await setup(t, 42);
+  const post = world.room('level-3-main-entrance');
+  const guard = world.spawn(staff, hall, hall.nearestWalkable({ x: hall.width / 2, y: hall.height / 2 }));
+  Object.assign(creature, { room: hall, x: guard.x, y: guard.y });
+  guard.security = { post, relieved: false, target: creature };
+  guard.stats.hp.current = hp;
+  creature.escort = guard;
+  guard.setPlan(world, planSecurity(guard, world, guard.security));
+  RESIST_CHANCE.maximum = 1;
+
+  creature.update(world, 0.1);
+  assert.equal(creature.escort, undefined);
+  assert.equal(guard.security.target, undefined);
+  assert.equal(guard.stats.hp.current, Math.max(0, hp - 10));
+  assert.equal(creature.loose, true);
+  assert.equal(creature.room, hall);
+  assert.equal(creature.home.cell.creatureId, creature.character.id);
+  assert.ok(hall.isWalkable(creature));
+  assert.match(guard.activity, /Recovering/);
+  assert.ok(logs.some(({ text, tone }) => tone === 'alert' && text.includes('broke free') && text.includes('injuring')));
+
+  creature.hold(30, guard); // A nearby staff member trying to pet it must not stop the getaway.
+  const at = { x: guard.x, y: guard.y };
+  for (let i = 0; i < 20; i++) {
+    guard.update(world, 0.1);
+    creature.update(world, 0.1);
+    assert.equal(creature.escort, undefined, 'the recovering guard cannot immediately recapture it');
+    assert.deepEqual({ x: guard.x, y: guard.y }, at, 'the old escort route was cancelled');
+    assert.ok(hall.isWalkable(creature));
+  }
+  assert.ok(Math.hypot(creature.x - guard.x, creature.y - guard.y) > 14, 'the creature runs out of capture reach');
+  assert.equal(guard.stats.hp.current, Math.max(0, hp - 10), 'damage occurs only on the break');
+  for (let i = 0; i < 12; i++) guard.update(world, 0.1);
+  assert.equal(guard.security.target, creature, 'security resumes pursuit after recovering');
+});
+
+test('resistance uses elapsed time, preserves unlucky escorts, and pauses during fades and delivery', async (t) => {
+  const { world, creature, hall } = await setup(t, 42);
+  const guard = world.spawn(staff, hall, hall.randomFloorPoint());
+  guard.security = { post: world.room('level-3-main-entrance'), relieved: false, target: creature };
+  Object.assign(creature, { room: hall, x: guard.x, y: guard.y, escort: guard });
+  RESIST_CHANCE.maximum = 1;
+  creature.update(world, 0);
+  guard.alpha = 0.5;
+  creature.update(world, 1);
+  assert.equal(creature.escort, guard);
+  assert.equal(creature.alpha, 0.5);
+  guard.alpha = 1;
+  guard.room = creature.home;
+  Object.assign(guard, creature.home.randomFloorPoint());
+  creature.update(world, 1);
+  assert.equal(creature.escort, guard, 'reaching home must complete delivery rather than trigger resistance');
+  assert.equal(guard.stats.hp.current, 100);
+
+  guard.room = hall;
+  Object.assign(guard, hall.randomFloorPoint());
+  RESIST_CHANCE.maximum = 0.04;
+  setRandomSource(() => 0.03);
+  creature.update(world, 0.5);
+  assert.equal(creature.escort, guard, 'a half-second has a lower break chance than a full second');
+  assert.equal(guard.stats.hp.current, 100);
+  creature.update(world, 1);
+  assert.equal(creature.escort, undefined);
+  assert.equal(guard.stats.hp.current, 90);
+});
+
+test('a resisting creature runs through a passable non-cell door without ending containment failure', async (t) => {
+  const { world, creature, hall } = await setup(t, 42);
+  const door = hall.doors.find((door) => door.to && !door.cell && !world.room(door.to.room).cell);
+  const state = world.passageDoorFor(door);
+  state.open = 1;
+  hall.power = 'off';
+  const guard = world.spawn(staff, hall, door.inside);
+  guard.security = { post: world.room('level-3-main-entrance'), relieved: false, target: creature };
+  Object.assign(creature, { room: hall, x: guard.x, y: guard.y, escort: guard });
+  const level = world.level(creature.home.level);
+  level.startEvent('containment-failure');
+  RESIST_CHANCE.maximum = 1;
+  creature.update(world, 0.1);
+  assert.equal(creature.escaping, true);
+  assert.equal(level.hasEvent('containment-failure'), true);
+  for (let i = 0; i < 300 && creature.room === hall; i++) creature.update(world, 0.1);
+  assert.equal(creature.room, world.room(door.to.room));
+  assert.equal(level.hasEvent('containment-failure'), true);
+  assert.equal(creature.home.cell.creatureId, creature.character.id);
 });
 
 test('a guard walking back to post takes a new breach call instead of finishing the walk', async (t) => {

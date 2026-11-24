@@ -33,7 +33,7 @@ export function rideElevatorOut(destination?: Room): Task {
     update(agent, world, dt) {
       if (unreachable) return true;
       if (path.length) {
-        if (agent.moveToward(path[0], dt)) path.shift();
+        agent.moveAlongPath(path, dt);
         return false;
       }
       const elevator = agent.room.elevator!;
@@ -130,8 +130,7 @@ export function exitThroughDoor(door: Door, speedMul = 1, activity = 'Heading ou
     update(agent, world, dt) {
       if (unreachable) return true;
       if (!fading) {
-        if (path.length && agent.moveToward(path[0], dt, speedMul)) path.shift();
-        fading = path.length === 0;
+        fading = agent.moveAlongPath(path, dt, speedMul);
         return false;
       }
       const physical = world.passageDoorFor(door);
@@ -252,7 +251,7 @@ export function phaseThroughWall(direction: 'in' | 'out'): Task {
     },
     update(agent, world, dt) {
       if (!path.length) return true;
-      if (agent.moveToward(path[0], dt, 0.6)) path.shift();
+      agent.moveAlongPath(path, dt, 0.6);
       if (direction === 'out' && path.length <= 1) {
         agent.alpha = Math.max(0, (agent.y - wallY) / (floorY - wallY));
         if (!path.length) world.remove(agent, 'wall');

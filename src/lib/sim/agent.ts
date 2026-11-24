@@ -318,6 +318,20 @@ export class Agent {
     return BASE_SPEED * this.character.behavior.speed * speedMul;
   }
 
+  /** Consumes reached waypoints, carrying unused frame time into the next segment. */
+  moveAlongPath(path: Point[], dt: number, speedMul = 1): boolean {
+    const speed = this.movementSpeed(speedMul);
+    let remaining = Math.max(0, dt);
+    while (path.length) {
+      const distance = Math.hypot(path[0].x - this.x, path[0].y - this.y);
+      if (!this.moveToward(path[0], remaining, speedMul)) return false;
+      path.shift();
+      if (distance > 0) remaining = Math.max(0, remaining - distance / speed);
+      if (remaining === 0) break;
+    }
+    return path.length === 0;
+  }
+
   update(world: World, dt: number, blockedSeconds = 0) {
     this.moving = false;
     if (this.bubbleTimer > 0) {

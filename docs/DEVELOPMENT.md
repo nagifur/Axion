@@ -226,6 +226,7 @@ If there is no green below, they fall fully out of view and respawn on
 nearby walkable floor. Falling agents cannot be picked up or pulled into chats.
 Creature reactions wait until the fall and trip recovery finish, including when
 the fall is queued but has not started yet.
+
 Broken or occupied props, blocked floor, and drops outside the feed are rejected
 without changing the original task or position. Hold over a floor or camera button for
 450ms to switch feeds while carrying an agent, then drop into the new room.
@@ -241,6 +242,21 @@ picked up. Paused feeds accept drops, with tasks starting when the feed resumes.
 Player drops do not trigger the file-selection ping (or reveal disguised entities);
 ordinary clicks still do. Drop resolution lives in
 [`agentDrag.ts`](../src/lib/sim/agentDrag.ts).
+
+Room routes use the painted floor and a coarse A* grid, with checked connections
+from standing points to grid cells. Ordinary destinations must be walkable, and
+segments must avoid even thin furniture blockers; ghosts still go straight through.
+Seat routes approach on standing floor before the final step into their own prop.
+Falls and interrupted arrivals may start outside standing clearance; these routes
+first return to the nearest standing point before following checked segments.
+`nearestWalkable` and `randomFloorPoint` throw with the room ID when no standing
+space exists, rather than returning a blocked fallback position.
+Walking, door/elevator approaches, and wall phasing share `Agent.moveAlongPath`,
+which carries leftover frame time across waypoints. Reaching a door or elevator
+threshold still leaves fading or boarding to a later update.
+The `ElevatorOpening` type in [`room.ts`](../src/lib/sim/room.ts) describes
+room geometry; the `Elevator` class in [`elevator.ts`](../src/lib/sim/elevator.ts)
+owns the car's requests and animation state.
 
 Staff start, arrive, and choose rooms only on floors at or below their profile's
 `accessLevel`. `Admin` can visit every floor; unknown or redacted clearances use
@@ -297,6 +313,13 @@ handover) takes the next unclaimed loose creature on their floor wherever they a
 Reachable creatures in the guard's current room take priority, nearest first.
 Before continuing a pursuit into another room, guards take any available local
 call instead; an ongoing local pursuit or escort is completed without switching.
+On open floor, escorted creatures can break the guard's grasp: the chance per
+simulation second is 4% for Maximum Containment, 1.5% for Containment, and 0.5%
+for Safe. A successful break deals 10 HP damage (clamped at zero), clears the
+guard's claim and escort route, and gives the guard three seconds to recover.
+The creature dashes toward a passable non-cell door, or away across reachable
+floor when no door is available; guards can pursue it again after recovering.
+Resistance pauses during doorway fades and stops once the creature reaches home.
 Initial guards start at their posts when the cameras are populated. At shift
 change the guard finishes any escort, returns to post, calls in a replacement,
 and leaves by elevator. The replacement queues an elevator arrival, steps out,

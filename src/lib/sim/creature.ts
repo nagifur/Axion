@@ -5,10 +5,11 @@ import type { World } from './world.ts';
 import { distance } from './navMap.ts';
 import { IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './sprites.ts';
 import type { Agent } from './agent.ts';
+import { wait } from './tasks.ts';
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
-  | { action: 'pace'; path: Point[] }
+  | { action: 'pace' | 'flee'; path: Point[] }
   /** Dashes to a door, waits briefly if it is too far closed, then slips through it. */
   | { action: 'escape'; door: Door; path: Point[]; waited: number; crossing: boolean }
   /** Fades in from the doorway it arrived through. */
@@ -21,6 +22,8 @@ const DASH_SPEED = 60;
 
 /** Chance of making a break for it each time its cell door swings fully open, by containment class. */
 export const ESCAPE_CHANCE = { maximum: 0.4, containment: 0.06, safe: 0.03 };
+/** Probability of breaking an escort's grasp over one second on open floor. */
+export const RESIST_CHANCE = { maximum: 0.04, containment: 0.015, safe: 0.005 };
 /** Once out, chance of going for each door seen swinging fully open. */
 const LOOSE_NOTICE_CHANCE = 0.6;
 /** Once out, chance of heading for a passable door whenever it picks something new to do. */
@@ -101,6 +104,7 @@ export class Creature {
     if (this.away) return 'Away from cell';
     if (this.escaped) return 'Escaped the facility';
     if (this.escort) return `Being escorted to ${this.home.name}`;
+    if (this.plan.action === 'flee') return 'Running away from security';
     if (this.plan.action === 'escape') return this.contained ? 'Escaping the cell' : 'Slipping through a door';
     if (this.plan.action === 'enter') return 'Slipping through a door';
     return (this.contained ? CONTAINED_LABELS : LOOSE_LABELS)[this.plan.action];
@@ -142,9 +146,40 @@ export class Creature {
     this.plan = { action: 'watch', remaining: 2 };
   }
 
-  /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash for a door. */
+  private breakFree(world: World, guard: Agent) {
+    this.releaseEscort();
+    this.layout = this.room.props;
+    this.noticed.clear();
+    guard.stats.hp.current = Math.max(0, guard.stats.hp.current - 10);
+    guard.moving = false;
+    guard.shake = 0.6;
+    guard.say('!', 3);
+    const activity = `Recovering from ${this.character.name}'s attack`;
+    guard.setPlan(world, [{ ...wait(3, activity), interruptible: false }]);
+    guard.activity = activity;
+    world.log(`${this.character.name} broke free from ${guard.character.name}'s grasp in the ${this.room.name}, injuring the guard!`, 'alert');
+
+    const doors = this.room.doors.filter((door) => this.canUse(world, door) && this.passable(world, door));
+    doors.sort((a, b) => distance(guard, b.inside) - distance(guard, a.inside));
+    for (const door of doors) {
+      const plan = this.headFor(door);
+      if (plan) {
+        this.plan = plan;
+        return;
+      }
+    }
+    let farthest: Point = { x: this.x, y: this.y };
+    for (let i = 0; i < 12; i++) {
+      const point = this.room.randomFloorPoint(undefined, this);
+      if (distance(guard, point) > distance(guard, farthest) && this.room.canReach(this, point)) farthest = point;
+    }
+    const path = this.room.route(this, farthest);
+    if (path?.length) this.plan = { action: 'flee', path };
+  }
+
+  /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash. */
   hold(seconds: number, toward: Point) {
-    if (this.escort || this.escaping) return;
+    if (this.escort || this.escaping || this.plan.action === 'flee') return;
     this.walking = false;
     this.plan = { action: 'watch', remaining: seconds };
     if (Math.abs(toward.x - this.x) >= 2) this.facing = toward.x < this.x ? 'left' : 'right';
@@ -287,6 +322,11 @@ export class Creature {
       this.facing = guard.facing;
       this.walking = guard.moving;
       this.distance = guard.walkDistance;
+      // Keep doorway fades and completed deliveries atomic.
+      if (this.room !== this.home && guard.alpha === 1 && guard.layer === 'room' && this.room.isWalkable(guard) &&
+        chance(1 - (1 - RESIST_CHANCE[containmentTier(this.character.containmentClass)]) ** dt)) {
+        this.breakFree(world, guard);
+      }
       return;
     }
     // Live prop edits invalidate both the path and potentially the current standing point.
@@ -299,7 +339,7 @@ export class Creature {
       }
       this.plan = this.nextPlan(world);
     }
-    this.noticeDoors(world);
+    if (this.plan.action !== 'flee') this.noticeDoors(world);
     const plan = this.plan;
 
     if ('remaining' in plan) {
@@ -308,8 +348,10 @@ export class Creature {
       return;
     }
 
-    if (plan.action === 'pace') {
-      if (!this.follow(plan.path, PACE_SPEED, dt) || !plan.path.length) this.plan = { action: 'watch', remaining: range(1, 4) };
+    if (plan.action === 'pace' || plan.action === 'flee') {
+      if (!this.follow(plan.path, plan.action === 'flee' ? DASH_SPEED : PACE_SPEED, dt) || !plan.path.length) {
+        this.plan = { action: 'watch', remaining: range(1, 4) };
+      }
       return;
     }
 
