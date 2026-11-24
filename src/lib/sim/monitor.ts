@@ -7,6 +7,7 @@ import { bindMonitorDiagnostics, diagnosticError, type MonitorDiagnostics } from
 import { clock, el, EventListeners } from './monitorDom.ts';
 import { EditorPanel } from './monitorEditor.ts';
 import { MonitorFile } from './monitorFile.ts';
+import { followCameraRoom } from './monitorFollow.ts';
 import { loadProgress, saveProgress } from './monitorProgress.ts';
 import { NameTags } from './monitorTags.ts';
 import { PropEditor } from './propEditor.ts';
@@ -34,7 +35,6 @@ const DRAG_HELP = 'Drag an agent to open floor, a prop, a cell door, or another 
 const TOAST_MS = 4000;
 const DRAG_START_PX = 5;
 const DEBUG_FAST_SPEED = 4;
-
 
 /** Boots the live feed inside `root`. Returns a cleanup function. */
 export function initMonitor(root: HTMLElement): () => void {
@@ -82,6 +82,8 @@ function bootMonitor(
   const toast = root.querySelector<HTMLElement>('[data-monitor-toast]');
   const tagsToggle = root.querySelector<HTMLButtonElement>('[data-monitor-toggle-tags]');
   const pauseToggle = root.querySelector<HTMLButtonElement>('[data-monitor-toggle-pause]');
+  const followToggle = root.querySelector<HTMLButtonElement>('[data-monitor-toggle-follow]');
+  const followStatus = root.querySelector<HTMLElement>('[data-monitor-follow-status]');
   const debugPanel = root.querySelector<HTMLElement>('[data-monitor-debug]');
   const screen = root.querySelector<HTMLElement>('[data-monitor-screen]');
   const stage = root.querySelector<HTMLElement>('[data-monitor-stage]');
@@ -114,6 +116,7 @@ function bootMonitor(
   let showAllTags = true;
   let hovered: CameraActor | null = null;
   let selected: CameraActor | null = null;
+  let followed: CameraActor | null = null;
   let renderer: Renderer | null = null;
   let propPicker: PropPicker | null = null;
   let drag: {
@@ -124,12 +127,13 @@ function bootMonitor(
   let dragCameraTimer = 0;
   let dragSwitchPoint: Point | null = null;
   let suppressClick = false;
+  let suppressDoubleClick = false;
   let toastTimer = 0;
 
   const snapshot = () => ({
     camera: viewed.id, paused, speed, clockOffset, simulationTime: world.time,
     simulationClock: world.now().toISOString(), visibility: document.visibilityState,
-    selected: selected?.character.id ?? null, held: drag?.agent.uid ?? null,
+    selected: selected?.character.id ?? null, followed: followed?.character.id ?? null, held: drag?.agent.uid ?? null,
     counts: { rooms: rooms.length, agents: world.agents.length, creatures: world.creatures.length },
     agents: world.agents.slice(0, 100).map((agent) => ({
       uid: agent.uid, id: agent.character.id, room: agent.room.id,
@@ -198,6 +202,32 @@ function bootMonitor(
   let staticTimer = 0;
   const lastRoomOnLevel = new Map<number, Room>();
 
+  const updateFollowControls = () => {
+    if (followToggle) {
+      followToggle.disabled = !followed && (!selected || (!(selected instanceof Creature) && selected.removed));
+      const label = followed ? 'Stop following' : 'Follow selected';
+      if (followToggle.textContent !== label) followToggle.textContent = label;
+      const pressed = String(!!followed);
+      if (followToggle.getAttribute('aria-pressed') !== pressed) followToggle.setAttribute('aria-pressed', pressed);
+    }
+    if (followStatus) {
+      const text = followed
+        ? `Following ${followed.character.name}${followCameraRoom(world, followed) ? '' : ' (off camera)'}`
+        : '';
+      if (followStatus.textContent !== text) followStatus.textContent = text;
+    }
+  };
+
+  const stopFollowing = () => {
+    followed = null;
+    updateFollowControls();
+  };
+
+  const toggleFollowing = (actor: CameraActor) => {
+    followed = followed === actor ? null : actor;
+    updateFollowControls();
+  };
+
   const switchCamera = (room: Room) => {
     const changed = room !== viewed;
     if (changed) diagnostics.record('camera', `${viewed.id} -> ${room.id}`);
@@ -251,7 +281,10 @@ function bootMonitor(
   const onCameraClick = (event: MouseEvent) => {
     const id = (event.currentTarget as HTMLElement).dataset.monitorCamera;
     const room = id && world.room(id);
-    if (room) switchCamera(room);
+    if (room) {
+      stopFollowing();
+      switchCamera(room);
+    }
   };
   for (const button of cameraButtons) listeners.listen(button, 'click', onCameraClick);
 
@@ -264,7 +297,10 @@ function bootMonitor(
   };
   const onLevelClick = (event: MouseEvent) => {
     const target = cameraOnLevel(Number((event.currentTarget as HTMLElement).dataset.monitorLevel));
-    if (target) switchCamera(target);
+    if (target) {
+      stopFollowing();
+      switchCamera(target);
+    }
   };
   for (const button of levelButtons) listeners.listen(button, 'click', onLevelClick);
 
@@ -284,10 +320,14 @@ function bootMonitor(
 
   // --- Personnel file & selection ---------------------------------------
 
-  const file = fileNode ? new MonitorFile(fileNode, world, (room) => switchCamera(room)) : null;
+  const file = fileNode ? new MonitorFile(fileNode, world, (room) => {
+    stopFollowing();
+    switchCamera(room);
+  }) : null;
 
   const select = (agent: CameraActor) => {
     selected = agent;
+    updateFollowControls();
     if (agent instanceof Creature) return;
     world.interact(agent);
     if (!agent.character.href) return;
@@ -420,6 +460,7 @@ function bootMonitor(
           return;
         }
         drag.active = true;
+        suppressDoubleClick = true;
         drag.agent.held = true;
         drag.head = renderer.headPosition(drag.agent);
         root.classList.add('is-dragging');
@@ -458,8 +499,21 @@ function bootMonitor(
     const agent = renderer.hitTest(world, point.x, point.y);
     if (agent) select(agent);
   };
+  const onDoubleClick = (event: MouseEvent) => {
+    if (suppressDoubleClick) {
+      suppressDoubleClick = false;
+      return;
+    }
+    if (!renderer || editorPanel.active || drag?.active) return;
+    const actor = actorAt(event, toRoom(event));
+    if (actor) {
+      event.preventDefault();
+      toggleFollowing(actor);
+    }
+  };
   const onPointerDown = (event: PointerEvent) => {
     if (!renderer || event.button !== 0 || !event.isPrimary || drag) return;
+    if (event.detail <= 1) suppressDoubleClick = false;
     suppressClick = false;
     if (editorPanel.editor?.active) {
       inputSurface.setPointerCapture(event.pointerId);
@@ -513,12 +567,18 @@ function bootMonitor(
       return;
     }
     const editor = editorPanel.editor;
+    if (event.key === 'Escape' && followed && !editor?.active) {
+      event.preventDefault();
+      stopFollowing();
+      return;
+    }
     if (!editor?.active || target?.closest('input, textarea')) return;
     if (editor.key(event)) event.preventDefault();
   };
   listeners.listen(inputSurface, 'pointermove', onPointerMove);
   listeners.listen(inputSurface, 'pointerleave', onPointerLeave);
   listeners.listen(inputSurface, 'click', onClick, true);
+  listeners.listen(inputSurface, 'dblclick', onDoubleClick);
   listeners.listen(inputSurface, 'pointerdown', onPointerDown);
   listeners.listen(inputSurface, 'pointerup', onPointerUp);
   listeners.listen(inputSurface, 'pointercancel', onPointerCancel);
@@ -526,6 +586,10 @@ function bootMonitor(
   listeners.listen(window, 'blur', onPointerCancel);
   listeners.listen(window, 'keydown', onKeyDown);
 
+  if (followToggle) listeners.listen(followToggle, 'click', () => {
+    if (followed) stopFollowing();
+    else if (selected) toggleFollowing(selected);
+  });
   if (tagsToggle) listeners.listen(tagsToggle, 'click', () => {
     showAllTags = !showAllTags;
     tagsToggle.setAttribute('aria-pressed', String(showAllTags));
@@ -546,6 +610,7 @@ function bootMonitor(
     if (!editorPanel.editor) return;
     cancelDrag();
     const active = editorPanel.toggle();
+    if (active) stopFollowing();
     root.classList.toggle('is-editing', active);
     debugPanel?.querySelector('[data-debug="props"]')?.setAttribute('aria-pressed', String(active));
     hovered = null;
@@ -603,6 +668,8 @@ function bootMonitor(
     removed: (agent) => {
       if (drag?.agent === agent) cancelDrag();
       if (hovered === agent) hovered = null;
+      if (followed === agent) stopFollowing();
+      else if (selected === agent) updateFollowControls();
     },
   };
   renderAchievements();
@@ -666,6 +733,11 @@ function bootMonitor(
       if (drag && (drag.agent.room !== drag.origin || (drag.active && drag.agent.leaving))) {
         log(`Pickup cancelled: ${drag.agent.character.name} is leaving the camera.`, 'muted');
         cancelDrag();
+      }
+      if (followed) {
+        const room = followCameraRoom(world, followed);
+        if (room && room !== viewed && !drag?.active) switchCamera(room);
+        updateFollowControls();
       }
       const navigationHint = updateDragCameraHover();
       const highlights = new Map<CameraActor, string>();

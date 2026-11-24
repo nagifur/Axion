@@ -152,7 +152,8 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
       <h1>Live Monitoring <span class="cursor" aria-hidden="true"></span></h1>
       <p>
         Monitoring sector relay of the facility security cameras. Switch between feeds and select anyone on
-        camera to inspect their badge or entity file. Report anything unusual. All activity is logged by A1.
+        camera to inspect their badge or entity file. Double-click someone to follow them between cameras.
+        Report anything unusual. All activity is logged by A1.
       </p>
     </header>
 
@@ -255,6 +256,8 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
       <div class="monitor-controls">
         <button type="button" class="btn secondary" data-monitor-toggle-tags aria-pressed="true">Name tags: On</button>
         <button type="button" class="btn secondary" data-monitor-toggle-pause aria-pressed="false">Pause feed</button>
+        <button type="button" class="btn secondary" data-monitor-toggle-follow aria-pressed="false" disabled>Follow selected</button>
+        <span class="monitor-follow-status" data-monitor-follow-status role="status"></span>
         <div class="monitor-debug" data-monitor-debug hidden>
           <span class="monitor-debug-label">Debug</span>
           <button type="button" class="btn" data-debug="impostor">Impostor</button>
@@ -521,6 +524,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-tag:focus-visible .monitor-tag-name{ opacity:1; outline:2px solid var(--neon-cyan); outline-offset:1px }
 
   .monitor-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:8px }
+  .monitor-follow-status{ color:var(--neon-cyan); font-size:0.75rem }
   .monitor-drag-help{ margin:0; color:var(--muted); font-size:0.75rem }
   .monitor-carry{
     position:fixed; z-index:100; margin:0; padding:5px 8px; pointer-events:none;

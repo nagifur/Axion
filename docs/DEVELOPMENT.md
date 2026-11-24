@@ -151,6 +151,13 @@ height sets sprite size, `colorTint` colours the name tag, and traits such as *S
 Wanted characters are left out. Entities with a *Shapeshifting* ability can sneak in
 disguised as staff.
 
+Double-click a sprite or name tag to follow that specific agent, security guard, or
+creature between cameras. The **Follow selected** control also starts
+following; **Stop following**, double-clicking the same actor again, Esc, or manually
+choosing a camera or floor stops it. Following waits on the last feed while the actor
+is off camera (including elevator rides), then resumes when they return. It stops when
+an agent leaves the facility. Camera switching is suspended while dragging an agent.
+
 Character frontmatter supports optional `stats` capacity overrides; see the
 [stats authoring reference](../templates/README.md#optional-simulation-stats).
 [`stats.ts`](../src/lib/sim/stats.ts) defines the defaults: HP and stamina 100,
