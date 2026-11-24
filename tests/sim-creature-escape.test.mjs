@@ -40,12 +40,168 @@ function setup(t, seed, containmentClass, count = 1) {
   });
 }
 
+function cellDoorStates(world, hall) {
+  return hall.doors.filter((door) => door.cell).map((door) => world.passageDoorFor(door));
+}
+
 test('Maximum Containment creatures are far more likely to try than Containment or Safe ones', () => {
   assert.ok(escapeChance('Maximum Containment') > 4 * escapeChance('Containment'));
   assert.ok(escapeChance('Containment') >= escapeChance('Safe'));
   assert.equal(escapeChance('M'), escapeChance('Maximum Containment'));
   assert.equal(escapeChance('Class S'), escapeChance('Safe'));
   assert.equal(escapeChance('Unassigned'), escapeChance('Containment'));
+});
+
+test('containment failure opens cell doors one at a time and holds each open', async (t) => {
+  const { world, creature, hall } = await setup(t, 11);
+  creature.away = true;
+  hall.power = 'off';
+  const states = cellDoorStates(world, hall);
+  const [first, second, ...rest] = states;
+  assert.ok(rest.length > 0);
+  first.break();
+  second.breakPanel();
+  const level = world.level(creature.home.level);
+  level.startEvent('containment-failure');
+
+  assert.deepEqual(states.map((state) => state.forcedOpen), states.map((_, i) => i === 0));
+  world.update(0);
+  assert.ok(states.every((state) => state.open === 0), 'pausing does not advance the sequence');
+  world.update(first.motionSeconds / 2);
+  assert.equal(first.open, 0.5);
+  assert.ok(states.slice(1).every((state) => state.open === 0));
+  world.update(first.motionSeconds / 2);
+  assert.equal(first.open, 1);
+  assert.equal(second.open, 0, 'the next door waits until the previous door finishes');
+  world.update(second.motionSeconds / 2);
+  assert.equal(first.open, 1, 'earlier doors remain held open');
+  assert.equal(second.open, 0.5);
+  assert.equal(rest[0].open, 0);
+  world.update(second.motionSeconds / 2);
+  assert.equal(second.open, 1);
+  for (const [i, state] of rest.entries()) {
+    world.update(state.motionSeconds);
+    assert.equal(state.open, 1);
+    assert.ok(rest.slice(i + 1).every((next) => next.open === 0));
+  }
+  assert.ok(states.every((state) => state.forcedOpen && state.passable));
+  assert.equal(first.broken, true);
+  assert.equal(second.panelBroken, true);
+});
+
+test('already-open doors are held immediately and partly open doors finish before the next', async (t) => {
+  const { world, creature, hall } = await setup(t, 11);
+  creature.away = true;
+  hall.power = 'off';
+  const [first, second, third] = cellDoorStates(world, hall);
+  first.open = 1;
+  second.open = 0.5;
+  world.level(creature.home.level).startEvent('containment-failure');
+  assert.equal(first.forcedOpen, true);
+  assert.equal(second.forcedOpen, true);
+  assert.equal(third.forcedOpen, false);
+
+  world.update(second.motionSeconds / 2);
+  assert.equal(second.open, 1);
+  assert.equal(third.open, 0);
+  world.update(third.motionSeconds / 2);
+  assert.equal(first.open, 1);
+  assert.equal(third.open, 0.5);
+});
+
+test('the sequence waits for a big unlinked cell door before opening the next', () => {
+  const exits = [
+    { id: 'west', kind: 'door', side: 'west', bounds: { x: 0, y: 0, w: 86, h: 160 },
+      threshold: { x: 90, y: 120 }, base: { x: 0, y: 120 } },
+    { id: 'east', kind: 'door', side: 'east', bounds: { x: 250, y: 0, w: 26, h: 96 },
+      threshold: { x: 240, y: 80 }, base: { x: 280, y: 80 } },
+  ];
+  const room = (id, exits, doors = {}) => new Room({
+    id, name: id, level: 3, camera: id, width: 300, height: 180, containmentCell: id === 'cell',
+    nav: { width: 300, height: 180, floor: Array.from({ length: 180 }, () => [0, 300]), exits },
+    props: [], links: {}, doors,
+  });
+  const hall = room('hall', exits, {
+    west: { clearance: 3, cell: true, big: true },
+    east: { clearance: 3, cell: true },
+  });
+  const world = new World({ rooms: [hall, room('cell', [])], roster: [], creatureRoster: [profile('resident')] });
+  world.creatures[0].away = true;
+  const [big, normal] = cellDoorStates(world, hall);
+  world.level(3).startEvent('containment-failure');
+  world.update(1);
+  assert.equal(big.open, 0.5);
+  assert.equal(normal.open, 0);
+  world.update(1);
+  assert.equal(big.open, 1);
+  assert.equal(normal.open, 0);
+  world.update(normal.motionSeconds / 2);
+  assert.equal(normal.open, 0.5);
+});
+
+test('returning residents skips queued doors and advances an interrupted opening', async (t) => {
+  const { world, hall } = await setup(t, 42, undefined, 3);
+  hall.power = 'off';
+  const states = cellDoorStates(world, hall);
+  const residents = [...world.creatures].sort((a, b) =>
+    states.indexOf(world.passageDoorFor(a.home.doors[0])) - states.indexOf(world.passageDoorFor(b.home.doors[0])));
+  const [opening, other, returned] = residents;
+  const openingState = world.passageDoorFor(opening.home.doors[0]);
+  const returnedState = world.passageDoorFor(returned.home.doors[0]);
+  assert.ok(states.indexOf(returnedState) > 0);
+  opening.away = true;
+  other.away = true;
+  returned.room = hall;
+  const level = world.level(returned.home.level);
+  level.startEvent('containment-failure');
+  assert.equal(returnedState.forcedOpen, false);
+  world.recontain(returned);
+
+  for (let i = 0; i < 200 && !openingState.forcedOpen; i++) world.update(0.05);
+  if (openingState.open === 0) world.update(0.05);
+  assert.ok(openingState.open > 0 && openingState.open < 1);
+  const next = states.slice(states.indexOf(openingState) + 1).find((state) => state !== returnedState);
+  assert.ok(next);
+  assert.equal(next.forcedOpen, false);
+  opening.away = false;
+  opening.room = hall;
+  world.recontain(opening);
+  assert.equal(openingState.forcedOpen, false);
+  assert.equal(next.forcedOpen, true, 'the sequence advances when the current door is released');
+
+  for (let i = 0; i < states.length; i++) world.update(states[0].motionSeconds);
+  assert.equal(level.hasEvent('containment-failure'), true);
+  assert.equal(returnedState.forcedOpen, false);
+  assert.equal(returnedState.open, 0);
+  assert.ok(states.filter((state) => state !== returnedState && state !== openingState)
+    .every((state) => state.forcedOpen && state.open === 1));
+});
+
+test('ending a failure cancels unopened doors without disturbing their normal controls', async (t) => {
+  const { world, creature, hall } = await setup(t, 11);
+  creature.away = true;
+  const states = cellDoorStates(world, hall);
+  const [first, second] = states;
+  const last = states.at(-1);
+  last.update(true, 0.1);
+  const level = world.level(creature.home.level);
+  level.startEvent('containment-failure');
+  world.update(0.1);
+  assert.ok(first.open > 0 && first.open < 1);
+  assert.equal(second.open, 0);
+  const lastOpen = last.open;
+  level.stopEvent('containment-failure');
+  assert.ok(states.every((state) => !state.forcedOpen));
+  assert.equal(last.unlocked, true);
+  last.update(false, 0.1);
+  assert.ok(last.open > lastOpen, 'the queued door keeps its existing hold');
+
+  world.update(15);
+  assert.equal(first.open, 0);
+  assert.equal(second.open, 0, 'no queued door opens after the event ends');
+  level.startEvent('containment-failure');
+  assert.equal(first.forcedOpen, true, 'a new event starts a fresh sequence');
+  assert.equal(second.forcedOpen, false);
 });
 
 test('containment failure forces escape attempts and holds only the affected floor cell doors open', async (t) => {
@@ -59,21 +215,28 @@ test('containment failure forces escape attempts and holds only the affected flo
   assert.equal(level.hasEvent('containment-failure'), false);
   level.startEvent('containment-failure');
   assert.equal(level.startEvent('containment-failure'), false);
+  const affectedStates = new Set();
   for (const room of world.rooms) {
     for (const door of room.doors) {
       const physical = world.passageDoorFor(door);
       if (!physical) continue;
       const destination = door.to && world.room(door.to.room);
       const affected = room.level === level.number && (room.cell || door.cell || destination?.cell);
-      assert.equal(physical.forcedOpen, !!affected, `${room.id}/${door.id}`);
-      if (affected) assert.equal(physical.open, physical === state ? 1 : 0,
-        'starting the event preserves the current opening');
+      if (affected) {
+        affectedStates.add(physical);
+        assert.equal(physical.open, physical === state ? 1 : 0, 'starting the event preserves the current opening');
+      } else {
+        assert.equal(physical.forcedOpen, false, `${room.id}/${door.id}`);
+      }
     }
   }
-  world.update(0.1);
+  for (let i = 0; i < 200 && !state.forcedOpen; i++) world.update(0.1);
+  assert.equal(state.forcedOpen, true);
   assert.equal(creature.activity, 'Escaping the cell', 'failure ignores the failed roll and remembered opening');
   for (let i = 0; i < 300 && creature.contained; i++) world.update(0.1);
   assert.equal(creature.room, hall);
+  for (let i = 0; i < 200 && [...affectedStates].some((door) => !door.forcedOpen); i++) world.update(0.1);
+  assert.ok([...affectedStates].every((door) => door.forcedOpen), 'all affected doors are eventually held open');
   assert.equal(state.open, 1, 'an outage cannot close the failed cell door');
   assert.equal(level.hasEvent('containment-failure'), true);
   hall.power = 'normal';
@@ -89,7 +252,13 @@ test('each delivered resident releases its cell, not at capture, and the last de
   const other = world.creatures[1];
   const otherState = world.passageDoorFor(other.home.doors[0]);
   const level = world.level(creature.home.level);
+  creature.away = true;
+  other.away = true;
   level.startEvent('containment-failure');
+  for (let i = 0; i < 200 && (!state.forcedOpen || !otherState.forcedOpen); i++) world.update(0.1);
+  assert.ok(state.forcedOpen && otherState.forcedOpen);
+  creature.away = false;
+  other.away = false;
   creature.room = hall;
   other.room = hall;
   const guard = world.spawn(staff, hall, hall.randomFloorPoint());
@@ -108,7 +277,7 @@ test('each delivered resident releases its cell, not at capture, and the last de
   assert.equal(level.hasEvent('containment-failure'), false);
   assert.equal(otherState.forcedOpen, false);
   level.startEvent('containment-failure');
-  world.update(state.motionSeconds);
+  for (let i = 0; i < 200 && !creature.escaping; i++) world.update(0.1);
   assert.equal(creature.escaping, true, 'a new failure affects previously returned residents again');
 });
 
@@ -142,7 +311,11 @@ test('a resident fleeing the facility resolves the event but keeps its cell open
 test('returning an already-resolved escapee releases its cell while other residents remain unresolved', async (t) => {
   const { world, creature, state } = await setup(t, 7, undefined, 2);
   const level = world.level(creature.home.level);
+  creature.away = true;
+  world.creatures[1].away = true;
   level.startEvent('containment-failure');
+  for (let i = 0; i < 200 && !state.forcedOpen; i++) world.update(0.1);
+  assert.equal(state.forcedOpen, true);
   creature.escaped = true;
   world.update(0.1);
   assert.equal(state.forcedOpen, true);
@@ -157,8 +330,9 @@ test('containment failure opens broken cell doors without repairing them, and th
   state.break();
   state.breakPanel();
   level.startEvent('containment-failure');
-  world.update(0.1);
+  for (let i = 0; i < 200 && state.open === 0; i++) world.update(0.05);
   assert.equal(state.broken, true);
+  assert.equal(state.forcedOpen, true);
   assert.ok(state.open > 0 && state.open < 0.5, 'the broken door slides open instead of disappearing');
   assert.equal(state.passable, false);
   world.update(state.motionSeconds);

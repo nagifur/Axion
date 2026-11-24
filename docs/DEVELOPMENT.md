@@ -432,21 +432,24 @@ Open `/monitoring?debug`, switch to the floor you want, and use the **Floor even
 picker with **Trigger event** or **End event**. These controls always target the
 current camera's floor, even if no agents are on camera.
 
-The shared **Containment failure** event (`containment-failure`) slides all cell
-doors on that floor open at their normal speed (0.7 simulation seconds, or 2
-seconds for big doors), then holds them fully open, including empty cells and
-unlinked cell doors.
+The shared **Containment failure** event (`containment-failure`) slides cell
+doors on that floor open one at a time, in room and door order. Each door finishes
+opening at its normal speed (0.7 simulation seconds, or 2 seconds for big doors)
+before the next starts, and stays open, including empty cells and unlinked cell
+doors. A door already open is held open immediately when its turn arrives.
 Every resident present in its cell actively tries to escape, regardless of its
 normal containment-class escape chance. Residents away in disguise remain
 pending until they return and can escape. Already-loose residents are included;
 creatures that had already fled the facility are not.
 
 Capturing a creature does not release its door: security must escort it home.
-`World.recontain(creature)` releases that cell's door immediately, while the
-other cells stay open. A creature that flees the facility leaves its door held
-open until the event ends. The event ends automatically when every affected
+`World.recontain(creature)` releases that cell's door immediately, or skips it if
+it is still waiting to open; other cells remain queued or held open. A creature
+that flees the facility does not release its door early: it remains queued or
+held open until the event ends. The event ends automatically when every affected
 resident has been returned home or fled, or manually through **End event**.
-An empty affected roster ends immediately. There is no random trigger or default
+Ending the event cancels any doors still waiting to open. An empty affected
+roster ends immediately. There is no random trigger or default
 time limit. Holding doors open bypasses clearance, broken panels, blackouts, and
 broken doors: a broken cell door is forced open without being repaired, and drops
 shut again (still broken) once released. Ending the event restores normal door
