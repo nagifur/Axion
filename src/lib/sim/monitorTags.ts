@@ -111,7 +111,7 @@ export class NameTags {
         tag.name.textContent = label;
         tag.button.style.setProperty('--tag-tint', revealed ? 'var(--neon-red)' : agent.character.tint);
       }
-      const popups = creature ? [] : agent.statuses.active.flatMap(({ id, label }) => {
+      const popups = agent.statuses.active.flatMap(({ id, label }) => {
         const popup = STATUS_EFFECTS[id]?.popup;
         return popup ? [{ id, label, ...popup }] : [];
       });

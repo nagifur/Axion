@@ -740,7 +740,7 @@ and exported starting state. Impostors do not repair equipment.
 
 #### Status Effects
 
-Agents, props and items each have a `statuses` collection from
+Agents, creatures, props and items each have a `statuses` collection from
 [`statusEffects.ts`](../src/lib/sim/statusEffects.ts). Physical passage doors use
 `statuses` for the door and `panelStatuses` for its independently repairable panel.
 `broken` applies only to breakable props, doors and panels.
@@ -758,9 +758,10 @@ const effects = prop.statuses.active; // Read-only snapshots: id, label, remaini
 ```
 
 Add a definition to `STATUS_EFFECTS` to introduce an effect. Each definition has a
-`label` and `targets` (`agent`, `prop`, `item`, `door`, or `panel`), and can provide:
+`label` and `targets` (`agent`, `creature`, `prop`, `item`, `door`, or `panel`), and can provide:
 
 - `duration`: positive, finite simulation seconds; omit for permanent effects.
+- `irreversible`: prevents removal, clearing, expiry, and duration overrides.
 - `blocksActions`: pauses an agent's current task and movement without cancelling
   its plan or releasing reservations. Multiple blockers use the longest remaining
   duration; only the unstunned portion of an expiry frame advances the task.
@@ -791,10 +792,18 @@ an already-permanent effect is a no-op. `apply` returns false for an ineligible
 target or an already-permanent effect, and true for additions or timed refreshes.
 Unknown effect IDs and invalid durations/timesteps throw explanatory errors.
 `get(id)` returns a snapshot or `undefined`; `has(id)` checks presence;
-`remove(id)` returns whether it removed anything; `clear()` removes current effects.
+`remove(id)` returns whether it removed anything; `clear()` removes removable effects.
+
+HP reaching zero or below immediately applies the irreversible `dead` effect to
+staff, security agents, and creatures. HP stays at zero; later healing cannot
+revive them. Dead actors remain visible with a permanent **Dead** popup using
+`dead.svg`, and a frozen idle frame until death sprites are added. They cannot
+move, run tasks, react, escape, or be captured. Agent task/conversation resources
+are released on the next update (including held agents and elevator riders);
+escorts release dead creatures immediately. Death is not a facility departure.
 
 `World.update` ticks statuses once per simulation frame, before movement and task
-planning, including held agents, off-camera elevator riders, and loose, carried
+planning, including creatures, held agents, off-camera elevator riders, and loose, carried
 or stored items. Linked doors are deduplicated across camera views. Effects use
 simulation time, so pause and speed controls apply automatically. A final update
 is capped to the remaining lifetime before expiry; hooks may safely remove or

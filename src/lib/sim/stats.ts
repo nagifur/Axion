@@ -39,10 +39,24 @@ export function hasMagic(stats: LiveStats): boolean {
   return stats.magic.max > 0;
 }
 
-export function createLiveStats(overrides?: Partial<SimStats>): LiveStats {
+export function createLiveStats(overrides?: Partial<SimStats>, onDeath?: () => void): LiveStats {
   const max = resolveStats(overrides);
+  let hp = max.hp;
+  let dead = false;
   return {
-    hp: { current: max.hp, max: max.hp },
+    hp: {
+      get current() { return hp; },
+      set current(value: number) {
+        if (dead) return;
+        hp = value;
+        if (onDeath && hp <= 0) {
+          dead = true;
+          hp = 0;
+          onDeath();
+        }
+      },
+      max: max.hp,
+    },
     stamina: { current: max.stamina, max: max.stamina },
     magic: { current: max.magic, max: max.magic },
     hunger: { current: 0, max: max.hunger },
