@@ -173,6 +173,21 @@ test('Dead artwork and accessible popup persist for both staff and creatures', a
   assert.equal(creatureButton.children[0].children.length, 1);
 });
 
+test('creature tags show the nickname, falling back to the ID without one', (t) => {
+  const { world, layer, sync } = setup(t);
+  const room = new Room({
+    id: 'cell', name: 'Cell', camera: 'cell', level: 0, width: 140, height: 100,
+    nav: { floor: Array.from({ length: 100 }, () => [0, 140]), exits: [] }, props: [], links: {},
+  });
+  const named = new Creature({ name: 'S-552', nickname: 'Sprouty', tint: '#fff', scale: 1 }, room);
+  const unnamed = new Creature({ name: 'C-100', nickname: '█████', tint: '#fff', scale: 1 }, room);
+  world.agents = [named, unnamed];
+  sync();
+  const [sprouty, fallback] = layer.children.slice(-2);
+  assert.equal(sprouty.getAttribute('aria-label'), 'Sprouty. Open file');
+  assert.equal(fallback.getAttribute('aria-label'), 'C-100. Open file');
+});
+
 test('swallowed prey keep a tag with an artless acid popup until they are out', (t) => {
   const { agent, world, layer, sync } = setup(t);
   const prey = new Agent({ name: 'Meal', tint: '#fff', scale: 1, behavior: { speed: 1 } }, agent.room, { x: 200, y: 120 });

@@ -2,6 +2,7 @@ import type { Agent } from './agent.ts';
 import { Creature } from './creature.ts';
 import { el } from './monitorDom.ts';
 import type { Room } from './room.ts';
+import { entityDisplayName } from './roster.ts';
 import { scheduleFor } from './schedule.ts';
 import type { LiveStats } from './stats.ts';
 import { voreTypeLabel } from './vore.ts';
@@ -77,8 +78,8 @@ export class MonitorFile {
     }
     const titleBlock = el('div', 'monitor-file-title');
     titleBlock.append(
-      el('p', 'panel-kicker', creature ? `Entity file · ${creature.consumed ? 'Absorbed' : creature.swallowed ? 'Swallowed' : creature.contained || creature.away ? 'Cell resident' : 'Containment breach'}` : revealed ? 'Entity file · Escaped' : `${character.href ? 'Personnel file' : 'Facility badge'} · ID ${agent!.character.employeeID}`),
-      el('h3', undefined, entity ? `${entity.name} "${entity.nickname}"` : character.name),
+      el('p', 'panel-kicker', creature ? `Entity file · ${creature.consumed ? 'Absorbed' : creature.swallowed ? 'Swallowed' : creature.contained || creature.away ? 'Cell resident' : 'Containment breach'} · ID ${creature.character.name}` : revealed ? `Entity file · Escaped · ID ${revealed.name}` : `${character.href ? 'Personnel file' : 'Facility badge'} · ID ${agent!.character.employeeID}`),
+      el('h3', undefined, entity ? entityDisplayName(entity) : character.name),
       el('p', 'monitor-file-role', creature ? `${creature.character.containmentClass} class` :
         revealed ? `Shapeshifter posing as ${character.name}` : agent!.character.position),
     );

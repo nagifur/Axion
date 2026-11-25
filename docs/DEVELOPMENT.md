@@ -620,6 +620,9 @@ including during elevator rides. It returns to that cell when the event agent le
 Residents [pace, watch, and rest](../src/lib/sim/creature.ts) on their cell's
 walkable floor, even off camera. They count for lights and camera occupancy;
 select their sprites or name tags to see their activity and entity database link.
+Creature (and unmasked shapeshifter) name tags and file headings show the entity's
+nickname, falling back to its ID (e.g. `C-331`) when it has none; the file kicker
+always lists the ID next to the containment status.
 They cannot be dragged, take staff jobs, or use elevators. Cells do not
 count towards staff population or serve as initial spawn or work rooms, though
 staff can still visit through linked doors.

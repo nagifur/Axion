@@ -3,6 +3,7 @@ import { Creature } from './creature.ts';
 import { el } from './monitorDom.ts';
 import type { Renderer } from './render.ts';
 import type { Point, Room } from './room.ts';
+import { entityDisplayName } from './roster.ts';
 import { statusPopups } from './statusEffects.ts';
 import type { CameraActor, World } from './world.ts';
 
@@ -106,7 +107,7 @@ export class NameTags {
       const tag = this.tags.get(agent) ?? this.create(agent);
       const creature = agent instanceof Creature;
       const revealed = !creature && agent.revealed && agent.impostor;
-      const label = revealed ? `${revealed.name} "${revealed.nickname}"` : agent.character.name;
+      const label = revealed ? entityDisplayName(revealed) : creature ? entityDisplayName(agent.character) : agent.character.name;
       if (tag.label !== label) {
         tag.label = label;
         tag.name.textContent = label;

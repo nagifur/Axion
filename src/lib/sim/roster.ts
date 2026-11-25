@@ -4,6 +4,12 @@ import { resolveStats, type SimStats } from './stats.ts';
 import type { ScheduleBlock } from './schedule.ts';
 import { DEFAULT_HEIGHT_METERS, createVoreProfile, parseVoreRole, type VoreOverride, type VoreProfile } from './vore.ts';
 
+/** An entity's nickname for at-a-glance labels, falling back to its ID when it has none. */
+export function entityDisplayName({ name, nickname }: { name: string; nickname?: string }): string {
+  const nick = nickname?.trim();
+  return nick && !/^(?:none|█+)$/i.test(nick) ? nick : name;
+}
+
 export interface SimBehavior {
   /** Walking speed multiplier (1 = normal). */
   speed: number;
