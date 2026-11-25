@@ -338,6 +338,7 @@ export class Renderer {
   private readonly outline = makeCanvas(160, 160);
   private readonly passageDoorCanvas = makeCanvas(96, 96);
   private readonly emergencySheets = new Map<string, Canvas>();
+  private readonly remainsMasks = new FrameAlphaMasks();
   private pixelScale = 1;
 
   constructor(canvas: Canvas, assets: Assets, room: Room) {
@@ -475,6 +476,33 @@ export class Renderer {
       }
     }
     return null;
+  }
+
+  /** The front-most remains pile under a point, picked by its opaque pixels like characters are. */
+  remainsAt(px: number, py: number): Remains | null {
+    const front = [...(this.room.remains ?? [])].reverse().sort((a, b) => b.y - a.y);
+    for (const remains of front) {
+      const { image, asset } = this.remainsImage(remains);
+      const x = Math.round(remains.x - image.width / 2);
+      const y = Math.round(remains.y - image.height);
+      const mask = this.remainsMasks.get(asset, image, { x: 0, y: 0, w: image.width, h: image.height });
+      for (let oy = -AGENT_PICK_TOLERANCE; oy <= AGENT_PICK_TOLERANCE; oy++) {
+        for (let ox = -AGENT_PICK_TOLERANCE; ox <= AGENT_PICK_TOLERANCE; ox++) {
+          const lx = Math.floor(px) - x + ox;
+          const ly = Math.floor(py) - y + oy;
+          if (lx < 0 || ly < 0 || lx >= mask.w || ly >= mask.h) continue;
+          if (mask.alpha[ly * mask.w + lx] > 0) return remains;
+        }
+      }
+    }
+    return null;
+  }
+
+  private remainsImage(remains: Remains) {
+    const image = this.assets[remains.asset];
+    if (image) return { image, asset: remains.asset };
+    const stand = placeholderFrame(requireAsset(this.assets, 'missing-texture'), MISSING_REMAINS.w, MISSING_REMAINS.h);
+    return { image: stand, asset: 'missing-remains' };
   }
 
   private drawAgent(agent: CameraActor, highlight?: string) {
@@ -658,8 +686,7 @@ export class Renderer {
 
   /** A pile left behind by a predator, resting with its bottom centre on the floor point. */
   private drawRemains(remains: Remains) {
-    const image = this.assets[remains.asset] ??
-      placeholderFrame(requireAsset(this.assets, 'missing-texture'), MISSING_REMAINS.w, MISSING_REMAINS.h);
+    const { image } = this.remainsImage(remains);
     this.ctx.drawImage(image, Math.round(remains.x - image.width / 2), Math.round(remains.y - image.height));
   }
 

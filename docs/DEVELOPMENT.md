@@ -1008,7 +1008,7 @@ the weights for one character; types left out of it are never used.
    prey becomes **remains**: an agent is `removed` (with everything it carried or stored
    taken from it) and a creature `consumed`, but the profile (`character`: id, name,
    traits) lives on in a `Remains` ([`remains.ts`](../src/lib/sim/remains.ts)) held by the
-   predator. The id joins `world.vore.consumed`, so the character doesn't arrive again that
+   predator, along with the original agent or creature (`actor`). The id joins `world.vore.consumed`, so the character doesn't arrive again that
    session and containment failures stop counting it.
 5. **Disposed.** After 20–45 s (`disposalDelay`), once it is standing on a floor, the
    predator drops the pile at its feet (`room.remains`) and scatters the prey's items
@@ -1023,6 +1023,9 @@ Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` name
 artwork. Images can be any size; they are drawn with their bottom centre on the
 pile's floor point and depth-sorted like items. The current files are 24×16 placeholders,
 and a missing file falls back to a stand-in made from the missing texture.
+Piles on the floor are clickable (`Renderer.remainsAt`, pixel-accurate like characters):
+clicking one selects `remains.actor`, pulling up the same file as clicking them alive did
+(without `world.interact`, so nothing is woken or revealed).
 
 Swallowed prey stay in the interface: their name tag rides on the predator, with their
 status popups; following them follows the predator's camera; and their file shows

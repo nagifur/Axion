@@ -338,3 +338,40 @@ test('remains stand on the floor by their bottom centre, with a stand-in for mis
   assert.deepEqual([standIn[0].width, standIn[0].height, standIn[1], standIn[2]], [24, 16, 38, 44]);
   assert.deepEqual(standIn[0].draws[0], [missing, 0, 0, 8, 8, 0, 0, 24, 16], 'the missing texture, sized like a pile');
 });
+
+test('remains are picked by their opaque pixels, front-most pile first', (t) => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  });
+  const opaque = new Map();
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        let source;
+        const ctx = {
+          drawImage(image) { source = image; },
+          getImageData(_x, _y, width, height) {
+            const data = new Uint8ClampedArray(width * height * 4);
+            // Only the bottom row of each pile is solid.
+            if (opaque.get(source)) for (let x = 0; x < width; x++) data[((height - 1) * width + x) * 4 + 3] = 255;
+            return { data };
+          },
+          putImageData() {}, setTransform() {}, fillRect() {}, clearRect() {},
+        };
+        return { width: 0, height: 0, getContext() { return ctx; } };
+      },
+    },
+  });
+  const bones = { width: 20, height: 20 };
+  opaque.set(bones, true);
+  const back = { x: 100, y: 60, asset: 'remains:bones', actor: 'back' };
+  const front = { x: 100, y: 61, asset: 'remains:bones', actor: 'front' };
+  const room = { id: 'hall', width: 200, height: 100, props: [], remains: [front, back] };
+  const renderer = new Renderer(document.createElement('canvas'), { character: { width: 576, height: 1152 }, 'remains:bones': bones }, room);
+  assert.equal(renderer.remainsAt(100, 60), front, 'overlapping piles pick the one drawn on top');
+  assert.equal(renderer.remainsAt(100, 50), null, 'transparent pixels are not the pile');
+  assert.equal(renderer.remainsAt(150, 60), null);
+});

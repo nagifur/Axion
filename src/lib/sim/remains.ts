@@ -1,9 +1,10 @@
 import type { Item } from './item.ts';
 import type { SimCharacter, SimCreature } from './roster.ts';
-import type { VoreType } from './vore.ts';
+import type { VoreActor, VoreType } from './vore.ts';
 
 export interface RemainsData {
-  character: SimCharacter | SimCreature;
+  /** Who this was; clicking the pile pulls up their file. */
+  actor: VoreActor;
   kind: 'agent' | 'creature';
   type: VoreType;
   look: string;
@@ -18,6 +19,7 @@ export interface RemainsData {
  * drops the pile on the floor with everything the prey was holding beside it.
  */
 export class Remains {
+  readonly actor: VoreActor;
   readonly character: SimCharacter | SimCreature;
   readonly kind: 'agent' | 'creature';
   readonly type: VoreType;
@@ -31,7 +33,8 @@ export class Remains {
   y = 0;
 
   constructor(data: RemainsData) {
-    this.character = data.character;
+    this.actor = data.actor;
+    this.character = data.actor.character;
     this.kind = data.kind;
     this.type = data.type;
     this.look = data.look;

@@ -204,7 +204,7 @@ function bootMonitor(
 
   const updateFollowControls = () => {
     if (followToggle) {
-      followToggle.disabled = !followed && (!selected || (!(selected instanceof Creature) && selected.removed));
+      followToggle.disabled = !followed && (!selected || (selected instanceof Creature ? selected.consumed : selected.removed));
       const label = followed ? 'Stop following' : 'Follow selected';
       if (followToggle.textContent !== label) followToggle.textContent = label;
       const pressed = String(!!followed);
@@ -329,7 +329,7 @@ function bootMonitor(
     selected = agent;
     updateFollowControls();
     if (agent instanceof Creature) return;
-    world.interact(agent);
+    if (!agent.removed) world.interact(agent);
     if (!agent.character.href) return;
     if (!agent.impostor) {
       identified.add(agent.character.id);
@@ -476,7 +476,8 @@ function bootMonitor(
       return;
     }
     hovered = renderer.hitTest(world, point.x, point.y);
-    canvas.style.cursor = hovered ? (!(hovered instanceof Creature) && hovered.draggable ? 'grab' : 'pointer') : '';
+    canvas.style.cursor = hovered ? (!(hovered instanceof Creature) && hovered.draggable ? 'grab' : 'pointer')
+      : renderer.remainsAt(point.x, point.y) ? 'pointer' : '';
   };
   const onPointerLeave = () => {
     if (drag) return;
@@ -496,7 +497,8 @@ function bootMonitor(
     if (!renderer || editorPanel.active) return;
     if (event.target instanceof Element && event.target.closest('.monitor-tag')) return;
     const point = toRoom(event);
-    const agent = renderer.hitTest(world, point.x, point.y);
+    // Remains on the floor pull up the file of whoever they were.
+    const agent = renderer.hitTest(world, point.x, point.y) ?? renderer.remainsAt(point.x, point.y)?.actor;
     if (agent) select(agent);
   };
   const onDoubleClick = (event: MouseEvent) => {

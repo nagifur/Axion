@@ -471,6 +471,7 @@ test('absorbed agents stop being agents but leave their profile, items and name 
   const [remains] = pred.vore.remains;
   assert.deepEqual([remains.id, remains.name, remains.kind], ['meal', 'meal', 'agent']);
   assert.equal(remains.character, meal.character);
+  assert.equal(remains.actor, meal, 'clicking the pile pulls up their file');
   assert.deepEqual(remains.items, [can, card]);
   assert.ok(logs.some(({ text, tone }) => text === 'meal was absorbed by pred.' && tone === 'warn'));
 

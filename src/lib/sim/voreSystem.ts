@@ -259,7 +259,7 @@ export class VoreSystem {
       world.hooks.removed?.(prey);
     } else prey.consumed = true;
     this.consumed.add(prey.character.id);
-    predator.vore.remains.push(new Remains({ character: prey.character, kind, type, look: pickRemainsLook(type), items, wait: disposalWait() }));
+    predator.vore.remains.push(new Remains({ actor: prey, kind, type, look: pickRemainsLook(type), items, wait: disposalWait() }));
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
   }
