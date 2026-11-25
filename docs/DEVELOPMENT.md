@@ -628,9 +628,15 @@ Everything shown is data in [`incidents.ts`](../src/lib/sim/incidents.ts):
     sightings don't flood the entry.
 
 An incident resolves when it isn't held and every creature in it has settled; later
-steps open a new incident. Steps that neither open nor match an active incident are
-ignored. Up to `INCIDENT_HISTORY` resolved incidents and `INCIDENT_MAX_STEPS` steps per
-incident are kept (the opening step always stays).
+escapes open a new incident. Steps that neither open nor match an active incident are
+normally ignored. An explicitly linked follow-up can add to a resolved incident
+without changing its outcome or duration, as long as it's still in the feed.
+Up to `INCIDENT_HISTORY` resolved incidents and `INCIDENT_MAX_STEPS` steps per incident
+are kept (the opening step always stays).
+
+When an escapee absorbs someone, its incident gets a timeline step without settling
+the escapee, even if it has already been returned to its cell. If the prey is also
+an escapee, absorption settles the prey. A shared incident gets only the prey's step.
 
 Simulation code only reports step IDs:
 

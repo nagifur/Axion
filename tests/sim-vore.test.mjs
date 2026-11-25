@@ -860,6 +860,66 @@ test('creature prey leave their cell until spat out, and are gone for good once 
   assert.deepEqual(world.creaturesIn(hall), []);
 });
 
+for (const recontained of [false, true]) {
+  test(`a breach reports the escapee absorbing staff ${recontained ? 'after recontainment' : 'while still loose'}`, () => {
+    const { world, hall, annex } = setup();
+    const pred = addCreature(world, annex, beast('pred', ['Predator']), { x: 100, y: 100 });
+    const meal = standing(world, hall, person('meal', ['Prey']), { x: 104, y: 100 });
+    pred.emerge(hall, { x: 100, y: 100 });
+    const breach = world.incidents.record('escaped', { creature: pred, room: hall });
+
+    Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 1 });
+    assert.equal(world.vore.swallow(pred, meal, 'oral'), true);
+    world.update(0.6);
+    const containedAt = world.time;
+    if (recontained) world.recontain(pred);
+    world.update(1.1);
+    assert.equal(meal.removed, true);
+
+    assert.deepEqual(breach.steps.map(({ id }) => id), recontained
+      ? ['escaped', 'swallowed-someone', 'recontained', 'absorbed-someone']
+      : ['escaped', 'swallowed-someone', 'absorbed-someone']);
+    const last = breach.steps.at(-1);
+    assert.equal(last.text, 'pred absorbed meal.');
+    assert.equal(last.room, recontained ? annex : hall);
+    assert.equal(breach.resolvedAt, recontained ? containedAt : undefined);
+    assert.equal(breach.outcome, recontained ? 'Contained' : undefined);
+    assert.equal(world.incidents.incidents.length, 1);
+  });
+}
+
+for (const shared of [false, true]) {
+  test(`absorption settles the creature prey and is reported once in ${shared ? 'a shared incident' : 'each separate breach'}`, () => {
+    const { world, hall, annex } = setup();
+    const pred = addCreature(world, annex, beast('pred', ['Predator']), { x: 100, y: 100 });
+    const meal = addCreature(world, annex, beast('meal', ['Prey'], { height: '1 m' }), { x: 104, y: 100 });
+    pred.emerge(hall, { x: 100, y: 100 });
+    meal.emerge(hall, { x: 104, y: 100 });
+    if (shared) world.level(hall.level).startEvent('containment-failure');
+    const predatorIncident = world.incidents.record('escaped', { creature: pred, room: hall });
+    const preyIncident = world.incidents.record('escaped', { creature: meal, room: hall });
+
+    Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 1 });
+    assert.equal(world.vore.swallow(pred, meal, 'oral'), true);
+    world.update(0.6);
+    world.update(1.1);
+    assert.equal(meal.consumed, true);
+
+    assert.deepEqual(preyIncident.steps.slice(-2).map(({ id }) => id), ['swallowed', 'absorbed']);
+    assert.equal(preyIncident.pending.has(meal), false);
+    assert.equal(predatorIncident.pending.has(pred), true);
+    assert.equal(predatorIncident.resolvedAt, undefined);
+    if (shared) {
+      assert.equal(preyIncident, predatorIncident);
+      assert.equal(preyIncident.steps.some(({ id }) => id === 'swallowed-someone' || id === 'absorbed-someone'), false);
+    } else {
+      assert.equal(preyIncident.resolvedAt, world.time);
+      assert.equal(preyIncident.outcome, 'Subject absorbed');
+      assert.deepEqual(predatorIncident.steps.slice(-2).map(({ id }) => id), ['swallowed-someone', 'absorbed-someone']);
+    }
+  });
+}
+
 test('a creature absorbed by a predator no longer holds up a containment failure', () => {
   const { world, hall } = setup();
   const lost = addCreature(world, hall, beast('lost', ['Prey']), { x: 50, y: 80 });

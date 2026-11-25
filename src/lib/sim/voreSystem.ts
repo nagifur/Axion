@@ -1,4 +1,5 @@
 import { Agent } from './agent.ts';
+import type { Incident } from './incidents.ts';
 import type { Item } from './item.ts';
 import { chance, weightedPick } from './random.ts';
 import { Remains } from './remains.ts';
@@ -22,6 +23,7 @@ import type { World } from './world.ts';
 export class VoreSystem {
   private readonly world: World;
   private readonly ingestions: Ingestion[] = [];
+  private readonly predatorIncidents = new WeakMap<Ingestion, Incident>();
   /** Characters that were absorbed for good; they don't arrive again. */
   readonly consumed = new Set<string>();
 
@@ -94,9 +96,16 @@ export class VoreSystem {
     this.carry(ingestion);
     world.log(`${predator.character.name} swallowed ${prey.character.name} whole (${voreTypeLabel(selectedType).toLowerCase()}) in the ${predator.room.name}!`, 'alert');
     const { room } = predator;
-    // One step per swallowing: from the prey's side when it is a creature in an incident, else the predator's.
-    const told = !(prey instanceof Agent) && world.incidents.record('swallowed', { creature: prey, other: predator, room });
-    if (!told && !(predator instanceof Agent)) world.incidents.record('swallowed-someone', { creature: predator, other: prey, room });
+    const preyIncident = prey instanceof Agent ? undefined : world.incidents.record('swallowed', { creature: prey, other: predator, room });
+    if (!(predator instanceof Agent)) {
+      const incident = world.incidents.pendingFor(predator);
+      if (incident) {
+        this.predatorIncidents.set(ingestion, incident);
+        if (incident !== preyIncident) {
+          world.incidents.record('swallowed-someone', { creature: predator, other: prey, room }, incident);
+        }
+      }
+    }
     // The post is staffed again; the swallowed guard counts as absent from here on.
     if (prey instanceof Agent && prey.security && world.elevatorFor(prey.security.post)) world.staffSecurityPost(prey.security.post);
     return true;
@@ -268,7 +277,14 @@ export class VoreSystem {
     if (prey instanceof Agent) world.hooks.removed?.(prey);
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
-    if (!(prey instanceof Agent)) world.incidents.record('absorbed', { creature: prey, other: predator, room: predator.room });
+    const { room } = predator;
+    const preyIncident = prey instanceof Agent ? undefined : world.incidents.record('absorbed', { creature: prey, other: predator, room });
+    if (!(predator instanceof Agent)) {
+      const incident = this.predatorIncidents.get(ingestion) ?? world.incidents.pendingFor(predator);
+      if (incident && incident !== preyIncident) {
+        world.incidents.record('absorbed-someone', { creature: predator, other: prey, room }, incident);
+      }
+    }
   }
 
   /** Spits live prey back out beside the predator, shaken and safe from being swallowed again for a while. */

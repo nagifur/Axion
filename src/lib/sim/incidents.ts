@@ -118,6 +118,10 @@ export const INCIDENT_STEPS = {
     settles: true, outcome: 'Subject absorbed', tone: 'warn',
     text: (context) => `${name(context)} was absorbed by ${other(context)}.`,
   },
+  'absorbed-someone': {
+    tone: 'warn',
+    text: (context) => `${name(context)} absorbed ${other(context)}.`,
+  },
   recontained: {
     settles: true, outcome: 'Contained', tone: 'ok',
     text: (context) => context.other
@@ -183,40 +187,49 @@ export class IncidentTracker {
     return this.incidents.filter((incident) => incident.resolvedAt === undefined);
   }
 
-  /** Adds a step to the incident it belongs to, opening one if the step allows it. Otherwise ignored. */
-  record(id: IncidentStepId, context: IncidentContext): Incident | undefined {
+  pendingFor(subject: Creature): Incident | undefined {
+    return this.incidents.find((incident) => incident.resolvedAt === undefined && incident.pending.has(subject));
+  }
+
+  /** Matches an active incident by default. A linked follow-up can add to a retained, resolved incident. */
+  record(id: IncidentStepId, context: IncidentContext, linked?: Incident): Incident | undefined {
     const step: IncidentStepDefinition = INCIDENT_STEPS[id];
-    const incident = this.find(step, context) ?? (step.opens ? this.open(step.opens, context) : undefined);
+    const incident = linked
+      ? this.incidents.find((entry) => entry === linked)
+      : this.find(step, context) ?? (step.opens ? this.open(step.opens, context) : undefined);
     if (!incident) return undefined;
     const subject = context.creature;
-    if (subject) {
-      incident.subjects.add(subject);
-      if (step.opens) incident.pending.add(subject);
-      if (step.settles) incident.pending.delete(subject);
-    }
-    if (step.holds) incident.held = true;
-    if (step.releases) incident.held = false;
-    if (step.outcome) incident.outcome = step.outcome;
     const { time } = this.clock;
+    if (incident.resolvedAt === undefined) {
+      if (subject) {
+        incident.subjects.add(subject);
+        if (step.opens) incident.pending.add(subject);
+        if (step.settles) incident.pending.delete(subject);
+      }
+      if (step.holds) incident.held = true;
+      if (step.releases) incident.held = false;
+      if (step.outcome) incident.outcome = step.outcome;
+    }
     if (step.latestOnly) {
       const earlier = incident.steps.findIndex((other) => other.id === id && other.subject === subject);
       if (earlier > 0) incident.steps.splice(earlier, 1);
     }
     incident.steps.push({ id, text: step.text(context), tone: step.tone, room: context.room, subject, time, at: this.clock.now() });
     if (incident.steps.length > INCIDENT_MAX_STEPS) incident.steps.splice(1, 1);
-    if (!incident.held && !incident.pending.size) incident.resolvedAt = time;
+    if (incident.resolvedAt === undefined && !incident.held && !incident.pending.size) incident.resolvedAt = time;
     this.trim();
     this.version++;
     return incident;
   }
 
   private find(step: IncidentStepDefinition, context: IncidentContext): Incident | undefined {
-    const active = this.active;
     const subject = context.creature;
+    if (subject && !step.opens) return this.pendingFor(subject);
+    const active = this.active;
     if (subject) {
-      // A subject that breaks out again rejoins its incident; other steps only matter while it is unsettled.
-      const own = active.find((incident) => (step.opens ? incident.subjects : incident.pending).has(subject));
-      if (own || !step.opens) return own;
+      // An already settled subject that breaks out again rejoins its still-active incident.
+      const own = active.find((incident) => incident.subjects.has(subject));
+      if (own) return own;
       return active.find((incident) => {
         const type: IncidentTypeDefinition = INCIDENT_TYPES[incident.type];
         return type.collects?.(incident, context);
