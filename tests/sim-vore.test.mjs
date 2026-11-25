@@ -11,7 +11,7 @@ import { statusPopups } from '../src/lib/sim/statusEffects.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
 import {
   ABSORPTION_HOOKS, INSIDE_ACTIONS, VORE_TUNING, VORE_TYPES, canSwallow, createVoreProfile, huntRate, parseVoreRole,
-  pickVoreType, voreStance,
+  pickRemainsLook, pickVoreType, voreStance,
 } from '../src/lib/sim/vore.ts';
 import { stalk } from '../src/lib/sim/voreTasks.ts';
 import { World } from '../src/lib/sim/world.ts';
@@ -390,13 +390,23 @@ test('spat-out prey are safe from being swallowed again for a while', () => {
 
 // --- Digestion, absorption and remains ----------------------------------------------------------
 
+test('oral and anal vore randomly leave bones or droppings', () => {
+  setRandomSource(() => 0);
+  assert.equal(pickRemainsLook('oral'), 'bones');
+  assert.equal(pickRemainsLook('anal'), 'bones');
+
+  setRandomSource(() => 0.99);
+  assert.equal(pickRemainsLook('oral'), 'droppings');
+  assert.equal(pickRemainsLook('anal'), 'droppings');
+});
+
 for (const [type, status, label, look] of [
   ['oral', 'digested', 'Digested', 'bones'],
   ['cock', 'cumified', 'Cumified', 'cum'],
   ['anal', 'digested', 'Digested', 'droppings'],
   ['breast', 'milkified', 'Milkified', 'milk'],
 ]) {
-  test(`${type} vore digests prey into ${look}`, () => {
+  test(`${type} vore digests prey`, () => {
     const { world, logs, pred, meal } = duel();
     Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 2 });
     assert.equal(world.vore.swallow(pred, meal, type), true);
@@ -415,7 +425,10 @@ for (const [type, status, label, look] of [
 
     world.update(2.1);
     const [remains] = pred.vore.remains;
-    assert.deepEqual([remains.type, remains.look, remains.asset], [type, look, `remains:${look}`]);
+    const expectedLooks = type === 'oral' || type === 'anal' ? ['bones', 'droppings'] : [look];
+    assert.equal(remains.type, type);
+    assert.ok(expectedLooks.includes(remains.look));
+    assert.equal(remains.asset, `remains:${remains.look}`);
   });
 }
 
@@ -610,7 +623,9 @@ test('creature prey leave their cell until spat out, and are gone for good once 
   assert.equal(creature.activity, 'Consumed');
   assert.equal(world.vore.consumed.has('thing'), true);
   const [remains] = pred.vore.remains;
-  assert.deepEqual([remains.id, remains.kind, remains.look], ['thing', 'creature', 'bones']);
+  assert.equal(remains.id, 'thing');
+  assert.equal(remains.kind, 'creature');
+  assert.ok(['bones', 'droppings'].includes(remains.look));
   assert.deepEqual(world.creaturesIn(hall), []);
 });
 

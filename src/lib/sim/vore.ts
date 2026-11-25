@@ -2,7 +2,7 @@
 // Pure data and predicates; the swallow lifecycle itself lives in voreSystem.ts.
 import type { Agent } from './agent.ts';
 import type { Creature } from './creature.ts';
-import { random, range, weightedPick } from './random.ts';
+import { pick, random, range, weightedPick } from './random.ts';
 import type { Remains } from './remains.ts';
 
 /** From the profile's `vorePreference`. */
@@ -226,6 +226,11 @@ export function pickVoreType(profile: VoreProfile | undefined): VoreType {
 
 export function voreTypeLabel(type: VoreType): string {
   return VORE_TYPES[type].label;
+}
+
+/** Oral and anal vore can leave either bones or droppings. */
+export function pickRemainsLook(type: VoreType): string {
+  return type === 'oral' || type === 'anal' ? pick(['bones', 'droppings']) : VORE_TYPES[type].look;
 }
 
 /** A prey who is currently being digested or absorbed by its predator. */

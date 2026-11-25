@@ -8,7 +8,7 @@ import { wait } from './tasks.ts';
 import { isReef, isTrespassing } from './trespass.ts';
 import {
   ABSORPTION_HOOKS, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, heightOf, huntRate, pickVoreType, rolls,
-  startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreType,
+  pickRemainsLook, startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreType,
 } from './vore.ts';
 import { stalk } from './voreTasks.ts';
 import type { World } from './world.ts';
@@ -259,7 +259,7 @@ export class VoreSystem {
       world.hooks.removed?.(prey);
     } else prey.consumed = true;
     this.consumed.add(prey.character.id);
-    predator.vore.remains.push(new Remains({ character: prey.character, kind, type, look: VORE_TYPES[type].look, items, wait: disposalWait() }));
+    predator.vore.remains.push(new Remains({ character: prey.character, kind, type, look: pickRemainsLook(type), items, wait: disposalWait() }));
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
   }
