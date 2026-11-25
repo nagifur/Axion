@@ -53,7 +53,7 @@ export interface VoreTypeDefinition {
 export const VORE_TYPES: Record<VoreType, VoreTypeDefinition> = {
   oral: { label: 'Oral vore', weight: 6, converted: 'digested', look: 'bones', digestion: 1, escape: 1, absorption: 1 },
   cock: { label: 'Cock vore', weight: 1, converted: 'cumified', look: 'cum', digestion: 1, escape: 1, absorption: 1 },
-  anal: { label: 'Anal vore', weight: 1, converted: 'digested', look: 'droppings', digestion: 1, escape: 1, absorption: 1 },
+  anal: { label: 'Anal vore', weight: 1, converted: 'digested', look: 'scat', digestion: 1, escape: 1, absorption: 1 },
   breast: { label: 'Breast vore', weight: 1, converted: 'milkified', look: 'milk', digestion: 1, escape: 1, absorption: 1 },
 };
 
@@ -228,9 +228,9 @@ export function voreTypeLabel(type: VoreType): string {
   return VORE_TYPES[type].label;
 }
 
-/** Oral and anal vore can leave either bones or droppings. */
+/** Oral and anal vore can leave either bones or scat. */
 export function pickRemainsLook(type: VoreType): string {
-  return type === 'oral' || type === 'anal' ? pick(['bones', 'droppings']) : VORE_TYPES[type].look;
+  return type === 'oral' || type === 'anal' ? pick(['bones', 'scat']) : VORE_TYPES[type].look;
 }
 
 /** A prey who is currently being digested or absorbed by its predator. */

@@ -12,6 +12,7 @@ import { loadProgress, saveProgress } from './monitorProgress.ts';
 import { NameTags } from './monitorTags.ts';
 import { PropEditor } from './propEditor.ts';
 import { PropEmissionSampler, PropPicker, Renderer, loadAssets } from './render.ts';
+import type { Remains } from './remains.ts';
 import type { SimCharacter, SimCreature, SimImpostor } from './roster.ts';
 import { Room, type Point, type RoomData } from './room.ts';
 import { World, type CameraActor, type LogTone } from './world.ts';
@@ -115,6 +116,7 @@ function bootMonitor(
   let speed = 1;
   let showAllTags = true;
   let hovered: CameraActor | null = null;
+  let hoveredRemains: Remains | null = null;
   let selected: CameraActor | null = null;
   let followed: CameraActor | null = null;
   let renderer: Renderer | null = null;
@@ -239,6 +241,7 @@ function bootMonitor(
     canvas.style.aspectRatio = `${room.width} / ${room.height}`;
     if (changed) {
       hovered = null;
+      hoveredRemains = null;
       renderer?.setRoom(room);
       editorPanel.editor?.setRoom(room);
       if (screen) {
@@ -476,12 +479,14 @@ function bootMonitor(
       return;
     }
     hovered = renderer.hitTest(world, point.x, point.y);
+    hoveredRemains = hovered ? null : renderer.remainsAt(point.x, point.y);
     canvas.style.cursor = hovered ? (!(hovered instanceof Creature) && hovered.draggable ? 'grab' : 'pointer')
-      : renderer.remainsAt(point.x, point.y) ? 'pointer' : '';
+      : hoveredRemains ? 'pointer' : '';
   };
   const onPointerLeave = () => {
     if (drag) return;
     hovered = null;
+    hoveredRemains = null;
     canvas.style.cursor = '';
     editorPanel.editor?.pointerLeave();
     editorPanel.showCursor(null);
@@ -616,6 +621,7 @@ function bootMonitor(
     root.classList.toggle('is-editing', active);
     debugPanel?.querySelector('[data-debug="props"]')?.setAttribute('aria-pressed', String(active));
     hovered = null;
+    hoveredRemains = null;
   };
 
   if (debugPanel && debugMode) {
@@ -742,10 +748,11 @@ function bootMonitor(
         updateFollowControls();
       }
       const navigationHint = updateDragCameraHover();
-      const highlights = new Map<CameraActor, string>();
+      const highlights = new Map<CameraActor | Remains, string>();
       if (selected instanceof Creature) highlights.set(selected, selected.character.tint);
       else if (selected && !selected.removed) highlights.set(selected, selected.revealed ? '#ff4060' : selected.character.tint);
       if (hovered) highlights.set(hovered, '#ffffff');
+      if (hoveredRemains && !drag?.active && viewed.remains.includes(hoveredRemains)) highlights.set(hoveredRemains, '#ffffff');
       diagnostics.phase('renderer.draw');
       renderer.draw(world, highlights);
       diagnostics.phase('overlays');

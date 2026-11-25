@@ -979,9 +979,9 @@ Each swallow uses one of four ways, picked by weight from the predator's profile
 
 | Type | Label | Weight | Status once digested | Remains artwork |
 | --- | --- | --- | --- | --- |
-| `oral` | Oral vore | 6 | `digested` | `bones` or `droppings` |
+| `oral` | Oral vore | 6 | `digested` | `bones` or `scat` |
 | `cock` | Cock vore | 1 | `cumified` | `cum` |
-| `anal` | Anal vore | 1 | `digested` | `bones` or `droppings` |
+| `anal` | Anal vore | 1 | `digested` | `bones` or `scat` |
 | `breast` | Breast vore | 1 | `milkified` | `milk` |
 
 Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
@@ -1019,11 +1019,12 @@ living prey are spat out, digested prey finish absorbing at once, and remains dr
 it was. Each step is logged.
 
 Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` named in
-`VORE_TYPES`; oral and anal vore randomly choose between the `bones` and `droppings`
+`VORE_TYPES`; oral and anal vore randomly choose between the `bones` and `scat`
 artwork. Images can be any size; they are drawn with their bottom centre on the
 pile's floor point and depth-sorted like items. The current files are 24×16 placeholders,
 and a missing file falls back to a stand-in made from the missing texture.
-Piles on the floor are clickable (`Renderer.remainsAt`, pixel-accurate like characters):
+Piles on the floor are clickable (`Renderer.remainsAt`, pixel-accurate like characters, with
+the same white hover outline):
 clicking one selects `remains.actor`, pulling up the same file as clicking them alive did
 (without `world.interact`, so nothing is woken or revealed).
 

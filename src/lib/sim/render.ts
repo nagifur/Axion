@@ -505,6 +505,21 @@ export class Renderer {
     return { image: stand, asset: 'missing-remains' };
   }
 
+  /** A 1px outline, stamped as a tinted silhouette around the sprite frame. */
+  private drawOutline(image: CanvasImageSource, frame: Rect, x: number, y: number, flip: boolean, color: string) {
+    fitCanvas(this.outline, frame.w, frame.h);
+    const outlineCtx = context(this.outline);
+    outlineCtx.globalCompositeOperation = 'source-over';
+    outlineCtx.clearRect(0, 0, this.outline.width, this.outline.height);
+    drawSpriteFrame(outlineCtx, image, frame, 0, 0, flip);
+    outlineCtx.globalCompositeOperation = 'source-in';
+    outlineCtx.fillStyle = color;
+    outlineCtx.fillRect(0, 0, frame.w, frame.h);
+    for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      this.ctx.drawImage(this.outline, 0, 0, frame.w, frame.h, x + ox, y + oy, frame.w, frame.h);
+    }
+  }
+
   private drawAgent(agent: CameraActor, highlight?: string) {
     const ctx = this.ctx;
     const { sheet, name, frame, flip, x, y } = this.placement(agent);
@@ -523,20 +538,7 @@ export class Renderer {
       ctx.fillRect(fx - width + 3, fy - 2, width * 2 - 6, 4);
     }
 
-    if (highlight) {
-      // Draw a 1px outline by stamping a tinted silhouette around the sprite.
-      fitCanvas(this.outline, frame.w, frame.h);
-      const outlineCtx = context(this.outline);
-      outlineCtx.globalCompositeOperation = 'source-over';
-      outlineCtx.clearRect(0, 0, this.outline.width, this.outline.height);
-      drawSpriteFrame(outlineCtx, sheet.normal, frame, 0, 0, flip);
-      outlineCtx.globalCompositeOperation = 'source-in';
-      outlineCtx.fillStyle = highlight;
-      outlineCtx.fillRect(0, 0, frame.w, frame.h);
-      for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-        ctx.drawImage(this.outline, 0, 0, frame.w, frame.h, x + ox, y + oy, frame.w, frame.h);
-      }
-    }
+    if (highlight) this.drawOutline(sheet.normal, frame, x, y, flip, highlight);
 
     const item = !creature && agent.item;
     const hand = item && itemHandAnchor(name, agent.facing);
@@ -568,7 +570,7 @@ export class Renderer {
   }
 
   /** The elevator car, its sliding doors and arrow lights, drawn behind the room art. */
-  private drawElevator(world: World, highlights: ReadonlyMap<CameraActor, string>) {
+  private drawElevator(world: World, highlights: ReadonlyMap<CameraActor | Remains, string>) {
     const opening = this.room.elevator;
     const elevator = world.elevatorFor(this.room);
     if (!opening || !elevator) return;
@@ -685,9 +687,12 @@ export class Renderer {
   }
 
   /** A pile left behind by a predator, resting with its bottom centre on the floor point. */
-  private drawRemains(remains: Remains) {
+  private drawRemains(remains: Remains, highlight?: string) {
     const { image } = this.remainsImage(remains);
-    this.ctx.drawImage(image, Math.round(remains.x - image.width / 2), Math.round(remains.y - image.height));
+    const x = Math.round(remains.x - image.width / 2);
+    const y = Math.round(remains.y - image.height);
+    if (highlight) this.drawOutline(image, { x: 0, y: 0, w: image.width, h: image.height }, x, y, false, highlight);
+    this.ctx.drawImage(image, x, y);
   }
 
   private drawProp(prop: Prop, time: number) {
@@ -719,7 +724,7 @@ export class Renderer {
     drawSpriteFrame(this.ctx, red, visual.frame, prop.x, prop.y, prop.flip);
   }
 
-  draw(world: World, highlights: ReadonlyMap<CameraActor, string>) {
+  draw(world: World, highlights: ReadonlyMap<CameraActor | Remains, string>) {
     const ctx = this.ctx;
     const { assets, room } = this;
     ctx.setTransform(this.pixelScale, 0, 0, this.pixelScale, 0, 0);
@@ -741,7 +746,7 @@ export class Renderer {
       drawables.push({ depth: item.y + item.h - 0.5, draw: () => drawItemSprite(ctx, requireAsset(assets, item.asset), item) });
     }
     for (const remains of room.remains ?? []) {
-      drawables.push({ depth: remains.y - 0.5, draw: () => this.drawRemains(remains) });
+      drawables.push({ depth: remains.y - 0.5, draw: () => this.drawRemains(remains, highlights.get(remains)) });
     }
     for (const particle of world.particles.in(room)) {
       drawables.push({ depth: particle.depth, draw: () => drawParticle(ctx, requireAsset(assets, particle.asset), particle) });

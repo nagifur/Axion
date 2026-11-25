@@ -390,20 +390,20 @@ test('spat-out prey are safe from being swallowed again for a while', () => {
 
 // --- Digestion, absorption and remains ----------------------------------------------------------
 
-test('oral and anal vore randomly leave bones or droppings', () => {
+test('oral and anal vore randomly leave bones or scat', () => {
   setRandomSource(() => 0);
   assert.equal(pickRemainsLook('oral'), 'bones');
   assert.equal(pickRemainsLook('anal'), 'bones');
 
   setRandomSource(() => 0.99);
-  assert.equal(pickRemainsLook('oral'), 'droppings');
-  assert.equal(pickRemainsLook('anal'), 'droppings');
+  assert.equal(pickRemainsLook('oral'), 'scat');
+  assert.equal(pickRemainsLook('anal'), 'scat');
 });
 
 for (const [type, status, label, look] of [
   ['oral', 'digested', 'Digested', 'bones'],
   ['cock', 'cumified', 'Cumified', 'cum'],
-  ['anal', 'digested', 'Digested', 'droppings'],
+  ['anal', 'digested', 'Digested', 'scat'],
   ['breast', 'milkified', 'Milkified', 'milk'],
 ]) {
   test(`${type} vore digests prey`, () => {
@@ -425,7 +425,7 @@ for (const [type, status, label, look] of [
 
     world.update(2.1);
     const [remains] = pred.vore.remains;
-    const expectedLooks = type === 'oral' || type === 'anal' ? ['bones', 'droppings'] : [look];
+    const expectedLooks = type === 'oral' || type === 'anal' ? ['bones', 'scat'] : [look];
     assert.equal(remains.type, type);
     assert.ok(expectedLooks.includes(remains.look));
     assert.equal(remains.asset, `remains:${remains.look}`);
@@ -626,7 +626,7 @@ test('creature prey leave their cell until spat out, and are gone for good once 
   const [remains] = pred.vore.remains;
   assert.equal(remains.id, 'thing');
   assert.equal(remains.kind, 'creature');
-  assert.ok(['bones', 'droppings'].includes(remains.look));
+  assert.ok(['bones', 'scat'].includes(remains.look));
   assert.deepEqual(world.creaturesIn(hall), []);
 });
 

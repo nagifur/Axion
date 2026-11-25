@@ -375,3 +375,39 @@ test('remains are picked by their opaque pixels, front-most pile first', (t) => 
   assert.equal(renderer.remainsAt(100, 50), null, 'transparent pixels are not the pile');
   assert.equal(renderer.remainsAt(150, 60), null);
 });
+
+test('hovered remains get the same 1px outline as characters', (t) => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const draws = [];
+        const ctx = {
+          drawImage(...args) { draws.push(args); },
+          getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4) }; },
+          putImageData() {}, setTransform() {}, fillRect() {}, save() {}, restore() {}, translate() {}, scale() {}, clearRect() {},
+        };
+        return { width: 0, height: 0, draws, getContext() { return ctx; } };
+      },
+    },
+  });
+  const bones = { width: 30, height: 20 };
+  const pile = { x: 100, y: 80, asset: 'remains:bones' };
+  const room = { id: 'hall', width: 200, height: 100, darkness: 0, visualDarkness: 0, props: [], remains: [pile] };
+  const canvas = document.createElement('canvas');
+  const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, 'room:hall': {}, 'remains:bones': bones }, room);
+  const world = { agents: [], actorsIn: () => [], elevatorFor() {}, particles: { in: () => [] } };
+  renderer.draw(world, new Map());
+  const plain = canvas.draws.length;
+  canvas.draws.length = 0;
+  renderer.draw(world, new Map([[pile, '#ffffff']]));
+  const stamps = canvas.draws.slice(1, -1);
+  assert.equal(canvas.draws.length, plain + 4, 'four offset stamps around the pile');
+  assert.deepEqual(stamps.map(([, , , , , x, y]) => [x, y]), [[84, 60], [86, 60], [85, 59], [85, 61]]);
+  assert.deepEqual(canvas.draws.at(-1), [bones, 85, 60], 'the pile is drawn on top of its outline');
+});
