@@ -63,6 +63,7 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
       if (target.room === agent.room && distance(agent, target) <= CAPTURE_REACH && agent.room.canReach(agent, target)) {
         target.escort = agent;
         world.log(`${agent.character.name} caught ${target.character.name} in the ${agent.room.name}.`, 'ok');
+        world.incidents.record('captured', { creature: target, other: agent, room: agent.room });
         return [escortHome(agent, world, target)];
       }
       const chase = pursue(agent, world, target);
@@ -107,6 +108,7 @@ function dispatch(agent: Agent, world: World, duty: SecurityDuty, localOnly = fa
     duty.target = creature;
     agent.say('!');
     world.log(`${agent.character.name} dispatched to the ${creature.room.name} for ${creature.character.name}.`, 'warn');
+    world.incidents.record('dispatched', { creature, other: agent, room: creature.room });
     return chase;
   }
 }

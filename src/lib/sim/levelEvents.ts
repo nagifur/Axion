@@ -105,6 +105,7 @@ export const LEVEL_EVENTS: Readonly<Record<string, LevelEventDefinition>> = {
       }
       containmentFailures.set(level, { pending, held: new Set(), waiting });
       world.log(`Level ${level.number}: containment failure. Cell doors opening one by one. Security team notified.`, 'alert');
+      world.incidents.record('failure-started', { level: level.number });
       finishContainmentFailure(level);
       openNextCellDoor(level);
     },
@@ -125,6 +126,7 @@ export const LEVEL_EVENTS: Readonly<Record<string, LevelEventDefinition>> = {
         containmentFailures.delete(level);
       }
       world.log(`Level ${level.number}: containment failure ended. Cell door controls restored.`, 'ok');
+      world.incidents.record('failure-ended', { level: level.number });
     },
   },
 };

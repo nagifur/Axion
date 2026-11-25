@@ -205,6 +205,7 @@ export class Creature {
     this.noticed.clear();
     this.injure(world, guard);
     world.log(`${this.character.name} broke free from ${guard.character.name}'s grasp in the ${this.room.name}, injuring the guard!`, 'alert');
+    world.incidents.record('broke-free', { creature: this, other: guard, room: this.room });
 
     const doors = this.room.doors.filter((door) => this.canUse(world, door) && this.passable(world, door));
     doors.sort((a, b) => distance(guard, b.inside) - distance(guard, a.inside));
@@ -276,6 +277,7 @@ export class Creature {
       this.walking = false;
       this.injure(world, plan.target);
       world.log(`${this.character.name} attacked ${plan.target.character.name} in the ${this.room.name}, causing ${CREATURE_TUNING.attack.damage} HP damage!`, 'alert');
+      world.incidents.record('attacked', { creature: this, other: plan.target, room: this.room });
       this.plan = { action: 'watch', remaining: 2 };
     }
   }
@@ -441,6 +443,7 @@ export class Creature {
       this.walking = false;
       this.plan = { action: 'watch', remaining: 0 };
       world.log(`Containment breach: ${name} "${nickname}" fled the facility through the ${door.id} door in the ${from.name}. Security team notified.`, 'alert');
+      world.incidents.record('fled', { creature: this, room: from });
       return;
     }
     this.room = room;
@@ -450,8 +453,13 @@ export class Creature {
     this.alpha = 0;
     this.noticed.clear();
     this.plan = { action: 'enter', door: arrival };
-    if (from === this.home) world.log(`Containment breach: ${name} "${nickname}" escaped ${from.name} into the ${room.name}! Security team notified.`, 'alert');
-    else world.log(`${name} "${nickname}" slipped into the ${room.name}.`, 'warn');
+    if (from === this.home) {
+      world.log(`Containment breach: ${name} "${nickname}" escaped ${from.name} into the ${room.name}! Security team notified.`, 'alert');
+      world.incidents.record('escaped', { creature: this, room });
+    } else {
+      world.log(`${name} "${nickname}" slipped into the ${room.name}.`, 'warn');
+      world.incidents.record('roamed', { creature: this, room });
+    }
   }
 
   /** Dashing costs stamina; an `exhausted` creature can only manage its pacing speed. */

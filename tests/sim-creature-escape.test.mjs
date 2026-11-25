@@ -375,6 +375,15 @@ test('security escorts a containment-failure escapee home and automatically ends
   assert.equal(level.hasEvent('containment-failure'), false);
   assert.equal(state.forcedOpen, false);
   assert.ok(logs.some(({ text }) => text.includes(`back to ${creature.home.name}`)));
+  const [incident, ...others] = world.incidents.incidents;
+  assert.equal(others.length, 0, 'the escape joins the floor-wide incident');
+  assert.equal(incident.type, 'containment-failure');
+  assert.notEqual(incident.resolvedAt, undefined);
+  const steps = incident.steps.map(({ id }) => id);
+  assert.deepEqual(steps.filter((id) => ['failure-started', 'escaped', 'captured', 'recontained', 'failure-ended'].includes(id)),
+    ['failure-started', 'escaped', 'captured', 'recontained', 'failure-ended']);
+  assert.ok(steps.includes('dispatched'));
+  assert.ok(incident.steps.find(({ id }) => id === 'escaped').room, 'breach steps link to a camera');
 });
 
 test('a creature that sees its cell door stuck open breaks out, roams, and can be recontained', async (t) => {

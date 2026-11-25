@@ -203,7 +203,7 @@ claim.
 
 #### Crash and freeze diagnostics
 
-Open `/monitoring?debug` and use **Copy diagnostics** below the incident log to copy a
+Open `/monitoring?debug` and use **Copy diagnostics** below the activity log to copy a
 JSON report for troubleshooting. Diagnostics are recorded even without debug mode.
 If the browser is locked up, open `/monitoring?debug` first, then copy the report: it
 includes the previous session's last saved checkpoint as well as the new session. A
@@ -601,6 +601,45 @@ do not spark or shock. Unpowered door panels cannot open doors; doors freeze in
 place, so doors at least half open remain passable. Linked camera views share the same
 door power state (a blackout on either endpoint cuts its supply). Backup power
 does not bypass clearance or repair broken doors/panels.
+
+#### Incident Feed
+
+The **Incidents** panel on `/monitoring` groups related simulation steps (escape →
+dispatch → capture → recontainment) into one entry with camera links. Active
+incidents stay pinned at the top and drive the status banner; resolved ones keep
+their outcome and duration. Routine lines still go to the **Activity log**.
+Incidents live in memory only and reset on reload.
+
+Everything shown is data in [`incidents.ts`](../src/lib/sim/incidents.ts):
+
+- `INCIDENT_TYPES` — one entry per kind of incident: `title(context)`, the banner
+  `status`, and an optional `collects(incident, context)` rule that lets an active
+  incident absorb steps that would otherwise open a new one (a containment failure
+  collects every escape from its floor).
+- `INCIDENT_STEPS` — one entry per reportable step: `tone`, `text(context)`, and flags:
+  - `opens: type` starts an incident unless the creature already belongs to one.
+  - `joins: type` attaches a creature-less step to the active incident of that type on
+    the same floor.
+  - `settles` marks the creature as no longer needing a response; `outcome` is shown
+    once the incident resolves (latest wins).
+  - `holds` / `releases` keep an incident open with no unsettled creatures (e.g. while
+    a floor event runs).
+  - `latestOnly` replaces the creature's earlier step of the same kind, so repeated
+    sightings don't flood the entry.
+
+An incident resolves when it isn't held and every creature in it has settled; later
+steps open a new incident. Steps that neither open nor match an active incident are
+ignored. Up to `INCIDENT_HISTORY` resolved incidents and `INCIDENT_MAX_STEPS` steps per
+incident are kept (the opening step always stays).
+
+Simulation code only reports step IDs:
+
+```ts
+world.incidents.record('captured', { creature, other: guard, room });
+```
+
+To add an incident kind, add a type, add its steps, and call `record` where they
+happen. Rendering lives in [`monitorIncidents.ts`](../src/lib/sim/monitorIncidents.ts).
 
 #### Adding a Room
 

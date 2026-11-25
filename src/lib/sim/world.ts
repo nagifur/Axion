@@ -23,6 +23,7 @@ import { reactToTrespassing, syncStaffEscorts } from './trespass.ts';
 import { VoreSystem } from './voreSystem.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
 import { LEVEL_DEFINITIONS, LEVEL_EVENTS, restoreCellContainment } from './levelEvents.ts';
+import { IncidentTracker } from './incidents.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 export type CameraActor = Agent | Creature;
@@ -79,6 +80,8 @@ export class World {
   readonly particles = new ParticleSystem();
   /** Everything about swallowing: hunts, digestion, absorption and remains. */
   readonly vore = new VoreSystem(this);
+  /** Related steps grouped into incidents for the monitoring feed; see incidents.ts. */
+  readonly incidents = new IncidentTracker(this);
   private readonly levels = new Map<number, LevelState>();
   private readonly sparkDelays = new WeakMap<object, number>();
   private readonly elevators = new Map<Room, Elevator>();
@@ -221,6 +224,7 @@ export class World {
     const escort = creature.escort;
     const from = creature.escaped ? 'outside the facility' : `the ${creature.room.name}`;
     creature.returnHome(this);
+    this.incidents.record('recontained', { creature, other: escort, room: creature.home });
     this.log(escort ? `Containment restored: ${escort.character.name} escorted ${creature.character.name} back to ${creature.home.name}.`
       : `Containment restored: ${creature.character.name} was returned to ${creature.home.name} from ${from}.`, 'ok');
     restoreCellContainment(this, creature);

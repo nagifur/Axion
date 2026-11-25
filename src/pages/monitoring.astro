@@ -334,9 +334,18 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     <div class="monitor-panels">
       <section class="card monitor-file" data-monitor-file aria-label="Selected personnel or entity"></section>
 
+      <section class="card monitor-incidents-card" aria-labelledby="monitor-incidents-title">
+        <div class="panel-kicker">
+          <span id="monitor-incidents-title">Incidents</span>
+          <span class="panel-kicker-meta" data-monitor-incident-count></span>
+        </div>
+        <p class="monitor-incidents-empty" data-monitor-incidents-empty>No incidents reported.</p>
+        <ol class="monitor-incidents" data-monitor-incidents aria-live="polite"></ol>
+      </section>
+
       <section class="card monitor-log-card" aria-labelledby="monitor-log-title">
         <div class="panel-kicker">
-          <span id="monitor-log-title">Incident log</span>
+          <span id="monitor-log-title">Activity log</span>
           <span class="panel-kicker-meta">A1 relay</span>
         </div>
         <ol class="monitor-log" data-monitor-log></ol>
@@ -608,6 +617,26 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-log-line.is-ok{ color:var(--neon-green) }
   .monitor-log-line.is-warn{ color:var(--neon-yellow) }
   .monitor-log-line.is-alert{ color:var(--neon-red) }
+
+  .monitor-incidents-empty{ margin:8px 0 0; color:var(--muted); font-size:0.8rem }
+  .monitor-incidents-card .panel-kicker-meta{ color:var(--neon-red) }
+  .monitor-incidents{ display:flex; flex-direction:column; gap:8px; max-height:360px; overflow:auto; margin:8px 0 0; padding:0; list-style:none }
+  .monitor-incident{ --incident-tint:var(--neon-red); border:1px solid var(--line-soft); border-left:3px solid var(--incident-tint); border-radius:var(--radius-sm); background:#05080d }
+  .monitor-incident.is-resolved{ --incident-tint:var(--neon-green) }
+  .monitor-incident-summary{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; padding:6px 8px; cursor:pointer; font-size:0.8rem }
+  .monitor-incident-state{ color:var(--incident-tint); font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase }
+  .monitor-incident.is-active .monitor-incident-state{ animation:monitor-incident-blink 1.2s steps(2, start) infinite }
+  .monitor-incident-title{ flex:1 1 auto; color:var(--text) }
+  .monitor-incident.is-resolved .monitor-incident-title{ color:var(--muted) }
+  .monitor-incident-steps{ display:flex; flex-direction:column; gap:4px; margin:0; padding:0 8px 8px; list-style:none; font-size:0.78rem }
+  .monitor-incident-text{ flex:1 1 auto }
+  .monitor-incident-camera{
+    flex:none; align-self:flex-start; padding:0 6px; border:1px solid var(--neon-cyan); border-radius:var(--radius-sm);
+    background:none; color:var(--neon-cyan); font:inherit; font-size:0.7rem; cursor:pointer;
+  }
+  .monitor-incident-camera:hover{ background:color-mix(in srgb, var(--neon-cyan) 16%, transparent) }
+  @keyframes monitor-incident-blink{ to{ opacity:0.35 } }
+  @media (prefers-reduced-motion: reduce){ .monitor-incident.is-active .monitor-incident-state{ animation:none } }
 
   .monitor-roster{ margin:8px 0; font-size:0.85rem; color:var(--muted) }
   .monitor-roster strong{ color:var(--text) }

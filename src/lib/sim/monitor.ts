@@ -8,6 +8,7 @@ import { clock, el, EventListeners } from './monitorDom.ts';
 import { EditorPanel } from './monitorEditor.ts';
 import { MonitorFile } from './monitorFile.ts';
 import { followCameraRoom } from './monitorFollow.ts';
+import { IncidentFeed } from './monitorIncidents.ts';
 import { loadProgress, saveProgress } from './monitorProgress.ts';
 import { NameTags } from './monitorTags.ts';
 import { PropEditor } from './propEditor.ts';
@@ -77,6 +78,7 @@ function bootMonitor(
   const alertNode = root.querySelector<HTMLElement>('[data-monitor-alert]');
   const fileNode = root.querySelector<HTMLElement>('[data-monitor-file]');
   const logNode = root.querySelector<HTMLOListElement>('[data-monitor-log]');
+  const incidentNode = root.querySelector<HTMLOListElement>('[data-monitor-incidents]');
   const achievementList = root.querySelector<HTMLUListElement>('[data-monitor-achievements]');
   const achievementCount = root.querySelector<HTMLElement>('[data-monitor-achievement-count]');
   const rosterCount = root.querySelector<HTMLElement>('[data-monitor-roster-count]');
@@ -328,6 +330,17 @@ function bootMonitor(
     stopFollowing();
     switchCamera(room);
   }) : null;
+
+  const incidents = incidentNode ? new IncidentFeed(
+    incidentNode,
+    root.querySelector<HTMLElement>('[data-monitor-incidents-empty]'),
+    root.querySelector<HTMLElement>('[data-monitor-incident-count]'),
+    world.incidents, listeners,
+    (room) => {
+      stopFollowing();
+      switchCamera(room);
+    },
+  ) : null;
 
   const select = (agent: CameraActor) => {
     selected = agent;
@@ -660,9 +673,10 @@ function bootMonitor(
     if (clockNode) clockNode.textContent = clock(now, true);
     if (!clockOffset && now.getHours() < 5) achieve('night-shift');
     if (alertNode) {
+      const incident = incidents?.status;
       const duplicate = world.everyone().some((agent) => agent.impostor && !agent.revealed);
-      alertNode.textContent = duplicate ? 'Duplicate badge' : 'All clear';
-      alertNode.classList.toggle('is-alert', duplicate);
+      alertNode.textContent = incident ?? (duplicate ? 'Duplicate badge' : 'All clear');
+      alertNode.classList.toggle('is-alert', !!incident || duplicate);
     }
     updateCameraCounts();
   };
@@ -778,6 +792,7 @@ function bootMonitor(
       });
       diagnostics.phase('file.render');
       file?.render(selected, viewed);
+      incidents?.sync();
       diagnostics.phase('frame-complete');
       lastFrameCompleted = performance.now();
       stalled = false;

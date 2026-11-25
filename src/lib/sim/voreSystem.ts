@@ -93,6 +93,10 @@ export class VoreSystem {
     predator.vore.cooldown = cooldownSeconds();
     this.carry(ingestion);
     world.log(`${predator.character.name} swallowed ${prey.character.name} whole (${voreTypeLabel(selectedType).toLowerCase()}) in the ${predator.room.name}!`, 'alert');
+    const { room } = predator;
+    // One step per swallowing: from the prey's side when it is a creature in an incident, else the predator's.
+    const told = !(prey instanceof Agent) && world.incidents.record('swallowed', { creature: prey, other: predator, room });
+    if (!told && !(predator instanceof Agent)) world.incidents.record('swallowed-someone', { creature: predator, other: prey, room });
     // The post is staffed again; the swallowed guard counts as absent from here on.
     if (prey instanceof Agent && prey.security && world.elevatorFor(prey.security.post)) world.staffSecurityPost(prey.security.post);
     return true;
@@ -264,6 +268,7 @@ export class VoreSystem {
     if (prey instanceof Agent) world.hooks.removed?.(prey);
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
+    if (!(prey instanceof Agent)) world.incidents.record('absorbed', { creature: prey, other: predator, room: predator.room });
   }
 
   /** Spits live prey back out beside the predator, shaken and safe from being swallowed again for a while. */
@@ -295,6 +300,7 @@ export class VoreSystem {
       }
     } else prey.emerge(room, point);
     world.log(`${predator.character.name} spat ${prey.character.name} back out in the ${room.name}.`, 'ok');
+    if (!(prey instanceof Agent)) world.incidents.record('spat-out', { creature: prey, other: predator, room });
   }
 
   private detach(ingestion: Ingestion) {
