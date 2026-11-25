@@ -271,6 +271,8 @@ export class VoreState {
   readonly contents: Ingestion[] = [];
   /** Fully absorbed prey this character hasn't gotten rid of yet. */
   readonly remains: Remains[] = [];
+  /** This character's own remains once absorption is complete. */
+  ownRemains: Remains | null = null;
   /** Seconds until this character may swallow again. */
   cooldown = 0;
   /** Seconds this character can't be swallowed, after being spat out. */

@@ -1051,8 +1051,9 @@ clicking one selects `remains.actor`, pulling up the same file as clicking them 
 
 Swallowed prey stay in the interface: their name tag rides on the predator, with their
 status popups; following them follows the predator's camera; and their file shows
-**Inside** (who, and which way) while a predator's file lists **Holding**. Absorbed
-characters read **Absorbed** (agents) or **Consumed** (creatures). Following continues
+**Inside** (who, and which way) while a predator's file lists **Holding**. Once absorbed,
+agents and creatures both show the actual remains appearance as their status (for example,
+**Bones**, **Scat**, **Cum**, or **Milk**), whether held or dropped. Following continues
 through absorption and disposal, tracking whoever holds their remains or the room
 whose `remains` list contains their pile.
 

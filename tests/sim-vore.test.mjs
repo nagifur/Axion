@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import { Creature } from '../src/lib/sim/creature.ts';
 import { Item } from '../src/lib/sim/item.ts';
+import { MonitorFile } from '../src/lib/sim/monitorFile.ts';
 import { followCameraRoom } from '../src/lib/sim/monitorFollow.ts';
 import { setRandomSource } from '../src/lib/sim/random.ts';
 import { toSimCharacter, toSimCreature } from '../src/lib/sim/roster.ts';
@@ -518,6 +519,72 @@ test('absorbed agents stop being agents but leave their profile, items and name 
   assert.equal(world.pickArrival(), undefined, 'absorbed characters never arrive again');
   world.roster.push(other);
   assert.equal(world.pickArrival(), other);
+});
+
+test('monitor files show the actual remains for agents and creatures, both held and dropped', (t) => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  });
+  const createElement = (tagName) => ({
+    tagName, children: [], textContent: '', style: { setProperty() {} },
+    append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = children; },
+    addEventListener() {},
+  });
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement } });
+
+  const cases = [
+    { type: 'oral', roll: 0.1, status: 'Bones' },
+    { type: 'oral', roll: 0.9, status: 'Scat' },
+    { type: 'anal', roll: 0.1, status: 'Bones' },
+    { type: 'anal', roll: 0.9, status: 'Scat' },
+    { type: 'cock', roll: 0.9, status: 'Cum' },
+    { type: 'breast', roll: 0.9, status: 'Milk' },
+  ];
+  for (const kind of ['agent', 'creature']) {
+    for (const { type, roll, status } of cases) {
+      const { world, hall, pred, meal } = duel();
+      const prey = kind === 'agent'
+        ? meal
+        : addCreature(world, hall, beast('thing', ['Prey'], { height: '1 m' }), { x: 110, y: 100 });
+      if (kind === 'creature') world.remove(meal, 'door');
+      Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 1, disposalDelay: { min: 600, max: 600 } });
+      const node = createElement('div');
+      const file = new MonitorFile(node, world, () => {});
+      const renderStatus = () => {
+        file.render(prey, hall);
+        const stats = node.children.find((child) => child.tagName === 'dl');
+        return stats.children.find((row) => row.children[0].textContent === 'Status').children[1].textContent;
+      };
+
+      assert.equal(renderStatus(), prey.activity, `${kind}: normal activity is unchanged`);
+      assert.equal(world.vore.swallow(pred, prey, type), true);
+      assert.equal(renderStatus(), 'Struggling inside pred');
+      world.update(0.6);
+      assert.equal(renderStatus(), 'Being absorbed by pred');
+      setRandomSource(() => roll);
+      world.update(1.1);
+      const [pile] = pred.vore.remains;
+      assert.equal(pile.actor, prey);
+      assert.equal(pile.look, status.toLowerCase(), `${kind}, ${type}: the chosen appearance`);
+      assert.equal(renderStatus(), status, `${kind}, ${type}: held remains`);
+      world.vore.release(pred);
+      assert.ok(hall.remains.includes(pile));
+      assert.equal(renderStatus(), status, `${kind}, ${type}: dropped remains`);
+      file.render(null, hall);
+      assert.equal(renderStatus(), status, `${kind}, ${type}: selecting the pile again`);
+    }
+  }
+
+  const { world, hall, meal } = duel();
+  world.remove(meal, 'door');
+  const node = createElement('div');
+  new MonitorFile(node, world, () => {}).render(meal, hall);
+  const stats = node.children.find((child) => child.tagName === 'dl');
+  assert.equal(stats.children.find((row) => row.children[0].textContent === 'Status').children[1].textContent, 'Off camera',
+    'departed staff who were not absorbed remain off camera');
 });
 
 test('predators get rid of remains later, dropping a pile and everything the prey carried', () => {

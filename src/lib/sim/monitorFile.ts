@@ -33,12 +33,19 @@ export class MonitorFile {
   private key?: string;
   private activityNode: HTMLElement | null = null;
   private readonly statNodes = new Map<keyof LiveStats, HTMLElement>();
+  private readonly node: HTMLElement;
+  private readonly world: World;
+  private readonly jumpTo: (room: Room) => void;
 
   constructor(
-    private readonly node: HTMLElement,
-    private readonly world: World,
-    private readonly jumpTo: (room: Room) => void,
-  ) {}
+    node: HTMLElement,
+    world: World,
+    jumpTo: (room: Room) => void,
+  ) {
+    this.node = node;
+    this.world = world;
+    this.jumpTo = jumpTo;
+  }
 
   render(actor: CameraActor | null, viewed: Room) {
     const world = this.world;
@@ -150,6 +157,10 @@ export class MonitorFile {
 
   /** What the file's status line says: the activity, or why there is none. */
   private statusText(actor: CameraActor) {
+    if (actor.vore.ownRemains) {
+      const look = actor.vore.ownRemains.look.replaceAll('_', ' ');
+      return look.slice(0, 1).toUpperCase() + look.slice(1);
+    }
     if (actor instanceof Creature || !actor.removed) return actor.activity;
     return this.world.vore.consumed.has(actor.character.id) ? 'Absorbed' : 'Off camera';
   }
