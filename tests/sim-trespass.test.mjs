@@ -61,8 +61,7 @@ function setup({ height = '1.7 m', role = 'None', clearance = 3, witness = false
   const reef = standing(world, hall, person('reef', { height: '3.07 m', clearance: 5, role: 'Predator' }), { x: 80, y: 100 });
   const target = standing(world, hall, person('target', { height, clearance, role }), { x: 170, y: 100 });
   if (witness) {
-    const guard = standing(world, hall, person('guard', { clearance: 5 }), { x: 140, y: 120 });
-    guard.security = { post: hall, relieved: false };
+    standing(world, hall, person('witness', { clearance: 5 }), { x: 140, y: 120 });
   }
   return { world, hall, upper, nearest, farther, reef, target, logs };
 }
@@ -130,6 +129,26 @@ test('Reef ignores authorized staff and cannot see trespassers on another camera
   target.room = upper;
   world.update(0.1);
   assert.equal(reef.activity, 'Standing');
+});
+
+test('security escorts a trespassing agent to a floor within their clearance', () => {
+  setRandomSource(() => 0.99);
+  const hall = room('restricted hall', 5);
+  const upper = room('upper lift', 5, 'staff');
+  const nearest = room('nearest lift', 3, 'staff');
+  connect(hall, upper);
+  const world = new World({ rooms: [hall, upper, nearest], roster: [] });
+  world.arrive = () => undefined;
+  const guard = standing(world, hall, person('guard', { clearance: 5 }), { x: 80, y: 100 });
+  guard.security = { post: hall, relieved: false };
+  const target = standing(world, hall, person('target', { clearance: 3 }), { x: 170, y: 100 });
+
+  until(world, () => !!target.staffEscort);
+  assert.equal(target.staffEscort.leader, guard);
+  until(world, () => !target.staffEscort && target.room === nearest);
+  assert.equal(guard.room, nearest);
+  assert.equal(target.room.level, 3);
+  assert.equal(target.swallowed, false);
 });
 
 test('Reef follows through on the vore response even with a witness and a Non-Vore trespasser', () => {

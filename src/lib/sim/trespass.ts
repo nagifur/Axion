@@ -26,9 +26,10 @@ const APPROACH_SECONDS = 20;
 export const isReef = (agent: Agent) => agent.character.id === 'reef' && !agent.impostor;
 export const isTrespassing = (agent: Agent) => !agent.impostor && !canVisitLevel(agent.character, agent.room.level);
 
-/** Reef responds to visible, reachable staff who are above their clearance. */
+/** Reef and on-duty security respond to visible, reachable staff above their clearance. */
 export function reactToTrespassing(agent: Agent, world: World) {
-  if (!isReef(agent) || agent.dead || agent.incapacitated || agent.napping || !agent.exposed ||
+  const security = !!agent.security && !agent.security.relieved;
+  if ((!isReef(agent) && !security) || agent.dead || agent.incapacitated || agent.napping || !agent.exposed ||
     !agent.interruptible || agent.staffEscort) return;
   const targets = world.agentsIn(agent.room).filter((other) =>
     other !== agent && !other.dead && other.exposed && isTrespassing(other) &&
@@ -36,7 +37,8 @@ export function reactToTrespassing(agent: Agent, world: World) {
   targets.sort((a, b) => distance(agent, a) - distance(agent, b));
   const target = targets[0];
   if (!target) return;
-  const vore = agent.vore.cooldown <= 0 && world.vore.eligible(agent, target) && chance(REEF_VORE_CHANCE);
+  const vore = isReef(agent) && agent.vore.cooldown <= 0 &&
+    world.vore.eligible(agent, target) && chance(REEF_VORE_CHANCE);
   world.log(`${agent.character.name} spotted ${target.character.name} without clearance in the ${agent.room.name}.`, 'warn');
   agent.say('!');
   agent.setPlan(world, [vore ? stalk(target, pickVoreType(agent.character.vore)) : approachTrespasser(target)]);

@@ -344,15 +344,15 @@ job (position, clearance and optional schedule). It builds a normal `SimCharacte
 with a random name, traits, trait-derived behavior and stat capacities. Only
 security uses it for population today; the generator does not assign guard AI.
 
-Reef, the head of security, notices reachable staff on his camera who are above
-their profile clearance. He normally escorts them to the nearest reachable
-non-cell floor within their clearance; if no route is open, he waits and retries.
-At an elevator, each person requests a place and waits for the other, so
-single-person cars take separate trips. If Reef or the staff member dies or
-leaves, the escort ends. When Reef can swallow the trespasser, he instead chooses
-that response 10% of the time; the other 90% are escorted. He cannot swallow
-someone taller than himself, and normal physical availability, capacity and
-cooldown still apply.
+Reef, the head of security, and on-duty guards notice reachable staff on their
+camera who are above their profile clearance. They escort trespassers to the
+nearest reachable non-cell floor within the trespasser's clearance; if no route
+is open, they wait and retry. At an elevator, each person requests a place and
+waits for the other, so single-person cars take separate trips. If the escorting
+staff member or trespasser dies or leaves, the escort ends. When Reef can swallow
+the trespasser, he instead chooses that response 10% of the time; the other 90%
+are escorted. He cannot swallow someone taller than himself, and normal physical
+availability, capacity and cooldown still apply.
 
 With `?debug`, the **Time** button cycles the clock through Live, 09:00 work,
 10:05 break, 12:30 lunch, 18:00 free time, and 02:00 night. The overridden
@@ -389,8 +389,8 @@ never flicker.
 | [`src/lib/sim/schedule.ts`](../src/lib/sim/schedule.ts) | Editable daily routine, breaks, and per-character schedule overrides. |
 | [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, personal inventory, and its task queue. |
 | [`src/lib/sim/planning.ts`](../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
-| [`src/lib/sim/security.ts`](../src/lib/sim/security.ts) | Elevator watch, same-floor breach response, and escorts back to assigned cells. |
-| [`src/lib/sim/trespass.ts`](../src/lib/sim/trespass.ts) | Reef's trespass response and staff escorts between floors. |
+| [`src/lib/sim/security.ts`](../src/lib/sim/security.ts) | Elevator watch, breach response, and escorts back to assigned cells. |
+| [`src/lib/sim/trespass.ts`](../src/lib/sim/trespass.ts) | Reef's and guards' trespass response and staff escorts between floors. |
 | [`src/lib/sim/tasks.ts`](../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, napping, falling, tripping, and prop breakage. |
 | [`src/lib/sim/repairs.ts`](../src/lib/sim/repairs.ts) | Maintenance staff noticing, claiming, and repairing damaged equipment. |
 | [`src/lib/sim/itemTasks.ts`](../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
