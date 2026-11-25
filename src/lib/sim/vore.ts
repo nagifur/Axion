@@ -65,6 +65,8 @@ export const VORE_TUNING = {
   predatorSizeRatio: 1,
   /** Prey-side characters only swallow someone at least this many times shorter than themselves. */
   preyOversizeRatio: 3,
+  /** Private staff-on-staff encounters require at least this height advantage. */
+  staffSizeRatio: 3,
   /** A switch at or below this share of its HP acts as prey. */
   switchWeakHp: 0.35,
   /** HP share by which a switch must lead another switch to act as the predator against it. */

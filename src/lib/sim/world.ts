@@ -19,6 +19,7 @@ import { accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
 import { reactToCreatures } from './creatureReactions.ts';
+import { reactToTrespassing, syncStaffEscorts } from './trespass.ts';
 import { VoreSystem } from './voreSystem.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
 import { LEVEL_DEFINITIONS, LEVEL_EVENTS, restoreCellContainment } from './levelEvents.ts';
@@ -443,6 +444,7 @@ export class World {
 
   remove(agent: Agent, via: string) {
     if (agent.removed) return;
+    agent.releaseStaffEscort(this);
     agent.removed = true;
     agent.setPlan(this, []);
     this.agents = this.agents.filter((other) => other !== agent);
@@ -564,7 +566,8 @@ export class World {
 
     for (const agent of [...this.agents]) {
       // Someone swallowed earlier this frame is still in the copy.
-      if (agent.removed || agent.held || agent.dead || agent.swallowed) continue;
+      if (agent.removed || agent.held || agent.dead || agent.swallowed ||
+        (agent.staffEscort?.target === agent && !agent.staffEscort.lift)) continue;
       if (agent.spot && !agent.room.spots.includes(agent.spot)) {
         agent.setPlan(this, []);
       }
@@ -579,11 +582,15 @@ export class World {
       }
       const from = { x: agent.x, y: agent.y };
       const room = agent.room;
-      reactToCreatures(agent, this);
+      if (!agent.staffEscort) {
+        reactToCreatures(agent, this);
+        reactToTrespassing(agent, this);
+      }
       agent.update(this, dt, blockedSeconds.get(agent) ?? 0);
       if (dt > 0 && agent.moving && agent.room === room) checkElectricalApproach(agent, this, from);
     }
 
+    syncStaffEscorts(this);
     for (const creature of this.creatures) creature.update(this, dt);
     for (const room of this.rooms) {
       room.updateLights(this.actorsIn(room).length > 0, dt);

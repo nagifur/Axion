@@ -12,6 +12,7 @@ import { headToNextRoom, leaveFacility, rideElevatorOut } from './transport.ts';
 import { canSlipOut, isStranded, wanderDoors, wanderFloors } from './routing.ts';
 import { planRepair } from './repairs.ts';
 import { planSecurity } from './security.ts';
+import { planEscortedStaff, planStaffEscort } from './trespass.ts';
 
 // Decision making: what an idle agent does next.
 
@@ -29,6 +30,10 @@ function meow(agent: Agent, world: World) {
 export function planNext(agent: Agent, world: World): Task[] {
   agent.spot = undefined;
   agent.curiousAbout = undefined;
+  if (agent.staffEscort) {
+    return agent.staffEscort.leader === agent
+      ? planStaffEscort(agent, world, agent.staffEscort) : planEscortedStaff(agent, agent.staffEscort);
+  }
   if (agent.security) return planSecurity(agent, world, agent.security);
   const repairs = planRepair(agent, world);
   if (repairs) return repairs;

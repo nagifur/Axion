@@ -344,6 +344,16 @@ job (position, clearance and optional schedule). It builds a normal `SimCharacte
 with a random name, traits, trait-derived behavior and stat capacities. Only
 security uses it for population today; the generator does not assign guard AI.
 
+Reef, the head of security, notices reachable staff on his camera who are above
+their profile clearance. He normally escorts them to the nearest reachable
+non-cell floor within their clearance; if no route is open, he waits and retries.
+At an elevator, each person requests a place and waits for the other, so
+single-person cars take separate trips. If Reef or the staff member dies or
+leaves, the escort ends. When Reef can swallow the trespasser, he instead chooses
+that response 10% of the time; the other 90% are escorted. He cannot swallow
+someone taller than himself, and normal physical availability, capacity and
+cooldown still apply.
+
 With `?debug`, the **Time** button cycles the clock through Live, 09:00 work,
 10:05 break, 12:30 lunch, 18:00 free time, and 02:00 night. The overridden
 clock keeps running from the chosen time and affects schedules, population, and
@@ -380,6 +390,7 @@ never flicker.
 | [`src/lib/sim/agent.ts`](../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, personal inventory, and its task queue. |
 | [`src/lib/sim/planning.ts`](../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
 | [`src/lib/sim/security.ts`](../src/lib/sim/security.ts) | Elevator watch, same-floor breach response, and escorts back to assigned cells. |
+| [`src/lib/sim/trespass.ts`](../src/lib/sim/trespass.ts) | Reef's trespass response and staff escorts between floors. |
 | [`src/lib/sim/tasks.ts`](../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, napping, falling, tripping, and prop breakage. |
 | [`src/lib/sim/repairs.ts`](../src/lib/sim/repairs.ts) | Maintenance staff noticing, claiming, and repairing damaged equipment. |
 | [`src/lib/sim/itemTasks.ts`](../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
@@ -903,7 +914,8 @@ creature owns a `VoreState` (`actor.vore`), shared by composition like `LiveStat
 `parseVoreRole` maps `vorePreference` onto a role: `Predator` (or `Pred`), `Prey`,
 `Switch` (also anyone listing both Predator and Prey), or `none`. `None` or `Non-Vore`
 anywhere in the list wins, so `[Predator, Non-Vore]` is `none`, as is a missing or
-unrecognised value. Characters with no role never swallow and cannot be swallowed.
+unrecognised value. Characters with no role never swallow and normally cannot be
+swallowed; Reef's trespass response is an exception.
 Generated staff (`generateNpc`), including unlinked security guards, are prey.
 
 Sizes come from the profile's `height`, parsed like the sprite scale; an unknown height
@@ -927,17 +939,31 @@ after the other, or 0 when the rules forbid it:
 A predator holds `capacity` prey at once: one by default, two from 3 m tall, and three
 from 6 m or with `anySize`.
 
+Staff and security guards are teammates. Outside Reef's exception below, one can
+swallow another only when their profiles are explicitly Predator and Prey, the
+predator is at least three times as tall (`staffSizeRatio`), and there are no
+other agents or guards in the room.
+Creatures do not count as witnesses. The size rule also applies to slimes and
+varied-height staff, and it is rechecked while stalking and at the swallow.
+These restrictions do not change encounters involving creatures.
+
+Reef has a separate exception for trespassers above their clearance: he may
+swallow them regardless of their vore role or other staff in the room, but only
+if they are no taller than him. His decision between that and an escort is
+described in the [security section](#live-monitoring-simulation).
+
 ##### Hunting and swallowing
 
 `VoreSystem.eligible(predator, prey)` is the single check: the rules above, both standing
 on the floor of the same room, the predator alive with room left, and the prey alive, not
 inside or holding someone, not spat out in the last 45 s (`safeAfterSpit`), and not a
 disguised shapeshifter or a ghost (anyone who phases through objects). Agents who are
-leaving, held, riding, passing through a door, or falling are never eligible.
+leaving, held, escorted, riding, passing through a door, or falling are never eligible.
 
 Each update, every character that is free (agents not on guard duty, napping, chatting, or
 in an uninterruptible task; creatures not fleeing, attacking, escaping or escorted) and off
-cooldown adds up the chances against everyone eligible in its room and rolls once. On a
+cooldown adds up the chances against everyone eligible in its room and rolls once. Reef's
+trespass responses use their separate 10% choice rather than this ordinary hunt roll. On a
 hit it picks a target by weight, checks there is a route, logs "is stalking", and goes
 after it: agents run the `stalk` task ([`voreTasks.ts`](../src/lib/sim/voreTasks.ts)),
 creatures a `swallow` plan. Both chase faster than walking speed, re-route as the target

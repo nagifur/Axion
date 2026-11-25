@@ -16,7 +16,7 @@ export function generateNpc(badge: number, job: Pick<SimCharacter, 'position' | 
     name: `${pick(GIVEN_NAMES)} ${pick(SURNAMES)}`,
     species: 'Human', tint: pick(['#9bc4ff', '#a7dbdb', '#c4b7ee']), scale: heightToScale(null), weight: 1,
     traits, behavior: behaviorFromTraits(traits, 'Human'),
-    // Staff without a profile can be swallowed, which is how guards end up inside predators.
+    // Generated staff and guards have a prey role; team and creature rules still apply.
     vore: createVoreProfile('prey', { species: 'Human' }),
     stats: resolveStats({
       hp: Math.round(range(85, 120)), stamina: Math.round(range(85, 125)),

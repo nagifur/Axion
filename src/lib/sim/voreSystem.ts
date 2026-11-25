@@ -5,8 +5,9 @@ import { Remains } from './remains.ts';
 import type { Point, Room } from './room.ts';
 import { STATUS_EFFECTS } from './statusEffects.ts';
 import { wait } from './tasks.ts';
+import { isReef, isTrespassing } from './trespass.ts';
 import {
-  ABSORPTION_HOOKS, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, huntRate, pickVoreType, rolls,
+  ABSORPTION_HOOKS, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, heightOf, huntRate, pickVoreType, rolls,
   startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreType,
 } from './vore.ts';
 import { stalk } from './voreTasks.ts';
@@ -51,13 +52,23 @@ export class VoreSystem {
   }
 
   /**
-   * Whether `predator` could swallow `prey` right now: the rules in vore.ts (roles and sizes), both
-   * standing in the same room and free to be caught, and room inside. Distance doesn't matter.
+   * Whether `predator` could swallow `prey` right now: roles, sizes, staff rules, both standing in
+   * the same room and free to be caught, and room inside. Distance doesn't matter.
    */
   eligible(predator: VoreActor, prey: VoreActor): boolean {
-    return predator !== prey && predator.room === prey.room && !predator.dead && this.grounded(predator) &&
-      predator.vore.contents.length < (predator.character.vore?.capacity ?? 0) &&
-      this.catchable(prey) && huntRate(fighterOf(predator), fighterOf(prey)) > 0;
+    if (predator === prey || predator.room !== prey.room || predator.dead || !this.grounded(predator) ||
+      predator.vore.contents.length >= (predator.character.vore?.capacity ?? 0) || !this.catchable(prey)) return false;
+    const hunter = fighterOf(predator);
+    const target = fighterOf(prey);
+    if (predator instanceof Agent && prey instanceof Agent) {
+      if (isReef(predator) && isTrespassing(prey)) return heightOf(hunter) >= heightOf(target);
+      const requiredHeight = heightOf(target) * VORE_TUNING.staffSizeRatio;
+      return hunter.vore?.role === 'predator' && target.vore?.role === 'prey' &&
+        heightOf(hunter) >= requiredHeight - Number.EPSILON * Math.abs(requiredHeight) &&
+        !this.world.agentsIn(predator.room).some((other) => other !== predator && other !== prey) &&
+        huntRate(hunter, target) > 0;
+    }
+    return huntRate(hunter, target) > 0;
   }
 
   /** Swallows `prey` whole. Returns false, changing nothing, when the rules don't allow it right now. */
@@ -66,6 +77,7 @@ export class VoreSystem {
     const { world } = this;
     const ingestion: Ingestion = { predator, prey, type, stage: 'digesting', elapsed: 0, action: startInsideAction(), absorbed: 0 };
     if (prey instanceof Agent) {
+      prey.releaseStaffEscort(world);
       world.agents = world.agents.filter((other) => other !== prey);
       prey.setPlan(world, []);
       prey.moving = false;
@@ -149,7 +161,7 @@ export class VoreSystem {
   private ready(actor: VoreActor): boolean {
     if (actor instanceof Agent) {
       return actor.exposed && !actor.incapacitated && actor.interruptible && !actor.napping && !actor.conversation &&
-        !actor.security && !actor.impostor;
+        !actor.security && !actor.staffEscort && !actor.impostor;
     }
     return actor.idle;
   }
@@ -159,7 +171,8 @@ export class VoreSystem {
       const role = swallower.character.vore?.role ?? 'none';
       if (role === 'none' || swallower.vore.cooldown > 0 || !this.ready(swallower)) continue;
       const targets = this.world.actorsIn(swallower.room)
-        .filter((other) => this.eligible(swallower, other))
+        .filter((other) => !(swallower instanceof Agent && isReef(swallower) && other instanceof Agent && isTrespassing(other)) &&
+          this.eligible(swallower, other))
         .map((target) => ({ target, weight: huntRate(fighterOf(swallower), fighterOf(target)) }));
       const total = targets.reduce((sum, { weight }) => sum + weight, 0);
       if (!rolls(total, dt)) continue;

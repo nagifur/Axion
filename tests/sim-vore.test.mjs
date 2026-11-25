@@ -81,8 +81,8 @@ function addCreature(world, room, character, at) {
   return creature;
 }
 
-/** A 2.4 m predator and a 1.7 m prey standing next to each other. */
-function duel({ predator = ['Predator'], prey = ['Prey'], predatorHeight = '2.4 m', preyHeight = '1.7 m' } = {}) {
+/** Two staff members who meet the private Predator/Prey size requirement. */
+function duel({ predator = ['Predator'], prey = ['Prey'], predatorHeight = '6 m', preyHeight = '1.7 m' } = {}) {
   const scene = setup();
   const pred = standing(scene.world, scene.hall, person('pred', predator, predatorHeight), { x: 100, y: 100 });
   const meal = standing(scene.world, scene.hall, person('meal', prey, preyHeight), { x: 104, y: 100 });
@@ -267,8 +267,57 @@ test('eligibility covers roles, sizes, rooms and anyone who cannot be reached', 
   assert.equal(world.vore.eligible(pred, disguised), false, 'a disguise is not a meal');
 });
 
+test('staff may swallow staff or security only as an unwitnessed, substantially larger Predator and Prey', () => {
+  const { world, hall, annex, pred, meal } = duel({ predatorHeight: '5.1 m' });
+  assert.equal(world.vore.eligible(pred, meal), true, 'exactly three times as tall is enough');
+  pred.character.heightMeters = 5.09;
+  pred.character.vore.anySize = true;
+  assert.equal(world.vore.eligible(pred, meal), false, 'any-size profiles do not bypass the staff size rule');
+  pred.character.heightMeters = 5.1;
+  for (const [hunterRole, targetRole] of [
+    ['switch', 'prey'], ['prey', 'prey'], ['predator', 'switch'], ['predator', 'none'],
+  ]) {
+    pred.character.vore.role = hunterRole;
+    meal.character.vore.role = targetRole;
+    assert.equal(world.vore.eligible(pred, meal), false, `${hunterRole} cannot take ${targetRole}`);
+  }
+  pred.character.vore.role = 'predator';
+  meal.character.vore.role = 'prey';
+  meal.security = { post: hall, relieved: false };
+  assert.equal(world.vore.eligible(pred, meal), true, 'the same exception applies to a guard');
+
+  const witness = standing(world, hall, person('witness', ['None']), { x: 120, y: 100 });
+  witness.security = { post: hall, relieved: false };
+  assert.equal(world.vore.eligible(pred, meal), false, 'a guard in the room witnesses it');
+  assert.equal(world.vore.swallow(pred, meal, 'oral'), false);
+  witness.security = undefined;
+  assert.equal(world.vore.eligible(pred, meal), false, 'ordinary staff also witness it');
+  witness.room = annex;
+  addCreature(world, hall, beast('creature', ['None']), { x: 140, y: 100 });
+  assert.equal(world.vore.eligible(pred, meal), true, 'other rooms and creatures do not count as staff witnesses');
+  const decimal = duel({ predatorHeight: '0.3 m', preyHeight: '0.1 m' });
+  assert.equal(decimal.world.vore.eligible(decimal.pred, decimal.meal), true, 'decimal heights at the exact 3:1 boundary qualify');
+});
+
+test('a staff hunt stops when a witness arrives and can resume only after the room is private', () => {
+  const { world, hall, annex, pred, meal } = duel();
+  meal.x = 200;
+  VORE_TUNING.huntRate.predator = 1000;
+  world.update(0.1);
+  assert.equal(pred.activity, 'Stalking meal');
+  const witness = standing(world, hall, person('witness', ['None']), { x: 160, y: 100 });
+  step(world, 4);
+  assert.equal(meal.swallowed, false);
+  assert.equal(world.vore.active.length, 0);
+  witness.room = annex;
+  step(world, 4);
+  assert.equal(meal.swallowed, true);
+});
+
 test('a switch only swallows while it is healthy', () => {
-  const { world, pred, meal } = duel({ predator: ['Switch'] });
+  const { world, hall } = setup();
+  const pred = standing(world, hall, person('pred', ['Switch'], '2.4 m'), { x: 100, y: 100 });
+  const meal = addCreature(world, hall, beast('meal', ['Prey'], { height: '1.7 m' }), { x: 104, y: 100 });
   assert.equal(world.vore.eligible(pred, meal), true);
   pred.stats.hp.current = 20;
   assert.equal(world.vore.eligible(pred, meal), false);
@@ -276,18 +325,20 @@ test('a switch only swallows while it is healthy', () => {
 });
 
 test('predators hold as many prey as their size allows, and nobody gets nested', () => {
-  const { world, hall, pred, meal } = duel({ predatorHeight: '3.2 m' });
-  const second = standing(world, hall, person('second', ['Prey']), { x: 110, y: 100 });
-  const third = standing(world, hall, person('third', ['Prey']), { x: 116, y: 100 });
+  const { world, hall } = setup();
+  const pred = standing(world, hall, person('pred', ['Predator'], '3.2 m'), { x: 100, y: 100 });
+  const meal = addCreature(world, hall, beast('meal', ['Prey'], { height: '1 m' }), { x: 104, y: 100 });
+  const second = addCreature(world, hall, beast('second', ['Prey'], { height: '1 m' }), { x: 110, y: 100 });
+  const third = addCreature(world, hall, beast('third', ['Prey'], { height: '1 m' }), { x: 116, y: 100 });
   assert.equal(pred.character.vore.capacity, 2);
   assert.equal(world.vore.swallow(pred, meal, 'oral'), true);
   assert.equal(world.vore.swallow(pred, second, 'oral'), true);
   assert.equal(world.vore.swallow(pred, third, 'oral'), false, 'full');
   assert.deepEqual(world.swallowedIn(hall), [meal, second]);
 
-  const giant = standing(world, hall, person('giant', ['Predator'], '9 m'), { x: 90, y: 100 });
+  const giant = addCreature(world, hall, beast('giant', ['Predator'], { height: '9 m' }), { x: 90, y: 100 });
   assert.equal(world.vore.eligible(giant, meal), false, 'already inside someone');
-  const holder = standing(world, hall, person('holder', ['Switch'], '2.5 m'), { x: 120, y: 100 });
+  const holder = addCreature(world, hall, beast('holder', ['Switch'], { height: '2.5 m' }), { x: 120, y: 100 });
   assert.equal(world.vore.eligible(giant, holder), true);
   assert.equal(world.vore.swallow(holder, third, 'oral'), true);
   assert.equal(world.vore.eligible(giant, holder), false, 'busy holding prey');
@@ -510,7 +561,9 @@ test('a predator that leaves or dies lets its prey go', () => {
 });
 
 test('swallowing a guard has the post staffed again, and whoever they were escorting is let go', () => {
-  const { world, hall, pred, meal } = duel();
+  const { world, hall } = setup();
+  const pred = addCreature(world, hall, beast('pred', ['Predator']), { x: 100, y: 100 });
+  const meal = standing(world, hall, person('guard', ['Prey']), { x: 104, y: 100 });
   const thing = addCreature(world, hall, beast('thing', ['None'], { height: '1 m' }), { x: 120, y: 100 });
   meal.security = { post: hall, relieved: false, target: thing };
   thing.escort = meal;
@@ -622,7 +675,7 @@ test('nobody hunts without the role and size to swallow', () => {
 
 test('slimes and prey giants hunt as well, while the default rates keep it occasional', () => {
   const { world, hall, logs } = setup();
-  const slime = standing(world, hall, person('Slime', ['Predator'], '0.5 m', 'Slime'), { x: 100, y: 100 });
+  const slime = addCreature(world, hall, beast('Slime', ['Predator'], { height: '0.5 m', species: 'Slime' }), { x: 100, y: 100 });
   const meal = standing(world, hall, person('meal', ['Prey'], '1.9 m'), { x: 120, y: 100 });
   step(world, 10);
   assert.equal(meal.swallowed, false, 'at 2%/s it hasn\'t decided yet');
@@ -632,14 +685,14 @@ test('slimes and prey giants hunt as well, while the default rates keep it occas
   assert.equal(meal.swallowed, true);
   assert.ok(logs.some(({ text }) => text === 'Slime is stalking meal in the hall.'));
 
-  const giant = standing(world, hall, person('giant', ['Prey'], '9.1 m'), { x: 100, y: 120 });
+  const giant = addCreature(world, hall, beast('giant', ['Prey'], { height: '9.1 m' }), { x: 100, y: 120 });
   const tiny = standing(world, hall, person('tiny', ['Prey'], '1.5 m'), { x: 108, y: 120 });
   assert.equal(world.vore.eligible(giant, tiny), true);
   assert.equal(world.vore.eligible(tiny, giant), false);
 });
 
 test('swallowers wait out their cooldown between catches', () => {
-  const { world, hall, logs, pred, meal } = duel({ predatorHeight: '3.2 m' });
+  const { world, hall, logs, pred, meal } = duel();
   VORE_TUNING.cooldown = { min: 5, max: 5 };
   world.vore.swallow(pred, meal, 'oral');
   const second = standing(world, hall, person('second', ['Prey']), { x: 130, y: 100 });
@@ -666,7 +719,7 @@ test('guards on duty never go hunting, and may once they are off it', () => {
 test('prey across a gap in the floor are not hunted until they can be reached', () => {
   const { world, hall, logs } = setup(splitRoom('hall'));
   VORE_TUNING.huntRate.predator = 1000;
-  const pred = standing(world, hall, person('pred', ['Predator'], '2.4 m'), { x: 50, y: 100 });
+  const pred = standing(world, hall, person('pred', ['Predator'], '6 m'), { x: 50, y: 100 });
   const far = standing(world, hall, person('far', ['Prey']), { x: 190, y: 100 });
   step(world, 3);
   assert.equal(world.vore.eligible(pred, far), true, 'they are fair game, just out of reach');
@@ -750,7 +803,7 @@ test('the whole lifecycle plays out in a real facility room', async () => {
   const room = new Room(await loadRoom('level-1-offices'));
   const world = new World({ rooms: [room], roster: [], creatureRoster: [], now: () => new Date(2026, 0, 1, 9) });
   world.arrive = () => undefined;
-  const pred = standing(world, room, person('pred', ['Predator'], '2.4 m'), room.randomFloorPoint());
+  const pred = standing(world, room, person('pred', ['Predator'], '6 m'), room.randomFloorPoint());
   const meal = standing(world, room, person('meal', ['Prey']), { x: pred.x + 6, y: pred.y });
   Object.assign(VORE_TUNING, { acidDps: 50, absorbSeconds: 4, disposalDelay: { min: 2, max: 2 } });
   assert.equal(world.vore.swallow(pred, meal, 'oral'), true);

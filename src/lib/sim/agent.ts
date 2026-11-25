@@ -9,6 +9,7 @@ import { planNext } from './planning.ts';
 import { planRepair, type RepairTarget } from './repairs.ts';
 import { StatusEffects } from './statusEffects.ts';
 import type { SecurityDuty } from './security.ts';
+import type { StaffEscort } from './trespass.ts';
 import { VoreState, insideActivity } from './vore.ts';
 
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
@@ -55,6 +56,7 @@ export class Agent {
   /** Swallowing and being swallowed; see vore.ts and voreSystem.ts. */
   readonly vore = new VoreState();
   security?: SecurityDuty;
+  staffEscort?: StaffEscort;
   revealed = false;
   /** The room this agent is currently in. */
   room: Room;
@@ -122,7 +124,9 @@ export class Agent {
 
   get activity(): string {
     if (this.vore.inside) return insideActivity(this.vore.inside);
-    return this.dead ? 'Dead' : this.statuses.has('shocked') ? 'Shocked' : this.currentActivity;
+    if (this.dead) return 'Dead';
+    if (this.statuses.has('shocked')) return 'Shocked';
+    return this.staffEscort?.target === this ? `Being escorted to ${this.staffEscort.destination.label}` : this.currentActivity;
   }
 
   set activity(activity: string) {
@@ -221,7 +225,8 @@ export class Agent {
   }
 
   get busy() {
-    return this.incapacitated || this.held || !this.task?.interruptible || this.napping || !!this.conversation || this.leaving;
+    return this.incapacitated || this.held || !this.task?.interruptible || this.napping || !!this.conversation ||
+      this.leaving || !!this.staffEscort;
   }
 
   /** The current or next queued task can be dropped for something more pressing. */
@@ -229,14 +234,18 @@ export class Agent {
     return (this.task ?? this.plan[0])?.interruptible ?? true;
   }
 
-  /** Standing on a room's floor where others can get at them: not riding, in a doorway, falling, held, leaving or swallowed. */
+  get transporting() {
+    return !!this.task?.transport || !!this.plan[0]?.transport;
+  }
+
+  /** Standing on a room's floor where others can get at them, not in transit, held, escorted, leaving or swallowed. */
   get exposed() {
     return !this.removed && !this.leaving && !this.held && !this.swallowed && this.layer === 'room' && this.alpha >= 1 &&
-      !this.task?.transport && !this.task?.falling && !this.plan[0]?.falling;
+      this.staffEscort?.target !== this && !this.task?.transport && !this.task?.falling && !this.plan[0]?.falling;
   }
 
   get draggable() {
-    return !this.incapacitated && !this.security?.target && this.exposed;
+    return !this.incapacitated && !this.security?.target && !this.staffEscort && this.exposed;
   }
 
   get sitting() {
@@ -399,8 +408,27 @@ export class Agent {
   finishDeath(world: World) {
     if (!this.dead || this.deathHandled) return;
     this.deathHandled = true;
+    this.releaseStaffEscort(world);
     this.setPlan(world, []);
     this.releaseTarget();
+  }
+
+  /** End a staff escort without leaving either person tied to the other. */
+  releaseStaffEscort(world: World) {
+    const escort = this.staffEscort;
+    if (!escort) return;
+    const { leader, target } = escort;
+    leader.staffEscort = undefined;
+    target.staffEscort = undefined;
+    target.moving = false;
+    if (!world.isRiding(target) && world.agents.includes(target)) {
+      const point = target.room.nearestWalkable(target);
+      target.x = point.x;
+      target.y = point.y;
+      target.alpha = 1;
+      target.layer = 'room';
+    }
+    target.setPlan(world, []);
   }
 
   /** A guard lets go of the creature it is chasing or escorting. */
