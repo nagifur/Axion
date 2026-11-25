@@ -44,7 +44,8 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     irreversible: true,
     popup: {
       icon: new URL('../../sim_assets/icons/dead.svg', import.meta.url).href,
-      color: '#ffffff',
+      color: '#ff4545',
+      background: 'rgba(80, 8, 13, 0.92)',
     },
     onApply(target) {
       if (target.kind !== 'agent' && target.kind !== 'creature') return;

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { access } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
+import sharp from 'sharp';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { Creature } from '../src/lib/sim/creature.ts';
 import { Room } from '../src/lib/sim/room.ts';
@@ -152,6 +153,8 @@ test('Dead artwork and accessible popup persist for both staff and creatures', a
   sync();
   assert.equal(statuses.children[0].children[0].src, STATUS_EFFECTS.dead.popup.icon);
   assert.equal(statuses.children[0].children[0].alt, 'Dead');
+  assert.equal(statuses.children[0].properties.get('--status-color'), '#ff4545');
+  assert.equal(statuses.children[0].properties.get('--status-background'), 'rgba(80, 8, 13, 0.92)');
   assert.equal(button.getAttribute('aria-label'), 'Tester. Dead. Open file');
   const room = new Room({
     id: 'cell', name: 'Cell', camera: 'cell', level: 0, width: 140, height: 100,
@@ -168,4 +171,25 @@ test('Dead artwork and accessible popup persist for both staff and creatures', a
   creature.statuses.update({}, 100);
   sync();
   assert.equal(creatureButton.children[0].children.length, 1);
+});
+
+test('the death skull renders white and fills the 16px popup icon without clipping', async () => {
+  const svg = await readFile(new URL(STATUS_EFFECTS.dead.popup.icon));
+  const { data, info } = await sharp(svg).resize(16, 16).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const xs = [];
+  const ys = [];
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      const offset = (y * info.width + x) * info.channels;
+      if (data[offset + 3] < 128) continue;
+      assert.deepEqual([...data.subarray(offset, offset + 3)], [255, 255, 255]);
+      xs.push(x);
+      ys.push(y);
+    }
+  }
+  assert.ok(xs.length > 0, 'skull artwork is visible');
+  assert.ok(Math.max(...xs) - Math.min(...xs) + 1 >= 14, 'skull spans at least 14px horizontally');
+  assert.ok(Math.max(...ys) - Math.min(...ys) + 1 >= 14, 'skull spans at least 14px vertically');
+  assert.ok(Math.min(...xs) > 0 && Math.max(...xs) < 15, 'horizontal edges have clear padding');
+  assert.ok(Math.min(...ys) > 0 && Math.max(...ys) < 15, 'vertical edges have clear padding');
 });

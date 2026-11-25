@@ -815,7 +815,8 @@ Unknown effect IDs and invalid durations/timesteps throw explanatory errors.
 HP reaching zero or below immediately applies the irreversible `dead` effect to
 staff, security agents, and creatures. HP stays at zero; later healing cannot
 revive them. Dead actors remain visible with a permanent **Dead** popup using
-`dead.svg`, and a frozen idle frame until death sprites are added. They cannot
+`dead.svg` (a white skull fitted to the icon area, with a red border and dark-red
+background), and a frozen idle frame until death sprites are added. They cannot
 move, run tasks, react, escape, or be captured. Agent task/conversation resources
 are released on the next update (including held agents and elevator riders);
 escorts release dead creatures immediately. Death is not a facility departure.
