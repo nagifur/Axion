@@ -391,21 +391,22 @@ test('spat-out prey are safe from being swallowed again for a while', () => {
 
 // --- Digestion, absorption and remains ----------------------------------------------------------
 
-test('oral and anal vore randomly leave bones or scat', () => {
+test('remains artwork is randomly selected from each vore type configuration', () => {
   setRandomSource(() => 0);
-  assert.equal(pickRemainsLook('oral'), 'bones');
-  assert.equal(pickRemainsLook('anal'), 'bones');
-
+  for (const [type, definition] of Object.entries(VORE_TYPES)) {
+    assert.equal(pickRemainsLook(type), definition.looks[0]);
+  }
   setRandomSource(() => 0.99);
-  assert.equal(pickRemainsLook('oral'), 'scat');
-  assert.equal(pickRemainsLook('anal'), 'scat');
+  for (const [type, definition] of Object.entries(VORE_TYPES)) {
+    assert.equal(pickRemainsLook(type), definition.looks.at(-1));
+  }
 });
 
-for (const [type, status, label, look] of [
-  ['oral', 'digested', 'Digested', 'bones'],
-  ['cock', 'cumified', 'Cumified', 'cum'],
-  ['anal', 'digested', 'Digested', 'scat'],
-  ['breast', 'milkified', 'Milkified', 'milk'],
+for (const [type, status, label] of [
+  ['oral', 'digested', 'Digested'],
+  ['cock', 'cumified', 'Cumified'],
+  ['anal', 'digested', 'Digested'],
+  ['breast', 'milkified', 'Milkified'],
 ]) {
   test(`${type} vore digests prey`, () => {
     const { world, logs, pred, meal } = duel();
@@ -426,9 +427,8 @@ for (const [type, status, label, look] of [
 
     world.update(2.1);
     const [remains] = pred.vore.remains;
-    const expectedLooks = type === 'oral' || type === 'anal' ? ['bones', 'scat'] : [look];
     assert.equal(remains.type, type);
-    assert.ok(expectedLooks.includes(remains.look));
+    assert.ok(VORE_TYPES[type].looks.includes(remains.look));
     assert.equal(remains.asset, `remains:${remains.look}`);
     assert.equal(followCameraRoom(world, meal), pred.room, 'following survives every kind of conversion');
   });

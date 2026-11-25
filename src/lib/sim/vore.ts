@@ -41,8 +41,8 @@ export interface VoreTypeDefinition {
   weight: number;
   /** Status prey takes on once the acid has finished with them. */
   converted: string;
-  /** Artwork of the remains pile: src/sim_assets/remains/<look>.png. */
-  look: string;
+  /** Possible artwork of the remains pile: src/sim_assets/remains/<look>.png. */
+  looks: readonly string[];
   /** Per-type quirks, as multipliers on the shared tuning. */
   digestion: number;
   escape: number;
@@ -51,10 +51,10 @@ export interface VoreTypeDefinition {
 
 /** One entry per way of swallowing. Add quirks here; everything else reads from this table. */
 export const VORE_TYPES: Record<VoreType, VoreTypeDefinition> = {
-  oral: { label: 'Oral vore', weight: 6, converted: 'digested', look: 'bones', digestion: 1, escape: 1, absorption: 1 },
-  cock: { label: 'Cock vore', weight: 1, converted: 'cumified', look: 'cum', digestion: 1, escape: 1, absorption: 1 },
-  anal: { label: 'Anal vore', weight: 1, converted: 'digested', look: 'scat', digestion: 1, escape: 1, absorption: 1 },
-  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', look: 'milk', digestion: 1, escape: 1, absorption: 1 },
+  oral: { label: 'Oral vore', weight: 6, converted: 'digested', looks: ['bones', 'scat'], digestion: 1, escape: 1, absorption: 1 },
+  cock: { label: 'Cock vore', weight: 1, converted: 'cumified', looks: ['cum'], digestion: 1, escape: 1, absorption: 1 },
+  anal: { label: 'Anal vore', weight: 1, converted: 'digested', looks: ['bones', 'scat'], digestion: 1, escape: 1, absorption: 1 },
+  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', looks: ['milk'], digestion: 1, escape: 1, absorption: 1 },
 };
 
 export const VORE_TYPE_IDS = Object.keys(VORE_TYPES) as VoreType[];
@@ -228,9 +228,8 @@ export function voreTypeLabel(type: VoreType): string {
   return VORE_TYPES[type].label;
 }
 
-/** Oral and anal vore can leave either bones or scat. */
 export function pickRemainsLook(type: VoreType): string {
-  return type === 'oral' || type === 'anal' ? pick(['bones', 'scat']) : VORE_TYPES[type].look;
+  return pick(VORE_TYPES[type].looks);
 }
 
 /** A prey who is currently being digested or absorbed by its predator. */

@@ -998,9 +998,9 @@ Each swallow uses one of four ways, picked by weight from the predator's profile
 
 | Type | Label | Weight | Status once digested | Remains artwork |
 | --- | --- | --- | --- | --- |
-| `oral` | Oral vore | 6 | `digested` | `bones` or `scat` |
+| `oral` | Oral vore | 6 | `digested` | `bones`, `scat` |
 | `cock` | Cock vore | 1 | `cumified` | `cum` |
-| `anal` | Anal vore | 1 | `digested` | `bones` or `scat` |
+| `anal` | Anal vore | 1 | `digested` | `bones`, `scat` |
 | `breast` | Breast vore | 1 | `milkified` | `milk` |
 
 Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
@@ -1037,9 +1037,9 @@ A predator that dies or leaves the facility (or a creature that escapes) lets go
 living prey are spat out, digested prey finish absorbing at once, and remains drop where
 it was. Each step is logged.
 
-Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` named in
-`VORE_TYPES`; oral and anal vore randomly choose between the `bones` and `scat`
-artwork. Images can be any size; they are drawn with their bottom centre on the
+Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` listed in
+`VORE_TYPES`; a remains look is randomly chosen from that type's configured artworks.
+Images can be any size; they are drawn with their bottom centre on the
 pile's floor point and depth-sorted like items. Piles grow with the prey: artwork is
 authored for an average-height character (sprite scale 0.85) and `Remains.scale`
 resizes it by the prey's `character.scale` relative to that (0.59×–1.41×). The current files are 24×16 placeholders,
