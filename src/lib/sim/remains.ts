@@ -1,5 +1,5 @@
 import type { Item } from './item.ts';
-import type { SimCharacter, SimCreature } from './roster.ts';
+import { DEFAULT_SCALE, type SimCharacter, type SimCreature } from './roster.ts';
 import type { VoreActor, VoreType } from './vore.ts';
 
 export interface RemainsData {
@@ -48,6 +48,11 @@ export class Remains {
 
   get name() {
     return this.character.name;
+  }
+
+  /** Larger prey leave larger piles: artwork is authored for an average-height character. */
+  get scale() {
+    return (this.character.scale ?? DEFAULT_SCALE) / DEFAULT_SCALE;
   }
 
   get asset() {

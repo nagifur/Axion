@@ -206,7 +206,8 @@ function bootMonitor(
 
   const updateFollowControls = () => {
     if (followToggle) {
-      followToggle.disabled = !followed && (!selected || (selected instanceof Creature ? selected.consumed : selected.removed));
+      followToggle.disabled = !followed && (!selected ||
+        ((selected instanceof Creature ? selected.consumed : selected.removed) && !world.vore.consumed.has(selected.character.id)));
       const label = followed ? 'Stop following' : 'Follow selected';
       if (followToggle.textContent !== label) followToggle.textContent = label;
       const pressed = String(!!followed);
@@ -676,7 +677,7 @@ function bootMonitor(
     removed: (agent) => {
       if (drag?.agent === agent) cancelDrag();
       if (hovered === agent) hovered = null;
-      if (followed === agent) stopFollowing();
+      if (followed === agent && !world.vore.consumed.has(agent.character.id)) stopFollowing();
       else if (selected === agent) updateFollowControls();
     },
   };

@@ -339,6 +339,7 @@ export class Renderer {
   private readonly passageDoorCanvas = makeCanvas(96, 96);
   private readonly emergencySheets = new Map<string, Canvas>();
   private readonly remainsMasks = new FrameAlphaMasks();
+  private readonly scaledRemains = new Map<string, Canvas>();
   private pixelScale = 1;
 
   constructor(canvas: Canvas, assets: Assets, room: Room) {
@@ -498,11 +499,22 @@ export class Renderer {
     return null;
   }
 
-  private remainsImage(remains: Remains) {
-    const image = this.assets[remains.asset];
-    if (image) return { image, asset: remains.asset };
-    const stand = placeholderFrame(requireAsset(this.assets, 'missing-texture'), MISSING_REMAINS.w, MISSING_REMAINS.h);
-    return { image: stand, asset: 'missing-remains' };
+  /** The pile's artwork, resized to the prey's size (cached per artwork and size). */
+  private remainsImage(remains: Remains): { image: SizedImage; asset: string } {
+    const scale = remains.scale ?? 1;
+    const source = this.assets[remains.asset];
+    const image: SizedImage = source
+      ?? placeholderFrame(requireAsset(this.assets, 'missing-texture'), MISSING_REMAINS.w, MISSING_REMAINS.h);
+    const asset = source ? remains.asset : 'missing-remains';
+    if (scale === 1) return { image, asset };
+    const key = `${asset}@${scale}`;
+    let scaled = this.scaledRemains.get(key);
+    if (!scaled) {
+      scaled = makeCanvas(Math.round(image.width * scale), Math.round(image.height * scale));
+      context(scaled).drawImage(image, 0, 0, image.width, image.height, 0, 0, scaled.width, scaled.height);
+      this.scaledRemains.set(key, scaled);
+    }
+    return { image: scaled, asset: key };
   }
 
   /** A 1px outline, stamped as a tinted silhouette around the sprite frame. */

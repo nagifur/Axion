@@ -254,12 +254,11 @@ export class VoreSystem {
     this.detach(ingestion);
     const kind = prey instanceof Agent ? 'agent' : 'creature';
     const items = prey instanceof Agent ? prey.takeAllItems() : [];
-    if (prey instanceof Agent) {
-      prey.removed = true;
-      world.hooks.removed?.(prey);
-    } else prey.consumed = true;
+    if (prey instanceof Agent) prey.removed = true;
+    else prey.consumed = true;
     this.consumed.add(prey.character.id);
     predator.vore.remains.push(new Remains({ actor: prey, kind, type, look: pickRemainsLook(type), items, wait: disposalWait() }));
+    if (prey instanceof Agent) world.hooks.removed?.(prey);
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
   }

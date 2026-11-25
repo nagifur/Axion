@@ -429,6 +429,39 @@ for (const [type, status, label, look] of [
     assert.equal(remains.type, type);
     assert.ok(expectedLooks.includes(remains.look));
     assert.equal(remains.asset, `remains:${remains.look}`);
+    assert.equal(followCameraRoom(world, meal), pred.room, 'following survives every kind of conversion');
+  });
+}
+
+for (const kind of ['agent', 'creature']) {
+  test(`following ${kind} prey tracks carried remains, disposal and relocation`, () => {
+    const { world, hall, annex, pred, meal } = duel();
+    const prey = kind === 'agent' ? meal
+      : addCreature(world, hall, beast('followed-creature', ['Prey'], { height: '1 m' }), { x: 110, y: 100 });
+    Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 1, disposalDelay: { min: 600, max: 600 } });
+    assert.equal(world.vore.swallow(pred, prey, 'oral'), true);
+    assert.equal(followCameraRoom(world, prey), hall);
+    world.update(0.6);
+    world.update(1.1);
+    const [pile] = pred.vore.remains;
+    assert.equal(pile.actor, prey);
+    assert.equal(followCameraRoom(world, prey), hall);
+
+    pred.room = annex;
+    assert.equal(prey.room, hall, 'the old actor location is no longer synced');
+    assert.equal(followCameraRoom(world, prey), annex, 'held remains follow their carrier');
+    pred.removed = true;
+    assert.equal(followCameraRoom(world, prey), null, 'held remains wait while their carrier is off camera');
+    pred.removed = false;
+    assert.equal(followCameraRoom(world, prey), annex);
+
+    world.vore.release(pred);
+    assert.deepEqual(annex.remains, [pile]);
+    pred.room = hall;
+    assert.equal(followCameraRoom(world, prey), annex, 'a dropped pile no longer follows the predator');
+    annex.remains.splice(annex.remains.indexOf(pile), 1);
+    hall.remains.push(pile);
+    assert.equal(followCameraRoom(world, prey), hall, 'the current pile location wins over its disposal location');
   });
 }
 
@@ -452,7 +485,11 @@ test('absorbed agents stop being agents but leave their profile, items and name 
   const { world, logs, pred, meal } = duel();
   Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 2 });
   const removed = [];
-  world.hooks.removed = (agent) => removed.push(agent);
+  world.hooks.removed = (agent) => {
+    removed.push(agent);
+    assert.equal(world.vore.consumed.has(agent.character.id), true, 'the monitor can distinguish absorption from departure');
+    assert.equal(followCameraRoom(world, agent), pred.room, 'remains are trackable before notifying the monitor');
+  };
   const can = Item.create('can');
   meal.receiveItem(can);
   const [card] = meal.inventory;

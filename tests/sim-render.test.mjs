@@ -4,6 +4,7 @@ import { loadAssets, Renderer } from '../src/lib/sim/render.ts';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
+import { Remains } from '../src/lib/sim/remains.ts';
 
 test('a room instance draws its shared template image', (t) => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
@@ -337,6 +338,41 @@ test('remains stand on the floor by their bottom centre, with a stand-in for mis
   assert.deepEqual(pile, [bones, 85, 60], 'resting on the floor point, further down the room is drawn later');
   assert.deepEqual([standIn[0].width, standIn[0].height, standIn[1], standIn[2]], [24, 16, 38, 44]);
   assert.deepEqual(standIn[0].draws[0], [missing, 0, 0, 8, 8, 0, 0, 24, 16], 'the missing texture, sized like a pile');
+});
+
+test('remains are sized by the prey they came from', (t) => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const draws = [];
+        const ctx = {
+          drawImage(...args) { draws.push(args); },
+          getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4) }; },
+          putImageData() {}, setTransform() {}, fillRect() {}, save() {}, restore() {}, translate() {}, scale() {}, clearRect() {},
+        };
+        return { width: 0, height: 0, draws, getContext() { return ctx; } };
+      },
+    },
+  });
+  const pile = (scale) => new Remains({ actor: { character: { id: 'x', name: 'X', scale } }, kind: 'agent', type: 'oral', look: 'bones', items: [], wait: 0 });
+  const giant = Object.assign(pile(1.2), { x: 100, y: 80 });
+  const small = Object.assign(pile(0.5), { x: 50, y: 60 });
+  assert.equal(pile(0.85).scale, 1, 'an average-height prey leaves artwork-sized remains');
+  const bones = { width: 24, height: 16 };
+  const room = { id: 'hall', width: 200, height: 100, darkness: 0, visualDarkness: 0, props: [], remains: [giant, small] };
+  const canvas = document.createElement('canvas');
+  const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, 'room:hall': {}, 'remains:bones': bones }, room);
+  renderer.draw({ agents: [], actorsIn: () => [], elevatorFor() {}, particles: { in: () => [] } }, new Map());
+  const [, smallDraw, giantDraw] = canvas.draws;
+  assert.deepEqual([smallDraw[0].width, smallDraw[0].height, smallDraw[1], smallDraw[2]], [14, 9, 43, 51]);
+  assert.deepEqual([giantDraw[0].width, giantDraw[0].height, giantDraw[1], giantDraw[2]], [34, 23, 83, 57]);
+  assert.deepEqual(giantDraw[0].draws[0], [bones, 0, 0, 24, 16, 0, 0, 34, 23]);
 });
 
 test('remains are picked by their opaque pixels, front-most pile first', (t) => {

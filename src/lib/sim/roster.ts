@@ -105,7 +105,8 @@ export const SIM_OVERRIDES: Record<string, SimOverride> = {
 
 export const DEFAULT_TINT = '#7ef5ff';
 const BASE_HEIGHT_M = DEFAULT_HEIGHT_METERS;
-const DEFAULT_SCALE = 0.85;
+/** Sprite scale of an average-height character; remains artwork is drawn 1:1 at this size. */
+export const DEFAULT_SCALE = 0.85;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.2;
 

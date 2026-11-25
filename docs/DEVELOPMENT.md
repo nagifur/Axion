@@ -161,7 +161,9 @@ creature between cameras. The **Follow selected** control also starts
 following; **Stop following**, double-clicking the same actor again, Esc, or manually
 choosing a camera or floor stops it. Following waits on the last feed while the actor
 is off camera (including elevator rides), then resumes when they return. It stops when
-an agent leaves the facility. Camera switching is suspended while dragging an agent.
+an agent leaves the facility, but not when they are absorbed: following tracks their
+remains with the carrier, then the pile's current room after disposal. Selecting a pile
+also allows starting to follow it. Camera switching is suspended while dragging an agent.
 
 Character frontmatter supports optional `stats` capacity overrides; see the
 [stats authoring reference](../templates/README.md#optional-simulation-stats).
@@ -1038,7 +1040,9 @@ it was. Each step is logged.
 Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` named in
 `VORE_TYPES`; oral and anal vore randomly choose between the `bones` and `scat`
 artwork. Images can be any size; they are drawn with their bottom centre on the
-pile's floor point and depth-sorted like items. The current files are 24×16 placeholders,
+pile's floor point and depth-sorted like items. Piles grow with the prey: artwork is
+authored for an average-height character (sprite scale 0.85) and `Remains.scale`
+resizes it by the prey's `character.scale` relative to that (0.59×–1.41×). The current files are 24×16 placeholders,
 and a missing file falls back to a stand-in made from the missing texture.
 Piles on the floor are clickable (`Renderer.remainsAt`, pixel-accurate like characters, with
 the same white hover outline):
@@ -1048,7 +1052,9 @@ clicking one selects `remains.actor`, pulling up the same file as clicking them 
 Swallowed prey stay in the interface: their name tag rides on the predator, with their
 status popups; following them follows the predator's camera; and their file shows
 **Inside** (who, and which way) while a predator's file lists **Holding**. Absorbed
-characters read **Absorbed** (agents) or **Consumed** (creatures).
+characters read **Absorbed** (agents) or **Consumed** (creatures). Following continues
+through absorption and disposal, tracking whoever holds their remains or the room
+whose `remains` list contains their pile.
 
 ##### Working with vore in code
 
