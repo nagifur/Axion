@@ -19,17 +19,17 @@ export interface StaffEscort {
   lift?: { from: Room; to: Room; attempted: Set<Agent> };
 }
 
-const REEF_VORE_CHANCE = 0.1;
 const ESCORT_REACH = 14;
 const APPROACH_SECONDS = 20;
 
-export const isReef = (agent: Agent) => agent.character.id === 'reef' && !agent.impostor;
+export const trespassResponseFor = (agent: Agent) => !agent.impostor ? agent.character.trespassResponse : undefined;
 export const isTrespassing = (agent: Agent) => !agent.impostor && !canVisitLevel(agent.character, agent.room.level);
 
-/** Reef and on-duty security respond to visible, reachable staff above their clearance. */
+/** Configured staff and on-duty security respond to visible, reachable staff above their clearance. */
 export function reactToTrespassing(agent: Agent, world: World) {
   const security = !!agent.security && !agent.security.relieved;
-  if ((!isReef(agent) && !security) || agent.dead || agent.incapacitated || agent.napping || !agent.exposed ||
+  const response = trespassResponseFor(agent);
+  if ((!response && !security) || agent.dead || agent.incapacitated || agent.napping || !agent.exposed ||
     !agent.interruptible || agent.staffEscort) return;
   const targets = world.agentsIn(agent.room).filter((other) =>
     other !== agent && !other.dead && other.exposed && isTrespassing(other) &&
@@ -37,8 +37,8 @@ export function reactToTrespassing(agent: Agent, world: World) {
   targets.sort((a, b) => distance(agent, a) - distance(agent, b));
   const target = targets[0];
   if (!target) return;
-  const vore = isReef(agent) && agent.vore.cooldown <= 0 &&
-    world.vore.eligible(agent, target) && chance(REEF_VORE_CHANCE);
+  const vore = response && response.swallowChance > 0 && agent.vore.cooldown <= 0 &&
+    world.vore.eligible(agent, target) && chance(response.swallowChance);
   world.log(`${agent.character.name} spotted ${target.character.name} without clearance in the ${agent.room.name}.`, 'warn');
   agent.say('!');
   agent.setPlan(world, [vore ? stalk(target, pickVoreType(agent.character.vore)) : approachTrespasser(target)]);

@@ -4,6 +4,7 @@ import { generateNpc } from '../src/lib/sim/npc.ts';
 import { seededRandom, setRandomSource } from '../src/lib/sim/random.ts';
 import {
   behaviorFromTraits,
+  BEHAVIOR_RULES,
   canVisitLevel,
   heightToScale,
   parseHeightMeters,
@@ -82,6 +83,28 @@ test('derives behaviour from profile traits', () => {
   assert.ok(skye.social < 0.2);
 
   assert.equal(behaviorFromTraits(['Immortal', 'Can phase through objects'], 'Ghost').ghost, true);
+  assert.equal(behaviorFromTraits([], ' Feline ').meow, 1);
+  assert.equal(behaviorFromTraits([], 'Catfolk').meow, 0.1, 'species must match exactly');
+  const conflicting = behaviorFromTraits(['Fast', 'Slow', 'Friendly', 'Shy']);
+  assert.equal(conflicting.speed, 0.75);
+  assert.equal(conflicting.social, 0.1);
+});
+
+test('behaviour rules can be extended and character overrides take final precedence', (t) => {
+  const length = BEHAVIOR_RULES.length;
+  t.after(() => {
+    BEHAVIOR_RULES.length = length;
+    delete SIM_OVERRIDES['custom-behavior'];
+  });
+  BEHAVIOR_RULES.push({ species: /robot/i, traits: /turbo/i, values: { speed: 2, social: 0 } });
+  assert.equal(behaviorFromTraits(['Turbo'], 'Robot').speed, 2);
+  assert.equal(behaviorFromTraits(['Turbo'], 'Human').speed, 1, 'all conditions must match');
+  SIM_OVERRIDES['custom-behavior'] = { behavior: { speed: 0.6 }, vore: { role: 'switch' } };
+  const character = toSimCharacter(personnel('custom-behavior', { negativeTraits: ['Fast'] }));
+  assert.equal(character.behavior.speed, 0.6);
+  assert.equal(character.vore.role, 'switch', 'simulation settings can override a missing profile role');
+  character.behavior.speed = 3;
+  assert.equal(toSimCharacter(personnel('custom-behavior')).behavior.speed, 0.6, 'instances do not mutate definitions');
 });
 
 const personnel = (id, data = {}) => ({

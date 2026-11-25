@@ -21,6 +21,16 @@ export interface SimBehavior {
   social: number;
   /** Rendered translucent and can walk through solid objects. */
   ghost: boolean;
+  /** Relative weight of the idle "meow" activity; omitted uses `DEFAULT_BEHAVIOR.meow`. */
+  meow?: number;
+}
+
+/** Staff who enforce clearance without being assigned to a generated security post. */
+export interface TrespassResponse {
+  /** Chance of choosing swallowing instead of an escort (0 = always escort). */
+  swallowChance: number;
+  /** Minimum predator/prey height ratio for this exception to the usual staff rules. */
+  sizeRatio: number;
 }
 
 export interface SimCharacter {
@@ -44,6 +54,7 @@ export interface SimCharacter {
   /** Relative chance of showing up compared to other staff (1 = normal). */
   weight: number;
   behavior: SimBehavior;
+  trespassResponse?: TrespassResponse;
   stats: SimStats;
   schedule?: readonly ScheduleBlock[];
   /** Additional item types placed in personal storage on each spawn, alongside the access card. */
@@ -93,6 +104,8 @@ export interface SimOverride {
   startingItems?: readonly string[];
   /** Adjusts the vore profile read from `vorePreference`: allowed types, size rules, capacity. */
   vore?: VoreOverride;
+  behavior?: Partial<SimBehavior>;
+  trespassResponse?: TrespassResponse;
 }
 
 // Per-character tweaks for things the profile data doesn't express yet.
@@ -101,6 +114,7 @@ export const SIM_OVERRIDES: Record<string, SimOverride> = {
   mellisa: { exclude: true },
   // "Very few people have seen him in person."
   sypher: { weight: 0.15 },
+  reef: { trespassResponse: { swallowChance: 0.1, sizeRatio: 1 } },
 };
 
 export const DEFAULT_TINT = '#7ef5ff';
@@ -153,22 +167,38 @@ function voreProfile(id: string, vorePreference: readonly string[] | undefined, 
 
 const has = (traits: string[], pattern: RegExp) => traits.some((trait) => pattern.test(trait));
 
+export const DEFAULT_BEHAVIOR: Readonly<Required<SimBehavior>> = {
+  speed: 1, napChance: 0.08, clumsy: false, social: 0.4, ghost: false, meow: 0.1,
+};
+
+export interface BehaviorRule {
+  traits?: RegExp;
+  species?: RegExp;
+  values: Partial<SimBehavior>;
+}
+
+/** Matching rules apply in order; later rules win (e.g. slow beats fast, shy beats friendly). */
+export const BEHAVIOR_RULES: BehaviorRule[] = [
+  { traits: /\bfast\b|very active|hyperactive|quick on/i, values: { speed: 1.35 } },
+  { traits: /\bslow\b/i, values: { speed: 0.75 } },
+  { traits: /sleepy|always tired|unmotivated/i, values: { napChance: 0.85 } },
+  { traits: /clumsy/i, values: { clumsy: true } },
+  { traits: /friendly|cheerful|humorist|positive attitude|charismatic/i, values: { social: 0.8 } },
+  { traits: /anti-?social|unsocial|uncooperative|\bshy\b/i, values: { social: 0.1 } },
+  { species: /^\s*(feline|cat)\s*$/i, values: { meow: 1 } },
+  { species: /ghost/i, values: { ghost: true } },
+  { traits: /phase through/i, values: { ghost: true } },
+];
+
 /** Maps free-text profile traits onto simulation behaviour. */
 export function behaviorFromTraits(traits: string[], species = ''): SimBehavior {
-  const antisocial = has(traits, /anti-?social|unsocial|uncooperative|\bshy\b/i);
-  const social = has(traits, /friendly|cheerful|humorist|positive attitude|charismatic/i);
-
-  let speed = 1;
-  if (has(traits, /\bfast\b|very active|hyperactive|quick on/i)) speed = 1.35;
-  if (has(traits, /\bslow\b/i)) speed = 0.75;
-
-  return {
-    speed,
-    napChance: has(traits, /sleepy|always tired|unmotivated/i) ? 0.85 : 0.08,
-    clumsy: has(traits, /clumsy/i),
-    social: antisocial ? 0.1 : social ? 0.8 : 0.4,
-    ghost: /ghost/i.test(species) || has(traits, /phase through/i),
-  };
+  const behavior = { ...DEFAULT_BEHAVIOR };
+  for (const rule of BEHAVIOR_RULES) {
+    if (rule.traits && !has(traits, rule.traits)) continue;
+    if (rule.species && !rule.species.test(species)) continue;
+    Object.assign(behavior, rule.values);
+  }
+  return behavior;
 }
 
 export interface PersonnelInput {
@@ -212,7 +242,8 @@ export function toSimCharacter(entry: PersonnelInput, base = '', image?: string)
     traits,
     image,
     weight: override.weight ?? 1,
-    behavior: behaviorFromTraits(traits, entry.data.species),
+    behavior: { ...behaviorFromTraits(traits, entry.data.species), ...override.behavior },
+    trespassResponse: override.trespassResponse && { ...override.trespassResponse },
     stats: resolveStats(entry.data.stats),
     startingItems: override.startingItems,
   };

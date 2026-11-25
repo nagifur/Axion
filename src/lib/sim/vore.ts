@@ -9,7 +9,7 @@ import type { Remains } from './remains.ts';
 export type VoreRole = 'predator' | 'prey' | 'switch' | 'none';
 /** The side someone takes toward one particular other character; switches choose from circumstances. */
 export type VoreStance = 'predator' | 'prey';
-export type VoreType = 'oral' | 'cock' | 'anal' | 'breast';
+export type VoreType = keyof typeof VORE_TYPES;
 export type VoreActor = Agent | Creature;
 
 /** Unknown heights count as the base character sprite. */
@@ -50,14 +50,34 @@ export interface VoreTypeDefinition {
 }
 
 /** One entry per way of swallowing. Add quirks here; everything else reads from this table. */
-export const VORE_TYPES: Record<VoreType, VoreTypeDefinition> = {
+export const VORE_TYPES = {
   oral: { label: 'Oral vore', weight: 6, converted: 'digested', looks: ['bones', 'scat'], digestion: 1, escape: 1, absorption: 1 },
   cock: { label: 'Cock vore', weight: 1, converted: 'cumified', looks: ['cum'], digestion: 1, escape: 1, absorption: 1 },
   anal: { label: 'Anal vore', weight: 1, converted: 'digested', looks: ['bones', 'scat'], digestion: 1, escape: 1, absorption: 1 },
   breast: { label: 'Breast vore', weight: 1, converted: 'milkified', looks: ['milk'], digestion: 1, escape: 1, absorption: 1 },
-};
+} satisfies Record<string, VoreTypeDefinition>;
 
 export const VORE_TYPE_IDS = Object.keys(VORE_TYPES) as VoreType[];
+
+export const VORE_PROFILE_RULES = {
+  anySizeSpecies: [/slime/i],
+  anySizeCapacity: 3,
+  defaultCapacity: 1,
+  capacityBands: [
+    { minHeight: 3, capacity: 2 },
+    { minHeight: 6, capacity: 3 },
+  ],
+};
+
+export const VORE_STAFF_RULES: {
+  predatorRoles: VoreRole[];
+  preyRoles: VoreRole[];
+  requirePrivacy: boolean;
+} = {
+  predatorRoles: ['predator'],
+  preyRoles: ['prey'],
+  requirePrivacy: true,
+};
 
 /** Exported and mutable so tests (and later, difficulty settings) can adjust them. */
 export const VORE_TUNING = {
@@ -75,12 +95,17 @@ export const VORE_TUNING = {
   huntRate: { predator: 0.02, switch: 0.01, prey: 0.003 },
   /** Seconds a hunt chases before giving up. */
   huntTimeout: 12,
+  stalkSpeed: 1.8,
+  rerouteSeconds: { agent: 1, creature: 0.5 },
+  gulpSeconds: 2,
   /** How close, in room pixels, a hunter must get to swallow. */
   reach: 14,
   /** Seconds a swallower leaves between catches. */
   cooldown: { min: 30, max: 60 },
   /** Seconds someone spat out can't be swallowed again. */
   safeAfterSpit: 45,
+  spitOffset: { x: 10, y: 3 },
+  dazedSeconds: 3,
   /** Acid damage per second while inside. */
   acidDps: 2,
   /** Seconds the predator spends absorbing digested prey. */
@@ -89,6 +114,7 @@ export const VORE_TUNING = {
   healFraction: 1,
   /** Seconds between a finished absorption and the predator getting rid of the remains. */
   disposalDelay: { min: 20, max: 45 },
+  itemSpread: { first: 12, step: 10, depth: 2 },
 };
 
 export interface InsideAction {
@@ -111,7 +137,7 @@ export const INSIDE_ACTIONS: InsideAction[] = [
 const IDLE_ACTION: InsideAction = { id: 'idle', label: 'Waiting', weight: 1, duration: { min: 3, max: 6 } };
 
 export function pickInsideAction(): InsideAction {
-  return weightedPick(INSIDE_ACTIONS) ?? INSIDE_ACTIONS[0] ?? IDLE_ACTION;
+  return weightedPick(INSIDE_ACTIONS) ?? IDLE_ACTION;
 }
 
 export function insideActionSeconds(action: InsideAction): number {
@@ -133,18 +159,18 @@ export function parseVoreRole(values: readonly string[] | undefined): VoreRole {
   return predator ? 'predator' : prey ? 'prey' : 'none';
 }
 
-export function isSlime(species: string | undefined): boolean {
-  return /slime/i.test(species ?? '');
-}
-
 /** Giants hold more than one; everything else fits a single prey unless a profile says otherwise. */
 function defaultCapacity(heightMeters: number | undefined, anySize: boolean): number {
-  if (anySize) return 3;
+  if (anySize) return VORE_PROFILE_RULES.anySizeCapacity;
   const height = heightMeters ?? DEFAULT_HEIGHT_METERS;
-  return height >= 6 ? 3 : height >= 3 ? 2 : 1;
+  const band = VORE_PROFILE_RULES.capacityBands
+    .filter(({ minHeight }) => height >= minHeight)
+    .sort((a, b) => b.minHeight - a.minHeight)[0];
+  return band?.capacity ?? VORE_PROFILE_RULES.defaultCapacity;
 }
 
 export interface VoreOverride {
+  role?: VoreRole;
   types?: Partial<Record<VoreType, number>>;
   anySize?: boolean;
   capacity?: number;
@@ -155,13 +181,25 @@ export function createVoreProfile(
   traits: { species?: string; heightMeters?: number; heightVaries?: boolean } = {},
   override: VoreOverride = {},
 ): VoreProfile {
-  const anySize = override.anySize ?? (isSlime(traits.species) || !!traits.heightVaries);
+  const anySize = override.anySize ?? (
+    VORE_PROFILE_RULES.anySizeSpecies.some((pattern) => pattern.test(traits.species ?? '')) || !!traits.heightVaries
+  );
   const profile: VoreProfile = {
-    role,
+    role: override.role ?? role,
     anySize,
     capacity: override.capacity ?? defaultCapacity(traits.heightMeters, anySize),
   };
-  if (override.types) profile.types = override.types;
+  if (!Number.isInteger(profile.capacity) || profile.capacity < 0) {
+    throw new Error('Vore capacity must be a non-negative integer.');
+  }
+  if (override.types) {
+    for (const [type, weight] of Object.entries(override.types)) {
+      if (!Object.hasOwn(VORE_TYPES, type) || !Number.isFinite(weight) || weight < 0) {
+        throw new Error(`Invalid vore type weight "${type}": expected a known type and a finite, non-negative weight.`);
+      }
+    }
+    profile.types = { ...override.types };
+  }
   return profile;
 }
 
@@ -200,7 +238,7 @@ export function voreStance(self: VoreFighter, other: VoreFighter): VoreStance | 
  */
 export function huntRate(swallower: VoreFighter, target: VoreFighter): number {
   const own = swallower.vore;
-  if (!own || own.role === 'none') return 0;
+  if (!own || own.role === 'none' || !hasVoreTypes(own)) return 0;
   if (voreStance(target, swallower) !== 'prey') return 0;
   const stance = voreStance(swallower, target);
   if (!stance) return 0;
@@ -215,13 +253,22 @@ export function huntRate(swallower: VoreFighter, target: VoreFighter): number {
 
 export const canSwallow = (swallower: VoreFighter, target: VoreFighter) => huntRate(swallower, target) > 0;
 
-/** One of the profile's ways of swallowing, by weight. */
+function voreTypeWeight(type: VoreType, profile: VoreProfile | undefined): number {
+  return profile?.types ? profile.types[type] ?? 0 : VORE_TYPES[type].weight;
+}
+
+/** One of the profile's enabled ways of swallowing; all-zero weights disable swallowing. */
 export function pickVoreType(profile: VoreProfile | undefined): VoreType {
-  const entries = VORE_TYPE_IDS.map((type) => ({
-    type,
-    weight: profile?.types ? profile.types[type] ?? 0 : VORE_TYPES[type].weight,
-  }));
-  return weightedPick(entries)?.type ?? 'oral';
+  const selected = weightedPick(VORE_TYPE_IDS.map((type) => ({ type, weight: voreTypeWeight(type, profile) })));
+  if (!selected) throw new Error('Cannot choose a vore type: at least one type must have a positive weight.');
+  return selected.type;
+}
+
+export function hasVoreTypes(profile: VoreProfile | undefined): boolean {
+  return VORE_TYPE_IDS.some((type) => {
+    const weight = voreTypeWeight(type, profile);
+    return Number.isFinite(weight) && weight > 0;
+  });
 }
 
 export function voreTypeLabel(type: VoreType): string {

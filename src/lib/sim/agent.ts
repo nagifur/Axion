@@ -386,6 +386,7 @@ export class Agent {
   update(world: World, dt: number, blockedSeconds = 0) {
     this.finishDeath(world);
     this.moving = false;
+    if (this.removed || this.swallowed) return;
     // Running happens inside task updates, so recover based on whether the last frame ran.
     if (!this.ranThisFrame && !this.dead) recoverStamina(this.stats, dt);
     this.ranThisFrame = false;

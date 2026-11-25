@@ -519,26 +519,31 @@ export class World {
     }
   }
 
-  update(dt: number) {
-    if (!Number.isFinite(dt) || dt < 0) throw new Error('World update needs a finite, non-negative timestep.');
-    this.particles.update(dt);
-    const frameStart = this.time;
-    this.time += dt;
-    for (const level of this.levels.values()) level.update(frameStart, dt);
+  /** Tick each status owner once, retaining blocked frame time even when an effect expires. */
+  private updateStatuses(dt: number): Map<CameraActor, number> {
     const statuses = new Set<StatusEffects>();
-    const blockedSeconds = new Map<Agent, number>();
-    for (const agent of this.everyone()) {
-      if (agent.removed) continue;
-      agent.finishDeath(this);
-      blockedSeconds.set(agent, Math.min(dt, agent.statuses.actionBlockRemaining));
-      statuses.add(agent.statuses);
-      if (agent.item) statuses.add(agent.item.statuses);
-      for (const item of agent.inventory) statuses.add(item.statuses);
+    const blockedSeconds = new Map<CameraActor, number>();
+    for (const actor of [...this.everyone(), ...this.creatures]) {
+      if (actor instanceof Agent) {
+        if (actor.removed) continue;
+        actor.finishDeath(this);
+      }
+      blockedSeconds.set(actor, Math.min(dt, actor.statuses.actionBlockRemaining));
+      statuses.add(actor.statuses);
+      if (actor instanceof Agent) {
+        if (actor.item) statuses.add(actor.item.statuses);
+        for (const item of actor.inventory) statuses.add(item.statuses);
+      }
+      for (const remains of actor.vore.remains) {
+        for (const item of remains.items) statuses.add(item.statuses);
+      }
     }
-    for (const creature of this.creatures) statuses.add(creature.statuses);
     for (const room of this.rooms) {
       for (const prop of room.props) statuses.add(prop.statuses);
       for (const item of room.items) statuses.add(item.statuses);
+      for (const remains of room.remains) {
+        for (const item of remains.items) statuses.add(item.statuses);
+      }
       for (const door of room.doors) {
         const state = this.passageDoorFor(door);
         if (!state) continue;
@@ -548,6 +553,16 @@ export class World {
     }
     for (const effects of statuses) effects.update(this, dt);
     for (const agent of this.everyone()) agent.finishDeath(this);
+    return blockedSeconds;
+  }
+
+  update(dt: number) {
+    if (!Number.isFinite(dt) || dt < 0) throw new Error('World update needs a finite, non-negative timestep.');
+    this.particles.update(dt);
+    const frameStart = this.time;
+    this.time += dt;
+    for (const level of this.levels.values()) level.update(frameStart, dt);
+    const blockedSeconds = this.updateStatuses(dt);
     this.vore.update(dt);
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
     this.passages.update(this, dt);
@@ -591,7 +606,7 @@ export class World {
     }
 
     syncStaffEscorts(this);
-    for (const creature of this.creatures) creature.update(this, dt);
+    for (const creature of this.creatures) creature.update(this, dt, blockedSeconds.get(creature) ?? 0);
     for (const room of this.rooms) {
       room.updateLights(this.actorsIn(room).length > 0, dt);
       for (const prop of room.props) {

@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { leaveFacility } from '../src/lib/sim/transport.ts';
-import { planNext } from '../src/lib/sim/planning.ts';
+import { AGENT_ACTIVITIES, planNext } from '../src/lib/sim/planning.ts';
+import { wait } from '../src/lib/sim/tasks.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { postPoint } from '../src/lib/sim/security.ts';
@@ -32,6 +33,31 @@ const connect = (from, to) => {
   });
   return door;
 };
+
+test('activity definitions can replace ordinary planning without overriding security priority', async (t) => {
+  const original = [...AGENT_ACTIVITIES];
+  t.after(() => AGENT_ACTIVITIES.splice(0, AGENT_ACTIVITIES.length, ...original));
+  const room = new Room(await loadRoom('level-3-main-entrance'));
+  const world = new World({ rooms: [room], roster: [], now: () => at(9) });
+  const agent = world.spawn(character(), room, room.elevator.front);
+  let builds = 0;
+  AGENT_ACTIVITIES.splice(0, AGENT_ACTIVITIES.length, {
+    id: 'custom-task',
+    weight: ({ working }) => working ? 1 : 0,
+    build: ({ agent: selected }) => {
+      assert.equal(selected, agent);
+      builds++;
+      return [wait(4, 'Custom work')];
+    },
+  });
+  assert.equal(planNext(agent, world)[0].activity, 'Custom work');
+  world.now = () => at(18);
+  assert.equal(planNext(agent, world)[0].activity, 'Standing around', 'zero-weight activities are not built');
+  world.now = () => at(9);
+  agent.security = { post: room, relieved: false };
+  assert.notEqual(planNext(agent, world)[0].activity, 'Custom work');
+  assert.equal(builds, 1);
+});
 
 test('shared routine covers work, exact break boundaries, lunch, and free time', () => {
   for (const [hour, minute, expected] of [

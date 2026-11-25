@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
-import { Creature } from '../src/lib/sim/creature.ts';
+import { ATTACK_CHANCE, CREATURE_TUNING, Creature } from '../src/lib/sim/creature.ts';
 import { Item } from '../src/lib/sim/item.ts';
 import { MonitorFile } from '../src/lib/sim/monitorFile.ts';
 import { followCameraRoom } from '../src/lib/sim/monitorFollow.ts';
@@ -8,11 +8,11 @@ import { setRandomSource } from '../src/lib/sim/random.ts';
 import { toSimCharacter, toSimCreature } from '../src/lib/sim/roster.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
-import { statusPopups } from '../src/lib/sim/statusEffects.ts';
-import { wait } from '../src/lib/sim/tasks.ts';
+import { STATUS_EFFECTS, statusPopups } from '../src/lib/sim/statusEffects.ts';
+import { wait, walkTo } from '../src/lib/sim/tasks.ts';
 import {
-  ABSORPTION_HOOKS, INSIDE_ACTIONS, VORE_TUNING, VORE_TYPES, canSwallow, createVoreProfile, huntRate, parseVoreRole,
-  pickRemainsLook, pickVoreType, voreStance,
+  ABSORPTION_HOOKS, INSIDE_ACTIONS, VORE_PROFILE_RULES, VORE_STAFF_RULES, VORE_TUNING, VORE_TYPES, canSwallow, createVoreProfile, fighterOf, huntRate, parseVoreRole,
+  pickInsideAction, pickRemainsLook, pickVoreType, voreStance,
 } from '../src/lib/sim/vore.ts';
 import { stalk } from '../src/lib/sim/voreTasks.ts';
 import { World } from '../src/lib/sim/world.ts';
@@ -123,6 +123,26 @@ test('roster profiles carry their role, size and how much they can hold', () => 
   );
 });
 
+test('profile defaults accept new size bands and species without changing the profile builder', (t) => {
+  const original = structuredClone(VORE_PROFILE_RULES);
+  t.after(() => Object.assign(VORE_PROFILE_RULES, original));
+  VORE_PROFILE_RULES.capacityBands.push({ minHeight: 10, capacity: 5 });
+  VORE_PROFILE_RULES.anySizeSpecies.push(/gelatinous/i);
+  assert.equal(createVoreProfile('predator', { heightMeters: 12 }).capacity, 5);
+  assert.equal(createVoreProfile('predator', { species: 'Gelatinous being' }).anySize, true);
+  const types = { anal: 1 };
+  const profile = createVoreProfile('prey', {}, { role: 'predator', types });
+  profile.types.anal = 4;
+  assert.equal(types.anal, 1, 'a profile owns its weights');
+  assert.equal(profile.role, 'predator');
+  for (const capacity of [-1, 0.5, NaN, Infinity]) {
+    assert.throws(() => createVoreProfile('predator', {}, { capacity }), /capacity/);
+  }
+  for (const types of [{ oral: -1 }, { oral: Infinity }, { unknown: 1 }]) {
+    assert.throws(() => createVoreProfile('predator', {}, { types }), /type weight/);
+  }
+});
+
 test('predators need the size advantage, while slimes and shapeshifters swallow anything', () => {
   const prey = fighter('prey', 1.9);
   assert.equal(canSwallow(fighter('predator', 2.4), prey), true);
@@ -190,6 +210,24 @@ test('the way of swallowing follows the profile weights', () => {
   assert.equal(pickVoreType(profile({ cock: 3, breast: 1 })), 'cock');
 });
 
+test('disabling all types prevents swallowing instead of silently choosing oral', () => {
+  const { world, pred, meal } = duel();
+  pred.character.vore.types = { oral: 0 };
+  assert.equal(canSwallow(fighterOf(pred), fighterOf(meal)), false);
+  assert.equal(world.vore.eligible(pred, meal), false);
+  assert.equal(world.vore.swallow(pred, meal), false);
+  assert.equal(world.vore.active.length, 0);
+  assert.equal(world.agents.includes(meal), true);
+  assert.throws(() => pickVoreType(pred.character.vore), /positive weight/);
+});
+
+test('disabled inside actions fall back to waiting, not a zero-weight struggle', () => {
+  INSIDE_ACTIONS[0].weight = 0;
+  const action = pickInsideAction();
+  assert.equal(action.id, 'idle');
+  assert.equal(action.escapeChance ?? 0, 0);
+});
+
 // --- Swallowing and being inside -----------------------------------------------------------------
 
 test('swallowed prey leave the floor but stay in the facility, riding along with the predator', () => {
@@ -223,6 +261,51 @@ test('swallowed prey leave the floor but stay in the facility, riding along with
   assert.equal(meal.room, annex);
   assert.deepEqual(world.swallowedIn(hall), []);
   assert.deepEqual(world.swallowedIn(annex), [meal]);
+});
+
+test('direct agent updates cannot execute plans while swallowed', () => {
+  const { world, pred, meal } = duel();
+  world.vore.swallow(pred, meal, 'oral');
+  meal.setPlan(world, [walkTo({ x: 200, y: 100 }, 'Walking')]);
+  const before = [meal.x, meal.y];
+  meal.update(world, 1);
+  assert.deepEqual([meal.x, meal.y], before);
+  assert.equal(meal.moving, false);
+});
+
+test('an older creature attack stops if another predator swallows its target', (t) => {
+  const { world, hall, pred, meal } = duel();
+  const attacks = { ...ATTACK_CHANCE };
+  t.after(() => Object.assign(ATTACK_CHANCE, attacks));
+  ATTACK_CHANCE.safe = 1;
+  meal.x = 200;
+  const attacker = addCreature(world, hall, beast('attacker', ['None']), { x: 30, y: 100 });
+  attacker.update(world, 0.1);
+  assert.equal(attacker.activity, 'Attacking meal');
+  assert.equal(world.vore.swallow(pred, meal, 'oral'), true);
+  attacker.x = pred.x;
+  attacker.y = pred.y;
+  attacker.update(world, 0.1);
+  assert.equal(meal.stats.hp.current, meal.stats.hp.max, 'prey inside a predator cannot be hit from the floor');
+  assert.notEqual(attacker.activity, 'Attacking meal');
+});
+
+test('creatures honor action-blocking statuses and only move for the unblocked part of a frame', (t) => {
+  const { world, hall } = setup();
+  const meal = standing(world, hall, person('meal', ['Prey']), { x: 220, y: 100 });
+  const hunter = addCreature(world, hall, beast('hunter', ['Predator']), { x: 30, y: 100 });
+  STATUS_EFFECTS['test-frozen'] = { label: 'Frozen', targets: ['creature'], blocksActions: true, duration: 1 };
+  t.after(() => { delete STATUS_EFFECTS['test-frozen']; });
+  hunter.startHunt(meal, 'oral');
+  hunter.statuses.apply('test-frozen');
+  assert.equal(hunter.incapacitated, true);
+  assert.equal(hunter.exposed, true, 'blocking actions does not hide a creature from other actors');
+  world.update(0.5);
+  assert.equal(hunter.x, 30);
+  world.update(0.75);
+  assert.equal(hunter.statuses.has('test-frozen'), false);
+  assert.equal(hunter.incapacitated, false);
+  assert.ok(Math.abs(hunter.x - (30 + CREATURE_TUNING.dashSpeed * 0.25)) < 1e-9);
 });
 
 test('cameras follow swallowed prey through their predator', () => {
@@ -313,6 +396,23 @@ test('a staff hunt stops when a witness arrives and can resume only after the ro
   witness.room = annex;
   step(world, 4);
   assert.equal(meal.swallowed, true);
+});
+
+test('staff role and privacy restrictions can be configured independently of the encounter rules', (t) => {
+  const original = structuredClone(VORE_STAFF_RULES);
+  t.after(() => Object.assign(VORE_STAFF_RULES, original));
+  const { world, hall, pred, meal } = duel({ predator: ['Switch'] });
+  standing(world, hall, person('witness', ['None']), { x: 130, y: 100 });
+  assert.equal(world.vore.eligible(pred, meal), false);
+  VORE_STAFF_RULES.predatorRoles.push('switch');
+  assert.equal(world.vore.eligible(pred, meal), false, 'privacy still applies');
+  VORE_STAFF_RULES.requirePrivacy = false;
+  assert.equal(world.vore.eligible(pred, meal), true);
+  VORE_TUNING.staffSizeRatio = 1;
+  pred.character.heightMeters = 2.4;
+  assert.equal(world.vore.eligible(pred, meal), true);
+  pred.stats.hp.current = 10;
+  assert.equal(world.vore.eligible(pred, meal), false, 'a weakened switch still cannot hunt');
 });
 
 test('a switch only swallows while it is healthy', () => {
@@ -519,6 +619,32 @@ test('absorbed agents stop being agents but leave their profile, items and name 
   assert.equal(world.pickArrival(), undefined, 'absorbed characters never arrive again');
   world.roster.push(other);
   assert.equal(world.pickArrival(), other);
+});
+
+test('item effects keep ticking exactly once while held inside remains', (t) => {
+  const { world, pred, meal } = duel();
+  Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 1, disposalDelay: { min: 600, max: 600 } });
+  const ticks = [];
+  STATUS_EFFECTS['test-item-timer'] = {
+    label: 'Item timer', targets: ['item'], duration: 10,
+    onUpdate: (_target, _world, dt) => ticks.push(dt),
+  };
+  t.after(() => { delete STATUS_EFFECTS['test-item-timer']; });
+  const item = Item.create('can');
+  item.statuses.apply('test-item-timer');
+  meal.receiveItem(item);
+  world.vore.swallow(pred, meal, 'oral');
+  world.update(0.6);
+  world.update(1.1);
+  assert.ok(pred.vore.remains[0].items.includes(item));
+  ticks.length = 0;
+  world.update(2);
+  assert.deepEqual(ticks, [2]);
+  assert.ok(Math.abs(item.statuses.get('test-item-timer').remaining - 6.3) < 1e-9);
+  world.vore.release(pred);
+  ticks.length = 0;
+  world.update(1);
+  assert.deepEqual(ticks, [1], 'disposal keeps the same status owner');
 });
 
 test('monitor files show the actual remains for agents and creatures, both held and dropped', (t) => {

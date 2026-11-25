@@ -22,7 +22,7 @@ export interface StatusEffectDefinition {
   popup?: { icon?: string; color: string; background?: string };
   /** Popups of these effects stay hidden while this one is active. */
   hidesPopups?: readonly string[];
-  /** Pauses the target agent's task runner and movement while active. */
+  /** Pauses the target actor's tasks and movement while active. */
   blocksActions?: boolean;
   /** Simulation seconds; omitted means permanent until removed. */
   duration?: number;

@@ -5,20 +5,13 @@ import { Remains } from './remains.ts';
 import type { Point, Room } from './room.ts';
 import { STATUS_EFFECTS } from './statusEffects.ts';
 import { wait } from './tasks.ts';
-import { isReef, isTrespassing } from './trespass.ts';
+import { isTrespassing, trespassResponseFor } from './trespass.ts';
 import {
-  ABSORPTION_HOOKS, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, heightOf, huntRate, pickVoreType, rolls,
+  ABSORPTION_HOOKS, VORE_STAFF_RULES, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, hasVoreTypes, heightOf, huntRate, pickVoreType, rolls,
   pickRemainsLook, startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreType,
 } from './vore.ts';
 import { stalk } from './voreTasks.ts';
 import type { World } from './world.ts';
-
-/** Room pixels beside the predator where spat-out prey land. */
-const SPIT_DISTANCE = 10;
-/** Where a pile's items land: the first pair this far to either side, then further out every step. */
-const ITEM_SPREAD = { first: 12, step: 10, depth: 2 };
-/** Seconds prey stay dazed after being spat out. */
-const DAZED_SECONDS = 3;
 
 /**
  * Runs every swallow in the world: who goes after whom, carrying prey inside their predator, the
@@ -57,25 +50,33 @@ export class VoreSystem {
    */
   eligible(predator: VoreActor, prey: VoreActor): boolean {
     if (predator === prey || predator.room !== prey.room || predator.dead || !this.grounded(predator) ||
-      predator.vore.contents.length >= (predator.character.vore?.capacity ?? 0) || !this.catchable(prey)) return false;
+      predator.vore.contents.length >= (predator.character.vore?.capacity ?? 0) ||
+      !hasVoreTypes(predator.character.vore) || !this.catchable(prey)) return false;
     const hunter = fighterOf(predator);
     const target = fighterOf(prey);
     if (predator instanceof Agent && prey instanceof Agent) {
-      if (isReef(predator) && isTrespassing(prey)) return heightOf(hunter) >= heightOf(target);
+      const response = trespassResponseFor(predator);
+      if (response && isTrespassing(prey)) {
+        return response.swallowChance > 0 && heightOf(hunter) >= heightOf(target) * response.sizeRatio;
+      }
       const requiredHeight = heightOf(target) * VORE_TUNING.staffSizeRatio;
-      return hunter.vore?.role === 'predator' && target.vore?.role === 'prey' &&
+      return VORE_STAFF_RULES.predatorRoles.includes(hunter.vore?.role ?? 'none') &&
+        VORE_STAFF_RULES.preyRoles.includes(target.vore?.role ?? 'none') &&
         heightOf(hunter) >= requiredHeight - Number.EPSILON * Math.abs(requiredHeight) &&
-        !this.world.agentsIn(predator.room).some((other) => other !== predator && other !== prey) &&
+        (!VORE_STAFF_RULES.requirePrivacy ||
+          !this.world.agentsIn(predator.room).some((other) => other !== predator && other !== prey)) &&
         huntRate(hunter, target) > 0;
     }
     return huntRate(hunter, target) > 0;
   }
 
   /** Swallows `prey` whole. Returns false, changing nothing, when the rules don't allow it right now. */
-  swallow(predator: VoreActor, prey: VoreActor, type: VoreType = pickVoreType(predator.character.vore)): boolean {
+  swallow(predator: VoreActor, prey: VoreActor, type?: VoreType): boolean {
     if (!this.eligible(predator, prey)) return false;
+    const selectedType = type ?? pickVoreType(predator.character.vore);
+    if (!Object.hasOwn(VORE_TYPES, selectedType)) throw new Error(`Unknown vore type "${selectedType}".`);
     const { world } = this;
-    const ingestion: Ingestion = { predator, prey, type, stage: 'digesting', elapsed: 0, action: startInsideAction(), absorbed: 0 };
+    const ingestion: Ingestion = { predator, prey, type: selectedType, stage: 'digesting', elapsed: 0, action: startInsideAction(), absorbed: 0 };
     if (prey instanceof Agent) {
       prey.releaseStaffEscort(world);
       world.agents = world.agents.filter((other) => other !== prey);
@@ -91,7 +92,7 @@ export class VoreSystem {
     prey.statuses.apply('acid');
     predator.vore.cooldown = cooldownSeconds();
     this.carry(ingestion);
-    world.log(`${predator.character.name} swallowed ${prey.character.name} whole (${voreTypeLabel(type).toLowerCase()}) in the ${predator.room.name}!`, 'alert');
+    world.log(`${predator.character.name} swallowed ${prey.character.name} whole (${voreTypeLabel(selectedType).toLowerCase()}) in the ${predator.room.name}!`, 'alert');
     // The post is staffed again; the swallowed guard counts as absent from here on.
     if (prey instanceof Agent && prey.security && world.elevatorFor(prey.security.post)) world.staffSecurityPost(prey.security.post);
     return true;
@@ -171,7 +172,7 @@ export class VoreSystem {
       const role = swallower.character.vore?.role ?? 'none';
       if (role === 'none' || swallower.vore.cooldown > 0 || !this.ready(swallower)) continue;
       const targets = this.world.actorsIn(swallower.room)
-        .filter((other) => !(swallower instanceof Agent && isReef(swallower) && other instanceof Agent && isTrespassing(other)) &&
+        .filter((other) => !(swallower instanceof Agent && trespassResponseFor(swallower) && other instanceof Agent && isTrespassing(other)) &&
           this.eligible(swallower, other))
         .map((target) => ({ target, weight: huntRate(fighterOf(swallower), fighterOf(target)) }));
       const total = targets.reduce((sum, { weight }) => sum + weight, 0);
@@ -273,7 +274,10 @@ export class VoreSystem {
     this.detach(ingestion);
     prey.statuses.remove('acid');
     prey.vore.safeFor = VORE_TUNING.safeAfterSpit;
-    const point = room.nearestWalkable({ x: predator.x + (predator.facing === 'left' ? -SPIT_DISTANCE : SPIT_DISTANCE), y: predator.y + 3 }, predator);
+    const { spitOffset, dazedSeconds } = VORE_TUNING;
+    const point = room.nearestWalkable({
+      x: predator.x + (predator.facing === 'left' ? -spitOffset.x : spitOffset.x), y: predator.y + spitOffset.y,
+    }, predator);
     if (prey instanceof Agent) {
       prey.room = room;
       prey.x = point.x;
@@ -285,8 +289,8 @@ export class VoreSystem {
       if (!prey.dead) {
         const activity = `Recovering from ${predator.character.name}`;
         prey.statuses.apply('scared');
-        prey.say('!', DAZED_SECONDS);
-        prey.setPlan(world, [{ ...wait(DAZED_SECONDS, activity), interruptible: false }]);
+        prey.say('!', dazedSeconds);
+        prey.setPlan(world, [{ ...wait(dazedSeconds, activity), interruptible: false }]);
         prey.activity = activity;
       }
     } else prey.emerge(room, point);
@@ -325,9 +329,10 @@ export class VoreSystem {
   }
 
   private scatter(room: Room, pile: Point, items: Item[]) {
+    const spread = VORE_TUNING.itemSpread;
     items.forEach((item, index) => {
       const side = index % 2 === 0 ? 1 : -1;
-      const wanted = { x: pile.x + side * (ITEM_SPREAD.first + Math.floor(index / 2) * ITEM_SPREAD.step), y: pile.y + ITEM_SPREAD.depth };
+      const wanted = { x: pile.x + side * (spread.first + Math.floor(index / 2) * spread.step), y: pile.y + spread.depth };
       const spot = room.nearestWalkable(wanted, pile);
       item.x = Math.round(spot.x - item.w / 2);
       item.y = Math.round(spot.y - item.h);

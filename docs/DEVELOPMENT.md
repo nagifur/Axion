@@ -292,6 +292,41 @@ the inside threshold, cancels the queued departure, and can be picked up again.
 Explicit player transfers remain
 unrestricted.
 
+##### Data-driven behavior
+
+Simulation definitions are TypeScript data tables, separate from per-actor state. The
+main extension points are:
+
+| Definition | Purpose |
+| --- | --- |
+| `DEFAULT_BEHAVIOR`, `BEHAVIOR_RULES` in [`roster.ts`](../src/lib/sim/roster.ts) | Baseline staff behavior and ordered trait/species matches. Matching rules merge `values`; later matches win. Behavior fields include speed, nap chance, clumsiness, sociability, ghosting and `meow` (the idle meow weight; cats/felines get `1`). |
+| `SIM_OVERRIDES` in [`roster.ts`](../src/lib/sim/roster.ts) | Per-profile behavior, starting items, vore settings and trespass responses, keyed by profile slug. Behavior overrides apply after trait rules. |
+| `AGENT_ACTIVITIES` in [`planning.ts`](../src/lib/sim/planning.ts) | Named ordinary activities with `weight(context)` and `build(context)`. Add or replace entries without editing the planner. |
+| `CREATURE_TUNING` in [`creature.ts`](../src/lib/sim/creature.ts) | Movement, attack damage/reach/timing, roaming and door behavior. Existing containment-class chance tables remain independently configurable. |
+| `VORE_PROFILE_RULES`, `VORE_STAFF_RULES`, `VORE_TYPES`, `VORE_TUNING` in [`vore.ts`](../src/lib/sim/vore.ts) | Size/capacity defaults, staff restrictions, type definitions and lifecycle tuning. |
+
+For example, an activity can be appended at initialization:
+
+```ts
+AGENT_ACTIVITIES.push({
+  id: 'check-instruments',
+  weight: ({ working }) => working ? 2 : 0,
+  build: () => [wait(8, 'Checking instruments')],
+});
+```
+
+Activity context shares the room, schedule, candidates and route queries for one
+decision. Weight callbacks should be side-effect-free; only the selected activity is
+built. Dynamic choices such as item actions use `options(context)` to join the same
+weighted draw, preserving each action's relative probability. Escorts, assigned
+security duty and repairs retain priority over ordinary activities.
+
+Definitions are shared across worlds; configure them before starting a simulation
+rather than storing actor state in them. Built profiles own copies of behavior, vore
+weights and trespass policies. New mechanics still need TypeScript handlers; these
+tables are extension seams, not a runtime mod loader or an API for executing untrusted
+mods.
+
 Staff follow the viewer's local clock (simulation speed does not speed up the day).
 Edit [`schedule.ts`](../src/lib/sim/schedule.ts) to change `DEFAULT_SCHEDULE`:
 work is 08:00-17:00, lunch 12:00-13:00, and short breaks 10:00-10:15 and
@@ -808,7 +843,7 @@ Add a definition to `STATUS_EFFECTS` to introduce an effect. Each definition has
 
 - `duration`: positive, finite simulation seconds; omit for permanent effects.
 - `irreversible`: prevents removal, clearing, expiry, and duration overrides.
-- `blocksActions`: pauses an agent's current task and movement without cancelling
+- `blocksActions`: pauses an agent's or creature's current task and movement without cancelling
   its plan or releasing reservations. Multiple blockers use the longest remaining
   duration; only the unstunned portion of an expiry frame advances the task.
 - `canApply(target)`: optional eligibility rule beyond the target kind.
@@ -855,8 +890,8 @@ Swallowed prey take their own effects (`acid`, then a converted status); see
 [The Vore System](#the-vore-system).
 
 `World.update` ticks statuses once per simulation frame, before movement and task
-planning, including creatures, held agents, off-camera elevator riders, and loose, carried
-or stored items. Linked doors are deduplicated across camera views. Effects use
+planning, including creatures, held agents, off-camera elevator riders, and loose, carried,
+stored or remains-held items. Linked doors are deduplicated across camera views. Effects use
 simulation time, so pause and speed controls apply automatically. A final update
 is capped to the remaining lifetime before expiry; hooks may safely remove or
 refresh effects. Effects added inside a collection's update hook first tick on
@@ -956,7 +991,8 @@ after the other, or 0 when the rules forbid it:
   rule at 1% per second (`huntRate.switch`).
 
 A predator holds `capacity` prey at once: one by default, two from 3 m tall, and three
-from 6 m or with `anySize`.
+from 6 m or with `anySize`. These defaults and the species patterns granting `anySize`
+live in `VORE_PROFILE_RULES`; add a capacity band or species match there.
 
 Staff and security guards are teammates. Outside Reef's exception below, one can
 swallow another only when their profiles are explicitly Predator and Prey, the
@@ -965,11 +1001,16 @@ other agents or guards in the room.
 Creatures do not count as witnesses. The size rule also applies to slimes and
 varied-height staff, and it is rechecked while stalking and at the swallow.
 These restrictions do not change encounters involving creatures.
+`VORE_STAFF_RULES` configures the allowed predator/prey roles and whether privacy is
+required; the underlying encounter rules and `staffSizeRatio` still apply.
 
 Reef has a separate exception for trespassers above their clearance: he may
 swallow them regardless of their vore role or other staff in the room, but only
 if they are no taller than him. His decision between that and an escort is
 described in the [security section](#live-monitoring-simulation).
+This is configured as `SIM_OVERRIDES.reef.trespassResponse` (`swallowChance: 0.1`,
+`sizeRatio: 1`), not a character-ID branch in the AI. The same policy can be assigned
+to other staff; a zero chance makes them always escort. Disguises never inherit it.
 
 ##### Hunting and swallowing
 
@@ -1006,6 +1047,11 @@ Each swallow uses one of four ways, picked by weight from the predator's profile
 Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
 the acid damage, spit-out odds and absorption time. `SIM_OVERRIDES[id].vore.types` replaces
 the weights for one character; types left out of it are never used.
+An empty or all-zero weight map disables swallowing; directly requesting a random
+type from it throws instead of silently choosing oral. Profile construction rejects
+unknown type IDs, negative/non-finite weights and invalid capacities. `VoreType` and
+`VORE_TYPE_IDS` derive from the table, so a new entry does not require a separate type
+union edit.
 
 ##### Inside, digesting and remains
 
@@ -1019,6 +1065,7 @@ the weights for one character; types left out of it are never used.
    now there is only *Struggle*: a 3–6 second go with a 4% chance (`escapeChance`) of
    making the predator spit the prey out. Spat-out prey land beside the predator, lose the
    acid, get `scared`, stay dazed for three seconds, and can't be swallowed again for 45 s.
+   If all inside actions are disabled, prey wait without attempting an escape.
 3. **Digested.** When HP runs out the prey is dead as usual, and the acid is swapped for
    the type's converted status: `digested`, `cumified` or `milkified` (irreversible,
    blocks actions, and replaces the **Dead** popup). Absorption begins.
@@ -1067,13 +1114,20 @@ whose `remains` list contains their pile.
 - Vore runs from `World.update` (`vore.update(dt)` right after statuses tick, and
   `vore.sync()` once everyone has moved), not from `Agent.update`, which many tests drive
   against stub worlds. Randomness goes through [`random.ts`](../src/lib/sim/random.ts).
+- Creature attacks and staff reactions use the shared `exposed` checks, so swallowed
+  targets cannot still be attacked or react from inside. Direct agent updates also
+  stop while swallowed or removed. Creatures honor action-blocking status effects,
+  including only moving for the unblocked portion of a frame when an effect expires.
+  Item statuses continue ticking once per frame when items move from a swallowed
+  agent's inventory into carried remains and later onto the floor.
 - To customize: `VORE_TYPES` (label, weight, converted status, remains `look`, per-type
-  multipliers; a new way also needs a `VoreType` and a status in `STATUS_EFFECTS`),
-  `VORE_TUNING` (every number above; exported and mutable for tests and difficulty
+  multipliers; a new converted status also needs an entry in `STATUS_EFFECTS`),
+  `VORE_TUNING` (lifecycle timing, chase speed/re-routing, spit-out offsets/recovery
+  and item scattering; exported and mutable for tests and difficulty
   settings), `INSIDE_ACTIONS` (add `{ id, label, weight, duration, escapeChance? }` for more
   things prey can do), `ABSORPTION_HOOKS` (push a listener taking `{ predator, prey, type }`
-  for bonus effects such as a slime growing), and `SIM_OVERRIDES[id].vore` (`types`,
-  `anySize` and `capacity` for one character).
+  for bonus effects such as a slime growing), and `SIM_OVERRIDES[id].vore` (`role`,
+  `types`, `anySize` and `capacity` for one character).
 
 #### Breakage Particles
 

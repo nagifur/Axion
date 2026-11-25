@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { afterEach } from 'node:test';
 import { setRandomSource } from '../src/lib/sim/random.ts';
-import { toSimCharacter } from '../src/lib/sim/roster.ts';
+import { SIM_OVERRIDES, toSimCharacter } from '../src/lib/sim/roster.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
@@ -118,6 +118,29 @@ test('Reef chooses vore 10% of the time and otherwise escorts; larger targets ar
   setRandomSource(() => 0.5);
   world.update(0.1);
   assert.equal(reef.activity, 'Approaching target for an escort', 'ordinary hunting must not bypass his choice');
+});
+
+test('trespass policies work for configured staff without a special character ID', (t) => {
+  const { world, hall, reef, target } = setup({ witness: true });
+  reef.removed = true;
+  world.agents = world.agents.filter((agent) => agent !== reef);
+  SIM_OVERRIDES['custom-enforcer'] = { trespassResponse: { swallowChance: 1, sizeRatio: 2 } };
+  t.after(() => { delete SIM_OVERRIDES['custom-enforcer']; });
+  const enforcer = standing(world, hall,
+    person('custom-enforcer', { height: '4 m', clearance: 5, role: 'Predator' }), { x: 80, y: 100 });
+  assert.equal(world.vore.eligible(enforcer, target), true, 'the policy bypasses staff roles and witnesses');
+  setRandomSource(() => 0.99);
+  reactToTrespassing(enforcer, world);
+  enforcer.update(world, 0);
+  assert.equal(enforcer.activity, 'Stalking target');
+  target.character.heightMeters = 2.1;
+  assert.equal(world.vore.eligible(enforcer, target), false, 'the configured size ratio still applies');
+  enforcer.character.trespassResponse.swallowChance = 0;
+  enforcer.setPlan(world, []);
+  reactToTrespassing(enforcer, world);
+  enforcer.update(world, 0);
+  assert.equal(enforcer.activity, 'Approaching target for an escort');
+  assert.equal(SIM_OVERRIDES['custom-enforcer'].trespassResponse.swallowChance, 1, 'live policies do not mutate the definition');
 });
 
 test('Reef ignores authorized staff and cannot see trespassers on another camera', () => {
