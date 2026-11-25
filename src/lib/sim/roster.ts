@@ -2,6 +2,7 @@
 // Kept free of Astro imports so it can be unit tested directly with node:test.
 import { resolveStats, type SimStats } from './stats.ts';
 import type { ScheduleBlock } from './schedule.ts';
+import { DEFAULT_HEIGHT_METERS, createVoreProfile, parseVoreRole, type VoreOverride, type VoreProfile } from './vore.ts';
 
 export interface SimBehavior {
   /** Walking speed multiplier (1 = normal). */
@@ -24,6 +25,10 @@ export interface SimCharacter {
   tint: string;
   /** Sprite scale relative to the base character sprite. */
   scale: number;
+  /** Profile height in metres; unknown heights are treated as the base sprite. */
+  heightMeters?: number;
+  /** Who they swallow and who swallows them; see vore.ts. */
+  vore?: VoreProfile;
   position: string;
   species: string;
   accessLevel: string;
@@ -60,6 +65,8 @@ export interface SimCreature {
   image?: string;
   tint: string;
   scale: number;
+  heightMeters?: number;
+  vore?: VoreProfile;
   stats: SimStats;
 }
 
@@ -78,6 +85,8 @@ export interface SimOverride {
   exclude?: boolean;
   weight?: number;
   startingItems?: readonly string[];
+  /** Adjusts the vore profile read from `vorePreference`: allowed types, size rules, capacity. */
+  vore?: VoreOverride;
 }
 
 // Per-character tweaks for things the profile data doesn't express yet.
@@ -89,7 +98,7 @@ export const SIM_OVERRIDES: Record<string, SimOverride> = {
 };
 
 export const DEFAULT_TINT = '#7ef5ff';
-const BASE_HEIGHT_M = 1.90;
+const BASE_HEIGHT_M = DEFAULT_HEIGHT_METERS;
 const DEFAULT_SCALE = 0.85;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 1.2;
@@ -120,6 +129,19 @@ export function heightToScale(meters: number | null): number {
   if (!meters || !Number.isFinite(meters)) return DEFAULT_SCALE;
   const scale = (meters / BASE_HEIGHT_M) * DEFAULT_SCALE;
   return Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale)) * 100) / 100;
+}
+
+/** Heights written as "Variable" or "{{Varies | ...}}" belong to shapeshifters who can be any size. */
+export function heightVaries(raw: unknown): boolean {
+  return typeof raw === 'string' && /\bvari(?:es|able|ous|ation)\b/i.test(raw);
+}
+
+function voreProfile(id: string, vorePreference: readonly string[] | undefined, species: string, height: unknown) {
+  return createVoreProfile(
+    parseVoreRole(vorePreference),
+    { species, heightMeters: parseHeightMeters(height) ?? undefined, heightVaries: heightVaries(height) },
+    SIM_OVERRIDES[id]?.vore,
+  );
 }
 
 const has = (traits: string[], pattern: RegExp) => traits.some((trait) => pattern.test(trait));
@@ -155,6 +177,8 @@ export interface PersonnelInput {
     positiveTraits: string[];
     negativeTraits: string[];
     wanted?: unknown;
+    /** Trophic role from the profile: Predator, Prey, Switch or None. */
+    vorePreference?: string[];
     stats?: Partial<SimStats>;
   };
 }
@@ -172,6 +196,8 @@ export function toSimCharacter(entry: PersonnelInput, base = '', image?: string)
     href: `${base}/Personnel/${id}`,
     tint: entry.data.colorTint ?? DEFAULT_TINT,
     scale: heightToScale(parseHeightMeters(entry.data.height)),
+    heightMeters: parseHeightMeters(entry.data.height) ?? undefined,
+    vore: voreProfile(id, entry.data.vorePreference, entry.data.species, entry.data.height),
     position: entry.data.position.trim(),
     species: entry.data.species.trim(),
     accessLevel: String(entry.data.accessLevel),
@@ -206,6 +232,7 @@ interface CreatureInput {
     nickname: string;
     colorTint?: string;
     height?: string;
+    vorePreference?: string[];
     stats?: Partial<SimStats>;
   };
 }
@@ -219,6 +246,8 @@ export function toSimCreature(entry: CreatureInput, base = '', image?: string): 
     id, name: data.title, nickname: data.nickname, containmentClass, species: data.species,
     href: `${base}/Entities/${id}`, image, tint: data.colorTint ?? DEFAULT_TINT,
     scale: heightToScale(parseHeightMeters(data.height)),
+    heightMeters: parseHeightMeters(data.height) ?? undefined,
+    vore: voreProfile(id, data.vorePreference, data.species, data.height),
     stats: resolveStats(data.stats),
   };
 }

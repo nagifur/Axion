@@ -3,7 +3,7 @@ import { Creature } from './creature.ts';
 import { el } from './monitorDom.ts';
 import type { Renderer } from './render.ts';
 import type { Point, Room } from './room.ts';
-import { STATUS_EFFECTS } from './statusEffects.ts';
+import { statusPopups } from './statusEffects.ts';
 import type { CameraActor, World } from './world.ts';
 
 /** A tag to place: anchored at a head position in room pixels, measured in layer pixels. */
@@ -92,7 +92,8 @@ export class NameTags {
   }
 
   sync(world: World, renderer: Renderer, state: TagState) {
-    const actors = world.actorsIn(state.viewed);
+    // Swallowed prey keep their tag (and status popups) above the predator carrying them.
+    const actors = [...world.actorsIn(state.viewed), ...world.swallowedIn(state.viewed)];
     for (const [agent, tag] of this.tags) {
       if (!actors.includes(agent)) {
         tag.button.remove();
@@ -111,10 +112,7 @@ export class NameTags {
         tag.name.textContent = label;
         tag.button.style.setProperty('--tag-tint', revealed ? 'var(--neon-red)' : agent.character.tint);
       }
-      const popups = agent.statuses.active.flatMap(({ id, label }) => {
-        const popup = STATUS_EFFECTS[id]?.popup;
-        return popup ? [{ id, label, ...popup }] : [];
-      });
+      const popups = statusPopups(agent.statuses.active);
       const statusKey = JSON.stringify(popups);
       if (tag.statusKey !== statusKey) {
         tag.statusKey = statusKey;
@@ -123,11 +121,13 @@ export class NameTags {
           box.title = label;
           box.style.setProperty('--status-color', color);
           if (background) box.style.setProperty('--status-background', background);
-          const image = el('img');
-          image.src = icon;
-          image.alt = label;
-          image.width = image.height = 16;
-          box.append(image);
+          if (icon) {
+            const image = el('img');
+            image.src = icon;
+            image.alt = label;
+            image.width = image.height = 16;
+            box.append(image);
+          } else box.append(el('span', 'monitor-tag-status-mark'));
           return box;
         }));
       }

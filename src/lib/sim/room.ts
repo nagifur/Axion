@@ -6,6 +6,7 @@ import { segmentIntersectsRect } from './navMap.ts';
 import { NavGrid } from './pathfinding.ts';
 import { Prop, type PlacedProp } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
+import type { Remains } from './remains.ts';
 import { PROP_TYPES, type Facing } from './sprites.ts';
 import { random } from './random.ts';
 import { doorAppearance, type DoorAppearance, type DoorConfig } from './door.ts';
@@ -128,6 +129,8 @@ export class Room {
   readonly height: number;
   props: Prop[] = [];
   items: Item[] = [];
+  /** Piles that predators left on the floor; see remains.ts. */
+  remains: Remains[] = [];
   readonly spots: Spot[] = [];
   readonly doors: Door[] = [];
   readonly elevator?: ElevatorOpening;

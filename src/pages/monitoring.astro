@@ -30,6 +30,7 @@ const roomImages = import.meta.glob<ImageModule>('../sim_assets/rooms/*/room.png
 const propImages = import.meta.glob<ImageModule>('../sim_assets/props/*.png', { eager: true });
 const itemImages = import.meta.glob<ImageModule>('../sim_assets/items/*.png', { eager: true });
 const particleImages = import.meta.glob<ImageModule>('../sim_assets/particles/*.png', { eager: true });
+const remainsImages = import.meta.glob<ImageModule>('../sim_assets/remains/*.png', { eager: true });
 
 const rooms = await loadFacility();
 const initialRoom = rooms.find((room) => room.id === INITIAL_ROOM) ?? rooms[0];
@@ -104,6 +105,7 @@ const entityProfiles = await Promise.all(entities.map(async (entry) => {
 const propSources = Object.fromEntries(Object.entries(propImages).map(([path, image]) => [fileStem(path), image.default.src]));
 const itemSources = Object.fromEntries(Object.entries(itemImages).map(([path, image]) => [`item:${fileStem(path)}`, image.default.src]));
 const particleSources = Object.fromEntries(Object.entries(particleImages).map(([path, image]) => [particleAsset(fileStem(path)), image.default.src]));
+const remainsSources = Object.fromEntries(Object.entries(remainsImages).map(([path, image]) => [`remains:${fileStem(path)}`, image.default.src]));
 const itemTypes = await Promise.all(Object.keys(itemSources).map(async (asset) => ({
   type: asset, src: await itemPreview(asset.slice(5)),
 })));
@@ -127,6 +129,7 @@ const config: MonitorConfig = {
     ...propSources,
     ...itemSources,
     ...particleSources,
+    ...remainsSources,
   },
 };
 // Escape "<" so profile text can never close the inline JSON script.
@@ -518,6 +521,8 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     background:var(--status-background, rgba(5, 8, 13, 0.78));
   }
   .monitor-tag-status img{ display:block; width:16px; height:16px }
+  /* Stand-in for effects that have no icon yet. */
+  .monitor-tag-status-mark{ display:block; width:16px; height:16px; border-radius:50%; background:var(--status-color); opacity:0.55 }
   .monitor-tag.is-active .monitor-tag-name{ color:#fff; background:color-mix(in srgb, var(--tag-tint, #7ef5ff) 35%, #05080d) }
   .monitor-tag.is-quiet .monitor-tag-name{ opacity:0 }
   .monitor-tag:focus-visible{ outline:none }

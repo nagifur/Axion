@@ -19,6 +19,7 @@ import { accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
 import { reactToCreatures } from './creatureReactions.ts';
+import { VoreSystem } from './voreSystem.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
 import { LEVEL_DEFINITIONS, LEVEL_EVENTS, restoreCellContainment } from './levelEvents.ts';
 
@@ -75,6 +76,8 @@ export class World {
   readonly now: () => Date;
   hooks: WorldHooks = {};
   readonly particles = new ParticleSystem();
+  /** Everything about swallowing: hunts, digestion, absorption and remains. */
+  readonly vore = new VoreSystem(this);
   private readonly levels = new Map<number, LevelState>();
   private readonly sparkDelays = new WeakMap<object, number>();
   private readonly elevators = new Map<Room, Elevator>();
@@ -164,9 +167,9 @@ export class World {
     return routing.stepTowardWork(this, character, room, agent);
   }
 
-  /** Everyone in the facility, including people riding the elevator between floors. */
+  /** Everyone in the facility, including people riding the elevator between floors and anyone swallowed. */
   everyone(): Agent[] {
-    return [...this.agents, ...this.rides.map((ride) => ride.agent)];
+    return [...this.agents, ...this.rides.map((ride) => ride.agent), ...this.vore.swallowedAgents()];
   }
 
   isRiding(agent: Agent) {
@@ -206,9 +209,14 @@ export class World {
     return [...this.agentsIn(room), ...this.creaturesIn(room)];
   }
 
+  /** Prey inside the predators in `room`: on no floor of their own, but their status popups still show there. */
+  swallowedIn(room: Room): CameraActor[] {
+    return this.vore.swallowedIn(room);
+  }
+
   /** Completes an escort, or restores an off-camera escapee to its assigned cell. */
   recontain(creature: Creature) {
-    if (creature.dead || creature.contained) return;
+    if (creature.dead || creature.contained || creature.swallowed || creature.consumed) return;
     const escort = creature.escort;
     const from = creature.escaped ? 'outside the facility' : `the ${creature.room.name}`;
     creature.returnHome(this);
@@ -257,7 +265,8 @@ export class World {
   }
 
   staffSecurityPost(post: Room, initial = false) {
-    const assigned = this.everyone().find((agent) => !agent.dead && agent.security?.post === post && !agent.security.relieved);
+    const assigned = this.everyone().find((agent) =>
+      !agent.dead && !agent.swallowed && agent.security?.post === post && !agent.security.relieved);
     if (assigned) return assigned;
     const character = generateNpc(this.nextNpcBadge++, {
       position: 'Security guard', accessLevel: String(post.level), schedule: securitySchedule(this.now()),
@@ -282,7 +291,7 @@ export class World {
 
   pickArrival(): SimCharacter | undefined {
     const candidates = this.roster.filter((character) =>
-      !this.isPresent(character.id) && (this.returnAt.get(character.id) ?? 0) <= this.time);
+      !this.isPresent(character.id) && !this.vore.consumed.has(character.id) && (this.returnAt.get(character.id) ?? 0) <= this.time);
     return weightedPick(candidates);
   }
 
@@ -440,9 +449,9 @@ export class World {
     const name = agent.character.name;
     const { room } = agent;
 
+    this.vore.release(agent);
     if (agent.security) {
-      if (agent.security.target?.escort === agent) agent.security.target.releaseEscort();
-      agent.security.target = undefined;
+      agent.releaseTarget();
       this.staffSecurityPost(agent.security.post);
       this.log(`${name} left security duty via the ${via}.`, 'muted');
     } else if (agent.impostor) {
@@ -537,6 +546,7 @@ export class World {
     }
     for (const effects of statuses) effects.update(this, dt);
     for (const agent of this.everyone()) agent.finishDeath(this);
+    this.vore.update(dt);
     for (const elevator of this.elevators.values()) elevator.update(this, dt);
     this.passages.update(this, dt);
 
@@ -553,7 +563,8 @@ export class World {
     }
 
     for (const agent of [...this.agents]) {
-      if (agent.removed || agent.held || agent.dead) continue;
+      // Someone swallowed earlier this frame is still in the copy.
+      if (agent.removed || agent.held || agent.dead || agent.swallowed) continue;
       if (agent.spot && !agent.room.spots.includes(agent.spot)) {
         agent.setPlan(this, []);
       }
@@ -598,5 +609,6 @@ export class World {
         this.updateSparks(door, room, panel, dt, bounds.door.y + bounds.door.h);
       }
     }
+    this.vore.sync();
   }
 }

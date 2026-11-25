@@ -26,10 +26,27 @@ These are maximum capacities. HP, stamina, and magic start full; hunger and
 thirst start at 0 (satisfied), with their maximum meaning an urgent need.
 Magic is disabled at 0; set a positive capacity only for magic users.
 Other capacities must be positive finite numbers. Unknown stat names are rejected.
-The monitoring panel shows live values, but stats do not drain or affect behavior
-yet. Stats reset on a new spawn or page reload and are not saved.
+The monitoring panel shows live values. So far only HP changes (creature attacks and
+swallowing acid lower it, absorbing prey restores it, and zero HP is fatal); the other
+stats don't drain yet. Stats reset on a new spawn or page reload and are not saved.
 Personnel, contained creatures, and shapeshifting entities currently spawn in
 monitoring; synthetic stats are accepted for future use.
+
+## Vore preference in the simulation
+
+In monitoring, `vorePreference` on personnel and entities decides who swallows whom:
+
+- `[Predator]` swallows anyone shorter than themselves, or anyone at all if they are a
+  slime or their `height` varies ("Varies", "Variable").
+- `[Prey]` does not swallow, except now and then someone at least three times shorter.
+- `[Switch]` (or listing both `Predator` and `Prey`) acts as prey when badly hurt and as a
+  predator when overpowering the other character.
+- `[None]` (the default) and `Non-Vore` take no part: they are never swallowed.
+
+Height therefore matters: use a `height` the simulation can read, such as `5'8"` or
+`{{5'8"|1.73 m}}`; an unknown height counts as 1.9 m. Swallowed characters take acid
+damage, are digested and absorbed, and leave remains behind. See
+[The Vore System](../docs/DEVELOPMENT.md#the-vore-system) for the full rules.
 
 ## Importing a submission from a zip
 

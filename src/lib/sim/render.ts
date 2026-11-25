@@ -4,12 +4,13 @@ import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
 import { Item, type PlacedItem } from './item.ts';
 import type { Particle, ParticleEmissionSampler } from './particles.ts';
+import type { Remains } from './remains.ts';
 import { CHARACTER_FRAMES, ELEVATOR_SPRITES, TRIP_CYCLE, TRIP_HEAD_OFFSET, frameWithIdleFallback, hasPropLook, itemFrame, itemHandAnchor, needsPropCellOccupancy, propCellOccupancy, propFrame, propFrames, type Frame, type FrameName, type PropLook, type PropSheetImage } from './sprites.ts';
 import type { CameraActor, World } from './world.ts';
 import type { Rect } from './navMap.ts';
 import { isPassageDoorAsset, passageDoorFrame, passagePanelFrame } from './door.ts';
 
-/** Images by name: room, actor and prop sheets, "item:<type>", and "particle:<file>". */
+/** Images by name: room, actor and prop sheets, "item:<type>", "particle:<file>" and "remains:<look>". */
 export type Assets = Record<string, HTMLImageElement>;
 type Canvas = HTMLCanvasElement;
 type SizedImage = CanvasImageSource & { width: number; height: number };
@@ -39,9 +40,11 @@ const EMERGENCY_GLOW = { radius: 36, stretch: 1.6, alpha: 0.6 };
 const FOREGROUND_DOOR_ALPHA = 0.35;
 /** Extra pixels around the cursor that still count as clicking a character. */
 const AGENT_PICK_TOLERANCE = 2;
+/** Size of the stand-in drawn for remains whose artwork is missing. */
+const MISSING_REMAINS = { w: 24, h: 16 };
 
 type ActorSheet = 'character' | 'creature' | 'security';
-type AssetKind = 'room' | 'actor' | 'item' | 'particle' | 'prop' | 'missing-texture';
+type AssetKind = 'room' | 'actor' | 'item' | 'particle' | 'remains' | 'prop' | 'missing-texture';
 
 function assetKind(name: string): AssetKind {
   if (name === 'missing-texture') return 'missing-texture';
@@ -49,6 +52,7 @@ function assetKind(name: string): AssetKind {
   if (name.startsWith('room:')) return 'room';
   if (name.startsWith('item:')) return 'item';
   if (name.startsWith('particle:')) return 'particle';
+  if (name.startsWith('remains:')) return 'remains';
   return 'prop';
 }
 
@@ -434,15 +438,22 @@ export class Renderer {
     return { sheet, name, frame, flip, x, y };
   }
 
+  /** Swallowed prey have no sprite of their own; their tags ride along with whoever carries them. */
+  private carrier(actor: CameraActor): CameraActor {
+    return actor.vore.inside?.predator ?? actor;
+  }
+
   /** Point just above an agent's head, in room pixels (for name tags). */
-  headPosition(agent: CameraActor) {
+  headPosition(actor: CameraActor) {
+    const agent = this.carrier(actor);
     const { name, frame, flip, y } = this.placement(agent);
     const offset = TRIP_CYCLE.includes(name) ? TRIP_HEAD_OFFSET : undefined;
     const x = agent.x + (offset ? Math.round(offset.x * agent.character.scale) * (flip ? -1 : 1) : 0);
     return { x, y: y + (offset ? Math.round(offset.y * agent.character.scale) : 0), height: frame.h };
   }
 
-  isVisible(agent: CameraActor, world: World) {
+  isVisible(actor: CameraActor, world: World) {
+    const agent = this.carrier(actor);
     if (agent instanceof Creature) return agent.onCamera && agent.room === this.room && agent.alpha >= 0.3;
     if (agent.held || agent.room !== this.room || agent.alpha < 0.3) return false;
     return agent.layer === 'room' || (world.elevatorFor(this.room)?.open ?? 0) > 0.4;
@@ -645,6 +656,13 @@ export class Renderer {
     }
   }
 
+  /** A pile left behind by a predator, resting with its bottom centre on the floor point. */
+  private drawRemains(remains: Remains) {
+    const image = this.assets[remains.asset] ??
+      placeholderFrame(requireAsset(this.assets, 'missing-texture'), MISSING_REMAINS.w, MISSING_REMAINS.h);
+    this.ctx.drawImage(image, Math.round(remains.x - image.width / 2), Math.round(remains.y - image.height));
+  }
+
   private drawProp(prop: Prop, time: number) {
     const image = requireAsset(this.assets, prop.asset);
     if (!prop.emergency) {
@@ -694,6 +712,9 @@ export class Renderer {
     }));
     for (const item of room.items ?? []) {
       drawables.push({ depth: item.y + item.h - 0.5, draw: () => drawItemSprite(ctx, requireAsset(assets, item.asset), item) });
+    }
+    for (const remains of room.remains ?? []) {
+      drawables.push({ depth: remains.y - 0.5, draw: () => this.drawRemains(remains) });
     }
     for (const particle of world.particles.in(room)) {
       drawables.push({ depth: particle.depth, draw: () => drawParticle(ctx, requireAsset(assets, particle.asset), particle) });

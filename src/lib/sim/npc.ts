@@ -1,6 +1,7 @@
 import { pick, range } from './random.ts';
 import { behaviorFromTraits, heightToScale, type SimCharacter } from './roster.ts';
 import { resolveStats } from './stats.ts';
+import { createVoreProfile } from './vore.ts';
 
 const GIVEN_NAMES = ['Alex', 'Cleo', 'Ellis', 'Iris', 'Jules', 'Kai', 'Mika', 'Morgan', 'Ren', 'Sam', 'Tess', 'Vale'];
 const SURNAMES = ['Aster', 'Bell', 'Chen', 'Diaz', 'Finch', 'Hart', 'Imai', 'Lane', 'Moss', 'Reed', 'Shaw', 'Voss'];
@@ -15,6 +16,8 @@ export function generateNpc(badge: number, job: Pick<SimCharacter, 'position' | 
     name: `${pick(GIVEN_NAMES)} ${pick(SURNAMES)}`,
     species: 'Human', tint: pick(['#9bc4ff', '#a7dbdb', '#c4b7ee']), scale: heightToScale(null), weight: 1,
     traits, behavior: behaviorFromTraits(traits, 'Human'),
+    // Staff without a profile can be swallowed, which is how guards end up inside predators.
+    vore: createVoreProfile('prey', { species: 'Human' }),
     stats: resolveStats({
       hp: Math.round(range(85, 120)), stamina: Math.round(range(85, 125)),
       hunger: Math.round(range(85, 115)), thirst: Math.round(range(85, 115)),

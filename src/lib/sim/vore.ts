@@ -1,0 +1,290 @@
+// Vore rules: who may swallow whom, how the ways of swallowing differ, and what prey can do inside.
+// Pure data and predicates; the swallow lifecycle itself lives in voreSystem.ts.
+import type { Agent } from './agent.ts';
+import type { Creature } from './creature.ts';
+import { random, range, weightedPick } from './random.ts';
+import type { Remains } from './remains.ts';
+
+/** From the profile's `vorePreference`. */
+export type VoreRole = 'predator' | 'prey' | 'switch' | 'none';
+/** The side someone takes toward one particular other character; switches choose from circumstances. */
+export type VoreStance = 'predator' | 'prey';
+export type VoreType = 'oral' | 'cock' | 'anal' | 'breast';
+export type VoreActor = Agent | Creature;
+
+/** Unknown heights count as the base character sprite. */
+export const DEFAULT_HEIGHT_METERS = 1.9;
+
+export interface VoreProfile {
+  role: VoreRole;
+  /** Relative odds per way of swallowing; omitted means every type at its VORE_TYPES weight. */
+  types?: Partial<Record<VoreType, number>>;
+  /** Slimes and shapeshifters swallow regardless of size. */
+  anySize: boolean;
+  /** Prey that fit inside at once. */
+  capacity: number;
+}
+
+export const NO_VORE: VoreProfile = Object.freeze({ role: 'none', anySize: false, capacity: 0 });
+
+/** What the rules need to know about one character. */
+export interface VoreFighter {
+  vore?: VoreProfile;
+  heightMeters?: number;
+  /** Share of max HP left, 0..1. */
+  hp: number;
+}
+
+export interface VoreTypeDefinition {
+  label: string;
+  /** Chance relative to the other types when a profile doesn't list its own. */
+  weight: number;
+  /** Status prey takes on once the acid has finished with them. */
+  converted: string;
+  /** Artwork of the remains pile: src/sim_assets/remains/<look>.png. */
+  look: string;
+  /** Per-type quirks, as multipliers on the shared tuning. */
+  digestion: number;
+  escape: number;
+  absorption: number;
+}
+
+/** One entry per way of swallowing. Add quirks here; everything else reads from this table. */
+export const VORE_TYPES: Record<VoreType, VoreTypeDefinition> = {
+  oral: { label: 'Oral vore', weight: 6, converted: 'digested', look: 'bones', digestion: 1, escape: 1, absorption: 1 },
+  cock: { label: 'Cock vore', weight: 1, converted: 'cumified', look: 'cum', digestion: 1, escape: 1, absorption: 1 },
+  anal: { label: 'Anal vore', weight: 1, converted: 'digested', look: 'droppings', digestion: 1, escape: 1, absorption: 1 },
+  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', look: 'milk', digestion: 1, escape: 1, absorption: 1 },
+};
+
+export const VORE_TYPE_IDS = Object.keys(VORE_TYPES) as VoreType[];
+
+/** Exported and mutable so tests (and later, difficulty settings) can adjust them. */
+export const VORE_TUNING = {
+  /** A predator must be this many times taller than its prey (1 = merely taller). */
+  predatorSizeRatio: 1,
+  /** Prey-side characters only swallow someone at least this many times shorter than themselves. */
+  preyOversizeRatio: 3,
+  /** A switch at or below this share of its HP acts as prey. */
+  switchWeakHp: 0.35,
+  /** HP share by which a switch must lead another switch to act as the predator against it. */
+  switchHpEdge: 0.2,
+  /** Chance per second that a free swallower with a valid target in its room goes after one. */
+  huntRate: { predator: 0.02, switch: 0.01, prey: 0.003 },
+  /** Seconds a hunt chases before giving up. */
+  huntTimeout: 12,
+  /** How close, in room pixels, a hunter must get to swallow. */
+  reach: 14,
+  /** Seconds a swallower leaves between catches. */
+  cooldown: { min: 30, max: 60 },
+  /** Seconds someone spat out can't be swallowed again. */
+  safeAfterSpit: 45,
+  /** Acid damage per second while inside. */
+  acidDps: 2,
+  /** Seconds the predator spends absorbing digested prey. */
+  absorbSeconds: 45,
+  /** Share of the prey's max HP the predator heals while absorbing. */
+  healFraction: 1,
+  /** Seconds between a finished absorption and the predator getting rid of the remains. */
+  disposalDelay: { min: 20, max: 45 },
+};
+
+export interface InsideAction {
+  id: string;
+  /** Shown as the prey's activity while it lasts. */
+  label: string;
+  weight: number;
+  /** Seconds one go takes. */
+  duration: { min: number; max: number };
+  /** Chance, when it finishes, that the predator spits the prey back out. */
+  escapeChance?: number;
+}
+
+/** What prey can plan to do while inside; add entries for new options. */
+export const INSIDE_ACTIONS: InsideAction[] = [
+  { id: 'struggle', label: 'Struggling', weight: 1, duration: { min: 3, max: 6 }, escapeChance: 0.04 },
+];
+
+/** What prey fall back to when INSIDE_ACTIONS has nothing to offer. */
+const IDLE_ACTION: InsideAction = { id: 'idle', label: 'Waiting', weight: 1, duration: { min: 3, max: 6 } };
+
+export function pickInsideAction(): InsideAction {
+  return weightedPick(INSIDE_ACTIONS) ?? INSIDE_ACTIONS[0] ?? IDLE_ACTION;
+}
+
+export function insideActionSeconds(action: InsideAction): number {
+  return range(action.duration.min, action.duration.max);
+}
+
+/** A fresh run of one of the things prey can do inside. */
+export function startInsideAction(action: InsideAction = pickInsideAction()): Ingestion['action'] {
+  return { id: action.id, label: action.label, escapeChance: action.escapeChance ?? 0, remaining: insideActionSeconds(action) };
+}
+
+/** Maps profile values like `[Predator]`, `[Switch]` or `[Predator, Non-Vore]` onto a role. */
+export function parseVoreRole(values: readonly string[] | undefined): VoreRole {
+  const tokens = (values ?? []).map((value) => value.trim().toLowerCase());
+  if (tokens.some((token) => /^(?:none|non[- ]?vore)$/.test(token))) return 'none';
+  const predator = tokens.some((token) => /^pred(?:ator)?$/.test(token));
+  const prey = tokens.includes('prey');
+  if (tokens.includes('switch') || (predator && prey)) return 'switch';
+  return predator ? 'predator' : prey ? 'prey' : 'none';
+}
+
+export function isSlime(species: string | undefined): boolean {
+  return /slime/i.test(species ?? '');
+}
+
+/** Giants hold more than one; everything else fits a single prey unless a profile says otherwise. */
+function defaultCapacity(heightMeters: number | undefined, anySize: boolean): number {
+  if (anySize) return 3;
+  const height = heightMeters ?? DEFAULT_HEIGHT_METERS;
+  return height >= 6 ? 3 : height >= 3 ? 2 : 1;
+}
+
+export interface VoreOverride {
+  types?: Partial<Record<VoreType, number>>;
+  anySize?: boolean;
+  capacity?: number;
+}
+
+export function createVoreProfile(
+  role: VoreRole,
+  traits: { species?: string; heightMeters?: number; heightVaries?: boolean } = {},
+  override: VoreOverride = {},
+): VoreProfile {
+  const anySize = override.anySize ?? (isSlime(traits.species) || !!traits.heightVaries);
+  const profile: VoreProfile = {
+    role,
+    anySize,
+    capacity: override.capacity ?? defaultCapacity(traits.heightMeters, anySize),
+  };
+  if (override.types) profile.types = override.types;
+  return profile;
+}
+
+export const heightOf = (fighter: Pick<VoreFighter, 'heightMeters'>) => fighter.heightMeters ?? DEFAULT_HEIGHT_METERS;
+
+export function fighterOf(actor: VoreActor): VoreFighter {
+  const { character, stats } = actor;
+  return { vore: character.vore, heightMeters: character.heightMeters, hp: stats.hp.current / stats.hp.max };
+}
+
+/**
+ * Which side `self` takes against `other`. Predators and prey keep theirs. A switch yields when it
+ * is badly hurt, otherwise takes the opposite side to a fixed role, and between two switches the
+ * one overpowering the other becomes the predator. Null means neither (and is never swallowable).
+ */
+export function voreStance(self: VoreFighter, other: VoreFighter): VoreStance | null {
+  const role = self.vore?.role ?? 'none';
+  if (role === 'predator' || role === 'prey') return role;
+  if (role === 'none') return null;
+  if (self.hp <= VORE_TUNING.switchWeakHp) return 'prey';
+  switch (other.vore?.role ?? 'none') {
+    case 'prey': return 'predator';
+    case 'predator': return 'prey';
+    case 'switch': {
+      const edge = self.hp - other.hp;
+      return edge >= VORE_TUNING.switchHpEdge ? 'predator' : edge <= -VORE_TUNING.switchHpEdge ? 'prey' : null;
+    }
+    default: return null;
+  }
+}
+
+/**
+ * Chance per second that `swallower` goes after `target`; 0 when it can't. Targets must be prey
+ * from their own side of the encounter. Predators need the size advantage (or be a slime or
+ * shapeshifter); prey-side characters only manage it against someone far smaller, and rarely.
+ */
+export function huntRate(swallower: VoreFighter, target: VoreFighter): number {
+  const own = swallower.vore;
+  if (!own || own.role === 'none') return 0;
+  if (voreStance(target, swallower) !== 'prey') return 0;
+  const stance = voreStance(swallower, target);
+  if (!stance) return 0;
+  const ours = heightOf(swallower);
+  const theirs = heightOf(target);
+  if (stance === 'predator') {
+    if (!own.anySize && ours <= theirs * VORE_TUNING.predatorSizeRatio) return 0;
+    return own.role === 'switch' ? VORE_TUNING.huntRate.switch : VORE_TUNING.huntRate.predator;
+  }
+  return ours >= theirs * VORE_TUNING.preyOversizeRatio ? VORE_TUNING.huntRate.prey : 0;
+}
+
+export const canSwallow = (swallower: VoreFighter, target: VoreFighter) => huntRate(swallower, target) > 0;
+
+/** One of the profile's ways of swallowing, by weight. */
+export function pickVoreType(profile: VoreProfile | undefined): VoreType {
+  const entries = VORE_TYPE_IDS.map((type) => ({
+    type,
+    weight: profile?.types ? profile.types[type] ?? 0 : VORE_TYPES[type].weight,
+  }));
+  return weightedPick(entries)?.type ?? 'oral';
+}
+
+export function voreTypeLabel(type: VoreType): string {
+  return VORE_TYPES[type].label;
+}
+
+/** A prey who is currently being digested or absorbed by its predator. */
+export interface Ingestion {
+  readonly predator: VoreActor;
+  readonly prey: VoreActor;
+  readonly type: VoreType;
+  /** Digesting while the acid works; absorbing once the prey has been converted. */
+  stage: 'digesting' | 'absorbing';
+  /** Seconds spent in the current stage. */
+  elapsed: number;
+  /** What the prey is doing inside right now, and the chance that finishing it gets them spat out. */
+  action: { readonly id: string; readonly label: string; readonly escapeChance: number; remaining: number };
+  /** HP handed to the predator so far, while absorbing. */
+  absorbed: number;
+}
+
+export interface AbsorptionEvent {
+  readonly predator: VoreActor;
+  readonly prey: VoreActor;
+  readonly type: VoreType;
+}
+
+/** Called once prey has been fully absorbed; push listeners here for bonus effects (a slime growing, new statuses, ...). */
+export const ABSORPTION_HOOKS: Array<(event: AbsorptionEvent) => void> = [];
+
+/** The prey's activity line while inside. */
+export function insideActivity(ingestion: Ingestion): string {
+  const name = ingestion.predator.character.name;
+  return ingestion.stage === 'absorbing' ? `Being absorbed by ${name}` : `${ingestion.action.label} inside ${name}`;
+}
+
+/** Vore state that every agent and creature owns, like LiveStats. */
+export class VoreState {
+  /** Set while this character is inside a predator. */
+  inside: Ingestion | null = null;
+  /** Prey inside this character, being digested or absorbed. */
+  readonly contents: Ingestion[] = [];
+  /** Fully absorbed prey this character hasn't gotten rid of yet. */
+  readonly remains: Remains[] = [];
+  /** Seconds until this character may swallow again. */
+  cooldown = 0;
+  /** Seconds this character can't be swallowed, after being spat out. */
+  safeFor = 0;
+
+  get full(): boolean {
+    return this.contents.length > 0;
+  }
+}
+
+/** Random wait before the predator gets rid of fresh remains. */
+export function disposalWait(): number {
+  return range(VORE_TUNING.disposalDelay.min, VORE_TUNING.disposalDelay.max);
+}
+
+/** Random wait before a swallower may try again. */
+export function cooldownSeconds(): number {
+  return range(VORE_TUNING.cooldown.min, VORE_TUNING.cooldown.max);
+}
+
+/** True with the given per-second rate over a frame; rates are small so this stays linear. */
+export function rolls(ratePerSecond: number, dt: number): boolean {
+  return ratePerSecond > 0 && random() < ratePerSecond * dt;
+}

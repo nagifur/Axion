@@ -93,7 +93,7 @@ export const LEVEL_EVENTS: Readonly<Record<string, LevelEventDefinition>> = {
     label: 'Containment failure',
     onStart(level, world) {
       const pending = new Set(world.creatures.filter((creature) =>
-        creature.home.level === level.number && !creature.escaped));
+        creature.home.level === level.number && !creature.escaped && !creature.consumed));
       const waiting = new Set<PassageDoor>();
       for (const room of level.rooms) {
         for (const door of room.doors) {
@@ -112,7 +112,8 @@ export const LEVEL_EVENTS: Readonly<Record<string, LevelEventDefinition>> = {
       const failure = containmentFailures.get(level);
       if (!failure) return;
       for (const creature of failure.pending) {
-        if (creature.escaped) failure.pending.delete(creature);
+        // Nobody can bring back a creature that has fled the facility or been absorbed.
+        if (creature.escaped || creature.consumed) failure.pending.delete(creature);
       }
       finishContainmentFailure(level);
       openNextCellDoor(level);

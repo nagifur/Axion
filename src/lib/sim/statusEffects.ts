@@ -4,6 +4,7 @@ import type { PassageDoor } from './door.ts';
 import type { Item } from './item.ts';
 import type { Prop } from './prop.ts';
 import type { World } from './world.ts';
+import { VORE_TUNING, VORE_TYPES } from './vore.ts';
 
 export type StatusTarget =
   | { kind: 'agent'; entity: Agent }
@@ -17,8 +18,10 @@ export type StatusRemovalReason = 'removed' | 'expired';
 export interface StatusEffectDefinition {
   label: string;
   targets: readonly StatusTarget['kind'][];
-  /** Optional character popup; effects without artwork remain simulation-only. */
-  popup?: { icon: string; color: string; background?: string };
+  /** Optional character popup; effects without artwork remain simulation-only. Without an icon it is a plain coloured box. */
+  popup?: { icon?: string; color: string; background?: string };
+  /** Popups of these effects stay hidden while this one is active. */
+  hidesPopups?: readonly string[];
   /** Pauses the target agent's task runner and movement while active. */
   blocksActions?: boolean;
   /** Simulation seconds; omitted means permanent until removed. */
@@ -34,6 +37,11 @@ export interface StatusEffectDefinition {
 
 export const SHOCK_SECONDS = 2;
 export const SCARED_SECONDS = 10;
+
+/** What swallowed prey turn into once the acid is done with them; the vore type picks which. */
+function convertedStatus(label: string, color: string, background: string): StatusEffectDefinition {
+  return { label, targets: ['agent', 'creature'], blocksActions: true, irreversible: true, hidesPopups: ['dead'], popup: { color, background } };
+}
 
 /** Add effects here; no artwork is required for simulation-only effects. */
 export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
@@ -93,7 +101,31 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
       if (target.kind === 'agent') target.entity.shake = 0.6;
     },
   },
+  // Swallowed prey take damage over time until the predator spits them out or they are digested.
+  acid: {
+    label: 'Acid',
+    targets: ['agent', 'creature'],
+    popup: { color: '#3dff5a', background: 'rgba(8, 60, 18, 0.92)' },
+    onUpdate(target, _world, dt) {
+      if (target.kind !== 'agent' && target.kind !== 'creature') return;
+      const { stats, vore } = target.entity;
+      const digestion = vore.inside ? VORE_TYPES[vore.inside.type].digestion : 1;
+      stats.hp.current -= VORE_TUNING.acidDps * digestion * dt;
+    },
+  },
+  digested: convertedStatus('Digested', '#a8c23a', 'rgba(44, 52, 10, 0.92)'),
+  cumified: convertedStatus('Cumified', '#f1efe2', 'rgba(70, 68, 58, 0.92)'),
+  milkified: convertedStatus('Milkified', '#bfe2ff', 'rgba(24, 48, 70, 0.92)'),
 };
+
+/** Popups to show for the active effects, minus any that another active effect hides. */
+export function statusPopups(active: readonly ActiveStatusEffect[]) {
+  const hidden = new Set(active.flatMap(({ id }) => STATUS_EFFECTS[id]?.hidesPopups ?? []));
+  return active.flatMap(({ id, label }) => {
+    const popup = hidden.has(id) ? undefined : STATUS_EFFECTS[id]?.popup;
+    return popup ? [{ id, label, ...popup }] : [];
+  });
+}
 
 export interface ActiveStatusEffect {
   readonly id: string;

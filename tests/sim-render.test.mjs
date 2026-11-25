@@ -301,3 +301,40 @@ test('a seated character is drawn and picked in front of their chair', (t) => {
   seated.held = false;
   assert.equal(renderer.isVisible(seated, world), true, 'cancelling makes the original sprite visible again');
 });
+
+test('remains stand on the floor by their bottom centre, with a stand-in for missing artwork', (t) => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  t.after(() => {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement() {
+        const draws = [];
+        const ctx = {
+          drawImage(...args) { draws.push(args); },
+          getImageData(_x, _y, width, height) { return { data: new Uint8ClampedArray(width * height * 4) }; },
+          putImageData() {}, setTransform() {}, fillRect() {}, save() {}, restore() {}, translate() {}, scale() {}, clearRect() {},
+        };
+        return { width: 0, height: 0, draws, getContext() { return ctx; } };
+      },
+    },
+  });
+  const backdrop = {};
+  const bones = { width: 30, height: 20 };
+  const missing = { width: 8, height: 8 };
+  const room = {
+    id: 'hall', width: 200, height: 100, darkness: 0, visualDarkness: 0, props: [],
+    remains: [{ x: 100.4, y: 80, asset: 'remains:bones' }, { x: 50, y: 60, asset: 'remains:unknown' }],
+  };
+  const canvas = document.createElement('canvas');
+  const assets = { character: { width: 576, height: 1152 }, 'room:hall': backdrop, 'remains:bones': bones, 'missing-texture': missing };
+  const renderer = new Renderer(canvas, assets, room);
+  renderer.draw({ agents: [], actorsIn: () => [], elevatorFor() {}, particles: { in: () => [] } }, new Map());
+  const [, standIn, pile] = canvas.draws;
+  assert.deepEqual(pile, [bones, 85, 60], 'resting on the floor point, further down the room is drawn later');
+  assert.deepEqual([standIn[0].width, standIn[0].height, standIn[1], standIn[2]], [24, 16, 38, 44]);
+  assert.deepEqual(standIn[0].draws[0], [missing, 0, 0, 8, 8, 0, 0, 24, 16], 'the missing texture, sized like a pile');
+});

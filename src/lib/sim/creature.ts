@@ -8,12 +8,15 @@ import type { Agent } from './agent.ts';
 import { wait } from './tasks.ts';
 import { createLiveStats, hasMagic, type LiveStats } from './stats.ts';
 import { StatusEffects } from './statusEffects.ts';
+import { VORE_TUNING, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
   | { action: 'pace'; path: Point[] }
   | { action: 'flee'; path: Point[] }
   | { action: 'attack'; target: Agent; path: Point[]; reroute: number; remaining: number }
+  /** Chases someone it means to swallow; VoreSystem does the swallowing once it is within reach. */
+  | { action: 'swallow'; target: VoreActor; type: VoreType; path: Point[]; reroute: number; remaining: number }
   /** Dashes to a door, waits briefly if it is too far closed, then slips through it. */
   | { action: 'escape'; door: Door; path: Point[]; waited: number; crossing: boolean }
   /** Fades in from the doorway it arrived through. */
@@ -61,6 +64,8 @@ export class Creature {
   readonly statuses = new StatusEffects({ kind: 'creature', entity: this });
   readonly character: SimCreature;
   readonly stats: LiveStats;
+  /** Swallowing and being swallowed; see vore.ts and voreSystem.ts. */
+  readonly vore = new VoreState();
   /** The cell the creature is assigned to; it stays reserved while the creature is out. */
   readonly home: Room;
   /** Where the creature is now: its cell, or wherever it roamed to after a breach. */
@@ -73,6 +78,8 @@ export class Creature {
   away = false;
   /** Fled off camera through a way out of the facility; only `World.recontain` brings it back. */
   escaped = false;
+  /** Fully absorbed by a predator: gone for good, though the profile stays in the world. */
+  consumed = false;
   escort?: Agent;
   private plan: Plan = { action: 'watch', remaining: range(1, 5) };
   private elapsed = 0;
@@ -95,14 +102,29 @@ export class Creature {
     this.y = point.y;
   }
 
-  /** In its own cell (possibly on its way out of the door). */
-  get contained() {
-    return !this.escort && !this.escaped && this.room === this.home;
+  /** Inside a predator, off the floor until spat out or absorbed. */
+  get swallowed() {
+    return this.vore.inside !== null;
   }
 
-  /** Physically on some camera: not disguised as staff and not gone from the facility. */
+  /** In its own cell (possibly on its way out of the door). */
+  get contained() {
+    return !this.escort && !this.escaped && !this.swallowed && !this.consumed && this.room === this.home;
+  }
+
+  /** Physically on some camera: not disguised as staff, swallowed, or gone from the facility. */
   get onCamera() {
-    return !this.away && !this.escaped;
+    return !this.away && !this.escaped && !this.swallowed && !this.consumed;
+  }
+
+  /** On the floor where others can get at it: not dead, escorted, slipping through a doorway or fading in. */
+  get exposed() {
+    return !this.dead && this.onCamera && !this.escort && !this.escaping && this.alpha >= 1;
+  }
+
+  /** Free to start something new (a hunt): exposed, and neither fleeing, attacking nor already hunting. */
+  get idle() {
+    return this.exposed && this.plan.action !== 'flee' && this.plan.action !== 'attack' && this.plan.action !== 'swallow';
   }
 
   get hasMagic() {
@@ -122,11 +144,14 @@ export class Creature {
   }
 
   get activity() {
+    if (this.vore.inside) return insideActivity(this.vore.inside);
+    if (this.consumed) return 'Consumed';
     if (this.dead) return 'Dead';
     if (this.away) return 'Away from cell';
     if (this.escaped) return 'Escaped the facility';
     if (this.escort) return `Being escorted to ${this.home.name}`;
     if (this.plan.action === 'attack') return `Attacking ${this.plan.target.character.name}`;
+    if (this.plan.action === 'swallow') return `Hunting ${this.plan.target.character.name}`;
     if (this.plan.action === 'flee') return 'Running away from security';
     if (this.plan.action === 'escape') return this.contained ? 'Escaping the cell' : 'Slipping through a door';
     if (this.plan.action === 'enter') return 'Slipping through a door';
@@ -218,7 +243,7 @@ export class Creature {
   }
 
   private noticeAgents(world: World, dt: number) {
-    if (dt <= 0 || this.alpha < 1 || this.escaping || this.plan.action === 'flee' || this.plan.action === 'attack') return;
+    if (dt <= 0 || this.alpha < 1 || this.escaping || !this.idle) return;
     const probability = ATTACK_CHANCE[containmentTier(this.character.containmentClass)];
     if (probability <= 0) return;
     const targets = world.agentsIn(this.room).filter((target) => this.canAttack(target));
@@ -252,9 +277,53 @@ export class Creature {
     }
   }
 
+  /** Goes after `target`; the swallowing itself happens in VoreSystem once it is within reach. */
+  startHunt(target: VoreActor, type: VoreType) {
+    this.walking = false;
+    this.plan = { action: 'swallow', target, type, path: [], reroute: 0, remaining: VORE_TUNING.huntTimeout };
+  }
+
+  private pursueSwallow(world: World, plan: Extract<Plan, { action: 'swallow' }>, dt: number) {
+    const { target } = plan;
+    plan.remaining -= dt;
+    if (!world.vore.eligible(this, target) || plan.remaining <= 0) {
+      this.plan = { action: 'watch', remaining: 2 };
+      return;
+    }
+    if (distance(this, target) > VORE_TUNING.reach) {
+      plan.reroute -= dt;
+      if (!plan.path.length || plan.reroute <= 0) {
+        plan.path = this.room.route(this, { x: target.x, y: target.y }) ?? [];
+        plan.reroute = 0.5;
+        if (!plan.path.length) {
+          this.plan = { action: 'watch', remaining: 2 };
+          return;
+        }
+      }
+      if (!this.follow(plan.path, DASH_SPEED, dt)) plan.path = [];
+    }
+    if (distance(this, target) <= VORE_TUNING.reach) {
+      this.face(target.x - this.x, target.y - this.y);
+      this.walking = false;
+      world.vore.swallow(this, target, plan.type);
+      this.plan = { action: 'watch', remaining: 2 };
+    }
+  }
+
+  /** Spat back out into `room` at `point` (VoreSystem clears the swallowed state first). */
+  emerge(room: Room, point: Point) {
+    this.room = room;
+    this.layout = room.props;
+    this.x = point.x;
+    this.y = point.y;
+    this.alpha = 1;
+    this.walking = false;
+    this.plan = { action: 'watch', remaining: 2 };
+  }
+
   /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash. */
   hold(seconds: number, toward: Point) {
-    if (this.dead || this.escort || this.escaping || this.plan.action === 'flee' || this.plan.action === 'attack') return;
+    if (this.dead || this.escort || this.escaping || this.plan.action === 'flee' || this.plan.action === 'attack' || this.plan.action === 'swallow') return;
     this.walking = false;
     this.plan = { action: 'watch', remaining: seconds };
     if (Math.abs(toward.x - this.x) >= 2) this.facing = toward.x < this.x ? 'left' : 'right';
@@ -304,7 +373,7 @@ export class Creature {
       const failure = this.contained && world.passageDoorFor(door)?.forcedOpen;
       if (this.noticed.has(door) && !failure) continue;
       this.noticed.add(door);
-      if (this.escaping || this.plan.action === 'attack' || !this.canUse(world, door)) continue;
+      if (this.escaping || this.plan.action === 'attack' || this.plan.action === 'swallow' || !this.canUse(world, door)) continue;
       if (!failure && !chance(this.contained ? escapeChance(this.character.containmentClass) : LOOSE_NOTICE_CHANCE)) continue;
       const plan = this.headFor(door);
       if (!plan) continue;
@@ -422,6 +491,11 @@ export class Creature {
 
     if (plan.action === 'attack') {
       this.pursueAttack(world, plan, dt);
+      return;
+    }
+
+    if (plan.action === 'swallow') {
+      this.pursueSwallow(world, plan, dt);
       return;
     }
 

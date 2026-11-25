@@ -9,6 +9,7 @@ import { planNext } from './planning.ts';
 import { planRepair, type RepairTarget } from './repairs.ts';
 import { StatusEffects } from './statusEffects.ts';
 import type { SecurityDuty } from './security.ts';
+import { VoreState, insideActivity } from './vore.ts';
 
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
@@ -51,6 +52,8 @@ export class Agent {
   readonly character: SimCharacter;
   readonly impostor?: SimImpostor;
   readonly stats: LiveStats;
+  /** Swallowing and being swallowed; see vore.ts and voreSystem.ts. */
+  readonly vore = new VoreState();
   security?: SecurityDuty;
   revealed = false;
   /** The room this agent is currently in. */
@@ -112,7 +115,13 @@ export class Agent {
     return this.statuses.has('dead');
   }
 
+  /** Inside a predator: off the floor and off the feed until spat out or absorbed. */
+  get swallowed(): boolean {
+    return this.vore.inside !== null;
+  }
+
   get activity(): string {
+    if (this.vore.inside) return insideActivity(this.vore.inside);
     return this.dead ? 'Dead' : this.statuses.has('shocked') ? 'Shocked' : this.currentActivity;
   }
 
@@ -195,6 +204,14 @@ export class Agent {
     this.carriedItem = item;
   }
 
+  /** Hands over everything carried or stored, e.g. when this agent is absorbed. */
+  takeAllItems(): Item[] {
+    const items = [...(this.carriedItem ? [this.carriedItem] : []), ...this.storedItems];
+    this.carriedItem = null;
+    this.storedItems.length = 0;
+    return items;
+  }
+
   /** Destroys the carried item (used up); it does not go back on the floor. */
   consumeItem(): Item {
     const item = this.item;
@@ -212,9 +229,14 @@ export class Agent {
     return (this.task ?? this.plan[0])?.interruptible ?? true;
   }
 
-  get draggable() {
-    return !this.incapacitated && !this.removed && !this.leaving && !this.held && !this.security?.target && this.layer === 'room' && this.alpha >= 1 &&
+  /** Standing on a room's floor where others can get at them: not riding, in a doorway, falling, held, leaving or swallowed. */
+  get exposed() {
+    return !this.removed && !this.leaving && !this.held && !this.swallowed && this.layer === 'room' && this.alpha >= 1 &&
       !this.task?.transport && !this.task?.falling && !this.plan[0]?.falling;
+  }
+
+  get draggable() {
+    return !this.incapacitated && !this.security?.target && this.exposed;
   }
 
   get sitting() {
@@ -378,9 +400,14 @@ export class Agent {
     if (!this.dead || this.deathHandled) return;
     this.deathHandled = true;
     this.setPlan(world, []);
-    if (this.security) {
-      if (this.security.target?.escort === this) this.security.target.releaseEscort();
-      this.security.target = undefined;
-    }
+    this.releaseTarget();
+  }
+
+  /** A guard lets go of the creature it is chasing or escorting. */
+  releaseTarget() {
+    const duty = this.security;
+    if (!duty) return;
+    if (duty.target?.escort === this) duty.target.releaseEscort();
+    duty.target = undefined;
   }
 }

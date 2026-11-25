@@ -175,8 +175,10 @@ accept any `{ stats: LiveStats }`.
 Impostors use their entity profile's stats, not the copied staff profile's.
 Contained creatures use the same entity profile's stats.
 The selected-agent or creature panel updates live values without rebuilding the file.
-There is no automatic drain, recovery, damage, death, or AI behavior change yet;
-values last only for that agent or creature instance, not across spawns or reloads.
+Stamina, magic, hunger, and thirst don't change yet. HP changes only through events:
+creature attacks and swallowing acid lower it, absorbing prey restores it, and zero HP
+is fatal (see [Status Effects](#status-effects) and [The Vore System](#the-vore-system)).
+Values last only for that agent or creature instance, not across spawns or reloads.
 All three character collections validate optional stat blocks, including
 synthetics that do not yet spawn in monitoring.
 
@@ -365,7 +367,7 @@ never flicker.
 
 | File | Purpose |
 | --- | --- |
-| [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), and one folder per room in `rooms/`. |
+| [`src/sim_assets/`](../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), `remains/` (what predators leave behind), and one folder per room in `rooms/`. |
 | [`src/lib/sim/sprites.ts`](../src/lib/sim/sprites.ts) | What is inside each shared sprite: character frames, prop seats and blocked areas. |
 | [`src/lib/sim/prop.ts`](../src/lib/sim/prop.ts) | Placed props and their live state (on/off, broken). |
 | [`src/lib/sim/statusEffects.ts`](../src/lib/sim/statusEffects.ts) | Shared status definitions, active effects, durations, and lifecycle hooks. |
@@ -382,6 +384,10 @@ never flicker.
 | [`src/lib/sim/repairs.ts`](../src/lib/sim/repairs.ts) | Maintenance staff noticing, claiming, and repairing damaged equipment. |
 | [`src/lib/sim/itemTasks.ts`](../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
 | [`src/lib/sim/conversation.ts`](../src/lib/sim/conversation.ts) | Chats between two agents: meeting points, turns, and speech bubbles. |
+| [`src/lib/sim/vore.ts`](../src/lib/sim/vore.ts) | Vore rules and tuning: roles from `vorePreference`, who may swallow whom, the ways of swallowing, and what prey do inside. |
+| [`src/lib/sim/voreSystem.ts`](../src/lib/sim/voreSystem.ts) | `world.vore`: hunts, swallowing, acid, absorption, spitting out, and disposing of remains. |
+| [`src/lib/sim/voreTasks.ts`](../src/lib/sim/voreTasks.ts) | The `stalk` task an agent runs while closing in on prey. |
+| [`src/lib/sim/remains.ts`](../src/lib/sim/remains.ts) | `Remains`: what is left of absorbed prey until its predator drops it on the floor. |
 | [`src/lib/sim/transport.ts`](../src/lib/sim/transport.ts) | Leaving and entering rooms through doors and elevators, and leaving the facility. |
 | [`src/lib/sim/world.ts`](../src/lib/sim/world.ts) | All rooms and people: arrivals, departures, and the per-frame update. |
 | [`src/lib/sim/routing.ts`](../src/lib/sim/routing.ts) | Which rooms an agent may visit and which door or floor leads toward work or the exit. |
@@ -495,14 +501,14 @@ doors. A door already open is held open immediately when its turn arrives.
 Every resident present in its cell actively tries to escape, regardless of its
 normal containment-class escape chance. Residents away in disguise remain
 pending until they return and can escape. Already-loose residents are included;
-creatures that had already fled the facility are not.
+creatures that had already fled the facility or been absorbed by a predator are not.
 
 Capturing a creature does not release its door: security must escort it home.
 `World.recontain(creature)` releases that cell's door immediately, or skips it if
 it is still waiting to open; other cells remain queued or held open. A creature
 that flees the facility does not release its door early: it remains queued or
 held open until the event ends. The event ends automatically when every affected
-resident has been returned home or fled, or manually through **End event**.
+resident has been returned home, fled, or been absorbed, or manually through **End event**.
 Ending the event cancels any doors still waiting to open. An empty affected
 roster ends immediately. There is no random trigger or default
 time limit. Holding doors open bypasses clearance, broken panels, blackouts, and
@@ -793,15 +799,18 @@ The target contains `kind` and `entity`; narrow by `kind` before accessing
 entity-specific fields. Definitions need no sprite or other art. No wet, fire or
 bleeding gameplay is enabled yet.
 
-For an overhead character popup, add `popup: { icon, color, background? }` to the
+For an overhead character popup, add `popup: { icon?, color, background? }` to the
 definition. Use an asset URL for `icon` (for example,
-`new URL('../../sim_assets/icons/shocked.svg', import.meta.url).href`).
+`new URL('../../sim_assets/icons/shocked.svg', import.meta.url).href`); without one
+the popup is a plain box with a dot in `color`, until artwork exists.
 `color` sets the border color; optional `background` overrides the usual dark
 popup box. The SVG controls its own artwork colors. Popups sit above speech and
 name tags, participate in the same overlap avoidance, and remain visible in
 hover-only name-tag mode. Multiple effects appear side by side; effects without
 `popup` have no overhead UI. Popups follow the active status, including duration
-overrides, refreshes, pause, explicit removal and expiry.
+overrides, refreshes, pause, explicit removal and expiry. `hidesPopups` lists effects
+whose popups stay hidden while this one is active (`statusPopups` applies it); the
+converted vore statuses use it to replace **Dead**.
 
 Use `entity.statuses.apply(id, seconds)` to override a definition's duration.
 Only one instance of an effect can exist per target: reapplying a timed effect
@@ -820,6 +829,8 @@ background), and a frozen idle frame until death sprites are added. They cannot
 move, run tasks, react, escape, or be captured. Agent task/conversation resources
 are released on the next update (including held agents and elevator riders);
 escorts release dead creatures immediately. Death is not a facility departure.
+Swallowed prey take their own effects (`acid`, then a converted status); see
+[The Vore System](#the-vore-system).
 
 `World.update` ticks statuses once per simulation frame, before movement and task
 planning, including creatures, held agents, off-camera elevator riders, and loose, carried
@@ -877,6 +888,137 @@ shake. Unlike shock, it doesn't block actions: frightened staff are busy running
 away. Staff get it when they see a loose creature, are startled while watching
 one, or get snapped at while trying to pet one (see the creature section above).
 Use `agent.statuses.apply('scared')` for scripted scares.
+
+#### The Vore System
+
+Predators swallow other characters whole. [`vore.ts`](../src/lib/sim/vore.ts) holds the
+rules (who may swallow whom, the ways of doing it, what prey do inside) and
+[`voreSystem.ts`](../src/lib/sim/voreSystem.ts) runs everything that follows through one
+`VoreSystem` per world, `world.vore`. It is driven by the `vorePreference` of personnel
+and entities, so staff, security guards, and creatures all take part. Each agent and
+creature owns a `VoreState` (`actor.vore`), shared by composition like `LiveStats`.
+
+##### Roles and sizes
+
+`parseVoreRole` maps `vorePreference` onto a role: `Predator` (or `Pred`), `Prey`,
+`Switch` (also anyone listing both Predator and Prey), or `none`. `None` or `Non-Vore`
+anywhere in the list wins, so `[Predator, Non-Vore]` is `none`, as is a missing or
+unrecognised value. Characters with no role never swallow and cannot be swallowed.
+Generated staff (`generateNpc`), including unlinked security guards, are prey.
+
+Sizes come from the profile's `height`, parsed like the sprite scale; an unknown height
+counts as the base sprite (1.9 m). A height written as "Varies" or "Variable" marks a
+shapeshifter. `huntRate(swallower, target)` returns the chance per second that one goes
+after the other, or 0 when the rules forbid it:
+
+- The target must be on the prey side of the encounter: a Prey, or a Switch acting as prey.
+- **Predators** must be taller than their target (`VORE_TUNING.predatorSizeRatio`, where 1
+  means merely taller) unless their profile is `anySize`. Slimes (species containing
+  "slime", such as M-031) and varied-height shapeshifters are by default, so they swallow
+  smaller and same-size prey too. The chance is 2% per second (`huntRate.predator`).
+- **Prey** swallow only someone at least three times shorter (`preyOversizeRatio`; a 30 ft
+  creature can take a 5 ft agent), at 0.3% per second (`huntRate.prey`).
+- **Switches** choose a side per target. At 35% HP or less (`switchWeakHp`) they are prey.
+  Otherwise they take the opposite side to a Predator or Prey. Between two switches, the
+  one ahead by at least 20 points of HP share (`switchHpEdge`) is the predator and the
+  other the prey; a closer match means neither. As predators they follow the same size
+  rule at 1% per second (`huntRate.switch`).
+
+A predator holds `capacity` prey at once: one by default, two from 3 m tall, and three
+from 6 m or with `anySize`.
+
+##### Hunting and swallowing
+
+`VoreSystem.eligible(predator, prey)` is the single check: the rules above, both standing
+on the floor of the same room, the predator alive with room left, and the prey alive, not
+inside or holding someone, not spat out in the last 45 s (`safeAfterSpit`), and not a
+disguised shapeshifter or a ghost (anyone who phases through objects). Agents who are
+leaving, held, riding, passing through a door, or falling are never eligible.
+
+Each update, every character that is free (agents not on guard duty, napping, chatting, or
+in an uninterruptible task; creatures not fleeing, attacking, escaping or escorted) and off
+cooldown adds up the chances against everyone eligible in its room and rolls once. On a
+hit it picks a target by weight, checks there is a route, logs "is stalking", and goes
+after it: agents run the `stalk` task ([`voreTasks.ts`](../src/lib/sim/voreTasks.ts)),
+creatures a `swallow` plan. Both chase faster than walking speed, re-route as the target
+moves, and give up after `huntTimeout` (12 s) or once the target is no longer eligible.
+Within `reach` (14 room pixels) they call `world.vore.swallow(predator, prey, type)`, which
+scripts can call directly too; it returns false, changing nothing, when the rules don't
+allow it. The swallower then waits `cooldown` (30–60 s) before hunting again.
+
+##### Ways of swallowing
+
+Each swallow uses one of four ways, picked by weight from the predator's profile.
+`VORE_TYPES` is the table to extend with each way's own quirks:
+
+| Type | Label | Weight | Status once digested | Remains artwork |
+| --- | --- | --- | --- | --- |
+| `oral` | Oral vore | 6 | `digested` | `bones` |
+| `cock` | Cock vore | 1 | `cumified` | `cum` |
+| `anal` | Anal vore | 1 | `digested` | `droppings` |
+| `breast` | Breast vore | 1 | `milkified` | `milk` |
+
+Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
+the acid damage, spit-out odds and absorption time. `SIM_OVERRIDES[id].vore.types` replaces
+the weights for one character; types left out of it are never used.
+
+##### Inside, digesting and remains
+
+1. **Swallowed.** The prey leaves the floor: swallowed agents drop out of `world.agents`,
+   their plan and speech bubble end, and a guard escorting a creature lets it go. The
+   sprite is no longer drawn, and the prey copies its predator's room, position, facing
+   and doorway fade every frame, so they travel together through doors and elevators. The
+   `acid` status (a green popup box until it has artwork) drains `acidDps` (2 HP/s) times
+   the type's `digestion`.
+2. **Struggling.** Prey inside plan from `INSIDE_ACTIONS`, shown as their activity. For
+   now there is only *Struggle*: a 3–6 second go with a 4% chance (`escapeChance`) of
+   making the predator spit the prey out. Spat-out prey land beside the predator, lose the
+   acid, get `scared`, stay dazed for three seconds, and can't be swallowed again for 45 s.
+3. **Digested.** When HP runs out the prey is dead as usual, and the acid is swapped for
+   the type's converted status: `digested`, `cumified` or `milkified` (irreversible,
+   blocks actions, and replaces the **Dead** popup). Absorption begins.
+4. **Absorbed.** Over `absorbSeconds` (45 s) the predator heals by the prey's max HP times
+   `healFraction`, up to its own max. When it ends, the `ABSORPTION_HOOKS` run once and the
+   prey becomes **remains**: an agent is `removed` (with everything it carried or stored
+   taken from it) and a creature `consumed`, but the profile (`character`: id, name,
+   traits) lives on in a `Remains` ([`remains.ts`](../src/lib/sim/remains.ts)) held by the
+   predator. The id joins `world.vore.consumed`, so the character doesn't arrive again that
+   session and containment failures stop counting it.
+5. **Disposed.** After 20–45 s (`disposalDelay`), once it is standing on a floor, the
+   predator drops the pile at its feet (`room.remains`) and scatters the prey's items
+   beside it (`room.items`).
+
+A predator that dies or leaves the facility (or a creature that escapes) lets go instead:
+living prey are spat out, digested prey finish absorbing at once, and remains drop where
+it was. Each step is logged.
+
+Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` named in
+`VORE_TYPES`. Images can be any size; they are drawn with their bottom centre on the
+pile's floor point and depth-sorted like items. The current files are 24×16 placeholders,
+and a missing file falls back to a stand-in made from the missing texture.
+
+Swallowed prey stay in the interface: their name tag rides on the predator, with their
+status popups; following them follows the predator's camera; and their file shows
+**Inside** (who, and which way) while a predator's file lists **Holding**. Absorbed
+characters read **Absorbed** (agents) or **Consumed** (creatures).
+
+##### Working with vore in code
+
+- Swallowed agents are not in `world.agents` or any room's list, but `world.everyone()`
+  includes them. `world.swallowedIn(room)` returns the prey inside the predators on that
+  camera, and `world.vore.active` lists every ingestion. `exposed` (agents and creatures)
+  and `Creature.contained`/`onCamera` are false for swallowed prey, so the usual "can be
+  targeted" checks already skip them.
+- Vore runs from `World.update` (`vore.update(dt)` right after statuses tick, and
+  `vore.sync()` once everyone has moved), not from `Agent.update`, which many tests drive
+  against stub worlds. Randomness goes through [`random.ts`](../src/lib/sim/random.ts).
+- To customize: `VORE_TYPES` (label, weight, converted status, remains `look`, per-type
+  multipliers; a new way also needs a `VoreType` and a status in `STATUS_EFFECTS`),
+  `VORE_TUNING` (every number above; exported and mutable for tests and difficulty
+  settings), `INSIDE_ACTIONS` (add `{ id, label, weight, duration, escapeChance? }` for more
+  things prey can do), `ABSORPTION_HOOKS` (push a listener taking `{ predator, prey, type }`
+  for bonus effects such as a slime growing), and `SIM_OVERRIDES[id].vore` (`types`,
+  `anySize` and `capacity` for one character).
 
 #### Breakage Particles
 

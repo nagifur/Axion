@@ -137,6 +137,7 @@ test('entity eligibility uses profile type and containment class, independent of
   assert.deepEqual(convert({ type: ' creature ', height: '1.9 m', colorTint: '#abcdef', wanted: { status: 'Escaped' } }), {
     id: 'custom', name: 'C-100', nickname: 'Echo', containmentClass: 'Containment', species: 'Lizard',
     href: '/base/Entities/custom', image: 'portrait.webp', tint: '#abcdef', scale: 0.85, stats: DEFAULT_STATS,
+    heightMeters: 1.9, vore: { role: 'none', anySize: false, capacity: 1 },
   });
   for (const containmentClass of ['Ally', ' A ', 'Class A', 'Class A - Ally']) assert.equal(convert({ containmentClass }), null);
   for (const type of ['Artifact', 'Plant']) assert.equal(convert({ type }), null);

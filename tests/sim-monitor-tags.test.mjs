@@ -47,7 +47,7 @@ function setup(t) {
   const agent = new Agent({
     name: 'Tester', tint: '#fff', scale: 1, behavior: { speed: 1 },
   }, room, { x: 200, y: 120 });
-  const world = { agents: [agent], actorsIn() { return this.agents; } };
+  const world = { agents: [agent], actorsIn() { return this.agents; }, swallowedIn() { return []; } };
   let visible = true;
   const renderer = { isVisible: () => visible, headPosition: () => ({ x: 200, y: 50 }) };
   const state = { viewed: room, showAll: false, hovered: null, selected: null };
@@ -171,6 +171,25 @@ test('Dead artwork and accessible popup persist for both staff and creatures', a
   creature.statuses.update({}, 100);
   sync();
   assert.equal(creatureButton.children[0].children.length, 1);
+});
+
+test('swallowed prey keep a tag with an artless acid popup until they are out', (t) => {
+  const { agent, world, layer, sync } = setup(t);
+  const prey = new Agent({ name: 'Meal', tint: '#fff', scale: 1, behavior: { speed: 1 } }, agent.room, { x: 200, y: 120 });
+  prey.statuses.apply('acid');
+  world.swallowedIn = () => [prey];
+  sync();
+  const tag = layer.children[1];
+  assert.equal(tag.getAttribute('aria-label'), 'Meal. Acid. Open file');
+  const popup = tag.children[0].children[0];
+  assert.equal(popup.properties.get('--status-color'), STATUS_EFFECTS.acid.popup.color);
+  assert.equal(popup.properties.get('--status-background'), STATUS_EFFECTS.acid.popup.background);
+  assert.equal(popup.children.length, 1);
+  assert.equal(popup.children[0].className, 'monitor-tag-status-mark', 'a plain colored mark until it gets artwork');
+  assert.equal(popup.children[0].src, undefined);
+  world.swallowedIn = () => [];
+  sync();
+  assert.equal(tag.removed, true);
 });
 
 test('the death skull renders white and fills the 16px popup icon without clipping', async () => {
