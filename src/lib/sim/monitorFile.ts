@@ -78,7 +78,7 @@ export class MonitorFile {
     }
     const titleBlock = el('div', 'monitor-file-title');
     titleBlock.append(
-      el('p', 'panel-kicker', creature ? `Entity file · ${creature.consumed ? 'Absorbed' : creature.swallowed ? 'Swallowed' : creature.contained || creature.away ? 'Cell resident' : 'Containment breach'} · ID ${creature.character.name}` : revealed ? `Entity file · Escaped · ID ${revealed.name}` : `${character.href ? 'Personnel file' : 'Facility badge'} · ID ${agent!.character.employeeID}`),
+      el('p', 'panel-kicker', entity ? `Entity file · ID ${entity.name}` : `${character.href ? 'Personnel file' : 'Facility badge'} · ID ${agent!.character.employeeID}`),
       el('h3', undefined, entity ? entityDisplayName(entity) : character.name),
       el('p', 'monitor-file-role', creature ? `${creature.character.containmentClass} class` :
         revealed ? `Shapeshifter posing as ${character.name}` : agent!.character.position),

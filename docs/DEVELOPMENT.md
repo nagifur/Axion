@@ -622,7 +622,7 @@ walkable floor, even off camera. They count for lights and camera occupancy;
 select their sprites or name tags to see their activity and entity database link.
 Creature (and unmasked shapeshifter) name tags and file headings show the entity's
 nickname, falling back to its ID (e.g. `C-331`) when it has none; the file kicker
-always lists the ID next to the containment status.
+reads `Entity file · ID …` like staff badges, with containment state under Status.
 They cannot be dragged, take staff jobs, or use elevators. Cells do not
 count towards staff population or serve as initial spawn or work rooms, though
 staff can still visit through linked doors.
