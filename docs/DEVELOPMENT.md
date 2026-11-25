@@ -175,7 +175,13 @@ accept any `{ stats: LiveStats }`.
 Impostors use their entity profile's stats, not the copied staff profile's.
 Contained creatures use the same entity profile's stats.
 The selected-agent or creature panel updates live values without rebuilding the file.
-Stamina, magic, hunger, and thirst don't change yet. HP changes only through events:
+Stamina drains while running: agents moving faster than walking pace (fleeing, chasing,
+stalking, hurrying out) and creatures dashing (escapes, attacks, hunts, fleeing) spend
+`STAMINA_DRAIN_PER_SECOND`, and recover `STAMINA_RECOVERY_PER_SECOND` whenever they are
+not running. At zero, `stats.stamina.exhausted` is set and they move at walking (agents)
+or pacing (creatures) speed until stamina recovers to `STAMINA_RECOVERY_THRESHOLD` (30%)
+of max. Use `spendStamina`/`recoverStamina` from `stats.ts` rather than editing the pool.
+Magic, hunger, and thirst don't change yet. HP changes only through events:
 creature attacks and swallowing acid lower it, absorbing prey restores it, and zero HP
 is fatal (see [Status Effects](#status-effects) and [The Vore System](#the-vore-system)).
 Values last only for that agent or creature instance, not across spawns or reloads.

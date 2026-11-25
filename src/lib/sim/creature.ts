@@ -6,7 +6,7 @@ import { distance } from './navMap.ts';
 import { IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './sprites.ts';
 import type { Agent } from './agent.ts';
 import { wait } from './tasks.ts';
-import { createLiveStats, hasMagic, type LiveStats } from './stats.ts';
+import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { StatusEffects } from './statusEffects.ts';
 import { VORE_TUNING, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
 
@@ -85,6 +85,7 @@ export class Creature {
   private elapsed = 0;
   private distance = 0;
   private walking = false;
+  private dashed = false;
   private attackCooldown = 0;
   private layout: Room['props'];
   /** Doors already seen standing fully open, so each opening is only considered once. */
@@ -266,7 +267,7 @@ export class Creature {
         plan.path = this.room.route(this, plan.target) ?? [];
         plan.reroute = 0.5;
       }
-      if (!this.follow(plan.path, DASH_SPEED, dt)) plan.path = [];
+      if (!this.follow(plan.path, this.dashSpeed(dt), dt)) plan.path = [];
     }
     if (distance(this, plan.target) <= ATTACK_REACH) {
       this.face(plan.target.x - this.x, plan.target.y - this.y);
@@ -300,7 +301,7 @@ export class Creature {
           return;
         }
       }
-      if (!this.follow(plan.path, DASH_SPEED, dt)) plan.path = [];
+      if (!this.follow(plan.path, this.dashSpeed(dt), dt)) plan.path = [];
     }
     if (distance(this, target) <= VORE_TUNING.reach) {
       this.face(target.x - this.x, target.y - this.y);
@@ -450,8 +451,21 @@ export class Creature {
     else world.log(`${name} "${nickname}" slipped into the ${room.name}.`, 'warn');
   }
 
+  /** Dashing costs stamina; an exhausted creature can only manage its pacing speed. */
+  private dashSpeed(dt: number): number {
+    if (!spendStamina(this.stats, dt)) return PACE_SPEED;
+    this.dashed = true;
+    return DASH_SPEED;
+  }
+
   update(world: World, dt: number) {
     if (this.dead || !this.onCamera || !dt) return;
+    this.dashed = false;
+    this.act(world, dt);
+    if (!this.dashed) recoverStamina(this.stats, dt);
+  }
+
+  private act(world: World, dt: number) {
     this.elapsed += dt;
     this.walking = false;
     const attackDt = Math.max(0, dt - this.attackCooldown);
@@ -506,7 +520,7 @@ export class Creature {
     }
 
     if (plan.action === 'pace' || plan.action === 'flee') {
-      if (!this.follow(plan.path, plan.action === 'flee' ? DASH_SPEED : PACE_SPEED, dt) || !plan.path.length) {
+      if (!this.follow(plan.path, plan.action === 'flee' ? this.dashSpeed(dt) : PACE_SPEED, dt) || !plan.path.length) {
         this.plan = { action: 'watch', remaining: range(1, 4) };
       }
       return;
@@ -515,7 +529,7 @@ export class Creature {
     if (plan.action === 'enter') {
       const { door } = plan;
       const total = Math.max(1, distance(door.outside, door.inside));
-      const reached = this.stepToward(door.inside, DASH_SPEED, dt);
+      const reached = this.stepToward(door.inside, this.dashSpeed(dt), dt);
       this.alpha = Math.min(1, 1 - distance(door.inside, this) / total);
       if (reached) {
         this.alpha = 1;
@@ -528,7 +542,7 @@ export class Creature {
     const { door } = plan;
     if (!plan.crossing) {
       if (plan.path.length) {
-        if (!this.follow(plan.path, DASH_SPEED, dt)) this.plan = { action: 'watch', remaining: range(1, 4) };
+        if (!this.follow(plan.path, this.dashSpeed(dt), dt)) this.plan = { action: 'watch', remaining: range(1, 4) };
         return;
       }
       if (!this.passable(world, door)) {
@@ -543,7 +557,7 @@ export class Creature {
       plan.crossing = true;
     }
     const total = Math.max(1, distance(door.outside, door.inside));
-    const reached = this.stepToward(door.outside, DASH_SPEED, dt);
+    const reached = this.stepToward(door.outside, this.dashSpeed(dt), dt);
     this.alpha = Math.max(0, distance(door.outside, this) / total);
     if (reached) this.cross(world, door);
   }

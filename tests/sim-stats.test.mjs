@@ -3,7 +3,7 @@ import test from 'node:test';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { Creature } from '../src/lib/sim/creature.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { DEFAULT_STATS, createLiveStats, resolveStats } from '../src/lib/sim/stats.ts';
+import { DEFAULT_STATS, STAMINA_DRAIN_PER_SECOND, STAMINA_RECOVERY_PER_SECOND, STAMINA_RECOVERY_THRESHOLD, createLiveStats, recoverStamina, resolveStats, spendStamina } from '../src/lib/sim/stats.ts';
 import { toSimCharacter, toSimCreature, toSimImpostor } from '../src/lib/sim/roster.ts';
 
 const personnel = (stats) => ({
@@ -27,7 +27,7 @@ test('default capacities start resources full, needs satisfied, and magic disabl
   const agent = new Agent(character, {}, { x: 0, y: 0 });
   assert.deepEqual(agent.stats, {
     hp: { current: 100, max: 100 },
-    stamina: { current: 100, max: 100 },
+    stamina: { current: 100, max: 100, exhausted: false },
     magic: { current: 0, max: 0 },
     hunger: { current: 0, max: 100 },
     thirst: { current: 0, max: 100 },
@@ -107,7 +107,7 @@ test('invalid capacities fail explicitly rather than silently defaulting', () =>
   assert.equal(resolveStats({ magic: 0 }).magic, 0);
 });
 
-test('updates do not automatically drain or restore live stat pools', () => {
+test('updates do not automatically drain or restore HP or needs', () => {
   const agent = new Agent(toSimCharacter(personnel()), {}, { x: 0, y: 0 });
   agent.stats.hp.current = 0;
   agent.stats.stamina.current = 20;
@@ -116,6 +116,58 @@ test('updates do not automatically drain or restore live stat pools', () => {
   const before = structuredClone(agent.stats);
   agent.setPlan({}, [{ activity: 'Waiting', interruptible: true, update: () => false }]);
   agent.update({}, 60);
-  assert.deepEqual(agent.stats, before);
+  assert.deepEqual(agent.stats, before, 'the dead do not recover stamina either');
   assert.equal(agent.removed, false);
+});
+
+test('running drains stamina and exhaustion forces walking until 30% recovers', () => {
+  const agent = new Agent(toSimCharacter(personnel()), {}, { x: 0, y: 0 });
+  const runSpeed = agent.movementSpeed(2);
+  const walkSpeed = agent.movementSpeed(1);
+  const far = { x: 100000, y: 0 };
+  let x = agent.x;
+  agent.moveToward(far, 1, 2);
+  assert.equal(agent.x - x, runSpeed);
+  assert.equal(agent.stats.stamina.current, 100 - STAMINA_DRAIN_PER_SECOND);
+
+  agent.moveToward(far, 100 / STAMINA_DRAIN_PER_SECOND, 2);
+  assert.equal(agent.stats.stamina.current, 0);
+  assert.equal(agent.stats.stamina.exhausted, true);
+  x = agent.x;
+  agent.moveToward(far, 1, 2);
+  assert.equal(agent.x - x, walkSpeed, 'exhausted agents walk instead of running');
+  assert.equal(agent.stats.stamina.current, 0);
+
+  const resting = { activity: 'Resting', interruptible: true, update: () => false };
+  agent.setPlan({}, [resting]);
+  agent.update({}, 0);
+  agent.update({}, (100 * STAMINA_RECOVERY_THRESHOLD) / STAMINA_RECOVERY_PER_SECOND - 0.5);
+  assert.equal(agent.stats.stamina.exhausted, true, 'still exhausted below the threshold');
+  x = agent.x;
+  agent.moveToward(far, 0.1, 2);
+  assert.ok(Math.abs(agent.x - x - walkSpeed * 0.1) < 1e-9);
+  agent.update({}, 1);
+  assert.equal(agent.stats.stamina.exhausted, false);
+  x = agent.x;
+  agent.moveToward(far, 0.1, 2);
+  assert.ok(Math.abs(agent.x - x - runSpeed * 0.1) < 1e-9, 'running resumes at the threshold');
+});
+
+test('walking neither drains nor blocks stamina recovery', () => {
+  const agent = new Agent(toSimCharacter(personnel()), {}, { x: 0, y: 0 });
+  agent.stats.stamina.current = 50;
+  agent.setPlan({}, [{ activity: 'Walking', interruptible: true, update: (a, _w, dt) => a.moveToward({ x: 1000, y: 0 }, dt) }]);
+  agent.update({}, 1);
+  assert.equal(agent.stats.stamina.current, 50 + STAMINA_RECOVERY_PER_SECOND);
+  agent.update({}, 100);
+  assert.equal(agent.stats.stamina.current, 100);
+});
+
+test('creatures spend stamina while dashing and recover while idle', () => {
+  const stats = createLiveStats();
+  assert.equal(spendStamina(stats, 100 / STAMINA_DRAIN_PER_SECOND), true);
+  assert.equal(stats.stamina.exhausted, true);
+  assert.equal(spendStamina(stats, 1), false);
+  recoverStamina(stats, 1000);
+  assert.deepEqual(stats.stamina, { current: 100, max: 100, exhausted: false });
 });

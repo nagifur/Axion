@@ -3,7 +3,7 @@ import type { Door, Facing, Point, Room, Spot } from './room.ts';
 import { CHARACTER_FRAMES, HOLD_ITEM_CYCLE, IDLE_CYCLES, IDLE_FRAME_SECONDS, SIT_CYCLES, TALK_RIGHT_CYCLE, TRIP_CYCLE, USE_ITEM_CYCLE, WALK_CYCLES, WALK_STRIDE, type FrameName } from './sprites.ts';
 import type { World } from './world.ts';
 import { accessCardLevel, ITEM_REACH, Item, startingItemTypes } from './item.ts';
-import { createLiveStats, hasMagic, type LiveStats } from './stats.ts';
+import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { isSpeaking, type Conversation } from './conversation.ts';
 import { planNext } from './planning.ts';
 import { planRepair, type RepairTarget } from './repairs.ts';
@@ -68,6 +68,7 @@ export class Agent {
   walkDistance = 0;
   private idleElapsed = 0;
   private taskElapsed = 0;
+  private ranThisFrame = false;
   layer: 'room' | 'inside' = 'room';
   alpha = 1;
 
@@ -330,6 +331,18 @@ export class Agent {
   }
 
   moveToward(target: Point, dt: number, speedMul = 1): boolean {
+    return this.step(target, dt, this.runningSpeed(speedMul, dt));
+  }
+
+  /** Running (speedMul above 1) costs stamina; an exhausted agent drops to walking pace. */
+  private runningSpeed(speedMul: number, dt: number): number {
+    if (speedMul <= 1 || this.incapacitated || dt <= 0) return speedMul;
+    if (!spendStamina(this.stats, dt)) return 1;
+    this.ranThisFrame = true;
+    return speedMul;
+  }
+
+  private step(target: Point, dt: number, speedMul: number): boolean {
     if (this.incapacitated) return false;
     const dx = target.x - this.x;
     const dy = target.y - this.y;
@@ -357,11 +370,12 @@ export class Agent {
 
   /** Consumes reached waypoints, carrying unused frame time into the next segment. */
   moveAlongPath(path: Point[], dt: number, speedMul = 1): boolean {
+    speedMul = this.runningSpeed(speedMul, dt);
     const speed = this.movementSpeed(speedMul);
     let remaining = Math.max(0, dt);
     while (path.length) {
       const distance = Math.hypot(path[0].x - this.x, path[0].y - this.y);
-      if (!this.moveToward(path[0], remaining, speedMul)) return false;
+      if (!this.step(path[0], remaining, speedMul)) return false;
       path.shift();
       if (distance > 0) remaining = Math.max(0, remaining - distance / speed);
       if (remaining === 0) break;
@@ -372,6 +386,9 @@ export class Agent {
   update(world: World, dt: number, blockedSeconds = 0) {
     this.finishDeath(world);
     this.moving = false;
+    // Running happens inside task updates, so recover based on whether the last frame ran.
+    if (!this.ranThisFrame && !this.dead) recoverStamina(this.stats, dt);
+    this.ranThisFrame = false;
     if (this.bubbleTimer > 0) {
       this.bubbleTimer -= dt;
       if (this.bubbleTimer <= 0 && !this.napping) this.bubble = null;
