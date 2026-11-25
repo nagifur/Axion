@@ -627,6 +627,19 @@ and the guard returns to the elevator. Disguised residents and off-camera
 escapees are not dispatch targets. A loose or escorted shapeshifter is not
 chosen for impostor events.
 
+Creatures can randomly attack staff or security in the same room, including visitors
+to their cell. `ATTACK_CHANCE` in [`creature.ts`](../src/lib/sim/creature.ts) gives
+the chance to start an attack per simulation second: Safe (S) 0.5%, Containment (C,
+also the fallback for unknown classes) 2.5%, and Maximum Containment (M) 8%.
+Rolls scale with elapsed time, not frame count, and select one reachable, living
+target on the room floor. Held agents, ghosts, impostors and doorway fades are
+excluded. The creature approaches for up to ten seconds and strikes within 14 room
+pixels, dealing 10 HP damage with normal death handling; survivors recover for
+three seconds. Hits and abandoned pursuits have a five-second cooldown. Attacks
+do not interrupt escapes, fleeing or escorts (escort resistance remains separate).
+Target eligibility is shared between selection and pursuit; hunger and proximity
+triggers are not implemented yet.
+
 Staff react to a loose creature in their room
 ([`creatureReactions.ts`](../src/lib/sim/creatureReactions.ts)) once per sighting;
 the sighting resets when either of them leaves the room. Impostors and agents that

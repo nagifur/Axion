@@ -9,6 +9,8 @@ import { World } from '../src/lib/sim/world.ts';
 import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
 import { CHARACTER_FRAMES, frameWithIdleFallback } from '../src/lib/sim/sprites.ts';
 import { DEFAULT_STATS } from '../src/lib/sim/stats.ts';
+import { Agent } from '../src/lib/sim/agent.ts';
+import { Creature } from '../src/lib/sim/creature.ts';
 
 const data = { title: 'C-100', nickname: 'Echo', containmentClass: 'Containment', type: 'Creature', species: 'Lizard' };
 const profile = (id) => toSimCreature({ id, data });
@@ -20,6 +22,115 @@ const seed = (t, n) => {
   setRandomSource(seededRandom(n));
   t.after(() => setRandomSource(null));
 };
+
+function attackSetup(t, containmentClass = 'M', roll = 0) {
+  seed(t, 42);
+  const home = room('home');
+  const hall = room('hall', false);
+  const world = new World({ rooms: [home, hall], roster: [], creatureRoster: [] });
+  const creature = new Creature(toSimCreature({ id: 'attacker', data: { ...data, containmentClass } }), home);
+  world.creatures.push(creature);
+  const agent = new Agent(toSimCharacter({ id: 'target', data: {
+    title: 'Target', position: 'Researcher', species: 'Human', accessLevel: 3, employeeID: 1,
+    positiveTraits: [], negativeTraits: [],
+  } }), home, { x: 50, y: 80 });
+  world.agents.push(agent);
+  creature.x = 40;
+  creature.y = 80;
+  const logs = [];
+  world.hooks.log = (text, tone) => logs.push({ text, tone });
+  setRandomSource(() => roll);
+  return { world, creature, agent, home, hall, logs };
+}
+
+test('random attack decisions increase from Safe to Containment to Maximum classes', (t) => {
+  for (const [containmentClass, roll, attacks] of [
+    ['Safe', 0.004, true], ['Class S', 0.01, false],
+    ['Containment', 0.01, true], ['C', 0.05, false],
+    ['Maximum Containment', 0.05, true], ['Class M', 0.09, false],
+    ['Unassigned', 0.01, true],
+  ]) {
+    const { world, creature, agent } = attackSetup(t, containmentClass, roll);
+    creature.update(world, 1);
+    assert.equal(agent.stats.hp.current, attacks ? 90 : 100, `${containmentClass}, roll ${roll}`);
+  }
+});
+
+test('attack rolls scale with elapsed time and pause at zero dt', (t) => {
+  for (const [dt, attacks] of [[0, false], [0.5, false], [1, true], [2, true]]) {
+    const { world, creature, agent } = attackSetup(t, 'M', 0.06);
+    creature.update(world, dt);
+    assert.equal(agent.stats.hp.current, attacks ? 90 : 100, `dt ${dt}`);
+  }
+});
+
+test('attacks approach before striking, injure security too, and respect cooldown', (t) => {
+  const { world, creature, agent, home, logs } = attackSetup(t);
+  agent.x = 160;
+  agent.security = { post: home, relieved: false };
+  creature.update(world, 0.1);
+  assert.equal(agent.stats.hp.current, 100, 'no damage from across the room');
+  assert.equal(creature.activity, 'Attacking Target');
+  for (let i = 0; i < 30 && agent.stats.hp.current === 100; i++) creature.update(world, 0.1);
+  assert.equal(agent.stats.hp.current, 90);
+  assert.equal(agent.activity, "Recovering from C-100's attack");
+  assert.equal(agent.bubble, '!');
+  assert.ok(logs.some(({ text, tone }) => text.includes('causing 10 HP damage') && tone === 'alert'));
+  for (let i = 0; i < 49; i++) creature.update(world, 0.1);
+  assert.equal(agent.stats.hp.current, 90, 'cannot strike repeatedly during cooldown');
+});
+
+test('attack damage uses normal death handling and does not attack a corpse again', (t) => {
+  const { world, creature, agent } = attackSetup(t);
+  agent.stats.hp.current = 5;
+  creature.update(world, 0.1);
+  assert.equal(agent.stats.hp.current, 0);
+  assert.equal(agent.dead, true);
+  assert.equal(agent.activity, 'Dead');
+  creature.update(world, 6);
+  assert.equal(creature.activity.startsWith('Attacking'), false);
+});
+
+test('attack eligibility excludes absent, held, disguised, ghost and transitioning targets', (t) => {
+  for (const change of [
+    ({ agent }) => { agent.removed = true; },
+    ({ agent }) => { agent.held = true; },
+    ({ agent }) => { agent.impostor = {}; },
+    ({ agent }) => { agent.character.behavior.ghost = true; },
+    ({ agent }) => { agent.alpha = 0.5; },
+    ({ agent }) => { agent.layer = 'transport'; },
+    ({ agent, hall }) => { agent.room = hall; },
+    ({ agent }) => { agent.stats.hp.current = 0; },
+    ({ home }) => { home.canReach = () => false; },
+    ({ creature }) => { creature.away = true; },
+    ({ creature }) => { creature.escaped = true; },
+    ({ creature }) => { creature.stats.hp.current = 0; },
+    ({ creature }) => { creature.alpha = 0.5; },
+  ]) {
+    const setup = attackSetup(t);
+    change(setup);
+    const hp = setup.agent.stats.hp.current;
+    setup.creature.update(setup.world, 1);
+    assert.equal(setup.agent.stats.hp.current, hp);
+    assert.equal(setup.creature.activity.startsWith('Attacking'), false);
+  }
+});
+
+test('an attack is abandoned if its target leaves or becomes unreachable', (t) => {
+  for (const change of [
+    ({ agent, hall }) => { agent.room = hall; },
+    ({ home }) => { home.canReach = () => false; },
+  ]) {
+    const setup = attackSetup(t);
+    setup.agent.x = 160;
+    setup.creature.update(setup.world, 0.1);
+    assert.equal(setup.creature.activity, 'Attacking Target');
+    change(setup);
+    setup.creature.update(setup.world, 1);
+    assert.equal(setup.agent.stats.hp.current, 100);
+    assert.equal(setup.creature.activity.startsWith('Attacking'), false);
+  }
+});
 
 test('entity eligibility uses profile type and containment class, independent of shapeshifting or wanted flags', () => {
   const convert = (changes) => toSimCreature({ id: 'custom.md', data: { ...data, ...changes } }, '/base', 'portrait.webp');

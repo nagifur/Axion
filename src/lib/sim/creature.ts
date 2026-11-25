@@ -11,7 +11,9 @@ import { StatusEffects } from './statusEffects.ts';
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
-  | { action: 'pace' | 'flee'; path: Point[] }
+  | { action: 'pace'; path: Point[] }
+  | { action: 'flee'; path: Point[] }
+  | { action: 'attack'; target: Agent; path: Point[]; reroute: number; remaining: number }
   /** Dashes to a door, waits briefly if it is too far closed, then slips through it. */
   | { action: 'escape'; door: Door; path: Point[]; waited: number; crossing: boolean }
   /** Fades in from the doorway it arrived through. */
@@ -26,6 +28,11 @@ const DASH_SPEED = 60;
 export const ESCAPE_CHANCE = { maximum: 0.4, containment: 0.06, safe: 0.03 };
 /** Probability of breaking an escort's grasp over one second on open floor. */
 export const RESIST_CHANCE = { maximum: 0.04, containment: 0.015, safe: 0.005 };
+/** Probability of starting an attack over one second with an eligible target in the room. */
+export const ATTACK_CHANCE = { maximum: 0.08, containment: 0.025, safe: 0.005 };
+const ATTACK_REACH = 14;
+const ATTACK_COOLDOWN_SECONDS = 5;
+const ATTACK_PURSUIT_SECONDS = 10;
 /** Once out, chance of going for each door seen swinging fully open. */
 const LOOSE_NOTICE_CHANCE = 0.6;
 /** Once out, chance of heading for a passable door whenever it picks something new to do. */
@@ -71,6 +78,7 @@ export class Creature {
   private elapsed = 0;
   private distance = 0;
   private walking = false;
+  private attackCooldown = 0;
   private layout: Room['props'];
   /** Doors already seen standing fully open, so each opening is only considered once. */
   private readonly noticed = new Set<Door>();
@@ -118,6 +126,7 @@ export class Creature {
     if (this.away) return 'Away from cell';
     if (this.escaped) return 'Escaped the facility';
     if (this.escort) return `Being escorted to ${this.home.name}`;
+    if (this.plan.action === 'attack') return `Attacking ${this.plan.target.character.name}`;
     if (this.plan.action === 'flee') return 'Running away from security';
     if (this.plan.action === 'escape') return this.contained ? 'Escaping the cell' : 'Slipping through a door';
     if (this.plan.action === 'enter') return 'Slipping through a door';
@@ -166,16 +175,7 @@ export class Creature {
     this.releaseEscort();
     this.layout = this.room.props;
     this.noticed.clear();
-    guard.stats.hp.current = Math.max(0, guard.stats.hp.current - 10);
-    guard.finishDeath(world);
-    guard.moving = false;
-    const activity = `Recovering from ${this.character.name}'s attack`;
-    if (!guard.dead) {
-      guard.shake = 0.6;
-      guard.say('!', 3);
-      guard.setPlan(world, [{ ...wait(3, activity), interruptible: false }]);
-      guard.activity = activity;
-    }
+    this.injure(world, guard);
     world.log(`${this.character.name} broke free from ${guard.character.name}'s grasp in the ${this.room.name}, injuring the guard!`, 'alert');
 
     const doors = this.room.doors.filter((door) => this.canUse(world, door) && this.passable(world, door));
@@ -196,9 +196,65 @@ export class Creature {
     if (path?.length) this.plan = { action: 'flee', path };
   }
 
+  private injure(world: World, target: Agent) {
+    this.attackCooldown = ATTACK_COOLDOWN_SECONDS;
+    target.stats.hp.current = Math.max(0, target.stats.hp.current - 10);
+    target.finishDeath(world);
+    target.moving = false;
+    if (!target.dead) {
+      const activity = `Recovering from ${this.character.name}'s attack`;
+      target.shake = 0.6;
+      target.say('!', 3);
+      target.setPlan(world, [{ ...wait(3, activity), interruptible: false }]);
+      target.activity = activity;
+    }
+  }
+
+  /** Shared eligibility for selection and pursuit; future attack triggers can build on this. */
+  private canAttack(target: Agent) {
+    return !target.dead && !target.removed && !target.held && !target.impostor && !target.ghost &&
+      target.room === this.room && target.layer === 'room' && target.alpha >= 1 &&
+      this.room.isWalkable(target) && this.room.canReach(this, target);
+  }
+
+  private noticeAgents(world: World, dt: number) {
+    if (dt <= 0 || this.alpha < 1 || this.escaping || this.plan.action === 'flee' || this.plan.action === 'attack') return;
+    const probability = ATTACK_CHANCE[containmentTier(this.character.containmentClass)];
+    if (probability <= 0) return;
+    const targets = world.agentsIn(this.room).filter((target) => this.canAttack(target));
+    if (!targets.length || !chance(1 - (1 - probability) ** dt)) return;
+    const target = pick(targets);
+    this.plan = { action: 'attack', target, path: [], reroute: 0, remaining: ATTACK_PURSUIT_SECONDS };
+    world.log(`${this.character.name} is attacking ${target.character.name} in the ${this.room.name}!`, 'alert');
+  }
+
+  private pursueAttack(world: World, plan: Extract<Plan, { action: 'attack' }>, dt: number) {
+    plan.remaining -= dt;
+    if (!this.canAttack(plan.target) || plan.remaining <= 0) {
+      this.attackCooldown = ATTACK_COOLDOWN_SECONDS;
+      this.plan = { action: 'watch', remaining: 2 };
+      return;
+    }
+    if (distance(this, plan.target) > ATTACK_REACH) {
+      plan.reroute -= dt;
+      if (!plan.path.length || plan.reroute <= 0) {
+        plan.path = this.room.route(this, plan.target) ?? [];
+        plan.reroute = 0.5;
+      }
+      if (!this.follow(plan.path, DASH_SPEED, dt)) plan.path = [];
+    }
+    if (distance(this, plan.target) <= ATTACK_REACH) {
+      this.face(plan.target.x - this.x, plan.target.y - this.y);
+      this.walking = false;
+      this.injure(world, plan.target);
+      world.log(`${this.character.name} attacked ${plan.target.character.name} in the ${this.room.name}, causing 10 HP damage!`, 'alert');
+      this.plan = { action: 'watch', remaining: 2 };
+    }
+  }
+
   /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash. */
   hold(seconds: number, toward: Point) {
-    if (this.dead || this.escort || this.escaping || this.plan.action === 'flee') return;
+    if (this.dead || this.escort || this.escaping || this.plan.action === 'flee' || this.plan.action === 'attack') return;
     this.walking = false;
     this.plan = { action: 'watch', remaining: seconds };
     if (Math.abs(toward.x - this.x) >= 2) this.facing = toward.x < this.x ? 'left' : 'right';
@@ -248,7 +304,7 @@ export class Creature {
       const failure = this.contained && world.passageDoorFor(door)?.forcedOpen;
       if (this.noticed.has(door) && !failure) continue;
       this.noticed.add(door);
-      if (this.escaping || !this.canUse(world, door)) continue;
+      if (this.escaping || this.plan.action === 'attack' || !this.canUse(world, door)) continue;
       if (!failure && !chance(this.contained ? escapeChance(this.character.containmentClass) : LOOSE_NOTICE_CHANCE)) continue;
       const plan = this.headFor(door);
       if (!plan) continue;
@@ -329,6 +385,8 @@ export class Creature {
     if (this.dead || !this.onCamera || !dt) return;
     this.elapsed += dt;
     this.walking = false;
+    const attackDt = Math.max(0, dt - this.attackCooldown);
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     if (this.escort) {
       const guard = this.escort;
       this.room = guard.room;
@@ -359,7 +417,13 @@ export class Creature {
       this.plan = this.nextPlan(world);
     }
     if (this.plan.action !== 'flee') this.noticeDoors(world);
+    this.noticeAgents(world, attackDt);
     const plan = this.plan;
+
+    if (plan.action === 'attack') {
+      this.pursueAttack(world, plan, dt);
+      return;
+    }
 
     if ('remaining' in plan) {
       plan.remaining -= dt;

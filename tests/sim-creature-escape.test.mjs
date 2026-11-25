@@ -6,7 +6,7 @@ import { Room } from '../src/lib/sim/room.ts';
 import { loadFacility } from '../src/lib/sim/roomLoader.ts';
 import { World } from '../src/lib/sim/world.ts';
 import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
-import { ESCAPE_CHANCE, RESIST_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
+import { ATTACK_CHANCE, ESCAPE_CHANCE, RESIST_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
 import { PassageDoor } from '../src/lib/sim/door.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
 import { exitThroughDoor } from '../src/lib/sim/transport.ts';
@@ -26,12 +26,15 @@ function setup(t, seed, containmentClass, count = 1) {
   setRandomSource(seededRandom(seed));
   const original = { ...ESCAPE_CHANCE };
   const resistance = { ...RESIST_CHANCE };
+  const attacks = { ...ATTACK_CHANCE };
   ESCAPE_CHANCE.maximum = 1;
   Object.assign(RESIST_CHANCE, { maximum: 0, containment: 0, safe: 0 });
+  Object.assign(ATTACK_CHANCE, { maximum: 0, containment: 0, safe: 0 });
   t.after(() => {
     setRandomSource(null);
     Object.assign(ESCAPE_CHANCE, original);
     Object.assign(RESIST_CHANCE, resistance);
+    Object.assign(ATTACK_CHANCE, attacks);
   });
   return loadFacility().then((data) => {
     const world = new World({ rooms: data.map((room) => new Room(room)), roster: [],
