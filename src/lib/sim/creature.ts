@@ -451,9 +451,9 @@ export class Creature {
     else world.log(`${name} "${nickname}" slipped into the ${room.name}.`, 'warn');
   }
 
-  /** Dashing costs stamina; an exhausted creature can only manage its pacing speed. */
+  /** Dashing costs stamina; an `exhausted` creature can only manage its pacing speed. */
   private dashSpeed(dt: number): number {
-    if (!spendStamina(this.stats, dt)) return PACE_SPEED;
+    if (!spendStamina(this, dt)) return PACE_SPEED;
     this.dashed = true;
     return DASH_SPEED;
   }

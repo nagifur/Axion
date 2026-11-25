@@ -3,7 +3,8 @@ import test from 'node:test';
 import { Agent } from '../src/lib/sim/agent.ts';
 import { Creature } from '../src/lib/sim/creature.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { DEFAULT_STATS, STAMINA_DRAIN_PER_SECOND, STAMINA_RECOVERY_PER_SECOND, STAMINA_RECOVERY_THRESHOLD, createLiveStats, recoverStamina, resolveStats, spendStamina } from '../src/lib/sim/stats.ts';
+import { EXHAUSTED_SECONDS } from '../src/lib/sim/statusEffects.ts';
+import { DEFAULT_STATS, STAMINA_DRAIN_PER_SECOND, STAMINA_RECOVERY_PER_SECOND, createLiveStats, recoverStamina, resolveStats, spendStamina } from '../src/lib/sim/stats.ts';
 import { toSimCharacter, toSimCreature, toSimImpostor } from '../src/lib/sim/roster.ts';
 
 const personnel = (stats) => ({
@@ -27,7 +28,7 @@ test('default capacities start resources full, needs satisfied, and magic disabl
   const agent = new Agent(character, {}, { x: 0, y: 0 });
   assert.deepEqual(agent.stats, {
     hp: { current: 100, max: 100 },
-    stamina: { current: 100, max: 100, exhausted: false },
+    stamina: { current: 100, max: 100 },
     magic: { current: 0, max: 0 },
     hunger: { current: 0, max: 100 },
     thirst: { current: 0, max: 100 },
@@ -120,7 +121,7 @@ test('updates do not automatically drain or restore HP or needs', () => {
   assert.equal(agent.removed, false);
 });
 
-test('running drains stamina and exhaustion forces walking until 30% recovers', () => {
+test('running to zero stamina applies exhausted, which forces walking until it wears off', () => {
   const agent = new Agent(toSimCharacter(personnel()), {}, { x: 0, y: 0 });
   const runSpeed = agent.movementSpeed(2);
   const walkSpeed = agent.movementSpeed(1);
@@ -129,28 +130,21 @@ test('running drains stamina and exhaustion forces walking until 30% recovers', 
   agent.moveToward(far, 1, 2);
   assert.equal(agent.x - x, runSpeed);
   assert.equal(agent.stats.stamina.current, 100 - STAMINA_DRAIN_PER_SECOND);
+  assert.equal(agent.statuses.has('exhausted'), false);
 
   agent.moveToward(far, 100 / STAMINA_DRAIN_PER_SECOND, 2);
   assert.equal(agent.stats.stamina.current, 0);
-  assert.equal(agent.stats.stamina.exhausted, true);
+  assert.equal(agent.statuses.get('exhausted')?.remaining, EXHAUSTED_SECONDS);
   x = agent.x;
   agent.moveToward(far, 1, 2);
   assert.equal(agent.x - x, walkSpeed, 'exhausted agents walk instead of running');
   assert.equal(agent.stats.stamina.current, 0);
 
-  const resting = { activity: 'Resting', interruptible: true, update: () => false };
-  agent.setPlan({}, [resting]);
-  agent.update({}, 0);
-  agent.update({}, (100 * STAMINA_RECOVERY_THRESHOLD) / STAMINA_RECOVERY_PER_SECOND - 0.5);
-  assert.equal(agent.stats.stamina.exhausted, true, 'still exhausted below the threshold');
+  agent.statuses.update({}, EXHAUSTED_SECONDS);
+  assert.equal(agent.statuses.has('exhausted'), false);
   x = agent.x;
   agent.moveToward(far, 0.1, 2);
-  assert.ok(Math.abs(agent.x - x - walkSpeed * 0.1) < 1e-9);
-  agent.update({}, 1);
-  assert.equal(agent.stats.stamina.exhausted, false);
-  x = agent.x;
-  agent.moveToward(far, 0.1, 2);
-  assert.ok(Math.abs(agent.x - x - runSpeed * 0.1) < 1e-9, 'running resumes at the threshold');
+  assert.ok(Math.abs(agent.x - x - runSpeed * 0.1) < 1e-9, 'running resumes once exhaustion wears off');
 });
 
 test('walking neither drains nor blocks stamina recovery', () => {
@@ -163,11 +157,16 @@ test('walking neither drains nor blocks stamina recovery', () => {
   assert.equal(agent.stats.stamina.current, 100);
 });
 
-test('creatures spend stamina while dashing and recover while idle', () => {
-  const stats = createLiveStats();
-  assert.equal(spendStamina(stats, 100 / STAMINA_DRAIN_PER_SECOND), true);
-  assert.equal(stats.stamina.exhausted, true);
-  assert.equal(spendStamina(stats, 1), false);
-  recoverStamina(stats, 1000);
-  assert.deepEqual(stats.stamina, { current: 100, max: 100, exhausted: false });
+test('creatures share the exhausted status and its stamina rules', () => {
+  const data = { title: 'C-100', nickname: 'Echo', containmentClass: 'Containment', type: 'Creature', species: 'Lizard' };
+  const cell = new Room({
+    id: 'cell', name: 'cell', camera: 'cell', level: 3, width: 240, height: 160, containmentCell: true,
+    nav: { floor: Array.from({ length: 160 }, () => [0, 240]), exits: [] }, props: [], links: {},
+  });
+  const creature = new Creature(toSimCreature({ id: 'c-100.md', data }), cell);
+  assert.equal(spendStamina(creature, 100 / STAMINA_DRAIN_PER_SECOND), true);
+  assert.equal(creature.statuses.has('exhausted'), true);
+  assert.equal(spendStamina(creature, 1), false);
+  recoverStamina(creature.stats, 1000);
+  assert.deepEqual(creature.stats.stamina, { current: 100, max: 100 });
 });

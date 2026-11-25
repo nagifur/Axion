@@ -129,6 +129,14 @@ test('custom popup colors and multiple effects coexist; artless effects have no 
   assert.equal(statuses.children[0].title, 'Custom');
 });
 
+test('exhausted popup is identified for its larger artwork', (t) => {
+  const { agent, statuses, sync } = setup(t);
+  agent.statuses.apply('exhausted');
+  sync();
+  assert.equal(statuses.children[0].getAttribute('data-status'), 'exhausted');
+  assert.equal(statuses.children[0].children[0].src, STATUS_EFFECTS.exhausted.popup.icon);
+});
+
 test('status tags share character visibility, dragging and removed-agent cleanup', (t) => {
   const { agent, world, button, statuses, sync, hide } = setup(t);
   agent.statuses.apply('shocked');

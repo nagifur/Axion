@@ -37,6 +37,7 @@ export interface StatusEffectDefinition {
 
 export const SHOCK_SECONDS = 2;
 export const SCARED_SECONDS = 10;
+export const EXHAUSTED_SECONDS = 5;
 
 /** What swallowed prey turn into once the acid is done with them; the vore type picks which. */
 function convertedStatus(label: string, color: string, background: string): StatusEffectDefinition {
@@ -99,6 +100,16 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     },
     onApply(target) {
       if (target.kind === 'agent') target.entity.shake = 0.6;
+    },
+  },
+  // Applied by spendStamina when stamina runs dry; no running or dashing until it wears off.
+  exhausted: {
+    label: 'Exhausted',
+    targets: ['agent', 'creature'],
+    duration: EXHAUSTED_SECONDS,
+    popup: {
+      icon: new URL('../../sim_assets/icons/exhausted.svg', import.meta.url).href,
+      color: '#73cf9c',
     },
   },
   // Swallowed prey take damage over time until the predator spits them out or they are digested.

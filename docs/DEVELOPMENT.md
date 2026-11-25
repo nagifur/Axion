@@ -178,9 +178,9 @@ The selected-agent or creature panel updates live values without rebuilding the 
 Stamina drains while running: agents moving faster than walking pace (fleeing, chasing,
 stalking, hurrying out) and creatures dashing (escapes, attacks, hunts, fleeing) spend
 `STAMINA_DRAIN_PER_SECOND`, and recover `STAMINA_RECOVERY_PER_SECOND` whenever they are
-not running. At zero, `stats.stamina.exhausted` is set and they move at walking (agents)
-or pacing (creatures) speed until stamina recovers to `STAMINA_RECOVERY_THRESHOLD` (30%)
-of max. Use `spendStamina`/`recoverStamina` from `stats.ts` rather than editing the pool.
+not running. At zero they get the [`exhausted`](#exhausted) status and move at walking
+(agents) or pacing (creatures) speed until it wears off. Use `spendStamina`/`recoverStamina`
+from `stats.ts` rather than editing the pool.
 Magic, hunger, and thirst don't change yet. HP changes only through events:
 creature attacks and swallowing acid lower it, absorbing prey restores it, and zero HP
 is fatal (see [Status Effects](#status-effects) and [The Vore System](#the-vore-system)).
@@ -908,6 +908,14 @@ shake. Unlike shock, it doesn't block actions: frightened staff are busy running
 away. Staff get it when they see a loose creature, are startled while watching
 one, or get snapped at while trying to pet one (see the creature section above).
 Use `agent.statuses.apply('scared')` for scripted scares.
+
+##### Exhausted
+
+`exhausted` applies to agents and creatures whose stamina hits zero while running, and
+lasts five simulation seconds (`EXHAUSTED_SECONDS`). While it is active, `spendStamina`
+refuses, so they can't run or dash; stamina keeps regenerating meanwhile. It shows a
+green popup with [`exhausted.svg`](../src/sim_assets/icons/exhausted.svg) and doesn't
+block actions. Use `statuses.apply('exhausted')` to tire someone out from a script.
 
 #### The Vore System
 

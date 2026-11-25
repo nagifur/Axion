@@ -334,10 +334,10 @@ export class Agent {
     return this.step(target, dt, this.runningSpeed(speedMul, dt));
   }
 
-  /** Running (speedMul above 1) costs stamina; an exhausted agent drops to walking pace. */
+  /** Running (speedMul above 1) costs stamina; an `exhausted` agent drops to walking pace. */
   private runningSpeed(speedMul: number, dt: number): number {
     if (speedMul <= 1 || this.incapacitated || dt <= 0) return speedMul;
-    if (!spendStamina(this.stats, dt)) return 1;
+    if (!spendStamina(this, dt)) return 1;
     this.ranThisFrame = true;
     return speedMul;
   }

@@ -117,8 +117,9 @@ export class NameTags {
       const statusKey = JSON.stringify(popups);
       if (tag.statusKey !== statusKey) {
         tag.statusKey = statusKey;
-        tag.statuses.replaceChildren(...popups.map(({ label, icon, color, background }) => {
+        tag.statuses.replaceChildren(...popups.map(({ id, label, icon, color, background }) => {
           const box = el('span', 'monitor-tag-status');
+          box.setAttribute('data-status', id);
           box.title = label;
           box.style.setProperty('--status-color', color);
           if (background) box.style.setProperty('--status-background', background);
