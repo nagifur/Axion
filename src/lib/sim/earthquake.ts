@@ -32,6 +32,7 @@ export const EARTHQUAKE_EVENT: EventDefinition<World> = {
   label: 'Earthquake',
   duration: EARTHQUAKE.duration,
   cameraShake: EARTHQUAKE.cameraShake,
+  alert: { text: 'Earthquake', priority: 80 },
   onStart(world) {
     states.set(world, {
       heldDoors: new Map(),

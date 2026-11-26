@@ -676,8 +676,21 @@ function bootMonitor(
     if (alertNode) {
       const incident = incidents?.status;
       const duplicate = world.everyone().some((agent) => agent.impostor && !agent.revealed);
-      alertNode.textContent = incident ?? (duplicate ? 'Duplicate badge' : 'All clear');
-      alertNode.classList.toggle('is-alert', !!incident || duplicate);
+      const eventAlerts = [
+        ...world.events.activeAlerts,
+        ...(world.level(viewed.level)?.activeAlerts ?? []),
+      ];
+      const alerts = [
+        ...(incident ? [{ text: incident, priority: 100 }] : []),
+        ...(duplicate ? [{ text: 'Duplicate badge', priority: 50 }] : []),
+        ...eventAlerts,
+      ];
+      const activeAlert = alerts.reduce<(typeof alerts)[number] | undefined>(
+        (highest, alert) => !highest || alert.priority > highest.priority ? alert : highest,
+        undefined,
+      );
+      alertNode.textContent = activeAlert?.text ?? 'All clear';
+      alertNode.classList.toggle('is-alert', !!activeAlert);
     }
     updateCameraCounts();
   };

@@ -6,6 +6,8 @@ export interface EventDefinition<Context> {
   label?: string;
   /** Simulation seconds; omitted means the event runs until explicitly stopped. */
   duration?: number;
+  /** Optional top-right HUD alert; higher priority wins when multiple alerts apply. */
+  alert?: { text: string; priority: number };
   /** Display pixels and oscillation speed in radians per simulation second. */
   cameraShake?: { amplitude: number; speed: number };
   onStart?(context: Context, world: World): void;
@@ -18,6 +20,12 @@ export interface ActiveEvent {
   readonly id: string;
   readonly startedAt: number;
   readonly endsAt: number | null;
+}
+
+export interface ActiveEventAlert {
+  readonly id: string;
+  readonly text: string;
+  readonly priority: number;
 }
 
 /** Shared lifecycle for floor and facility events; state belongs to one world. */
@@ -48,6 +56,12 @@ export class EventState<Context> {
 
   get activeEvents(): readonly ActiveEvent[] {
     return [...this.events.values()].map(({ event }) => ({ ...event }));
+  }
+
+  get activeAlerts(): readonly ActiveEventAlert[] {
+    return [...this.events].flatMap(([id, { definition }]) => definition.alert
+      ? [{ id, ...definition.alert }]
+      : []);
   }
 
   get cameraShake(): { x: number; y: number } {

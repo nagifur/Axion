@@ -1,6 +1,6 @@
 import type { Room } from './room.ts';
 import type { World } from './world.ts';
-import { EventState, type ActiveEvent, type EventDefinition, type EventEndReason } from './eventState.ts';
+import { EventState, type ActiveEvent, type ActiveEventAlert, type EventDefinition, type EventEndReason } from './eventState.ts';
 
 export type LevelVariable = boolean | number | string | null;
 export type LevelPower = 'normal' | 'off' | 'backup';
@@ -45,6 +45,10 @@ export class LevelState {
 
   get activeEvents(): readonly ActiveLevelEvent[] {
     return this.events.activeEvents;
+  }
+
+  get activeAlerts(): readonly ActiveEventAlert[] {
+    return this.events.activeAlerts;
   }
 
   /** Starts one instance; an already-active event is not restarted or extended. */

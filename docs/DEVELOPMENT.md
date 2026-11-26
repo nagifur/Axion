@@ -516,6 +516,10 @@ They use the same lifecycle as floor events, extracted into
 rather than `(level, world, dt)` in their update hooks. Add an entry with a label,
 optional duration, and start/update/end hooks; no world-loop or debug UI edits are
 needed. `WorldOptions.events` can override or add definitions for a particular world.
+An event can also set `alert: { text, priority }` to show a top-right HUD alert while
+active. Only facility alerts and alerts for the viewed floor are considered; the
+highest priority wins (active incident: 100, duplicate badge: 50). Events without
+alert metadata do not change the HUD.
 `FacilityEventDirector` still schedules announcements and impostor arrivals separately.
 
 `LEVEL_EVENTS` defines events available on every floor. Floor-specific event
@@ -571,6 +575,7 @@ All earthquake tuning lives in `EARTHQUAKE` in
 | Setting | Default |
 | --- | --- |
 | `cameraShake` | At most 2 display pixels per axis, at speed 32 radians/second |
+| `alert` | “Earthquake” in the monitoring HUD at priority 80 |
 | `tripRate` | 0.65 per eligible agent/second |
 | `propBreakRate` | 0.015 per intact breakable prop/second |
 | `doorOpenRate` | 0.035 per closed, intact physical passage/second |

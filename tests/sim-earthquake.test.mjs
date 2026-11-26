@@ -51,6 +51,7 @@ test('earthquake spans all floors, pauses, expires, and retains damage without l
   t.mock.method(Math, 'random', () => 0);
   assert.equal(world.events.startEvent('earthquake'), true);
   assert.equal(world.events.startEvent('earthquake'), false);
+  assert.deepEqual(world.events.activeAlerts, [{ id: 'earthquake', text: 'Earthquake', priority: 80 }]);
   assert.equal(fresh.events.hasEvent('earthquake'), false);
   assert.equal(world.level(0).hasEvent('earthquake'), false);
   world.update(0);
