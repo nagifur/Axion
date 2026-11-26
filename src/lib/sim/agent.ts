@@ -5,13 +5,12 @@ import type { World } from './world.ts';
 import { accessCardLevel, ITEM_REACH, Item, startingItemTypes } from './item.ts';
 import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { isSpeaking, type Conversation } from './conversation.ts';
-import { planNext } from './planning.ts';
-import { planRepair, type RepairTarget } from './repairs.ts';
+import { planInterrupt, planNext } from './planning.ts';
+import type { RepairTarget } from './repairs.ts';
 import { StatusEffects } from './statusEffects.ts';
-import { interruptDisposalForCall, type SecurityDuty } from './security.ts';
+import type { SecurityDuty } from './security.ts';
 import type { StaffEscort } from './trespass.ts';
 import { VoreState, insideActivity } from './vore.ts';
-import { planRemainsDisposal } from './remainsDisposal.ts';
 
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
@@ -34,11 +33,9 @@ export interface Task {
   tripping?: boolean;
   /** Reserves damaged equipment while walking to it or repairing it. */
   repairTarget?: RepairTarget;
-  /** A voluntary remains-disposal trip or activity. */
-  remainsDisposal?: boolean;
-  /** The stationary disposal activity, rather than the trip to it. */
-  disposalActivity?: boolean;
-  /** Urgent behavior that must not be replaced by ordinary needs. */
+  /** The phase of voluntary disposal, if this task belongs to one. */
+  remainsDisposal?: 'travel' | 'activity';
+  /** Urgent behavior that must not give way to disposal. */
   urgent?: boolean;
   /** The carried item this task is using, once it has started. */
   readonly usingItem?: Item | null;
@@ -248,7 +245,7 @@ export class Agent {
 
   /** Animation time while actually performing a disposal activity. */
   get disposalActivityTime(): number | undefined {
-    return this.task?.disposalActivity && this.exposed && !this.dead && !this.incapacitated &&
+    return this.task?.remainsDisposal === 'activity' && this.exposed && !this.dead && !this.incapacitated &&
       !this.staffEscort && !this.statuses.has('scared') ? this.taskElapsed : undefined;
   }
 
@@ -421,15 +418,8 @@ export class Agent {
     if (this.incapacitated || (dt > 0 && blockedSeconds >= dt)) return;
     dt = Math.max(0, dt - blockedSeconds);
 
-    interruptDisposalForCall(this, world);
-    if (this.task?.interruptible && !this.disposingRemains && !this.security) {
-      const disposal = planRemainsDisposal(this, world);
-      if (disposal) this.setPlan(world, disposal);
-    }
-    if (this.task?.interruptible && !this.repairTarget && !this.disposingRemains) {
-      const repairs = planRepair(this, world);
-      if (repairs) this.setPlan(world, repairs);
-    }
+    const interrupt = planInterrupt(this, world, this.task);
+    if (interrupt) this.setPlan(world, interrupt);
     if (!this.task) {
       if (!this.plan.length) this.plan = planNext(this, world);
       this.task = this.plan.shift();

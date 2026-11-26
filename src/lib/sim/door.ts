@@ -196,7 +196,11 @@ export class PassageDoor {
   }
 
   get passable(): boolean {
-    return (!this.broken || this.forcedOpen) && this.open >= 0.5;
+    return this.passableAt(0.5);
+  }
+
+  passableAt(opening: number): boolean {
+    return (!this.broken || this.forcedOpen) && this.open >= opening;
   }
 
   get blocked(): boolean {

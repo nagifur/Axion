@@ -9,19 +9,21 @@ import { wait } from './tasks.ts';
 import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { StatusEffects } from './statusEffects.ts';
 import { VORE_TUNING, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
-import { calmForDisposal, disposalDestination, hasDisposalWitness, readyRemains } from './remainsDisposal.ts';
-import type { Remains } from './remains.ts';
+import { canContinueDisposal, DISPOSAL_TRAVEL_ACTIVITY, planDisposal, type DisposalSite } from './remainsDisposal.ts';
+import { creatureMayUseDoor, stepTowardCreatureRoom } from './routing.ts';
+
+/** Heads to a door, waits briefly if it is too far closed, then slips through it. */
+type DoorPlan = { action: 'escape' | 'disposalDoor'; door: Door; path: Point[]; waited: number; crossing: boolean };
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
   | { action: 'pace'; path: Point[] }
   | { action: 'flee'; path: Point[] }
-  | { action: 'dispose'; remains: Remains; path: Point[]; remaining: number; private: boolean }
+  | { action: 'dispose'; site: DisposalSite; path: Point[]; remaining: number }
   | { action: 'attack'; target: Agent; path: Point[]; reroute: number; remaining: number }
   /** Chases someone it means to swallow; VoreSystem does the swallowing once it is within reach. */
   | { action: 'swallow'; target: VoreActor; type: VoreType; path: Point[]; reroute: number; remaining: number }
-  /** Heads to a door, waits briefly if it is too far closed, then slips through it. */
-  | { action: 'escape' | 'disposalDoor'; door: Door; path: Point[]; waited: number; crossing: boolean }
+  | DoorPlan
   /** Fades in from the doorway it arrived through. */
   | { action: 'enter'; door: Door };
 
@@ -156,7 +158,7 @@ export class Creature {
 
   /** Animation time while actually performing a disposal activity. */
   get disposalActivityTime(): number | undefined {
-    return this.plan.action === 'dispose' && !this.plan.path.length && this.exposed && !this.incapacitated
+    return this.plan.action === 'dispose' && !this.plan.path.length && !this.walking && this.exposed && !this.incapacitated
       ? this.plan.remaining : undefined;
   }
 
@@ -171,8 +173,8 @@ export class Creature {
     if (this.plan.action === 'swallow') return `Hunting ${this.plan.target.character.name}`;
     if (this.plan.action === 'flee') return 'Running away from security';
     if (this.plan.action === 'dispose') return this.plan.path.length
-      ? 'Finding a place to dispose of remains' : this.plan.remains.disposal.activity;
-    if (this.plan.action === 'disposalDoor') return 'Finding a place to dispose of remains';
+      ? DISPOSAL_TRAVEL_ACTIVITY : this.plan.site.remains.disposal.activity;
+    if (this.plan.action === 'disposalDoor') return DISPOSAL_TRAVEL_ACTIVITY;
     if (this.plan.action === 'escape') return this.contained ? 'Escaping the cell' : 'Slipping through a door';
     if (this.plan.action === 'enter') return 'Slipping through a door';
     return (this.contained ? CONTAINED_LABELS : LOOSE_LABELS)[this.plan.action];
@@ -224,7 +226,7 @@ export class Creature {
     world.log(`${this.character.name} broke free from ${guard.character.name}'s grasp in the ${this.room.name}, injuring the guard!`, 'alert');
     world.incidents.record('broke-free', { creature: this, other: guard, room: this.room });
 
-    const doors = this.room.doors.filter((door) => this.canUse(world, door) && this.passable(world, door));
+    const doors = this.room.doors.filter((door) => this.canUse(world, door) && this.canSqueezeThrough(world, door));
     doors.sort((a, b) => distance(guard, b.inside) - distance(guard, a.inside));
     for (const door of doors) {
       const plan = this.headFor(door);
@@ -354,25 +356,42 @@ export class Creature {
 
   /** Never into a cell (its own included: getting back in is security's job), nor somewhere it can't reach. */
   private canUse(world: World, door: Door) {
-    if (door.cell) return false;
-    const destination = door.to && world.room(door.to.room);
-    if (door.to && (!destination || destination.cell)) return false;
-    return this.room.canReach(this, door.inside);
+    return creatureMayUseDoor(door, door.to && world.room(door.to.room)) && this.room.canReach(this, door.inside);
   }
 
-  private passable(world: World, door: Door) {
-    const physical = world.passageDoorFor(door);
-    return !physical || ((!physical.broken || physical.forcedOpen) && physical.open >= CREATURE_TUNING.squeezeOpening);
+  canSqueezeThrough(world: World, door: Door): boolean {
+    return world.passageDoorFor(door)?.passableAt(CREATURE_TUNING.squeezeOpening) ?? true;
   }
 
-  private headFor(door: Door): Plan | undefined {
+  private headFor(door: Door, action: DoorPlan['action'] = 'escape'): DoorPlan | undefined {
     const path = this.room.route(this, door.inside);
-    return path ? { action: 'escape', door, path, waited: 0, crossing: false } : undefined;
+    return path ? { action, door, path, waited: 0, crossing: false } : undefined;
+  }
+
+  private nextDisposal(world: World): Plan | undefined {
+    const destination = planDisposal(this, world, (room) => stepTowardCreatureRoom(world, this, room));
+    if (!destination) return undefined;
+    if (destination.kind === 'travel') return this.headFor(destination.step, 'disposalDoor');
+    const path = this.room.route(this, destination.point);
+    return path ? { action: 'dispose', site: destination, path, remaining: destination.remains.disposal.seconds } : undefined;
+  }
+
+  private disposeRemains(world: World, plan: Extract<Plan, { action: 'dispose' }>, dt: number) {
+    if (canContinueDisposal(this, world, plan.site)) {
+      if (plan.path.length) {
+        if (this.follow(plan.path, CREATURE_TUNING.paceSpeed, dt)) return;
+      } else {
+        plan.remaining -= dt;
+        if (plan.remaining > 0) return;
+        world.vore.finishDisposal(this, plan.site.remains);
+      }
+    }
+    this.plan = { action: 'watch', remaining: 1 };
   }
 
   private nextPlan(world: World): Plan {
     if (!this.contained && chance(CREATURE_TUNING.roamChance)) {
-      const door = maybePick(this.room.doors.filter((door) => this.passable(world, door) && this.canUse(world, door)));
+      const door = maybePick(this.room.doors.filter((door) => this.canSqueezeThrough(world, door) && this.canUse(world, door)));
       const plan = door && this.headFor(door);
       if (plan) return plan;
     }
@@ -550,38 +569,16 @@ export class Creature {
       return;
     }
 
-    if (plan.action !== 'dispose' && plan.action !== 'disposalDoor' && calmForDisposal(this, world)) {
-      const remains = readyRemains(this);
-      if (remains) {
-        const destination = disposalDestination(this, world);
-        if (destination.kind === 'travel' && 'inside' in destination.step) {
-          const route = this.headFor(destination.step);
-          if (route && route.action === 'escape') this.plan = { ...route, action: 'disposalDoor' };
-        } else if (destination.kind === 'place') {
-          const path = this.room.route(this, destination.point);
-          if (path) this.plan = {
-            action: 'dispose', remains, path, remaining: remains.disposal.seconds, private: destination.private,
-          };
-        }
-        if (this.plan !== plan) return;
+    if (!this.disposingRemains) {
+      const disposal = this.nextDisposal(world);
+      if (disposal) {
+        this.plan = disposal;
+        return;
       }
     }
 
     if (plan.action === 'dispose') {
-      if (!this.vore.remains.includes(plan.remains) || !calmForDisposal(this, world) ||
-        (plan.private && hasDisposalWitness(world, this))) {
-        this.plan = { action: 'watch', remaining: 1 };
-        return;
-      }
-      if (plan.path.length) {
-        if (!this.follow(plan.path, CREATURE_TUNING.paceSpeed, dt)) this.plan = { action: 'watch', remaining: 1 };
-        return;
-      }
-      plan.remaining -= dt;
-      if (plan.remaining <= 0) {
-        world.vore.finishDisposal(this, plan.remains);
-        this.plan = { action: 'watch', remaining: 1 };
-      }
+      this.disposeRemains(world, plan, dt);
       return;
     }
 
@@ -612,14 +609,8 @@ export class Creature {
     }
 
     const { door } = plan;
-    if (!plan.crossing) {
-      if (plan.path.length) {
-        if (!this.follow(plan.path, plan.action === 'disposalDoor' ? CREATURE_TUNING.paceSpeed : this.dashSpeed(dt), dt)) {
-          this.plan = { action: 'watch', remaining: range(1, 4) };
-        }
-        return;
-      }
-      if (!this.passable(world, door)) {
+    if (!plan.crossing && !plan.path.length) {
+      if (!this.canSqueezeThrough(world, door)) {
         this.face(door.outside.x - this.x, door.outside.y - this.y);
         plan.waited += dt;
         if (plan.waited >= CREATURE_TUNING.doorWaitSeconds) {
@@ -632,8 +623,13 @@ export class Creature {
       }
       plan.crossing = true;
     }
+    const speed = plan.action === 'disposalDoor' ? CREATURE_TUNING.paceSpeed : this.dashSpeed(dt);
+    if (!plan.crossing) {
+      if (!this.follow(plan.path, speed, dt)) this.plan = { action: 'watch', remaining: range(1, 4) };
+      return;
+    }
     const total = Math.max(1, distance(door.outside, door.inside));
-    const reached = this.stepToward(door.outside, plan.action === 'disposalDoor' ? CREATURE_TUNING.paceSpeed : this.dashSpeed(dt), dt);
+    const reached = this.stepToward(door.outside, speed, dt);
     this.alpha = Math.max(0, distance(door.outside, this) / total);
     if (reached) this.cross(world, door);
   }

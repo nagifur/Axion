@@ -40,10 +40,12 @@ function firstStepToward<S>(
 const reachable = (location: Location, point: Point, agent?: Agent) =>
   !location.point || location.room.canReach(location.point, point, agent?.ghost);
 
-function doorDestination(world: World, door: Door, agent?: Agent): Location | undefined {
-  const room = door.to && world.room(door.to.room);
-  const entry = room?.doors.find((candidate) => candidate.id === door.to!.door);
-  return room && entry ? { room, point: agent && !agent.ghost ? entry.inside : undefined } : undefined;
+function doorDestination(world: World, door: Door, trackFloor: boolean): Location | undefined {
+  const link = door.to;
+  if (!link) return undefined;
+  const room = world.room(link.room);
+  const entry = room?.doors.find((candidate) => candidate.id === link.door);
+  return room && entry ? { room, point: trackFloor ? entry.inside : undefined } : undefined;
 }
 
 /** Other rooms on camera that `room`'s elevator stops at, ordered by level. */
@@ -74,15 +76,18 @@ export function stepTowardRoom(world: World, agent: Agent, destination: Room, po
     (next) => next.room === destination && (!point || reachable(next, point, agent)), sameLevelOnly);
 }
 
-/** Creatures can follow open linked passages, but cannot open doors or enter cells. */
+/** Creatures can leave through exterior doors but cannot enter cells. */
+export function creatureMayUseDoor(door: Door, destination: Room | undefined): boolean {
+  return !door.cell && (!door.to || (!!destination && !destination.cell));
+}
+
+/** Creatures follow linked doors they can already squeeze through. */
 export function stepTowardCreatureRoom(world: World, creature: Creature, destination: Room): Door | undefined {
   return firstStepToward<Door>({ room: creature.room, point: creature }, (location) =>
     location.room.linkedDoors.flatMap((door) => {
-      const next = doorDestination(world, door);
-      const state = world.passageDoorFor(door);
-      if (door.cell || !next || next.room.cell || !reachable(location, door.inside) || (state && !state.passable)) return [];
-      const entry = next.room.doors.find((candidate) => candidate.id === door.to!.door);
-      return entry ? [{ next: { room: next.room, point: entry.inside }, step: door }] : [];
+      const next = doorDestination(world, door, true);
+      return next && creatureMayUseDoor(door, next.room) && reachable(location, door.inside) &&
+        creature.canSqueezeThrough(world, door) ? [{ next, step: door }] : [];
     }), (next) => next.room === destination);
 }
 
@@ -92,7 +97,7 @@ function travelStep(world: World, character: SimCharacter, room: Room, agent: Ag
     const current = location.room;
     const steps: { next: Location; step: Door | Room }[] = [];
     for (const door of current.linkedDoors) {
-      const next = doorDestination(world, door, agent);
+      const next = doorDestination(world, door, !!agent && !agent.ghost);
       if (next && reachable(location, door.inside, agent) &&
         (agent ? world.canAgentUsePassage(agent, door) : world.canUsePassage(character, door))) {
         steps.push({ next, step: door });
@@ -121,7 +126,7 @@ export function doorTowardExit(world: World, room: Room, doorsOnly = false, agen
     location.room.outerDoors.some((door) => reachable(location, door.inside, agent) && canUse(door, location.room));
   if (hasExit(start)) return null;
   return firstStepToward<Door>(start, (location) => location.room.linkedDoors.flatMap((door) => {
-    const next = doorDestination(world, door, agent);
+    const next = doorDestination(world, door, !!agent && !agent.ghost);
     return next && reachable(location, door.inside, agent) && canUse(door, location.room) ? [{ next, step: door }] : [];
   }), hasExit) ?? null;
 }

@@ -96,12 +96,11 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
   return [wait(1, 'Guarding the elevator', 'front')];
 }
 
-/** A new security call can interrupt a voluntary disposal activity. */
-export function interruptDisposalForCall(agent: Agent, world: World) {
+/** An unassigned guard can be dispatched while voluntarily disposing of remains. */
+export function planDisposalResponse(agent: Agent, world: World): Task | undefined {
   const duty = agent.security;
-  if (!duty || duty.target || duty.relieved || !agent.disposingRemains || !agent.interruptible) return;
-  const call = dispatch(agent, world, duty);
-  if (call) agent.setPlan(world, [call]);
+  if (!duty || duty.target || duty.relieved) return undefined;
+  return dispatch(agent, world, duty);
 }
 
 function dispatch(agent: Agent, world: World, duty: SecurityDuty, localOnly = false): Task | undefined {

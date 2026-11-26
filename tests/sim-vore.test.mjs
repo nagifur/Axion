@@ -98,17 +98,13 @@ const step = (world, seconds, dt = 0.1) => {
 };
 
 function holdRemains(predator, prey, type = 'oral', waitSeconds = 0) {
-  const definition = VORE_TYPES[type];
-  const outcome = definition.looks.find(({ converted }) => !converted);
-  const remains = new Remains({
-    actor: prey, kind: 'agent', type, look: outcome.look, label: outcome.label,
-    disposal: outcome.disposal ?? definition.disposal, items: [], wait: waitSeconds,
-  });
+  const outcome = VORE_TYPES[type].outcomes.at(-1);
+  const remains = new Remains({ actor: prey, type, outcome, items: [], wait: waitSeconds });
   predator.vore.remains.push(remains);
   return remains;
 }
 
-function connectedDisposalRooms({ restroom = true } = {}) {
+function connectedDisposalRooms({ restroom = true, physical = false } = {}) {
   setRandomSource(() => 0.99);
   const data = (id, side, to, isRestroom = false) => ({
     id, name: id, camera: id, level: 3, width: 240, height: 160, restroom: isRestroom,
@@ -122,6 +118,7 @@ function connectedDisposalRooms({ restroom = true } = {}) {
       }],
     },
     props: [], links: { [side]: { room: to, door: side === 'east' ? 'west' : 'east' } },
+    doors: physical ? { [side]: { clearance: 0 } } : undefined,
   });
   const hall = new Room(data('hall', 'east', 'washroom'));
   const washroom = new Room(data('washroom', 'west', 'hall', restroom));
@@ -484,17 +481,17 @@ test('predators hold as many prey as their size allows, and nobody gets nested',
 test('struggling can make the predator spit its prey back out', () => {
   const { world, hall, logs, pred, meal } = duel();
   world.vore.swallow(pred, meal, 'anal');
-  const { action } = meal.vore.inside;
+  const { action } = meal.vore.inside.phase;
   assert.equal(action.id, 'struggle');
   assert.ok(action.escapeChance > 0 && action.escapeChance <= 0.1, 'a low chance');
 
   world.vore.update(action.remaining + 0.1);
   assert.equal(meal.swallowed, true, 'unlucky: another go');
-  assert.notEqual(meal.vore.inside.action, action);
+  assert.notEqual(meal.vore.inside.phase.action, action);
 
   setRandomSource(() => 0);
   world.time = 30;
-  world.vore.update(meal.vore.inside.action.remaining + 0.1);
+  world.vore.update(meal.vore.inside.phase.action.remaining + 0.1);
   assert.equal(meal.swallowed, false);
   assert.equal(world.vore.active.length, 0);
   assert.equal(pred.vore.contents.length, 0);
@@ -530,11 +527,11 @@ test('spat-out prey are safe from being swallowed again for a while', () => {
 test('remains outcomes use configured weights and exact probability boundaries', () => {
   setRandomSource(() => 0);
   for (const [type, definition] of Object.entries(VORE_TYPES)) {
-    assert.equal(pickRemainsOutcome(type), definition.looks[0]);
+    assert.equal(pickRemainsOutcome(type), definition.outcomes[0]);
   }
   setRandomSource(() => 0.999);
   for (const [type, definition] of Object.entries(VORE_TYPES)) {
-    assert.equal(pickRemainsOutcome(type), definition.looks.at(-1));
+    assert.equal(pickRemainsOutcome(type), definition.outcomes.at(-1));
   }
   setRandomSource(() => 0.049999);
   assert.equal(pickRemainsOutcome('cock').look, 'pee');
@@ -547,9 +544,8 @@ test('remains outcomes use configured weights and exact probability boundaries',
   }
   assert.equal(urine, 50, 'urine is 5% and cum is 95%');
 
-  VORE_TYPES.oral.looks[0].weight = 0;
-  VORE_TYPES.oral.looks[1].weight = 0;
-  assert.throws(() => pickRemainsOutcome('oral'), /at least one look must have a positive weight/);
+  for (const outcome of VORE_TYPES.oral.outcomes) outcome.weight = 0;
+  assert.throws(() => pickRemainsOutcome('oral'), /at least one outcome must have a positive weight/);
 });
 
 for (const [type, status, label] of [
@@ -569,7 +565,7 @@ for (const [type, status, label] of [
     assert.equal(meal.dead, true);
     assert.equal(meal.statuses.has(status), true);
     assert.equal(meal.statuses.has('acid'), false);
-    assert.equal(world.vore.active[0].stage, 'absorbing');
+    assert.equal(world.vore.active[0].phase.kind, 'absorbing');
     assert.equal(meal.activity, 'Being absorbed by pred');
     assert.equal(world.vore.spitOut(meal), false, 'too late to spit out');
     assert.deepEqual(statusPopups(meal.statuses.active).map(({ id }) => id), [status], 'it replaces the death popup');
@@ -578,7 +574,7 @@ for (const [type, status, label] of [
     world.update(2.1);
     const [remains] = pred.vore.remains;
     assert.equal(remains.type, type);
-    assert.ok(VORE_TYPES[type].looks.some(({ look }) => look === remains.look));
+    assert.ok(VORE_TYPES[type].outcomes.some(({ look }) => look === remains.look));
     assert.equal(remains.asset, `remains:${remains.look}`);
     assert.equal(followCameraRoom(world, meal), pred.room, 'following survives every kind of conversion');
   });
@@ -657,7 +653,7 @@ test('absorbed agents stop being agents but leave their profile, items and name 
   assert.equal(meal.item, null);
   assert.equal(meal.inventory.length, 0);
   const [remains] = pred.vore.remains;
-  assert.deepEqual([remains.id, remains.name, remains.kind], ['meal', 'meal', 'agent']);
+  assert.deepEqual([remains.id, remains.name, remains.actor], ['meal', 'meal', meal]);
   assert.equal(remains.character, meal.character);
   assert.equal(remains.actor, meal, 'clicking the pile pulls up their file');
   assert.deepEqual(remains.items, [can, card]);
@@ -775,14 +771,15 @@ test('predators plan a timed disposal and drop the remains with everything the p
   world.update(0.6);
   world.update(1.1);
   assert.equal(pred.vore.remains.length, 1);
+  const [{ disposal }] = pred.vore.remains;
   assert.equal(hall.remains.length, 0, 'kept for a while');
   world.update(3);
   assert.equal(pred.vore.remains.length, 1);
   world.update(1.5);
   assert.equal(pred.vore.remains.length, 1, 'becoming ready does not instantly release the remains');
   step(world, 2);
-  assert.equal(pred.activity, VORE_TYPES.cock.disposal.activity);
-  step(world, Math.max(0, VORE_TYPES.cock.disposal.seconds - 4));
+  assert.equal(pred.activity, disposal.activity);
+  step(world, Math.max(0, disposal.seconds - 4));
   assert.equal(pred.vore.remains.length, 1, 'the activity must finish');
   for (let i = 0; i < 50 && pred.vore.remains.length; i++) world.update(0.1);
 
@@ -878,14 +875,15 @@ test('releasing an absorbing predator keeps its already selected urine outcome',
   assert.equal(hall.remains[0].disposal.activity, 'Urinating');
 });
 
-test('each remains type uses its configured activity and duration', () => {
+test('each remains type uses the selected outcome activity and duration', () => {
   for (const type of Object.keys(VORE_TYPES)) {
     const { world, hall, pred, meal } = duel();
     world.agents = world.agents.filter((actor) => actor !== meal);
+    const { disposal } = VORE_TYPES[type].outcomes.at(-1);
+    disposal.seconds = 3;
     const remains = holdRemains(pred, meal, type);
-    VORE_TYPES[type].disposal.seconds = 3;
     step(world, 0.5);
-    assert.equal(pred.activity, VORE_TYPES[type].disposal.activity, type);
+    assert.equal(pred.activity, disposal.activity, type);
     step(world, 2);
     assert.ok(pred.vore.remains.includes(remains), type);
     step(world, 2);
@@ -907,7 +905,7 @@ test('staff and creatures seek an accessible empty restroom before a private cur
     if (kind === 'creature') assert.equal(predator.exposed, true, 'walking toward a restroom is not an escape');
     step(world, 14);
     assert.equal(predator.room, washroom, kind);
-    assert.equal(predator.activity, VORE_TYPES.breast.disposal.activity, kind);
+    assert.equal(predator.activity, remains.disposal.activity, kind);
     assert.ok(predator.vore.remains.includes(remains), 'travel is not disposal');
     step(world, 15);
     assert.ok(washroom.remains.includes(remains), kind);
@@ -991,7 +989,7 @@ test('urgent actions, fear and new witnesses interrupt disposal without releasin
 
   pred.setPlan(world, []);
   step(world, 3);
-  assert.equal(pred.activity, VORE_TYPES.cock.disposal.activity);
+  assert.equal(pred.activity, remains.disposal.activity);
   pred.statuses.apply('scared');
   step(world, 5);
   assert.ok(pred.vore.remains.includes(remains), 'fear interrupts the activity');
@@ -1003,7 +1001,7 @@ test('urgent actions, fear and new witnesses interrupt disposal without releasin
   world.agents = world.agents.filter((actor) => actor !== witness);
   step(world, 10);
   assert.ok(pred.vore.remains.includes(remains), 'interrupted progress was not completed');
-  for (let i = 0; i < (VORE_TYPES.cock.disposal.seconds + 10) * 10 && !hall.remains.includes(remains); i++) {
+  for (let i = 0; i < (remains.disposal.seconds + 10) * 10 && !hall.remains.includes(remains); i++) {
     world.update(0.1);
   }
   assert.ok(hall.remains.includes(remains));
@@ -1027,6 +1025,26 @@ test('without an accessible restroom, staff and creatures find an empty reachabl
     step(world, 30);
     assert.ok(washroom.remains.includes(remains), `${kind}: use the private room, not the inaccessible restroom`);
     assert.equal(unreachable.remains.length, 0);
+  }
+});
+
+test('creatures choose disposal routes using their configured door opening, not the staff opening', (t) => {
+  const { squeezeOpening } = CREATURE_TUNING;
+  t.after(() => { CREATURE_TUNING.squeezeOpening = squeezeOpening; });
+  for (const [opening, required] of [[0.4, 0.3], [0.6, 0.75]]) {
+    const { world, hall, washroom } = connectedDisposalRooms({ physical: true });
+    const door = world.passageDoorFor(hall.linkedDoors[0]);
+    door.open = opening;
+    door.breakPanel(); // Holds the physical door at the chosen opening.
+    CREATURE_TUNING.squeezeOpening = required;
+
+    const prey = standing(world, hall, person('meal', ['Prey']), { x: 40, y: 100 });
+    world.agents = world.agents.filter((actor) => actor !== prey);
+    const predator = addCreature(world, hall, beast('pred', ['Predator']), { x: 40, y: 100 });
+    const remains = holdRemains(predator, prey);
+    step(world, 30);
+    const destination = opening >= required ? washroom : hall;
+    assert.ok(destination.remains.includes(remains), `opening ${opening}, creature requires ${required}`);
   }
 });
 
@@ -1068,14 +1086,19 @@ test('a creature does not interrupt a hunt to dispose of remains', () => {
   assert.equal(hall.remains.length, 0);
 });
 
-test('a creature uses a reachable corner when no private room is available', () => {
+test('a creature walks to a reachable corner before showing the disposal effect', () => {
   const { world, hall } = setup();
   const prey = standing(world, hall, person('meal', ['Prey']), { x: 120, y: 80 });
   world.agents = world.agents.filter((actor) => actor !== prey);
   standing(world, hall, person('witness', ['None']), { x: 100, y: 100 });
   const predator = addCreature(world, hall, beast('pred', ['Predator']), { x: 120, y: 80 });
   const remains = holdRemains(predator, prey, 'anal');
-  step(world, 30);
+  for (let i = 0; i < 300 && !hall.remains.includes(remains); i++) {
+    world.update(0.1);
+    if (predator.frame.name.startsWith('walk')) {
+      assert.equal(predator.disposalActivityTime, undefined, 'no effect during the walk, including its last step');
+    }
+  }
   assert.ok(hall.remains.includes(remains));
   assert.ok(remains.x < 20 || remains.x > hall.width - 20);
   assert.ok(remains.y < 15 || remains.y > hall.height - 15);
@@ -1090,7 +1113,7 @@ test('a new security call interrupts disposal before dispatching to another room
   const remains = holdRemains(guard, prey);
   guard.setPlan(world, planRemainsDisposal(guard, world));
   step(world, 2);
-  assert.equal(guard.activity, VORE_TYPES.oral.disposal.activity);
+  assert.equal(guard.activity, remains.disposal.activity);
   const creature = addCreature(world, hall, beast('escapee', ['None']), { x: 120, y: 100 });
   creature.room = washroom;
   step(world, 0.2);
@@ -1213,7 +1236,7 @@ test('creature prey leave their cell until spat out, and are gone for good once 
   assert.equal(world.vore.consumed.has('thing'), true);
   const [remains] = pred.vore.remains;
   assert.equal(remains.id, 'thing');
-  assert.equal(remains.kind, 'creature');
+  assert.equal(remains.actor, creature);
   assert.ok(['bones', 'scat'].includes(remains.look));
   assert.deepEqual(world.creaturesIn(hall), []);
 });

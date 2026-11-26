@@ -11,7 +11,7 @@ import { startConversation } from './conversation.ts';
 import { headToNextRoom, leaveFacility, rideElevatorOut } from './transport.ts';
 import { canSlipOut, isStranded, wanderDoors, wanderFloors } from './routing.ts';
 import { planRepair } from './repairs.ts';
-import { planSecurity } from './security.ts';
+import { planDisposalResponse, planSecurity } from './security.ts';
 import { planEscortedStaff, planStaffEscort } from './trespass.ts';
 import { DEFAULT_BEHAVIOR } from './roster.ts';
 import { planRemainsDisposal } from './remainsDisposal.ts';
@@ -40,6 +40,21 @@ function meow(agent: Agent, world: World) {
   world.log(`${agent.character.name} meowed in the ${agent.room.name}.`, 'muted');
 }
 
+function planVoluntaryTask(agent: Agent, world: World): Task[] | undefined {
+  return (agent.security ? undefined : planRemainsDisposal(agent, world)) ??
+    (agent.repairTarget ? undefined : planRepair(agent, world));
+}
+
+/** Only security calls can preempt an interruptible disposal plan. */
+export function planInterrupt(agent: Agent, world: World, current?: Task): Task[] | undefined {
+  if (!agent.interruptible) return undefined;
+  if (agent.disposingRemains) {
+    const call = planDisposalResponse(agent, world);
+    return call && [call];
+  }
+  return current ? planVoluntaryTask(agent, world) : undefined;
+}
+
 /** Picks the next thing an agent does once their plan runs out. */
 export function planNext(agent: Agent, world: World): Task[] {
   agent.spot = undefined;
@@ -49,10 +64,8 @@ export function planNext(agent: Agent, world: World): Task[] {
       ? planStaffEscort(agent, world, agent.staffEscort) : planEscortedStaff(agent, agent.staffEscort);
   }
   if (agent.security) return planSecurity(agent, world, agent.security);
-  const disposal = planRemainsDisposal(agent, world);
-  if (disposal) return disposal;
-  const repairs = planRepair(agent, world);
-  if (repairs) return repairs;
+  const voluntary = planVoluntaryTask(agent, world);
+  if (voluntary) return voluntary;
 
   const context = planningContext(agent, world);
   const options = AGENT_ACTIVITIES.flatMap((activity): readonly ActivityOption[] =>
@@ -103,7 +116,7 @@ function planningContext(agent: Agent, world: World) {
   };
 }
 
-/** Weighted, ordinary activities. Escorts, security and repairs keep priority over this table. */
+/** Weighted, ordinary activities, considered only after higher-priority plans. */
 export const AGENT_ACTIVITIES: AgentActivity[] = [
   {
     id: 'go-to-work',

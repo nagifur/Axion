@@ -35,11 +35,6 @@ export interface VoreFighter {
   hp: number;
 }
 
-export interface VoreDisposal {
-  activity: string;
-  seconds: number;
-}
-
 export interface VoreOutcome {
   /** Artwork of the remains pile: src/sim_assets/remains/<look>.png. */
   look: string;
@@ -47,41 +42,50 @@ export interface VoreOutcome {
   weight: number;
   /** Optional display name when the artwork filename is not the desired label. */
   label?: string;
-  /** Overrides the type's converted status. */
-  converted?: string;
-  /** Overrides the type's disposal activity and duration. */
-  disposal?: VoreDisposal;
+  /** Status applied when digestion finishes. */
+  converted: string;
+  disposal: { activity: string; seconds: number };
 }
 
 export interface VoreTypeDefinition {
   label: string;
   /** Chance relative to the other types when a profile doesn't list its own. */
   weight: number;
-  /** Status prey takes on once the acid has finished with them. */
-  converted: string;
-  /** Weighted outcomes, optionally overriding the converted status and disposal activity. */
-  looks: readonly VoreOutcome[];
-  /** Default activity and duration needed to release the remains. */
-  disposal: VoreDisposal;
+  /** Weighted conversion and disposal outcomes. */
+  outcomes: readonly VoreOutcome[];
   /** Per-type quirks, as multipliers on the shared tuning. */
   digestion: number;
   escape: number;
   absorption: number;
 }
 
+const digestedOutcomes = (): VoreOutcome[] => ['bones', 'scat'].map((look) => ({
+  look, weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 },
+}));
+
 /** One entry per way of swallowing. Add quirks here; everything else reads from this table. */
 export const VORE_TYPES = {
-  oral: { label: 'Oral vore', weight: 6, converted: 'digested', looks: [{ look: 'bones', weight: 1 }, { look: 'scat', weight: 1 }], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
-  cock: {
-    label: 'Cock vore', weight: 1, converted: 'cumified',
-    looks: [
-      { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: { activity: 'Urinating', seconds: 12 } },
-      { look: 'cum', weight: 95 },
-    ],
-    disposal: { activity: 'Jerking Off', seconds: 20 }, digestion: 1, escape: 1, absorption: 1,
+  oral: {
+    label: 'Oral vore', weight: 6, outcomes: digestedOutcomes(), digestion: 1, escape: 1, absorption: 1,
   },
-  anal: { label: 'Anal vore', weight: 1, converted: 'digested', looks: [{ look: 'bones', weight: 1 }, { look: 'scat', weight: 1 }], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
-  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', looks: [{ look: 'milk', weight: 1 }], disposal: { activity: 'Milking themselves', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
+  cock: {
+    label: 'Cock vore', weight: 1,
+    outcomes: [
+      { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: { activity: 'Urinating', seconds: 12 } },
+      { look: 'cum', weight: 95, converted: 'cumified', disposal: { activity: 'Jerking Off', seconds: 20 } },
+    ],
+    digestion: 1, escape: 1, absorption: 1,
+  },
+  anal: {
+    label: 'Anal vore', weight: 1, outcomes: digestedOutcomes(), digestion: 1, escape: 1, absorption: 1,
+  },
+  breast: {
+    label: 'Breast vore', weight: 1,
+    outcomes: [
+      { look: 'milk', weight: 1, converted: 'milkified', disposal: { activity: 'Milking themselves', seconds: 12 } },
+    ],
+    digestion: 1, escape: 1, absorption: 1,
+  },
 } satisfies Record<string, VoreTypeDefinition>;
 
 export const VORE_TYPE_IDS = Object.keys(VORE_TYPES) as VoreType[];
@@ -172,7 +176,7 @@ export function insideActionSeconds(action: InsideAction): number {
 }
 
 /** A fresh run of one of the things prey can do inside. */
-export function startInsideAction(action: InsideAction = pickInsideAction()): Ingestion['action'] {
+export function startInsideAction(action: InsideAction = pickInsideAction()) {
   return { id: action.id, label: action.label, escapeChance: action.escapeChance ?? 0, remaining: insideActionSeconds(action) };
 }
 
@@ -303,9 +307,9 @@ export function voreTypeLabel(type: VoreType): string {
 }
 
 export function pickRemainsOutcome(type: VoreType): VoreOutcome {
-  const definition: VoreTypeDefinition = VORE_TYPES[type];
-  const outcome = weightedPick(definition.looks, { boundary: 'next' });
-  if (!outcome) throw new Error(`Cannot choose a remains outcome for "${type}": at least one look must have a positive weight.`);
+  const outcomes: readonly VoreOutcome[] = VORE_TYPES[type].outcomes;
+  const outcome = weightedPick(outcomes, { boundary: 'next' });
+  if (!outcome) throw new Error(`Cannot choose a remains outcome for "${type}": at least one outcome must have a positive weight.`);
   return outcome;
 }
 
@@ -314,16 +318,9 @@ export interface Ingestion {
   readonly predator: VoreActor;
   readonly prey: VoreActor;
   readonly type: VoreType;
-  /** Digesting while the acid works; absorbing once the prey has been converted. */
-  stage: 'digesting' | 'absorbing';
-  /** Seconds spent in the current stage. */
-  elapsed: number;
-  /** What the prey is doing inside right now, and the chance that finishing it gets them spat out. */
-  action: { readonly id: string; readonly label: string; readonly escapeChance: number; remaining: number };
-  /** HP handed to the predator so far, while absorbing. */
-  absorbed: number;
-  /** Chosen once when digestion finishes, so conversion and remains agree. */
-  outcome: VoreOutcome | null;
+  phase:
+    | { kind: 'digesting'; action: ReturnType<typeof startInsideAction> }
+    | { kind: 'absorbing'; elapsed: number; outcome: VoreOutcome };
 }
 
 export interface AbsorptionEvent {
@@ -336,9 +333,9 @@ export interface AbsorptionEvent {
 export const ABSORPTION_HOOKS: Array<(event: AbsorptionEvent) => void> = [];
 
 /** The prey's activity line while inside. */
-export function insideActivity(ingestion: Ingestion): string {
-  const name = ingestion.predator.character.name;
-  return ingestion.stage === 'absorbing' ? `Being absorbed by ${name}` : `${ingestion.action.label} inside ${name}`;
+export function insideActivity({ predator, phase }: Ingestion): string {
+  const { name } = predator.character;
+  return phase.kind === 'absorbing' ? `Being absorbed by ${name}` : `${phase.action.label} inside ${name}`;
 }
 
 /** Vore state that every agent and creature owns, like LiveStats. */

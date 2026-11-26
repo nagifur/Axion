@@ -39,7 +39,7 @@ export const SHOCK_SECONDS = 2;
 export const SCARED_SECONDS = 10;
 export const EXHAUSTED_SECONDS = 5;
 
-/** What swallowed prey turn into once the acid is done with them; the vore type picks which. */
+/** What swallowed prey turn into once the acid is done with them; the outcome picks which. */
 function convertedStatus(label: string, color: string, background: string): StatusEffectDefinition {
   return { label, targets: ['agent', 'creature'], blocksActions: true, irreversible: true, hidesPopups: ['dead'], popup: { color, background } };
 }

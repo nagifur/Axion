@@ -275,11 +275,11 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   if (json.cameraGroup !== undefined && (typeof json.cameraGroup !== 'string' || !json.cameraGroup.trim())) {
     throw new NavMapError(`${label}/room.json: "cameraGroup" needs a non-empty name.`);
   }
-  if (json.containmentCell !== undefined && typeof json.containmentCell !== 'boolean') {
-    throw new NavMapError(`${label}/room.json: "containmentCell" must be true or false.`);
-  }
-  if (json.restroom !== undefined && typeof json.restroom !== 'boolean') {
-    throw new NavMapError(`${label}/room.json: "restroom" must be true or false.`);
+  for (const flag of ['containmentCell', 'restroom'] as const) {
+    const value = json[flag];
+    if (value !== undefined && typeof value !== 'boolean') {
+      throw new NavMapError(`${label}/room.json: "${flag}" must be true or false.`);
+    }
   }
   let instances: LoadedRoom['instances'];
   if (json.instances !== undefined) {

@@ -9,7 +9,7 @@ import { wait } from './tasks.ts';
 import { isTrespassing, trespassResponseFor } from './trespass.ts';
 import {
   ABSORPTION_HOOKS, VORE_STAFF_RULES, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, hasVoreTypes, heightOf, huntRate, pickVoreType, rolls,
-  pickRemainsOutcome, startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreType,
+  pickRemainsOutcome, startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreOutcome, type VoreType,
 } from './vore.ts';
 import { stalk } from './voreTasks.ts';
 import type { World } from './world.ts';
@@ -78,7 +78,7 @@ export class VoreSystem {
     const selectedType = type ?? pickVoreType(predator.character.vore);
     if (!Object.hasOwn(VORE_TYPES, selectedType)) throw new Error(`Unknown vore type "${selectedType}".`);
     const { world } = this;
-    const ingestion: Ingestion = { predator, prey, type: selectedType, stage: 'digesting', elapsed: 0, action: startInsideAction(), absorbed: 0, outcome: null };
+    const ingestion: Ingestion = { predator, prey, type: selectedType, phase: { kind: 'digesting', action: startInsideAction() } };
     if (prey instanceof Agent) {
       prey.releaseStaffEscort(world);
       world.agents = world.agents.filter((other) => other !== prey);
@@ -95,17 +95,7 @@ export class VoreSystem {
     predator.vore.cooldown = cooldownSeconds();
     this.carry(ingestion);
     world.log(`${predator.character.name} swallowed ${prey.character.name} whole (${voreTypeLabel(selectedType).toLowerCase()}) in the ${predator.room.name}!`, 'alert');
-    const { room } = predator;
-    const preyIncident = prey instanceof Agent ? undefined : world.incidents.record('swallowed', { creature: prey, other: predator, room });
-    if (!(predator instanceof Agent)) {
-      const incident = world.incidents.pendingFor(predator);
-      if (incident) {
-        this.predatorIncidents.set(ingestion, incident);
-        if (incident !== preyIncident) {
-          world.incidents.record('swallowed-someone', { creature: predator, other: prey, room }, incident);
-        }
-      }
-    }
+    this.recordIngestion('swallowed', ingestion);
     // The post is staffed again; the swallowed guard counts as absent from here on.
     if (prey instanceof Agent && prey.security && world.elevatorFor(prey.security.post)) world.staffSecurityPost(prey.security.post);
     return true;
@@ -114,7 +104,7 @@ export class VoreSystem {
   /** The predator lets live prey out. False when they aren't inside, or have already been digested. */
   spitOut(prey: VoreActor): boolean {
     const ingestion = prey.vore.inside;
-    if (!ingestion || ingestion.stage !== 'digesting') return false;
+    if (ingestion?.phase.kind !== 'digesting') return false;
     this.eject(ingestion);
     return true;
   }
@@ -122,7 +112,7 @@ export class VoreSystem {
   /** Lets go of everything inside (spits out the living, finishes absorbing the digested) and drops any remains. */
   release(predator: VoreActor) {
     for (const ingestion of [...predator.vore.contents]) {
-      if (ingestion.stage === 'absorbing') this.finish(ingestion);
+      if (ingestion.phase.kind === 'absorbing') this.finish(ingestion, ingestion.phase.outcome);
       else this.eject(ingestion);
     }
     for (const remains of [...predator.vore.remains]) this.drop(predator, remains);
@@ -133,7 +123,7 @@ export class VoreSystem {
     for (const ingestion of [...this.ingestions]) {
       if (this.ingestions.includes(ingestion)) this.advance(ingestion, dt);
     }
-    this.dispose(dt);
+    this.ageRemains(dt);
     this.hunt(dt);
   }
 
@@ -214,82 +204,80 @@ export class VoreSystem {
   }
 
   private advance(ingestion: Ingestion, dt: number) {
-    const { predator, prey } = ingestion;
+    const { predator, prey, phase } = ingestion;
     if (this.gone(predator)) {
       this.release(predator);
       return;
     }
-    if (ingestion.stage === 'absorbing') {
-      this.absorb(ingestion, dt);
+    if (phase.kind === 'absorbing') {
+      this.absorb(ingestion, phase, dt);
       return;
     }
-    ingestion.elapsed += dt;
     if (prey.dead) {
       this.convert(ingestion);
       return;
     }
-    ingestion.action.remaining -= dt;
-    if (ingestion.action.remaining > 0) return;
-    const odds = ingestion.action.escapeChance * VORE_TYPES[ingestion.type].escape;
+    phase.action.remaining -= dt;
+    if (phase.action.remaining > 0) return;
+    const odds = phase.action.escapeChance * VORE_TYPES[ingestion.type].escape;
     if (odds > 0 && this.grounded(predator) && chance(odds)) this.eject(ingestion);
-    else ingestion.action = startInsideAction();
+    else phase.action = startInsideAction();
   }
 
   /** The acid has finished: the prey changes into whatever this way of swallowing makes of them, and absorption begins. */
   private convert(ingestion: Ingestion) {
     const { predator, prey, type } = ingestion;
     const outcome = pickRemainsOutcome(type);
-    const status = outcome.converted ?? VORE_TYPES[type].converted;
-    ingestion.outcome = outcome;
-    ingestion.stage = 'absorbing';
-    ingestion.elapsed = 0;
+    const { converted } = outcome;
+    ingestion.phase = { kind: 'absorbing', elapsed: 0, outcome };
     prey.statuses.remove('acid');
-    prey.statuses.apply(status);
-    this.world.log(`${prey.character.name} was ${STATUS_EFFECTS[status].label.toLowerCase()} by ${predator.character.name}.`, 'warn');
+    prey.statuses.apply(converted);
+    this.world.log(`${prey.character.name} was ${STATUS_EFFECTS[converted].label.toLowerCase()} by ${predator.character.name}.`, 'warn');
   }
 
   /** Hands the predator the prey's worth of health bit by bit; when the stage runs out, the prey is gone. */
-  private absorb(ingestion: Ingestion, dt: number) {
+  private absorb(ingestion: Ingestion, phase: Extract<Ingestion['phase'], { kind: 'absorbing' }>, dt: number) {
     const { predator, prey, type } = ingestion;
     const total = Math.max(0.001, VORE_TUNING.absorbSeconds / VORE_TYPES[type].absorption);
-    const step = Math.max(0, Math.min(dt, total - ingestion.elapsed));
-    ingestion.elapsed += step;
+    const step = Math.max(0, Math.min(dt, total - phase.elapsed));
+    phase.elapsed += step;
     const amount = (prey.stats.hp.max * VORE_TUNING.healFraction * step) / total;
     if (amount > 0 && !predator.dead) {
       const { hp } = predator.stats;
       hp.current = Math.min(hp.max, hp.current + amount);
-      ingestion.absorbed += amount;
     }
-    if (ingestion.elapsed >= total) this.finish(ingestion);
+    if (phase.elapsed >= total) this.finish(ingestion, phase.outcome);
   }
 
   /** Nothing but remains is left: the profile stays as it was, but is no longer an agent or creature. */
-  private finish(ingestion: Ingestion) {
-    const { predator, prey, type, outcome } = ingestion;
-    if (!outcome) throw new Error('Cannot finish absorption without a remains outcome.');
+  private finish(ingestion: Ingestion, outcome: VoreOutcome) {
+    const { predator, prey, type } = ingestion;
     const { world } = this;
     this.detach(ingestion);
-    const kind = prey instanceof Agent ? 'agent' : 'creature';
     const items = prey instanceof Agent ? prey.takeAllItems() : [];
     if (prey instanceof Agent) prey.removed = true;
     else prey.consumed = true;
     this.consumed.add(prey.character.id);
-    const remains = new Remains({
-      actor: prey, kind, type, look: outcome.look, label: outcome.label,
-      disposal: outcome.disposal ?? VORE_TYPES[type].disposal, items, wait: disposalWait(),
-    });
+    const remains = new Remains({ actor: prey, type, outcome, items, wait: disposalWait() });
     prey.vore.ownRemains = remains;
     predator.vore.remains.push(remains);
     if (prey instanceof Agent) world.hooks.removed?.(prey);
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
+    this.recordIngestion('absorbed', ingestion);
+  }
+
+  private recordIngestion(step: 'swallowed' | 'absorbed', ingestion: Ingestion) {
+    const { predator, prey } = ingestion;
     const { room } = predator;
-    const preyIncident = prey instanceof Agent ? undefined : world.incidents.record('absorbed', { creature: prey, other: predator, room });
-    if (!(predator instanceof Agent)) {
-      const incident = this.predatorIncidents.get(ingestion) ?? world.incidents.pendingFor(predator);
-      if (incident && incident !== preyIncident) {
-        world.incidents.record('absorbed-someone', { creature: predator, other: prey, room }, incident);
-      }
+    const { incidents } = this.world;
+    const preyIncident = prey instanceof Agent ? undefined : incidents.record(step, { creature: prey, other: predator, room });
+    if (predator instanceof Agent) return;
+    const incident = this.predatorIncidents.get(ingestion) ?? incidents.pendingFor(predator);
+    if (!incident) return;
+    if (step === 'swallowed') this.predatorIncidents.set(ingestion, incident);
+    if (incident !== preyIncident) {
+      incidents.record(`${step}-someone`, { creature: predator, other: prey, room }, incident);
     }
   }
 
@@ -333,14 +321,11 @@ export class VoreSystem {
   }
 
   /** Aging creates an urge to dispose; only gone predators drop remains without an activity. */
-  private dispose(dt: number) {
+  private ageRemains(dt: number) {
     for (const host of [...this.world.everyone(), ...this.world.creatures]) {
       if (!host.vore.remains.length) continue;
-      const gone = this.gone(host);
-      for (const remains of [...host.vore.remains]) {
-        remains.wait -= dt;
-        if (gone) this.drop(host, remains);
-      }
+      for (const remains of host.vore.remains) remains.wait -= dt;
+      if (this.gone(host)) for (const remains of [...host.vore.remains]) this.drop(host, remains);
     }
   }
 

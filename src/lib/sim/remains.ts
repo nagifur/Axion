@@ -1,15 +1,12 @@
 import type { Item } from './item.ts';
-import { DEFAULT_SCALE, type SimCharacter, type SimCreature } from './roster.ts';
-import type { VoreActor, VoreDisposal, VoreType } from './vore.ts';
+import { DEFAULT_SCALE } from './roster.ts';
+import type { VoreActor, VoreOutcome, VoreType } from './vore.ts';
 
-export interface RemainsData {
+interface RemainsData {
   /** Who this was; clicking the pile pulls up their file. */
   actor: VoreActor;
-  kind: 'agent' | 'creature';
   type: VoreType;
-  look: string;
-  label?: string;
-  disposal: VoreDisposal;
+  outcome: Pick<VoreOutcome, 'look' | 'label' | 'disposal'>;
   items: Item[];
   /** Seconds before the predator prioritizes getting rid of them. */
   wait: number;
@@ -22,13 +19,11 @@ export interface RemainsData {
  */
 export class Remains {
   readonly actor: VoreActor;
-  readonly character: SimCharacter | SimCreature;
-  readonly kind: 'agent' | 'creature';
   readonly type: VoreType;
   /** Artwork name: src/sim_assets/remains/<look>.png */
   readonly look: string;
   readonly label: string;
-  readonly disposal: VoreDisposal;
+  readonly disposal: VoreOutcome['disposal'];
   /** Everything they were carrying or had stored; dropped next to the pile. */
   readonly items: Item[];
   wait: number;
@@ -37,16 +32,19 @@ export class Remains {
   y = 0;
 
   constructor(data: RemainsData) {
+    const { look, label, disposal } = data.outcome;
     this.actor = data.actor;
-    this.character = data.actor.character;
-    this.kind = data.kind;
     this.type = data.type;
-    this.look = data.look;
-    const look = data.look.replaceAll('_', ' ');
-    this.label = data.label ?? look.slice(0, 1).toUpperCase() + look.slice(1);
-    this.disposal = data.disposal;
+    this.look = look;
+    const name = look.replaceAll('_', ' ');
+    this.label = label ?? name.slice(0, 1).toUpperCase() + name.slice(1);
+    this.disposal = disposal;
     this.items = data.items;
     this.wait = data.wait;
+  }
+
+  get character() {
+    return this.actor.character;
   }
 
   get id() {

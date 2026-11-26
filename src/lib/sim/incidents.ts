@@ -142,7 +142,7 @@ export interface IncidentStep {
   text: string;
   tone: LogTone;
   room?: Room;
-  subject?: object;
+  subject?: Creature;
   /** Simulation time. */
   time: number;
   /** Viewer clock time, for display. */
@@ -156,9 +156,9 @@ export interface Incident {
   readonly level?: number;
   readonly steps: IncidentStep[];
   /** Everyone the incident has been about. */
-  readonly subjects: Set<object>;
+  readonly subjects: Set<Creature>;
   /** Subjects that still need a response. */
-  readonly pending: Set<object>;
+  readonly pending: Set<Creature>;
   held: boolean;
   openedAt: number;
   resolvedAt?: number;

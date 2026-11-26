@@ -5,6 +5,7 @@ import { Agent } from '../src/lib/sim/agent.ts';
 import { CHARACTER_FRAMES } from '../src/lib/sim/sprites.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 import { Remains } from '../src/lib/sim/remains.ts';
+import { VORE_TYPES } from '../src/lib/sim/vore.ts';
 
 test('a room instance draws its shared template image', (t) => {
   const original = Object.getOwnPropertyDescriptor(globalThis, 'document');
@@ -361,8 +362,8 @@ test('remains are sized by the prey they came from', (t) => {
     },
   });
   const pile = (scale) => new Remains({
-    actor: { character: { id: 'x', name: 'X', scale } }, kind: 'agent', type: 'oral', look: 'bones',
-    disposal: { activity: 'Defecating', seconds: 12 }, items: [], wait: 0,
+    actor: { character: { id: 'x', name: 'X', scale } }, type: 'oral',
+    outcome: VORE_TYPES.oral.outcomes[0], items: [], wait: 0,
   });
   const giant = Object.assign(pile(1.2), { x: 100, y: 80 });
   const small = Object.assign(pile(0.5), { x: 50, y: 60 });

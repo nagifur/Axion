@@ -24,7 +24,7 @@ function hasTwin(world: World, agent: Agent) {
 /** What changes in a file when someone is swallowed, holds prey, or has been absorbed. */
 function voreKey(world: World, actor: CameraActor) {
   const { inside, contents } = actor.vore;
-  const holding = contents.map(({ prey, stage }) => `${prey.character.id}:${stage}`).join(',');
+  const holding = contents.map(({ prey, phase }) => `${prey.character.id}:${phase.kind}`).join(',');
   return `${inside ? `${inside.predator.character.id}:${inside.type}` : ''}|${holding}|${world.vore.consumed.has(actor.character.id)}`;
 }
 
@@ -114,7 +114,8 @@ export class MonitorFile {
     const { inside, contents } = actor.vore;
     if (inside) stat('Inside', `${inside.predator.character.name} · ${voreTypeLabel(inside.type)}`);
     if (contents.length) {
-      stat('Holding', contents.map(({ prey, stage }) => stage === 'absorbing' ? `${prey.character.name} (absorbing)` : prey.character.name).join(', '));
+      stat('Holding', contents.map(({ prey, phase }) =>
+        phase.kind === 'absorbing' ? `${prey.character.name} (absorbing)` : prey.character.name).join(', '));
     }
     if (agent) {
       stat('Item', agent.item?.type ?? 'Empty');

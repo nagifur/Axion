@@ -637,6 +637,7 @@ are kept (the opening step always stays).
 When an escapee absorbs someone, its incident gets a timeline step without settling
 the escapee, even if it has already been returned to its cell. If the prey is also
 an escapee, absorption settles the prey. A shared incident gets only the prey's step.
+The predator's follow-up goes to the incident linked at swallowing, not a newer breach.
 
 Simulation code only reports step IDs:
 
@@ -1090,10 +1091,11 @@ Each swallow uses one of four ways, picked by weight from the predator's profile
 | `breast` | Breast vore | 1 | `milkified` | `milk` (100%) | Milking themselves (12 s) |
 
 Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
-the acid damage, spit-out odds and absorption time. Its `looks` entries use relative
-`weight`s (5 and 95 mean 5% and 95%) and may override `converted`, `disposal` and the
-display `label`; omitted fields use the type's defaults and the artwork filename. At
-least one look must have positive weight. `SIM_OVERRIDES[id].vore.types` replaces
+the acid damage, spit-out odds and absorption time. Each `outcomes` entry specifies its
+relative `weight` (5 and 95 mean 5% and 95%), `look` (artwork), `converted` status and
+`disposal` activity and duration. An optional `label` overrides the name derived from
+the artwork filename. At least one outcome must have positive weight.
+`SIM_OVERRIDES[id].vore.types` replaces
 the weights for one character; types left out of it are never used.
 An empty or all-zero weight map disables swallowing; directly requesting a random
 type from it throws instead of silently choosing oral. Profile construction rejects
@@ -1126,8 +1128,8 @@ union edit.
    predator, along with the original agent or creature (`actor`). The id joins `world.vore.consumed`, so the character doesn't arrive again that
    session and containment failures stop counting it.
 5. **Disposed.** After 20–45 s (`disposalDelay`), the predator prioritizes a disposal
-   activity. The selected look's `disposal`, or `VORE_TYPES[type].disposal` by default,
-   specifies its activity label and duration; only completing it drops the pile at the predator's feet
+   activity. The selected outcome's `disposal` specifies its activity label and duration;
+   only completing it drops the pile at the predator's feet
    (`room.remains`) and scatters the prey's items beside it (`room.items`).
 
 Staff and creatures seek an accessible, unoccupied restroom first, then an empty
@@ -1135,15 +1137,19 @@ reachable room, and finally a reachable corner of their current room if no priva
 available. Living staff and creatures count as witnesses. Mark a room as a restroom with
 `"restroom": true` in its `room.json`; room templates pass this setting to their instances.
 There are currently no marked restrooms in the facility, so the fallback applies until
-one is added. Staff follow clearance-aware door and elevator routes; creatures can only
-use currently passable linked doors and do not enter cells for this purpose.
+one is added. [`remainsDisposal.ts`](../src/lib/sim/remainsDisposal.ts) owns the shared
+destination and interruption rules. Staff follow clearance-aware door and elevator
+routes; creatures can only use linked doors open far enough to squeeze through
+(`CREATURE_TUNING.squeezeOpening`) and do not enter cells for this purpose. Both
+reconsider the destination after reaching the next room.
 
 Disposal waits until the predator is free and calm, rather than interrupting a hunt,
 escape, fear, escort, or other urgent behavior. Staff and creatures can be interrupted,
 including by a witness entering a private room; an interrupted activity starts over.
 Security calls and escorts take precedence over a guard's disposal plans. During the
 stationary activity, both staff and creatures show a heart and gently shake; the effect
-stops when the activity ends or is interrupted.
+stops when the activity ends or is interrupted. Door and elevator crossings that
+cannot be interrupted finish before the guard takes a new call.
 
 A predator that dies or leaves the facility (or a creature that escapes) lets go instead:
 living prey are spat out, digested prey finish absorbing at once, and remains drop where
@@ -1185,9 +1191,8 @@ whose `remains` list contains their pile.
   including only moving for the unblocked portion of a frame when an effect expires.
   Item statuses continue ticking once per frame when items move from a swallowed
   agent's inventory into carried remains and later onto the floor.
-- To customize: `VORE_TYPES` (label, weight, default converted status and disposal,
-  weighted remains `looks` with optional status and disposal overrides, per-type
-  multipliers; a new converted status also needs an entry in `STATUS_EFFECTS`),
+- To customize: `VORE_TYPES` (label, weight, weighted `outcomes`, per-type multipliers;
+  a new converted status also needs an entry in `STATUS_EFFECTS`),
   `VORE_TUNING` (lifecycle timing, chase speed/re-routing, spit-out offsets/recovery
   and item scattering; exported and mutable for tests and difficulty
   settings), `INSIDE_ACTIONS` (add `{ id, label, weight, duration, escapeChance? }` for more
