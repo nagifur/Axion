@@ -82,9 +82,9 @@ export const VORE_TYPES = {
     digestion: 1, escape: 1, absorption: 1,
   },
   cock: {
-    label: 'Cock vore', weight: 10,
+    label: 'Cock vore', weight: 1,
     outcomes: [
-      { look: 'pee', label: 'Urine', weight: 98, converted: 'urine', disposal: {
+      { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: {
         activity: 'Urinating', seconds: 12, release: { set: 'pee', seconds: 3, every: 0.1 },
       } },
       { look: 'cum', weight: 95, converted: 'cumified', disposal: {
