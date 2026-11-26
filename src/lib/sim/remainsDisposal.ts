@@ -90,6 +90,7 @@ export function planRemainsDisposal(agent: Agent, world: World): Task[] | undefi
       activity: action.activity,
       interruptible: true,
       remainsDisposal: true,
+      disposalActivity: true,
       update(actor, world, dt) {
         if (actor.room !== room || !actor.vore.remains.includes(remains) ||
           !calmForDisposal(actor, world) || (destination.private && hasDisposalWitness(world, actor))) {

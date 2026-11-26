@@ -42,6 +42,8 @@ const FOREGROUND_DOOR_ALPHA = 0.35;
 const AGENT_PICK_TOLERANCE = 2;
 /** Size of the stand-in drawn for remains whose artwork is missing. */
 const MISSING_REMAINS = { w: 24, h: 16 };
+/** Frequency of the subtle one-pixel disposal shake, in radians per second. */
+const DISPOSAL_SHAKE_SPEED = 12;
 
 type ActorSheet = 'character' | 'creature' | 'security';
 type AssetKind = 'room' | 'actor' | 'item' | 'particle' | 'remains' | 'prop' | 'missing-texture';
@@ -434,7 +436,9 @@ export class Renderer {
     const sheet = this.sheet(agent.character.scale, agent instanceof Creature ? 'creature' : agent.security ? 'security' : 'character');
     const { name, flip } = agent.frame;
     const frame = sheet.frames[name];
-    const shake = !(agent instanceof Creature) && agent.shake > 0 ? Math.round(Math.sin(agent.shake * 60)) : 0;
+    const relief = agent.disposalActivityTime;
+    const shake = !(agent instanceof Creature) && agent.shake > 0 ? Math.round(Math.sin(agent.shake * 60))
+      : relief === undefined ? 0 : Math.round(Math.sin(relief * DISPOSAL_SHAKE_SPEED));
     const x = Math.round(agent.x) + shake - (flip ? frame.w - frame.anchorX : frame.anchorX);
     const y = Math.round(agent.y) - frame.h;
     return { sheet, name, frame, flip, x, y };

@@ -7,6 +7,7 @@ import { followCameraRoom } from '../src/lib/sim/monitorFollow.ts';
 import { setRandomSource } from '../src/lib/sim/random.ts';
 import { Remains } from '../src/lib/sim/remains.ts';
 import { planRemainsDisposal } from '../src/lib/sim/remainsDisposal.ts';
+import { Renderer } from '../src/lib/sim/render.ts';
 import { toSimCharacter, toSimCreature } from '../src/lib/sim/roster.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
@@ -762,9 +763,9 @@ test('predators plan a timed disposal and drop the remains with everything the p
   assert.equal(pred.vore.remains.length, 1, 'becoming ready does not instantly release the remains');
   step(world, 2);
   assert.equal(pred.activity, VORE_TYPES.cock.disposal.activity);
-  step(world, VORE_TYPES.cock.disposal.seconds - 2);
+  step(world, Math.max(0, VORE_TYPES.cock.disposal.seconds - 4));
   assert.equal(pred.vore.remains.length, 1, 'the activity must finish');
-  step(world, 3);
+  for (let i = 0; i < 50 && pred.vore.remains.length; i++) world.update(0.1);
 
   assert.equal(pred.vore.remains.length, 0);
   assert.equal(hall.remains.length, 1);
@@ -804,6 +805,7 @@ test('staff and creatures seek an accessible empty restroom before a private cur
       : addCreature(world, hall, beast('pred', ['Predator']), { x: 40, y: 100 });
     const remains = holdRemains(predator, prey, 'breast');
     step(world, 1);
+    assert.equal(predator.disposalActivityTime, undefined, 'no relief effect while travelling');
     if (kind === 'creature') assert.equal(predator.exposed, true, 'walking toward a restroom is not an escape');
     step(world, 14);
     assert.equal(predator.room, washroom, kind);
@@ -812,6 +814,40 @@ test('staff and creatures seek an accessible empty restroom before a private cur
     step(world, 15);
     assert.ok(washroom.remains.includes(remains), kind);
     assert.equal(hall.remains.length, 0, kind);
+  }
+});
+
+test('disposal relief shakes staff and creatures only during the stationary activity', () => {
+  for (const kind of ['staff', 'creature']) {
+    const { world, hall } = setup();
+    const prey = standing(world, hall, person('meal', ['Prey']), { x: 100, y: 100 });
+    world.agents = world.agents.filter((actor) => actor !== prey);
+    const predator = kind === 'staff'
+      ? standing(world, hall, person('pred', ['Predator'], '6 m'), { x: 100, y: 100 })
+      : addCreature(world, hall, beast('pred', ['Predator']), { x: 100, y: 100 });
+    holdRemains(predator, prey, 'oral', 1);
+    step(world, 0.5);
+    assert.equal(predator.disposalActivityTime, undefined, `${kind}: still waiting`);
+    step(world, 2);
+    assert.equal(typeof predator.disposalActivityTime, 'number', `${kind}: activity started`);
+
+    const frame = { w: 96, h: 96, anchorX: 48 };
+    const renderer = { sheet: () => ({ frames: new Proxy({}, { get: () => frame }) }) };
+    const positions = new Set();
+    for (let i = 0; i < 10; i++) {
+      world.update(0.1);
+      positions.add(Renderer.prototype.placement.call(renderer, predator).x);
+    }
+    assert.ok(positions.size > 1, `${kind}: the sprite visibly moves`);
+    assert.ok([...positions].every((x) => Math.abs(x - (Math.round(predator.x) - frame.anchorX)) <= 1),
+      `${kind}: the shake stays subtle`);
+
+    const witness = standing(world, hall, person('witness', ['None']), { x: 110, y: 100 });
+    world.update(0.1);
+    assert.equal(predator.disposalActivityTime, undefined, `${kind}: interruption stops the effect`);
+    world.agents = world.agents.filter((actor) => actor !== witness);
+    step(world, 20);
+    assert.equal(predator.disposalActivityTime, undefined, `${kind}: completion stops the effect`);
   }
 });
 
@@ -869,7 +905,9 @@ test('urgent actions, fear and new witnesses interrupt disposal without releasin
   world.agents = world.agents.filter((actor) => actor !== witness);
   step(world, 10);
   assert.ok(pred.vore.remains.includes(remains), 'interrupted progress was not completed');
-  step(world, 12);
+  for (let i = 0; i < (VORE_TYPES.cock.disposal.seconds + 10) * 10 && !hall.remains.includes(remains); i++) {
+    world.update(0.1);
+  }
   assert.ok(hall.remains.includes(remains));
 });
 

@@ -1123,7 +1123,7 @@ union edit.
    session and containment failures stop counting it.
 5. **Disposed.** After 20–45 s (`disposalDelay`), the predator prioritizes a disposal
    activity. `VORE_TYPES[type].disposal` specifies its activity label and duration
-   (12 seconds by default); only completing it drops the pile at the predator's feet
+   (12 seconds for most types, 20 for cock vore); only completing it drops the pile at the predator's feet
    (`room.remains`) and scatters the prey's items beside it (`room.items`).
 
 Staff and creatures seek an accessible, unoccupied restroom first, then an empty
@@ -1137,7 +1137,9 @@ use currently passable linked doors and do not enter cells for this purpose.
 Disposal waits until the predator is free and calm, rather than interrupting a hunt,
 escape, fear, escort, or other urgent behavior. Staff and creatures can be interrupted,
 including by a witness entering a private room; an interrupted activity starts over.
-Security calls and escorts take precedence over a guard's disposal plans.
+Security calls and escorts take precedence over a guard's disposal plans. During the
+stationary activity, both staff and creatures show a heart and gently shake; the effect
+stops when the activity ends or is interrupted.
 
 A predator that dies or leaves the facility (or a creature that escapes) lets go instead:
 living prey are spat out, digested prey finish absorbing at once, and remains drop where

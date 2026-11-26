@@ -135,7 +135,7 @@ export class NameTags {
       }
       const ariaLabel = [label, ...popups.map((popup) => popup.label), 'Open file'].join('. ');
       if (tag.button.getAttribute('aria-label') !== ariaLabel) tag.button.setAttribute('aria-label', ariaLabel);
-      const bubble = creature ? '' : agent.bubble ?? '';
+      const bubble = (!creature && agent.bubble) || (agent.disposalActivityTime !== undefined ? '♥' : '');
       if (tag.bubble.textContent !== bubble) tag.bubble.textContent = bubble;
 
       const held = !creature && agent.held;

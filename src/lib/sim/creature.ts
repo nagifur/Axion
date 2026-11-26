@@ -154,6 +154,12 @@ export class Creature {
     return this.plan.action === 'dispose' || this.plan.action === 'disposalDoor';
   }
 
+  /** Animation time while actually performing a disposal activity. */
+  get disposalActivityTime(): number | undefined {
+    return this.plan.action === 'dispose' && !this.plan.path.length && this.exposed && !this.incapacitated
+      ? this.plan.remaining : undefined;
+  }
+
   get activity() {
     if (this.vore.inside) return insideActivity(this.vore.inside);
     if (this.consumed) return 'Consumed';

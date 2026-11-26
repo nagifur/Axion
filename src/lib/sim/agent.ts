@@ -36,6 +36,8 @@ export interface Task {
   repairTarget?: RepairTarget;
   /** A voluntary remains-disposal trip or activity. */
   remainsDisposal?: boolean;
+  /** The stationary disposal activity, rather than the trip to it. */
+  disposalActivity?: boolean;
   /** Urgent behavior that must not be replaced by ordinary needs. */
   urgent?: boolean;
   /** The carried item this task is using, once it has started. */
@@ -242,6 +244,12 @@ export class Agent {
 
   get disposingRemains() {
     return !!(this.task ?? this.plan[0])?.remainsDisposal;
+  }
+
+  /** Animation time while actually performing a disposal activity. */
+  get disposalActivityTime(): number | undefined {
+    return this.task?.disposalActivity && this.exposed && !this.dead && !this.incapacitated &&
+      !this.staffEscort && !this.statuses.has('scared') ? this.taskElapsed : undefined;
   }
 
   get urgent() {

@@ -154,6 +154,34 @@ test('status tags share character visibility, dragging and removed-agent cleanup
   assert.equal(button.removed, true);
 });
 
+test('disposal relief shows a heart for staff and creatures without replacing speech', (t) => {
+  const { agent, world, layer, bubble, sync } = setup(t);
+  Object.defineProperty(agent, 'disposalActivityTime', { value: 1, configurable: true });
+  sync();
+  assert.equal(bubble.textContent, '♥');
+  agent.say('?', 10);
+  sync();
+  assert.equal(bubble.textContent, '?', 'speech takes priority over the relief heart');
+  agent.bubble = null;
+  delete agent.disposalActivityTime;
+  sync();
+  assert.equal(bubble.textContent, '');
+
+  const room = new Room({
+    id: 'cell', name: 'Cell', camera: 'cell', level: 0, width: 140, height: 100,
+    nav: { floor: Array.from({ length: 100 }, () => [0, 140]), exits: [] }, props: [], links: {},
+  });
+  const creature = new Creature({ name: 'Resident', tint: '#fff', scale: 1 }, room);
+  Object.defineProperty(creature, 'disposalActivityTime', { value: 1, configurable: true });
+  world.agents = [creature];
+  sync();
+  const creatureBubble = layer.children.at(-1).children[1];
+  assert.equal(creatureBubble.textContent, '♥');
+  delete creature.disposalActivityTime;
+  sync();
+  assert.equal(creatureBubble.textContent, '');
+});
+
 test('Dead artwork and accessible popup persist for both staff and creatures', async (t) => {
   await access(new URL(STATUS_EFFECTS.dead.popup.icon));
   const { agent, world, button, statuses, sync, layer } = setup(t);
