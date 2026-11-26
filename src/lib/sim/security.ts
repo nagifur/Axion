@@ -8,6 +8,7 @@ import { scheduleFor } from './schedule.ts';
 import { wait, walkTo } from './tasks.ts';
 import { exitThroughDoor, rideElevatorOut } from './transport.ts';
 import type { World } from './world.ts';
+import { planRemainsDisposal } from './remainsDisposal.ts';
 
 export interface SecurityDuty {
   readonly post: Room;
@@ -76,6 +77,9 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
   const call = dispatch(agent, world, duty);
   if (call) return [call];
 
+  const disposal = planRemainsDisposal(agent, world);
+  if (disposal) return disposal;
+
   const at = postPoint(post);
   if (agent.room !== post || !post.canReach(agent, at)) {
     const step = stepTowardRoom(world, agent, post, at);
@@ -90,6 +94,14 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
     return [rideElevatorOut()];
   }
   return [wait(1, 'Guarding the elevator', 'front')];
+}
+
+/** A new security call can interrupt a voluntary disposal activity. */
+export function interruptDisposalForCall(agent: Agent, world: World) {
+  const duty = agent.security;
+  if (!duty || duty.target || duty.relieved || !agent.disposingRemains || !agent.interruptible) return;
+  const call = dispatch(agent, world, duty);
+  if (call) agent.setPlan(world, [call]);
 }
 
 function dispatch(agent: Agent, world: World, duty: SecurityDuty, localOnly = false): Task | undefined {

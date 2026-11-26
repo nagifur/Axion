@@ -8,9 +8,10 @@ import { isSpeaking, type Conversation } from './conversation.ts';
 import { planNext } from './planning.ts';
 import { planRepair, type RepairTarget } from './repairs.ts';
 import { StatusEffects } from './statusEffects.ts';
-import type { SecurityDuty } from './security.ts';
+import { interruptDisposalForCall, type SecurityDuty } from './security.ts';
 import type { StaffEscort } from './trespass.ts';
 import { VoreState, insideActivity } from './vore.ts';
+import { planRemainsDisposal } from './remainsDisposal.ts';
 
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
@@ -33,6 +34,10 @@ export interface Task {
   tripping?: boolean;
   /** Reserves damaged equipment while walking to it or repairing it. */
   repairTarget?: RepairTarget;
+  /** A voluntary remains-disposal trip or activity. */
+  remainsDisposal?: boolean;
+  /** Urgent behavior that must not be replaced by ordinary needs. */
+  urgent?: boolean;
   /** The carried item this task is using, once it has started. */
   readonly usingItem?: Item | null;
   start?(agent: Agent, world: World): void;
@@ -235,6 +240,14 @@ export class Agent {
     return (this.task ?? this.plan[0])?.interruptible ?? true;
   }
 
+  get disposingRemains() {
+    return !!(this.task ?? this.plan[0])?.remainsDisposal;
+  }
+
+  get urgent() {
+    return !!(this.task ?? this.plan[0])?.urgent;
+  }
+
   get transporting() {
     return !!this.task?.transport || !!this.plan[0]?.transport;
   }
@@ -400,7 +413,12 @@ export class Agent {
     if (this.incapacitated || (dt > 0 && blockedSeconds >= dt)) return;
     dt = Math.max(0, dt - blockedSeconds);
 
-    if (this.task?.interruptible && !this.repairTarget) {
+    interruptDisposalForCall(this, world);
+    if (this.task?.interruptible && !this.disposingRemains && !this.security) {
+      const disposal = planRemainsDisposal(this, world);
+      if (disposal) this.setPlan(world, disposal);
+    }
+    if (this.task?.interruptible && !this.repairTarget && !this.disposingRemains) {
       const repairs = planRepair(this, world);
       if (repairs) this.setPlan(world, repairs);
     }

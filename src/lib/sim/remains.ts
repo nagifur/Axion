@@ -9,7 +9,7 @@ export interface RemainsData {
   type: VoreType;
   look: string;
   items: Item[];
-  /** Seconds before the predator gets rid of them. */
+  /** Seconds before the predator prioritizes getting rid of them. */
   wait: number;
 }
 

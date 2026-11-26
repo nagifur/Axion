@@ -8,17 +8,20 @@ import type { Agent } from './agent.ts';
 import { wait } from './tasks.ts';
 import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { StatusEffects } from './statusEffects.ts';
-import { VORE_TUNING, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
+import { VORE_TUNING, VORE_TYPES, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
+import { calmForDisposal, disposalDestination, hasDisposalWitness, readyRemains } from './remainsDisposal.ts';
+import type { Remains } from './remains.ts';
 
 type Plan =
   | { action: 'rest' | 'watch'; remaining: number }
   | { action: 'pace'; path: Point[] }
   | { action: 'flee'; path: Point[] }
+  | { action: 'dispose'; remains: Remains; path: Point[]; remaining: number; private: boolean }
   | { action: 'attack'; target: Agent; path: Point[]; reroute: number; remaining: number }
   /** Chases someone it means to swallow; VoreSystem does the swallowing once it is within reach. */
   | { action: 'swallow'; target: VoreActor; type: VoreType; path: Point[]; reroute: number; remaining: number }
-  /** Dashes to a door, waits briefly if it is too far closed, then slips through it. */
-  | { action: 'escape'; door: Door; path: Point[]; waited: number; crossing: boolean }
+  /** Heads to a door, waits briefly if it is too far closed, then slips through it. */
+  | { action: 'escape' | 'disposalDoor'; door: Door; path: Point[]; waited: number; crossing: boolean }
   /** Fades in from the doorway it arrived through. */
   | { action: 'enter'; door: Door };
 
@@ -143,7 +146,12 @@ export class Creature {
   }
 
   get escaping() {
-    return !this.dead && (this.plan.action === 'escape' || this.plan.action === 'enter');
+    return !this.dead && (this.plan.action === 'escape' || this.plan.action === 'enter' ||
+      (this.plan.action === 'disposalDoor' && this.plan.crossing));
+  }
+
+  get disposingRemains() {
+    return this.plan.action === 'dispose' || this.plan.action === 'disposalDoor';
   }
 
   get activity() {
@@ -156,6 +164,9 @@ export class Creature {
     if (this.plan.action === 'attack') return `Attacking ${this.plan.target.character.name}`;
     if (this.plan.action === 'swallow') return `Hunting ${this.plan.target.character.name}`;
     if (this.plan.action === 'flee') return 'Running away from security';
+    if (this.plan.action === 'dispose') return this.plan.path.length
+      ? 'Finding a place to dispose of remains' : VORE_TYPES[this.plan.remains.type].disposal.activity;
+    if (this.plan.action === 'disposalDoor') return 'Finding a place to dispose of remains';
     if (this.plan.action === 'escape') return this.contained ? 'Escaping the cell' : 'Slipping through a door';
     if (this.plan.action === 'enter') return 'Slipping through a door';
     return (this.contained ? CONTAINED_LABELS : LOOSE_LABELS)[this.plan.action];
@@ -533,6 +544,41 @@ export class Creature {
       return;
     }
 
+    if (plan.action !== 'dispose' && plan.action !== 'disposalDoor' && calmForDisposal(this, world)) {
+      const remains = readyRemains(this);
+      if (remains) {
+        const destination = disposalDestination(this, world);
+        if (destination.kind === 'travel' && 'inside' in destination.step) {
+          const route = this.headFor(destination.step);
+          if (route && route.action === 'escape') this.plan = { ...route, action: 'disposalDoor' };
+        } else if (destination.kind === 'place') {
+          const path = this.room.route(this, destination.point);
+          if (path) this.plan = {
+            action: 'dispose', remains, path, remaining: VORE_TYPES[remains.type].disposal.seconds, private: destination.private,
+          };
+        }
+        if (this.plan !== plan) return;
+      }
+    }
+
+    if (plan.action === 'dispose') {
+      if (!this.vore.remains.includes(plan.remains) || !calmForDisposal(this, world) ||
+        (plan.private && hasDisposalWitness(world, this))) {
+        this.plan = { action: 'watch', remaining: 1 };
+        return;
+      }
+      if (plan.path.length) {
+        if (!this.follow(plan.path, CREATURE_TUNING.paceSpeed, dt)) this.plan = { action: 'watch', remaining: 1 };
+        return;
+      }
+      plan.remaining -= dt;
+      if (plan.remaining <= 0) {
+        world.vore.finishDisposal(this, plan.remains);
+        this.plan = { action: 'watch', remaining: 1 };
+      }
+      return;
+    }
+
     if ('remaining' in plan) {
       plan.remaining -= dt;
       if (plan.remaining <= 0) this.plan = this.nextPlan(world);
@@ -562,7 +608,9 @@ export class Creature {
     const { door } = plan;
     if (!plan.crossing) {
       if (plan.path.length) {
-        if (!this.follow(plan.path, this.dashSpeed(dt), dt)) this.plan = { action: 'watch', remaining: range(1, 4) };
+        if (!this.follow(plan.path, plan.action === 'disposalDoor' ? CREATURE_TUNING.paceSpeed : this.dashSpeed(dt), dt)) {
+          this.plan = { action: 'watch', remaining: range(1, 4) };
+        }
         return;
       }
       if (!this.passable(world, door)) {
@@ -570,14 +618,16 @@ export class Creature {
         plan.waited += dt;
         if (plan.waited >= CREATURE_TUNING.doorWaitSeconds) {
           this.plan = { action: 'watch', remaining: range(2, 5) };
-          if (this.contained) world.log(`${this.character.name}'s cell door in ${this.room.name} closed just in time.`, 'ok');
+          if (plan.action === 'escape' && this.contained) {
+            world.log(`${this.character.name}'s cell door in ${this.room.name} closed just in time.`, 'ok');
+          }
         }
         return;
       }
       plan.crossing = true;
     }
     const total = Math.max(1, distance(door.outside, door.inside));
-    const reached = this.stepToward(door.outside, this.dashSpeed(dt), dt);
+    const reached = this.stepToward(door.outside, plan.action === 'disposalDoor' ? CREATURE_TUNING.paceSpeed : this.dashSpeed(dt), dt);
     this.alpha = Math.max(0, distance(door.outside, this) / total);
     if (reached) this.cross(world, door);
   }

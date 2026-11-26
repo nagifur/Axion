@@ -96,7 +96,10 @@ function cower(agent: Agent, creature: Creature, activity: string): Task[] {
     const point = room.randomFloorPoint();
     if (distance(point, creature) > distance(best, creature) && room.canReach(agent, point, agent.ghost)) best = point;
   }
-  return [walkTo(best, activity, FLEE_SPEED), watch(creature, range(3, 5), 'Cowering in fear')];
+  return [
+    { ...walkTo(best, activity, FLEE_SPEED), urgent: true },
+    { ...watch(creature, range(3, 5), 'Cowering in fear'), urgent: true },
+  ];
 }
 
 /** Follows a (moving) creature until within `reach`, re-routing as it wanders. */

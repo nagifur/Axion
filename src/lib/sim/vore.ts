@@ -43,6 +43,8 @@ export interface VoreTypeDefinition {
   converted: string;
   /** Possible artwork of the remains pile: src/sim_assets/remains/<look>.png. */
   looks: readonly string[];
+  /** Activity and duration needed to release the remains. */
+  disposal: { activity: string; seconds: number };
   /** Per-type quirks, as multipliers on the shared tuning. */
   digestion: number;
   escape: number;
@@ -51,10 +53,10 @@ export interface VoreTypeDefinition {
 
 /** One entry per way of swallowing. Add quirks here; everything else reads from this table. */
 export const VORE_TYPES = {
-  oral: { label: 'Oral vore', weight: 6, converted: 'digested', looks: ['bones', 'scat'], digestion: 1, escape: 1, absorption: 1 },
-  cock: { label: 'Cock vore', weight: 1, converted: 'cumified', looks: ['cum'], digestion: 1, escape: 1, absorption: 1 },
-  anal: { label: 'Anal vore', weight: 1, converted: 'digested', looks: ['bones', 'scat'], digestion: 1, escape: 1, absorption: 1 },
-  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', looks: ['milk'], digestion: 1, escape: 1, absorption: 1 },
+  oral: { label: 'Oral vore', weight: 6, converted: 'digested', looks: ['bones', 'scat'], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
+  cock: { label: 'Cock vore', weight: 1, converted: 'cumified', looks: ['cum'], disposal: { activity: 'Jerking Off', seconds: 20 }, digestion: 1, escape: 1, absorption: 1 },
+  anal: { label: 'Anal vore', weight: 1, converted: 'digested', looks: ['bones', 'scat'], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
+  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', looks: ['milk'], disposal: { activity: 'Milking themselves', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
 } satisfies Record<string, VoreTypeDefinition>;
 
 export const VORE_TYPE_IDS = Object.keys(VORE_TYPES) as VoreType[];
@@ -112,7 +114,7 @@ export const VORE_TUNING = {
   absorbSeconds: 45,
   /** Share of the prey's max HP the predator heals while absorbing. */
   healFraction: 1,
-  /** Seconds between a finished absorption and the predator getting rid of the remains. */
+  /** Seconds before disposing becomes a priority; the activity itself takes additional time. */
   disposalDelay: { min: 20, max: 45 },
   itemSpread: { first: 12, step: 10, depth: 2 },
 };
@@ -329,7 +331,7 @@ export class VoreState {
   }
 }
 
-/** Random wait before the predator gets rid of fresh remains. */
+/** Random wait before the predator prioritizes disposing of fresh remains. */
 export function disposalWait(): number {
   return range(VORE_TUNING.disposalDelay.min, VORE_TUNING.disposalDelay.max);
 }

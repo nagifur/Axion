@@ -30,6 +30,8 @@ export interface RoomData {
   /** Camera group displayed separately from the floor-plan grid. */
   cameraGroup?: string;
   containmentCell?: boolean;
+  /** A private restroom that characters can seek out. */
+  restroom?: boolean;
   name: string;
   level: number;
   camera: string;
@@ -122,6 +124,7 @@ export class Room {
   readonly templateId?: string;
   /** Assigned per session; stays reserved while a shapeshifter is away. */
   readonly cell?: { creatureId: string | null };
+  readonly restroom: boolean;
   readonly name: string;
   readonly level: number;
   readonly camera: string;
@@ -147,6 +150,7 @@ export class Room {
     this.id = data.id;
     this.templateId = data.templateId;
     if (data.containmentCell) this.cell = { creatureId: null };
+    this.restroom = data.restroom ?? false;
     this.name = data.name;
     this.level = data.level;
     this.camera = data.camera;

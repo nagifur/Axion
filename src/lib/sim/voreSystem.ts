@@ -174,10 +174,10 @@ export class VoreSystem {
   /** A predator with nothing else on its mind. */
   private ready(actor: VoreActor): boolean {
     if (actor instanceof Agent) {
-      return actor.exposed && !actor.incapacitated && actor.interruptible && !actor.napping && !actor.conversation &&
+      return actor.exposed && !actor.incapacitated && actor.interruptible && !actor.disposingRemains && !actor.napping && !actor.conversation &&
         !actor.security && !actor.staffEscort && !actor.impostor;
     }
-    return actor.idle;
+    return actor.idle && !actor.disposingRemains;
   }
 
   private hunt(dt: number) {
@@ -326,16 +326,24 @@ export class VoreSystem {
     prey.vore.inside = null;
   }
 
-  /** Predators get rid of remains once their wait is over and they are standing somewhere; gone ones drop them where they were. */
+  /** Aging creates an urge to dispose; only gone predators drop remains without an activity. */
   private dispose(dt: number) {
     for (const host of [...this.world.everyone(), ...this.world.creatures]) {
       if (!host.vore.remains.length) continue;
       const gone = this.gone(host);
       for (const remains of [...host.vore.remains]) {
         remains.wait -= dt;
-        if (gone || (remains.wait <= 0 && this.grounded(host))) this.drop(host, remains);
+        if (gone) this.drop(host, remains);
       }
     }
+  }
+
+  /** Completes a planned activity; interrupted activities must not call this. */
+  finishDisposal(host: VoreActor, remains: Remains) {
+    if (!host.vore.remains.includes(remains) || !this.grounded(host) || host.dead) {
+      throw new Error('Cannot dispose of remains the predator is not holding on the floor.');
+    }
+    this.drop(host, remains);
   }
 
   /** The pile lands at the host's feet, with everything the prey was holding scattered beside it. */

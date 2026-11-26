@@ -1082,12 +1082,12 @@ allow it. The swallower then waits `cooldown` (30–60 s) before hunting again.
 Each swallow uses one of four ways, picked by weight from the predator's profile.
 `VORE_TYPES` is the table to extend with each way's own quirks:
 
-| Type | Label | Weight | Status once digested | Remains artwork |
-| --- | --- | --- | --- | --- |
-| `oral` | Oral vore | 6 | `digested` | `bones`, `scat` |
-| `cock` | Cock vore | 1 | `cumified` | `cum` |
-| `anal` | Anal vore | 1 | `digested` | `bones`, `scat` |
-| `breast` | Breast vore | 1 | `milkified` | `milk` |
+| Type | Label | Weight | Status once digested | Remains artwork | Disposal activity |
+| --- | --- | --- | --- | --- | --- |
+| `oral` | Oral vore | 6 | `digested` | `bones`, `scat` | Defecating |
+| `cock` | Cock vore | 1 | `cumified` | `cum` | Stroking |
+| `anal` | Anal vore | 1 | `digested` | `bones`, `scat` | Defecating |
+| `breast` | Breast vore | 1 | `milkified` | `milk` | Milking themselves |
 
 Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
 the acid damage, spit-out odds and absorption time. `SIM_OVERRIDES[id].vore.types` replaces
@@ -1121,9 +1121,23 @@ union edit.
    traits) lives on in a `Remains` ([`remains.ts`](../src/lib/sim/remains.ts)) held by the
    predator, along with the original agent or creature (`actor`). The id joins `world.vore.consumed`, so the character doesn't arrive again that
    session and containment failures stop counting it.
-5. **Disposed.** After 20–45 s (`disposalDelay`), once it is standing on a floor, the
-   predator drops the pile at its feet (`room.remains`) and scatters the prey's items
-   beside it (`room.items`).
+5. **Disposed.** After 20–45 s (`disposalDelay`), the predator prioritizes a disposal
+   activity. `VORE_TYPES[type].disposal` specifies its activity label and duration
+   (12 seconds by default); only completing it drops the pile at the predator's feet
+   (`room.remains`) and scatters the prey's items beside it (`room.items`).
+
+Staff and creatures seek an accessible, unoccupied restroom first, then an empty
+reachable room, and finally a reachable corner of their current room if no privacy is
+available. Living staff and creatures count as witnesses. Mark a room as a restroom with
+`"restroom": true` in its `room.json`; room templates pass this setting to their instances.
+There are currently no marked restrooms in the facility, so the fallback applies until
+one is added. Staff follow clearance-aware door and elevator routes; creatures can only
+use currently passable linked doors and do not enter cells for this purpose.
+
+Disposal waits until the predator is free and calm, rather than interrupting a hunt,
+escape, fear, escort, or other urgent behavior. Staff and creatures can be interrupted,
+including by a witness entering a private room; an interrupted activity starts over.
+Security calls and escorts take precedence over a guard's disposal plans.
 
 A predator that dies or leaves the facility (or a creature that escapes) lets go instead:
 living prey are spat out, digested prey finish absorbing at once, and remains drop where

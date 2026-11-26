@@ -25,6 +25,7 @@ interface RoomJson {
   disconnectedFloors?: unknown;
   cameraGroup?: unknown;
   containmentCell?: unknown;
+  restroom?: unknown;
   instances?: unknown;
 }
 
@@ -277,6 +278,9 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
   if (json.containmentCell !== undefined && typeof json.containmentCell !== 'boolean') {
     throw new NavMapError(`${label}/room.json: "containmentCell" must be true or false.`);
   }
+  if (json.restroom !== undefined && typeof json.restroom !== 'boolean') {
+    throw new NavMapError(`${label}/room.json: "restroom" must be true or false.`);
+  }
   let instances: LoadedRoom['instances'];
   if (json.instances !== undefined) {
     if (!Array.isArray(json.instances) || !json.instances.length || typeof json.cameraGroup !== 'string') {
@@ -386,6 +390,7 @@ async function readRoom(id: string, assetsDir: string): Promise<LoadedRoom> {
       nav, props, items, links: {}, doors: readDoors(json.doors, id, nav), elevator: readElevator(json.elevators, id, nav),
       ...(typeof json.cameraGroup === 'string' ? { cameraGroup: json.cameraGroup } : {}),
       ...(json.containmentCell ? { containmentCell: true } : {}),
+      ...(json.restroom ? { restroom: true } : {}),
     },
     exits: readExits(json.exits, id),
     instances,

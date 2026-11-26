@@ -96,12 +96,18 @@ test('instance configuration rejects duplicates and misplaced exits', async (t) 
   }
   const json = {
     name: 'Cell', level: 3, camera: 'Template', cameraGroup: 'Cells',
+    restroom: true,
     instances: [{ id: 'cell-01', name: 'Cell 01', camera: 'CAM 1' }],
   };
   const write = () => writeFile(path.join(folder, 'room.json'), JSON.stringify(json));
   await write();
   const data = await loadFacility(assets);
   assert.deepEqual(data.map((room) => room.id), ['cell-01']);
+  assert.equal(new Room(data[0]).restroom, true);
+  json.restroom = 'yes';
+  await write();
+  await assert.rejects(loadFacility(assets), /"restroom" must be true or false/);
+  json.restroom = true;
   json.instances.push({ ...json.instances[0] });
   await write();
   await assert.rejects(loadFacility(assets), /Duplicate room ID "cell-01"/);

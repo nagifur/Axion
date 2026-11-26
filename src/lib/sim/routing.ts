@@ -2,6 +2,7 @@ import type { Agent } from './agent.ts';
 import { canVisitLevel, type SimCharacter } from './roster.ts';
 import type { Door, Point, Room } from './room.ts';
 import type { World } from './world.ts';
+import type { Creature } from './creature.ts';
 
 // Where people may go. Two policies live here side by side so they stay consistent:
 // - routing (work trips and exits) only takes passages the character is cleared for;
@@ -71,6 +72,18 @@ export function stepTowardWork(world: World, character: SimCharacter, room: Room
 export function stepTowardRoom(world: World, agent: Agent, destination: Room, point?: Point, sameLevelOnly = false) {
   return travelStep(world, agent.character, agent.room, agent,
     (next) => next.room === destination && (!point || reachable(next, point, agent)), sameLevelOnly);
+}
+
+/** Creatures can follow open linked passages, but cannot open doors or enter cells. */
+export function stepTowardCreatureRoom(world: World, creature: Creature, destination: Room): Door | undefined {
+  return firstStepToward<Door>({ room: creature.room, point: creature }, (location) =>
+    location.room.linkedDoors.flatMap((door) => {
+      const next = doorDestination(world, door);
+      const state = world.passageDoorFor(door);
+      if (door.cell || !next || next.room.cell || !reachable(location, door.inside) || (state && !state.passable)) return [];
+      const entry = next.room.doors.find((candidate) => candidate.id === door.to!.door);
+      return entry ? [{ next: { room: next.room, point: entry.inside }, step: door }] : [];
+    }), (next) => next.room === destination);
 }
 
 function travelStep(world: World, character: SimCharacter, room: Room, agent: Agent | undefined,

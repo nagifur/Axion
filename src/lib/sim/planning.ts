@@ -14,6 +14,7 @@ import { planRepair } from './repairs.ts';
 import { planSecurity } from './security.ts';
 import { planEscortedStaff, planStaffEscort } from './trespass.ts';
 import { DEFAULT_BEHAVIOR } from './roster.ts';
+import { planRemainsDisposal } from './remainsDisposal.ts';
 
 // Decision making: what an idle agent does next.
 
@@ -48,6 +49,8 @@ export function planNext(agent: Agent, world: World): Task[] {
       ? planStaffEscort(agent, world, agent.staffEscort) : planEscortedStaff(agent, agent.staffEscort);
   }
   if (agent.security) return planSecurity(agent, world, agent.security);
+  const disposal = planRemainsDisposal(agent, world);
+  if (disposal) return disposal;
   const repairs = planRepair(agent, world);
   if (repairs) return repairs;
 
