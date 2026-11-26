@@ -217,7 +217,7 @@ and record the stack and failing phase. A visible-page watchdog reports when no 
 has completed for over five seconds; hidden tabs are excluded.
 
 State checkpoints are saved locally every five seconds and immediately on caught simulation
-errors. They include the camera, speed, simulation clock, active floor events, counts, and
+errors. They include the camera, speed, simulation clock, active floor/facility events, counts, and
 the first 100 agents/creatures with their locations and activities. `snapshotAt` identifies
 the state sample's age; `savedAt` identifies the last storage write. Reports include browser
 and viewport information but are not uploaded automatically. Storage failures are shown
@@ -448,7 +448,9 @@ never flicker.
 | [`src/lib/sim/elevator.ts`](../src/lib/sim/elevator.ts) | Elevator cars: requests, door timing, and passenger layout. |
 | [`src/lib/sim/passages.ts`](../src/lib/sim/passages.ts) | Live state of passage doors between rooms (locks, panels, who is passing). |
 | [`src/lib/sim/random.ts`](../src/lib/sim/random.ts) | The single source of randomness (`random`, `chance`, `pick`, ...). Use it instead of `Math.random`; `setRandomSource` swaps in a seeded generator. |
-| [`src/lib/sim/facilityEvents.ts`](../src/lib/sim/facilityEvents.ts) | Facility-wide timed events and A1 announcements, plus achievement definitions. |
+| [`src/lib/sim/facilityEvents.ts`](../src/lib/sim/facilityEvents.ts) | Facility event registry, timed impostor arrivals and A1 announcements, plus achievement definitions. |
+| [`src/lib/sim/earthquake.ts`](../src/lib/sim/earthquake.ts) | Earthquake tuning and effects across all rooms. |
+| [`src/lib/sim/eventState.ts`](../src/lib/sim/eventState.ts) | Shared floor/facility event lifecycle and display shake. |
 | [`src/lib/sim/levelEvents.ts`](../src/lib/sim/levelEvents.ts) | Floor event definitions and floor-specific simulation rules. |
 | [`src/lib/sim/levelState.ts`](../src/lib/sim/levelState.ts) | Per-floor state and event lifecycle. |
 | [`src/lib/sim/render.ts`](../src/lib/sim/render.ts) | Asset loading and drawing a camera feed onto a canvas. |
@@ -507,8 +509,14 @@ state; floors with no loaded rooms return `undefined`. Variables are
 booleans, numbers, strings, or `null`, and each world gets a fresh copy of the
 defaults. Floor state is not saved on reload.
 
-Facility-wide timed announcements and impostor arrivals are instead handled by
-`FacilityEventDirector` in [`facilityEvents.ts`](../src/lib/sim/facilityEvents.ts).
+Facility-wide events are registered in `FACILITY_EVENTS` in
+[`facilityEvents.ts`](../src/lib/sim/facilityEvents.ts) and run through `world.events`.
+They use the same lifecycle as floor events, extracted into
+[`eventState.ts`](../src/lib/sim/eventState.ts), but receive `(world, world, dt)`
+rather than `(level, world, dt)` in their update hooks. Add an entry with a label,
+optional duration, and start/update/end hooks; no world-loop or debug UI edits are
+needed. `WorldOptions.events` can override or add definitions for a particular world.
+`FacilityEventDirector` still schedules announcements and impostor arrivals separately.
 
 `LEVEL_EVENTS` defines events available on every floor. Floor-specific event
 definitions override shared events with the same ID. `level.availableEvents`
@@ -543,9 +551,52 @@ automatic triggers are enabled by default.
 
 ##### Containment failure
 
-Open `/monitoring?debug`, switch to the floor you want, and use the **Floor event**
-picker with **Trigger event** or **End event**. These controls always target the
-current camera's floor, even if no agents are on camera.
+Open `/monitoring?debug`, switch to the floor you want, and use the **Event**
+picker with **Trigger event** or **End event**. Floor entries target the current
+camera's floor, even if no agents are on camera. Entries marked **facility-wide**
+target the entire facility regardless of the selected camera.
+
+##### Earthquake
+
+Select **Earthquake (facility-wide)** in that picker, or call
+`world.events.startEvent('earthquake')`. It lasts **20 simulation seconds** by
+default; a second duration argument overrides this, and
+`world.events.stopEvent('earthquake')` ends it early. Like floor events, it has no
+automatic random trigger. `hasEvent`, `activeEvents`, and `availableEvents` work
+on `world.events` too. Pause freezes its duration, debris emission and display shake.
+
+All earthquake tuning lives in `EARTHQUAKE` in
+[`earthquake.ts`](../src/lib/sim/earthquake.ts):
+
+| Setting | Default |
+| --- | --- |
+| `cameraShake` | At most 2 display pixels per axis, at speed 32 radians/second |
+| `tripRate` | 0.65 per eligible agent/second |
+| `propBreakRate` | 0.015 per intact breakable prop/second |
+| `doorOpenRate` | 0.035 per closed, intact physical passage/second |
+| `doorHoldSeconds` | 2-5 seconds |
+| `debris` | A `rock` burst per room every 0.4-1.2 seconds, from ceiling y=0 |
+
+Rates use `1 - exp(-rate * dt)`, so probability scales with simulation time.
+Standing and walking staff, including impostors, can lose their footing regardless
+of clumsiness. Seated, sleeping, already tripping, incapacitated, held, swallowed,
+ghost, escorted, conversing and in-transit agents are excluded. Trips reuse normal
+recovery, achievements, and nearby-prop impact behavior.
+
+Damage uses normal prop breakage, debris, sparks, interrupted usage and repair
+behavior. Linked door endpoints are rolled only once. Selected doors slide open
+at normal speed and temporarily bypass panels and power; they are not damaged or
+repaired. Earthquake holds have their own owner, so ending them never cancels another
+event's door override. Broken doors are not selected. Ending the quake releases
+its holds but leaves prop damage for repairs and existing particles to fade out.
+
+The `rock` set in [`particles.ts`](../src/lib/sim/particles.ts) uses the three
+`rock_*.png` sprites with gravity, spin, bounce, and fading. Rocks fall onto the
+painted floor; bursts occur off-camera too and obey the global particle limit.
+Long frames emit at most one burst per room instead of replaying missed bursts.
+Display shake is generic event data (`cameraShake`); the scene and name tags move
+together, preserving pointer coordinates. Reduced-motion preferences disable only
+the visual shake, not the simulation effects.
 
 The shared **Containment failure** event (`containment-failure`) slides cell
 doors on that floor open one at a time, in room and door order. Each door finishes

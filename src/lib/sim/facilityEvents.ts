@@ -2,6 +2,13 @@ import { leaveFacility } from './transport.ts';
 import { chance, pick, range, weightedPick } from './random.ts';
 import type { SimCharacter, SimImpostor } from './roster.ts';
 import type { World } from './world.ts';
+import type { EventDefinition } from './eventState.ts';
+import { EARTHQUAKE_EVENT } from './earthquake.ts';
+
+/** Facility-wide events, available through world.events; manual/debug triggers by default. */
+export const FACILITY_EVENTS: Readonly<Record<string, EventDefinition<World>>> = {
+  earthquake: EARTHQUAKE_EVENT,
+};
 
 export interface Achievement {
   id: string;

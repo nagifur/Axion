@@ -234,4 +234,13 @@ test('the debug event picker triggers and ends the selected event on the current
   click('event-stop');
   assert.equal(other.power, 'normal');
   assert.equal(a.power, 'off', 'ending one floor does not end another floor');
+  select.value = 'facility:earthquake';
+  click('event-start');
+  assert.equal(world.events.hasEvent('earthquake'), true);
+  viewed = a;
+  refresh();
+  assert.equal(select.value, 'facility:earthquake', 'facility selection survives a camera/floor switch');
+  assert.match(select.options.find(({ value }) => value === 'facility:earthquake').textContent, /facility-wide.*active/);
+  click('event-stop');
+  assert.equal(world.events.hasEvent('earthquake'), false, 'any camera can end a facility event');
 });

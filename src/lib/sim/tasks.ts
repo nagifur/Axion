@@ -17,6 +17,7 @@ export const TRIP_PROP_BREAK_CHANCE = 0.1;
 /** Base chance per second of tripping for clumsy characters, and extra chance per unit of room darkness. */
 const TRIP_CHANCE = { clumsy: 0.006, darkness: 0.012 };
 const FALL_LANDING_DEPTH = 24;
+type TripCause = 'trip' | 'fall' | 'earthquake';
 
 export function walkTo(target: Point, activity = 'Walking', speedMul = 1): Task {
   let path: Point[] = [];
@@ -124,7 +125,7 @@ export function fall(): Task {
   };
 }
 
-export function trip(cause: 'trip' | 'fall' = 'trip'): Task {
+export function trip(cause: TripCause = 'trip'): Task {
   let left = 1.3;
   let attemptedBreak = false;
   return {
@@ -134,7 +135,9 @@ export function trip(cause: 'trip' | 'fall' = 'trip'): Task {
     start(agent, world) {
       agent.shake = 0.5;
       agent.say('!', 1.3);
-      world.log(`${agent.character.name} ${cause === 'fall' ? 'fell and hit the floor' : 'tripped over their own feet'} in the ${agent.room.name}.`, 'muted');
+      const description = cause === 'fall' ? 'fell and hit the floor'
+        : cause === 'earthquake' ? 'lost their footing in the earthquake' : 'tripped over their own feet';
+      world.log(`${agent.character.name} ${description} in the ${agent.room.name}.`, 'muted');
       world.achieve('watch-your-step', agent.room);
       if (!attemptedBreak) {
         attemptedBreak = true;
@@ -148,7 +151,7 @@ export function trip(cause: 'trip' | 'fall' = 'trip'): Task {
   };
 }
 
-function breakNearbyProp(agent: Agent, world: World, cause: 'trip' | 'fall') {
+function breakNearbyProp(agent: Agent, world: World, cause: TripCause) {
   let nearest: Prop | undefined;
   let nearestDistance = Infinity;
   for (const prop of agent.room.props) {
@@ -209,11 +212,12 @@ export function breakPropOnUse(agent: Agent, world: World, prop: Prop): boolean 
   return true;
 }
 
-function reportPropBreak(agent: Agent, world: World, prop: Prop, cause?: 'trip' | 'fall') {
+function reportPropBreak(agent: Agent, world: World, prop: Prop, cause?: TripCause) {
   agent.say('!', 1.5);
   const name = prop.type.replaceAll('_', ' ');
+  const action = cause === 'fall' ? 'fell' : cause === 'earthquake' ? 'lost their footing in the earthquake' : 'tripped';
   const message = cause
-    ? `${agent.character.name} broke the ${name} when they ${cause === 'fall' ? 'fell' : 'tripped'} in the ${agent.room.name}.`
+    ? `${agent.character.name} broke the ${name} when they ${action} in the ${agent.room.name}.`
     : `${agent.character.name}'s ${name} broke in the ${agent.room.name}.`;
   world.log(message, 'warn');
 }

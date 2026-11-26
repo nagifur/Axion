@@ -44,13 +44,19 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, list
     if (eventFloor) eventFloor.textContent = `Level ${level.number}`;
     if (!eventSelect) return;
     const selected = eventSelect.value;
-    eventSelect.replaceChildren(...level.availableEvents.map(({ id, label }) => {
+    const available = [
+      ...level.availableEvents.map((event) => ({ ...event, active: level.hasEvent(event.id) })),
+      ...world.events.availableEvents.map(({ id, label }) => ({
+        id: `facility:${id}`, label: `${label} (facility-wide)`, active: world.events.hasEvent(id),
+      })),
+    ];
+    eventSelect.replaceChildren(...available.map(({ id, label, active }) => {
       const option = document.createElement('option');
       option.value = id;
-      option.textContent = `${label}${level.hasEvent(id) ? ' (active)' : ''}`;
+      option.textContent = `${label}${active ? ' (active)' : ''}`;
       return option;
     }));
-    if (level.availableEvents.some(({ id }) => id === selected)) eventSelect.value = selected;
+    if (available.some(({ id }) => id === selected)) eventSelect.value = selected;
   };
   const changeEvent = (start: boolean) => {
     const level = world.level(controls.currentRoom().level);
@@ -58,9 +64,11 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, list
       log('Debug: select an available floor event first.', 'warn');
       return;
     }
-    const id = eventSelect.value;
-    const changed = start ? level.startEvent(id) : level.stopEvent(id);
-    log(`Debug: Level ${level.number} event "${id}" ${changed
+    const facility = eventSelect.value.startsWith('facility:');
+    const id = facility ? eventSelect.value.slice('facility:'.length) : eventSelect.value;
+    const events = facility ? world.events : level;
+    const changed = start ? events.startEvent(id) : events.stopEvent(id);
+    log(`Debug: ${facility ? 'Facility' : `Level ${level.number}`} event "${id}" ${changed
       ? (start ? 'started' : 'ended')
       : (start ? 'is already active' : 'is not active')}.`, 'muted');
     refreshEvents();

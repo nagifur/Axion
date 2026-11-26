@@ -24,6 +24,8 @@ import { VoreSystem } from './voreSystem.ts';
 import { LevelState, type LevelDefinitions } from './levelState.ts';
 import { LEVEL_DEFINITIONS, LEVEL_EVENTS, restoreCellContainment } from './levelEvents.ts';
 import { IncidentTracker } from './incidents.ts';
+import { EventState, type EventDefinition } from './eventState.ts';
+import { FACILITY_EVENTS } from './facilityEvents.ts';
 
 export type LogTone = 'default' | 'muted' | 'ok' | 'warn' | 'alert';
 export type CameraActor = Agent | Creature;
@@ -44,6 +46,7 @@ export interface WorldOptions {
   rooms: Room[];
   now?: () => Date;
   levels?: LevelDefinitions;
+  events?: Readonly<Record<string, EventDefinition<World>>>;
 }
 
 export interface WorldHooks {
@@ -82,6 +85,7 @@ export class World {
   readonly vore = new VoreSystem(this);
   /** Related steps grouped into incidents for the monitoring feed; see incidents.ts. */
   readonly incidents = new IncidentTracker(this);
+  readonly events: EventState<World>;
   private readonly levels = new Map<number, LevelState>();
   private readonly sparkDelays = new WeakMap<object, number>();
   private readonly elevators = new Map<Room, Elevator>();
@@ -97,6 +101,7 @@ export class World {
     this.rooms = options.rooms;
     this.creatures = assignCellOccupants(options.creatureRoster ?? [], this.rooms);
     this.now = options.now ?? (() => new Date());
+    this.events = new EventState(this, this, 'Facility', { ...FACILITY_EVENTS, ...options.events });
     const definitions = options.levels ?? LEVEL_DEFINITIONS;
     const roomsByLevel = new Map<number, Room[]>();
     for (const room of this.rooms) {
@@ -566,6 +571,7 @@ export class World {
     for (const room of this.rooms) for (const remains of room.remains) remains.step(room, dt);
     const frameStart = this.time;
     this.time += dt;
+    this.events.update(frameStart, dt);
     for (const level of this.levels.values()) level.update(frameStart, dt);
     const blockedSeconds = this.updateStatuses(dt);
     this.vore.update(dt);

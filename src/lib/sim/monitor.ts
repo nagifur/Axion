@@ -139,6 +139,7 @@ function bootMonitor(
     simulationClock: world.now().toISOString(), visibility: document.visibilityState,
     selected: selected?.character.id ?? null, followed: followed?.character.id ?? null, held: drag?.agent.uid ?? null,
     counts: { rooms: rooms.length, agents: world.agents.length, creatures: world.creatures.length },
+    events: world.events.activeEvents,
     agents: world.agents.slice(0, 100).map((agent) => ({
       uid: agent.uid, id: agent.character.id, room: agent.room.id,
       x: agent.x, y: agent.y, activity: agent.activity, moving: agent.moving,
@@ -752,6 +753,9 @@ function bootMonitor(
         diagnostics.phase('director.update');
         director.update(world, dt);
       }
+      const shake = world.events.cameraShake;
+      inputSurface.style.setProperty('--camera-shake-x', `${shake.x}px`);
+      inputSurface.style.setProperty('--camera-shake-y', `${shake.y}px`);
       diagnostics.phase('drag-and-highlights');
       if (drag && (drag.agent.room !== drag.origin || (drag.active && drag.agent.leaving))) {
         log(`Pickup cancelled: ${drag.agent.character.name} is leaving the camera.`, 'muted');
@@ -843,5 +847,7 @@ function bootMonitor(
     window.clearTimeout(staticTimer);
     editorPanel.dispose();
     resizeObserver.disconnect();
+    inputSurface.style.removeProperty('--camera-shake-x');
+    inputSurface.style.removeProperty('--camera-shake-y');
   };
 }

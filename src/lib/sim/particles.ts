@@ -43,6 +43,19 @@ export const GRAVITY = 420;
 
 /** Particle sets for events such as prop breakage and creature attacks. */
 export const PARTICLE_SETS: Record<string, ParticleSet> = {
+  rock: {
+    sprites: ['rock_1', 'rock_2', 'rock_3'],
+    count: [1, 3],
+    spreadSpeed: 12,
+    upSpeed: [0, 0],
+    spinSpeed: [2, 5],
+    gravity: GRAVITY,
+    bounce: 0.2,
+    friction: 8,
+    lifetime: [3, 5],
+    fade: 1,
+    scatter: 0,
+  },
   glass: {
     sprites: ['glass_1', 'glass_2', 'glass_3'],
     count: [10, 16],
