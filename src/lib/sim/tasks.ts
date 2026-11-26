@@ -1,7 +1,7 @@
 import type { Agent, Task } from './agent.ts';
 import type { Facing, Point, Spot } from './room.ts';
 import type { Prop } from './prop.ts';
-import type { World } from './world.ts';
+import type { CameraActor, World } from './world.ts';
 import type { SchedulePeriod } from './schedule.ts';
 import { GRAVITY } from './particles.ts';
 import { chance, range } from './random.ts';
@@ -82,9 +82,38 @@ export function nap(seconds: number, facing: Facing): Task {
   };
 }
 
-export function fall(): Task {
+export function fallMotion() {
   let velocity = 0;
   let landingY: number | undefined;
+  return (actor: CameraActor, world: World, dt: number) => {
+    const seconds = Math.max(0, dt);
+    const nextY = actor.y + velocity * seconds + 0.5 * GRAVITY * seconds * seconds;
+    velocity += GRAVITY * seconds;
+    // Sweep every crossed pixel so even a long frame cannot skip a thin green floor.
+    for (let y = Math.round(actor.y); y <= Math.min(Math.round(nextY), actor.room.height - 1); y++) {
+      if (!actor.room.isFloor(actor.x, y)) continue;
+      if (landingY === undefined) {
+        let bottom = y;
+        while (bottom < Math.min(y + FALL_LANDING_DEPTH, actor.room.height - 1)
+          && actor.room.isFloor(actor.x, bottom + 1)) bottom++;
+        landingY = Math.floor(range(y, bottom + 1));
+      }
+      if (y < landingY) continue;
+      actor.y = y;
+      return true;
+    }
+    actor.y = nextY;
+    if (actor.y - actor.height <= actor.room.height) return false;
+    const point = actor.room.nearestWalkable({ x: actor.x, y: actor.room.height - 1 });
+    actor.x = point.x;
+    actor.y = point.y;
+    world.log(`${actor.character.name} fell out of view and returned to nearby floor in the ${actor.room.name}.`, 'muted');
+    return true;
+  };
+}
+
+export function fall(): Task {
+  const advance = fallMotion();
   return {
     activity: 'Falling',
     interruptible: false,
@@ -93,30 +122,7 @@ export function fall(): Task {
       agent.say('!', 1.3);
     },
     update(agent, world, dt) {
-      const seconds = Math.max(0, dt);
-      const nextY = agent.y + velocity * seconds + 0.5 * GRAVITY * seconds * seconds;
-      velocity += GRAVITY * seconds;
-      // Sweep every crossed pixel so even a long frame cannot skip a thin green floor.
-      for (let y = Math.round(agent.y); y <= Math.min(Math.round(nextY), agent.room.height - 1); y++) {
-        if (!agent.room.isFloor(agent.x, y)) continue;
-        if (landingY === undefined) {
-          let bottom = y;
-          while (bottom < Math.min(y + FALL_LANDING_DEPTH, agent.room.height - 1)
-            && agent.room.isFloor(agent.x, bottom + 1)) bottom++;
-          landingY = Math.floor(range(y, bottom + 1));
-        }
-        if (y < landingY) continue;
-        agent.y = y;
-        agent.setPlan(world, []);
-        agent.interrupt(world, trip('fall'));
-        return false;
-      }
-      agent.y = nextY;
-      if (agent.y - agent.height > agent.room.height) {
-        const point = agent.room.nearestWalkable({ x: agent.x, y: agent.room.height - 1 });
-        agent.x = point.x;
-        agent.y = point.y;
-        world.log(`${agent.character.name} fell out of view and returned to nearby floor in the ${agent.room.name}.`, 'muted');
+      if (advance(agent, world, dt)) {
         agent.setPlan(world, []);
         agent.interrupt(world, trip('fall'));
       }

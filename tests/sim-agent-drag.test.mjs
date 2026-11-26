@@ -89,6 +89,25 @@ function fallingSetup(spans = (y) => y >= 100 ? [20, 180] : []) {
   return { world, room, agent, logs };
 }
 
+test('air-dropped creatures fall from the release point and resume on walkable floor', () => {
+  const { world, room } = fallingSetup();
+  const creature = new Creature(toSimCreature({ id: 'test', data: {
+    title: 'Test', nickname: 'Test', type: 'Creature', species: 'Lizard', containmentClass: 'Safe',
+  } }), room);
+  const target = dropTarget(world, creature, { x: 100, y: 10 });
+  assert.equal(target.kind, 'fall');
+  assert.equal(placeAgent(world, creature, target), true);
+  assert.equal(creature.activity, 'Falling');
+  assert.equal(creature.draggable, false);
+  creature.update(world, 0);
+  assert.equal(creature.y, 10);
+  creature.update(world, 0.1);
+  assert.ok(creature.y > 10 && creature.y < 100);
+  creature.update(world, 2);
+  assert.ok(room.isWalkable(creature));
+  assert.equal(creature.draggable, true);
+});
+
 test('air drops fall with gravity, can land on the first green pixel, and recover with a trip', (t) => {
   const { world, room, agent, logs } = fallingSetup();
   t.mock.method(Math, 'random', () => 0);

@@ -286,6 +286,14 @@ Player drops do not trigger the file-selection ping (or reveal disguised entitie
 ordinary clicks still do. Drop resolution lives in
 [`agentDrag.ts`](../src/lib/sim/agentDrag.ts).
 
+Creatures use the same sprite/tag pickup, camera switching, floor placement and
+air-drop physics as agents. Holding a creature pauses its plan and prevents hunts,
+staff reactions and capture. Cancelling resumes the original plan. Props, door
+panels and conversations are staff-only targets. Moving a creature out of its
+assigned cell records a breach; dropping it back home restores containment at
+the chosen point. Escorted, transitioning, incapacitated and off-camera creatures
+cannot be picked up.
+
 Room routes use the painted floor and a coarse A* grid, with checked connections
 from standing points to grid cells. Ordinary destinations must be walkable, and
 segments must avoid even thin furniture blockers; ghosts still go straight through.

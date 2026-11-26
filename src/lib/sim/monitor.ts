@@ -1,6 +1,5 @@
-import type { Agent } from './agent.ts';
 import { Creature } from './creature.ts';
-import { cellDoorAt, dropTarget, placeAgent, type DropTarget } from './agentDrag.ts';
+import { cellDoorAt, dropTarget, placeActor, type DropTarget } from './agentDrag.ts';
 import { ACHIEVEMENTS, FacilityEventDirector } from './facilityEvents.ts';
 import { bindDebugPanel } from './monitorDebug.ts';
 import { bindMonitorDiagnostics, diagnosticError, type MonitorDiagnostics } from './monitorDiagnostics.ts';
@@ -34,7 +33,6 @@ export interface MonitorConfig {
 const MAX_LOG_LINES = 40;
 const SWITCH_STATIC_MS = 220;
 const DRAG_CAMERA_HOVER_MS = 450;
-const DRAG_HELP = 'Drag an agent to open floor, a prop, a cell door, or another agent. Hold over a floor or camera to switch. Esc cancels.';
 const TOAST_MS = 4000;
 const DRAG_START_PX = 5;
 const DEBUG_FAST_SPEED = 4;
@@ -93,6 +91,7 @@ function bootMonitor(
   const screen = root.querySelector<HTMLElement>('[data-monitor-screen]');
   const stage = root.querySelector<HTMLElement>('[data-monitor-stage]');
   const dragStatus = root.querySelector<HTMLElement>('[data-monitor-drag-status]');
+  const dragHelp = dragStatus?.textContent?.trim() ?? '';
   const carry = root.querySelector<HTMLElement>('[data-monitor-carry]');
   const inputSurface = stage ?? canvas;
   const listeners = new EventListeners();
@@ -126,7 +125,7 @@ function bootMonitor(
   let renderer: Renderer | null = null;
   let propPicker: PropPicker | null = null;
   let drag: {
-    agent: Agent; pointerId: number; start: Point; client: Point; offset: Point;
+    agent: CameraActor; pointerId: number; start: Point; client: Point; offset: Point;
     point: Point; head: Point; origin: Room; active: boolean;
   } | null = null;
   let dragCameraHover: HTMLButtonElement | null = null;
@@ -139,7 +138,8 @@ function bootMonitor(
   const snapshot = () => ({
     camera: viewed.id, paused, speed, clockOffset, simulationTime: world.time,
     simulationClock: world.now().toISOString(), visibility: document.visibilityState,
-    selected: selected?.character.id ?? null, followed: followed?.character.id ?? null, held: drag?.agent.uid ?? null,
+    selected: selected?.character.id ?? null, followed: followed?.character.id ?? null,
+    held: drag?.active ? (drag.agent instanceof Creature ? drag.agent.character.id : drag.agent.uid) : null,
     counts: { rooms: rooms.length, agents: world.agents.length, creatures: world.creatures.length },
     events: world.events.activeEvents,
     agents: world.agents.slice(0, 100).map((agent) => ({
@@ -386,14 +386,13 @@ function bootMonitor(
   };
 
   const currentDrop = (): DropTarget => {
-    if (!drag) return { kind: 'invalid', label: 'No agent picked up' };
+    if (!drag) return { kind: 'invalid', label: 'Nobody picked up' };
     const event = { clientX: drag.client.x, clientY: drag.client.y };
     const pointer = toRoom(event);
     if (pointer.x < 0 || pointer.y < 0 || pointer.x >= viewed.width || pointer.y >= viewed.height) {
       return { kind: 'invalid', label: 'Drop inside the camera feed' };
     }
     const partner = actorAt(event, pointer);
-    if (partner instanceof Creature) return { kind: 'invalid', label: 'Cannot drop an agent onto a contained creature' };
     const prop = partner ? null : propPicker?.at(viewed, pointer, world.time);
     const door = partner || prop ? undefined : cellDoorAt(world, viewed, pointer);
     return dropTarget(world, drag.agent, partner || prop || door ? pointer : drag.point, partner, prop, viewed, door);
@@ -459,7 +458,7 @@ function bootMonitor(
     root.classList.remove('is-dragging');
     canvas.style.cursor = '';
     if (carry) carry.hidden = true;
-    setDragStatus(DRAG_HELP);
+    setDragStatus(dragHelp);
   };
 
   const onPointerMove = (event: PointerEvent) => {
@@ -498,7 +497,7 @@ function bootMonitor(
     }
     hovered = renderer.hitTest(world, point.x, point.y);
     hoveredRemains = hovered ? null : renderer.remainsAt(point.x, point.y);
-    canvas.style.cursor = hovered ? (!(hovered instanceof Creature) && hovered.draggable ? 'grab' : 'pointer')
+    canvas.style.cursor = hovered ? (hovered.draggable ? 'grab' : 'pointer')
       : hoveredRemains ? 'pointer' : '';
   };
   const onPointerLeave = () => {
@@ -547,7 +546,7 @@ function bootMonitor(
     }
     const point = toRoom(event);
     const agent = actorAt(event, point);
-    if (!agent || agent instanceof Creature) return;
+    if (!agent) return;
     drag = {
       agent, pointerId: event.pointerId, start: { x: event.clientX, y: event.clientY },
       client: { x: event.clientX, y: event.clientY },
@@ -570,7 +569,7 @@ function bootMonitor(
       drag.point = { x: point.x - drag.offset.x, y: point.y - drag.offset.y };
       const target = currentDrop();
       agent.held = false;
-      placeAgent(world, agent, target);
+      placeActor(world, agent, target);
       updateCameraCounts();
     }
     cancelDrag();
@@ -780,8 +779,9 @@ function bootMonitor(
       inputSurface.style.setProperty('--camera-shake-x', `${shake.x}px`);
       inputSurface.style.setProperty('--camera-shake-y', `${shake.y}px`);
       diagnostics.phase('drag-and-highlights');
-      if (drag && (drag.agent.room !== drag.origin || (drag.active && drag.agent.leaving))) {
-        log(`Pickup cancelled: ${drag.agent.character.name} is leaving the camera.`, 'muted');
+      if (drag && (drag.agent.room !== drag.origin || (drag.active && (drag.agent.incapacitated ||
+        (drag.agent instanceof Creature ? !drag.agent.onCamera : drag.agent.leaving))))) {
+        log(`Pickup cancelled: ${drag.agent.character.name} is no longer available.`, 'muted');
         cancelDrag();
       }
       if (followed) {

@@ -3,9 +3,9 @@ import type { SimCreature } from './roster.ts';
 import type { Door, Facing, Point, Room } from './room.ts';
 import type { World } from './world.ts';
 import { distance } from './navMap.ts';
-import { IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './sprites.ts';
+import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './sprites.ts';
 import type { Agent } from './agent.ts';
-import { wait } from './tasks.ts';
+import { fallMotion, wait } from './tasks.ts';
 import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { StatusEffects } from './statusEffects.ts';
 import { VORE_TUNING, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
@@ -76,6 +76,8 @@ export class Creature {
   y: number;
   facing: Facing = 'front';
   alpha = 1;
+  held = false;
+  private falling?: ReturnType<typeof fallMotion>;
   /** A disguised resident keeps its cell reservation but is not present on this camera. */
   away = false;
   /** Fled off camera through a way out of the facility; only `World.recontain` brings it back. */
@@ -122,7 +124,15 @@ export class Creature {
 
   /** On the floor where others can get at it: not dead, escorted, slipping through a doorway or fading in. */
   get exposed() {
-    return !this.dead && this.onCamera && !this.escort && !this.escaping && this.alpha >= 1;
+    return !this.held && !this.falling && !this.dead && this.onCamera && !this.escort && !this.escaping && this.alpha >= 1;
+  }
+
+  get draggable() {
+    return this.exposed && !this.incapacitated;
+  }
+
+  get height() {
+    return CHARACTER_FRAMES.idleRight1.h * this.character.scale;
   }
 
   /** Free to start something new (a hunt): exposed, and neither fleeing, attacking nor already hunting. */
@@ -144,7 +154,7 @@ export class Creature {
   }
 
   get loose() {
-    return !this.dead && this.onCamera && !this.contained && !this.escort;
+    return !this.held && !this.falling && !this.dead && this.onCamera && !this.contained && !this.escort;
   }
 
   get escaping() {
@@ -168,6 +178,7 @@ export class Creature {
     if (this.dead) return 'Dead';
     if (this.away) return 'Away from cell';
     if (this.escaped) return 'Escaped the facility';
+    if (this.falling) return 'Falling';
     if (this.escort) return `Being escorted to ${this.home.name}`;
     if (this.plan.action === 'attack') return `Attacking ${this.plan.target.character.name}`;
     if (this.plan.action === 'swallow') return `Hunting ${this.plan.target.character.name}`;
@@ -181,29 +192,33 @@ export class Creature {
   }
 
   get frame() {
-    if (this.incapacitated) return { name: IDLE_CYCLES[this.facing][0], flip: this.facing === 'left' };
+    if (this.held || this.falling || this.incapacitated) return { name: IDLE_CYCLES[this.facing][0], flip: this.facing === 'left' };
     const cycle = (this.walking ? WALK_CYCLES : IDLE_CYCLES)[this.facing];
     const phase = this.walking ? this.distance / WALK_STRIDE : this.elapsed / IDLE_FRAME_SECONDS;
     return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
   }
 
   /** Puts the creature back in its cell, e.g. when security recaptures it. */
-  returnHome(world: World) {
+  returnHome(world: World, at?: Point) {
     if (this.dead) return;
     const delivered = this.escort && this.room === this.home;
     this.releaseEscort();
-    this.room = this.home;
-    this.layout = this.home.props;
-    const point = delivered ? this.home.nearestWalkable(this) : this.home.randomFloorPoint();
+    this.reposition(this.home, at ?? (delivered ? this.home.nearestWalkable(this) : this.home.randomFloorPoint()), range(2, 6));
+    this.escaped = false;
+    // The guard's open door is not a new opportunity to escape.
+    for (const door of this.home.doors) if (world.passageDoorFor(door)?.open === 1) this.noticed.add(door);
+  }
+
+  reposition(room: Room, point: Point, watchSeconds = 2) {
+    if (room !== this.room) this.noticed.clear();
+    this.room = room;
+    this.layout = room.props;
     this.x = point.x;
     this.y = point.y;
     this.alpha = 1;
-    this.escaped = false;
     this.walking = false;
-    this.noticed.clear();
-    // The guard's open door is not a new opportunity to escape.
-    for (const door of this.home.doors) if (world.passageDoorFor(door)?.open === 1) this.noticed.add(door);
-    this.plan = { action: 'watch', remaining: range(2, 6) };
+    this.falling = room.isFloor(point.x, point.y) ? undefined : fallMotion();
+    this.plan = { action: 'watch', remaining: watchSeconds };
   }
 
   releaseEscort() {
@@ -345,13 +360,7 @@ export class Creature {
 
   /** Spat back out into `room` at `point` (VoreSystem clears the swallowed state first). */
   emerge(room: Room, point: Point) {
-    this.room = room;
-    this.layout = room.props;
-    this.x = point.x;
-    this.y = point.y;
-    this.alpha = 1;
-    this.walking = false;
-    this.plan = { action: 'watch', remaining: 2 };
+    this.reposition(room, point);
   }
 
   /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash. */
@@ -518,7 +527,7 @@ export class Creature {
   }
 
   update(world: World, dt: number, blockedSeconds = 0) {
-    if (!dt) return;
+    if (!dt || this.held) return;
     if (this.incapacitated || !this.onCamera) {
       this.walking = false;
       return;
@@ -529,6 +538,13 @@ export class Creature {
       return;
     }
     this.dashed = false;
+    if (this.falling) {
+      if (this.falling(this, world, dt)) {
+        this.falling = undefined;
+        if (!this.room.isWalkable(this)) Object.assign(this, this.room.nearestWalkable(this));
+      }
+      return;
+    }
     this.act(world, dt);
     if (!this.dashed) recoverStamina(this.stats, dt);
   }

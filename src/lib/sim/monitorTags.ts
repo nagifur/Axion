@@ -1,4 +1,3 @@
-import type { Agent } from './agent.ts';
 import { Creature } from './creature.ts';
 import { el } from './monitorDom.ts';
 import type { Renderer } from './render.ts';
@@ -59,8 +58,8 @@ export interface TagState {
   showAll: boolean;
   hovered: CameraActor | null;
   selected: CameraActor | null;
-  /** Head position override for the agent being dragged. */
-  heldHead?: { agent: Agent; head: Point };
+  /** Head position override for the actor being dragged. */
+  heldHead?: { agent: CameraActor; head: Point };
 }
 
 interface TagEvents {
@@ -96,7 +95,7 @@ export class NameTags {
   actorFor(element: Element | null): CameraActor | null {
     if (!element) return null;
     for (const [agent, tag] of this.tags) {
-      if ((agent instanceof Creature || !agent.held) && !tag.button.hidden && tag.button.contains(element)) return agent;
+      if (!agent.held && !tag.button.hidden && tag.button.contains(element)) return agent;
     }
     return null;
   }
@@ -146,7 +145,7 @@ export class NameTags {
       const bubble = (!creature && agent.bubble) || (agent.disposalActivityTime !== undefined ? '♥' : '');
       if (tag.bubble.textContent !== bubble) tag.bubble.textContent = bubble;
 
-      const held = !creature && agent.held;
+      const held = agent.held;
       const shown = renderer.isVisible(agent, world) || (held && agent.room === state.viewed);
       const highlighted = agent === state.hovered || agent === state.selected;
       tag.button.hidden = !shown;

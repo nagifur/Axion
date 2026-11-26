@@ -1,11 +1,12 @@
 import type { Agent } from './agent.ts';
+import { Creature } from './creature.ts';
 import { breakPropOnUse, fall, rest, wait } from './tasks.ts';
 import { getFromDispenser } from './itemTasks.ts';
 import { conversationPoint, startConversation } from './conversation.ts';
 import type { Prop } from './prop.ts';
 import type { Door, Point, Room, Spot } from './room.ts';
 import { scheduleFor } from './schedule.ts';
-import type { World } from './world.ts';
+import type { CameraActor, World } from './world.ts';
 import { tryElectricalShock } from './electrical.ts';
 import { passagePartBounds } from './door.ts';
 import { openPassageDoor } from './transport.ts';
@@ -18,6 +19,15 @@ export type DropTarget =
   | { kind: 'agent'; room: Room; point: Point; partner: Agent; label: string }
   | { kind: 'door'; room: Room; point: Point; door: Door; label: string }
   | { kind: 'prop'; room: Room; point: Point; prop: Prop; label: string };
+
+const TRANSFER_HINTS = {
+  escaped: ' (containment breach)', recontained: ' (restore containment)', roamed: '',
+};
+
+function creatureTransfer(creature: Creature, destination: Room) {
+  if (creature.room === destination) return undefined;
+  return destination === creature.home ? 'recontained' : creature.contained ? 'escaped' : 'roamed';
+}
 
 /** Cell artwork is a drop target in either camera view, including its panel. */
 export function cellDoorAt(world: World, room: Room, point: Point): Door | undefined {
@@ -32,13 +42,29 @@ export function cellDoorAt(world: World, room: Room, point: Point): Door | undef
 
 /** Resolves a drop without changing the simulation, also used for the live preview. */
 export function dropTarget(
-  world: World, agent: Agent, point: Point, partner?: Agent | null, prop?: Prop | null, room: Room = agent.room,
+  world: World, agent: CameraActor, point: Point, partner?: CameraActor | null, prop?: Prop | null, room: Room = agent.room,
   door: Door | undefined = cellDoorAt(world, room, point),
 ): DropTarget {
-  if (agent.incapacitated) return { kind: 'invalid', label: 'That agent is incapacitated' };
+  const creature = agent instanceof Creature;
+  const noun = creature ? 'creature' : 'agent';
+  if (agent.incapacitated) return { kind: 'invalid', label: `That ${noun} is incapacitated` };
   if (point.x < 0 || point.y < 0 || point.x >= room.width || point.y >= room.height) {
     return { kind: 'invalid', label: 'Drop inside the camera feed' };
   }
+  if (!agent.held && !agent.draggable) return { kind: 'invalid', label: `That ${noun} is unavailable` };
+  if ((!partner || partner === agent) && !prop && !door) {
+    const floor = { x: Math.min(room.width - 1, Math.round(point.x)), y: Math.min(room.height - 1, Math.round(point.y)) };
+    const transfer = creature ? creatureTransfer(agent, room) : undefined;
+    const effect = transfer ? TRANSFER_HINTS[transfer] : '';
+    if (!room.isFloor(floor.x, floor.y)) {
+      return { kind: 'fall', room, point: floor, label: `Drop ${noun} and fall to the floor${effect}` };
+    }
+    return room.isWalkable(floor)
+      ? { kind: 'floor', room, point: floor, label: `Place ${noun} here${effect}` }
+      : { kind: 'invalid', label: 'Drop on open floor' };
+  }
+  if (creature) return { kind: 'invalid', label: 'Drop the creature on open floor or in the air' };
+  if (partner instanceof Creature) return { kind: 'invalid', label: 'Cannot drop an agent onto a creature' };
   if (partner && partner !== agent) {
     if (!partner.draggable || partner.room !== room) return { kind: 'invalid', label: 'That agent is unavailable' };
     const meet = conversationPoint(point, partner);
@@ -83,19 +109,13 @@ export function dropTarget(
     if (!room.isWalkable(door.inside)) return { kind: 'invalid', label: 'Cannot reach the cell door' };
     return { kind: 'door', room, point: door.inside, door, label: `Open ${door.id} cell door` };
   }
-  const floor = { x: Math.min(room.width - 1, Math.round(point.x)), y: Math.min(room.height - 1, Math.round(point.y)) };
-  if (!room.isFloor(floor.x, floor.y)) {
-    return { kind: 'fall', room, point: floor, label: 'Drop agent and fall to the floor' };
-  }
-  return room.isWalkable(floor)
-    ? { kind: 'floor', room, point: floor, label: 'Place agent here' }
-    : { kind: 'invalid', label: 'Drop on open floor, a prop, a cell door, or an agent' };
+  return { kind: 'invalid', label: 'No drop target' };
 }
 
 /** Applies a freshly resolved drop; invalid drops leave the original task and position intact. */
-export function placeAgent(world: World, agent: Agent, target: DropTarget): boolean {
-  if (agent.incapacitated) {
-    world.log(`Cannot place ${agent.character.name}: agent is incapacitated.`, 'warn');
+export function placeActor(world: World, agent: CameraActor, target: DropTarget): boolean {
+  if (!agent.draggable) {
+    world.log(`Cannot place ${agent.character.name}: ${agent.incapacitated ? 'incapacitated' : 'unavailable'}.`, 'warn');
     return false;
   }
   if (target.kind === 'invalid') {
@@ -103,6 +123,21 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
     return false;
   }
   const source = agent.room;
+  if (agent instanceof Creature) {
+    if (target.kind !== 'floor' && target.kind !== 'fall') {
+      world.log(`Cannot place ${agent.character.name}: creatures cannot use this target.`, 'warn');
+      return false;
+    }
+    const transfer = creatureTransfer(agent, target.room);
+    if (transfer === 'recontained') world.recontain(agent, target.point);
+    else {
+      agent.reposition(target.room, target.point);
+      if (transfer) world.incidents.record(transfer, { creature: agent, room: target.room });
+    }
+    updateDropLights(world, source, target.room);
+    world.log(`${agent.character.name}: ${target.label} in the ${target.room.name}.`, transfer === 'escaped' ? 'alert' : 'default');
+    return true;
+  }
   const switchOn = target.kind === 'prop' && !target.prop.on;
   agent.setPlan(world, []);
   if (agent.room !== target.room) {
@@ -112,10 +147,7 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
   agent.x = target.point.x;
   agent.y = target.point.y;
   agent.moving = false;
-  if (source !== target.room) {
-    source.updateLights(world.agentsIn(source).length > 0, 0);
-    target.room.updateLights(true, 0);
-  }
+  updateDropLights(world, source, target.room);
   if (target.kind === 'fall') {
     agent.setPlan(world, [fall()]);
   } else if (target.kind === 'seat') {
@@ -149,6 +181,7 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
           checkedShock = true;
           if (tryElectricalShock(agent, world, target.prop)) return false;
         }
+
         return task.update(agent, world, dt);
       },
     }]);
@@ -158,3 +191,11 @@ export function placeAgent(world: World, agent: Agent, target: DropTarget): bool
   world.log(`${agent.character.name}: ${target.label} in the ${agent.room.name}.`, 'default');
   return true;
 }
+
+function updateDropLights(world: World, source: Room, destination: Room) {
+  if (source === destination) return;
+  source.updateLights(world.actorsIn(source).length > 0, 0);
+  destination.updateLights(true, 0);
+}
+
+export { placeActor as placeAgent };

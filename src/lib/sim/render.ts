@@ -1,4 +1,3 @@
-import type { Agent } from './agent.ts';
 import { Creature } from './creature.ts';
 import type { Point, Room } from './room.ts';
 import type { Prop } from './prop.ts';
@@ -462,8 +461,8 @@ export class Renderer {
 
   isVisible(actor: CameraActor, world: World) {
     const agent = this.carrier(actor);
-    if (agent instanceof Creature) return agent.onCamera && agent.room === this.room && agent.alpha >= 0.3;
     if (agent.held || agent.room !== this.room || agent.alpha < 0.3) return false;
+    if (agent instanceof Creature) return agent.onCamera;
     return agent.layer === 'room' || (world.elevatorFor(this.room)?.open ?? 0) > 0.4;
   }
 
@@ -579,7 +578,7 @@ export class Renderer {
   }
 
   /** Held sprites draw above the room without changing their simulation position. */
-  drawHeld(agent: Agent, point: Point, valid: boolean) {
+  drawHeld(agent: CameraActor, point: Point, valid: boolean) {
     const ctx = this.ctx;
     ctx.save();
     ctx.translate(Math.round(point.x - agent.x), Math.round(point.y - agent.y));
@@ -770,7 +769,7 @@ export class Renderer {
       drawables.push({ depth: particle.depth, draw: () => drawParticle(ctx, requireAsset(assets, particle.asset), particle) });
     }
     for (const actor of world.actorsIn(room)) {
-      if (!(actor instanceof Creature) && (actor.held || actor.layer !== 'room')) continue;
+      if (actor.held || (!(actor instanceof Creature) && actor.layer !== 'room')) continue;
       drawables.push({ depth: actorDepth(actor), draw: () => this.drawAgent(actor, highlights.get(actor)) });
     }
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());

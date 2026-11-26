@@ -8,6 +8,7 @@ import { World } from '../src/lib/sim/world.ts';
 import { FacilityEventDirector } from '../src/lib/sim/facilityEvents.ts';
 import { ATTACK_CHANCE, ESCAPE_CHANCE, RESIST_CHANCE, escapeChance } from '../src/lib/sim/creature.ts';
 import { PassageDoor } from '../src/lib/sim/door.ts';
+import { dropTarget, placeActor } from '../src/lib/sim/agentDrag.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
 import { exitThroughDoor } from '../src/lib/sim/transport.ts';
 import { planSecurity } from '../src/lib/sim/security.ts';
@@ -50,6 +51,44 @@ function setup(t, seed, containmentClass, count = 1) {
 function cellDoorStates(world, hall) {
   return hall.doors.filter((door) => door.cell).map((door) => world.passageDoorFor(door));
 }
+
+test('carrying a creature preserves its plan until a valid drop and uses the containment lifecycle', async (t) => {
+  const { world, creature, hall } = await setup(t, 11);
+  const home = creature.home;
+  const origin = { x: creature.x, y: creature.y };
+  const activity = creature.activity;
+  creature.held = true;
+  const point = hall.randomFloorPoint();
+  const preview = dropTarget(world, creature, point, null, null, hall);
+  assert.equal(preview.kind, 'floor');
+  creature.update(world, 20);
+  assert.equal(creature.exposed, false);
+  assert.equal(creature.room, home);
+  creature.held = false;
+  const guard = world.spawn(staff, hall, point);
+  const invalid = dropTarget(world, creature, point, guard, null, hall);
+  assert.equal(invalid.kind, 'invalid');
+  assert.equal(placeActor(world, creature, invalid), false);
+  assert.deepEqual([creature.x, creature.y, creature.activity], [origin.x, origin.y, activity]);
+
+  assert.equal(placeActor(world, creature, preview), true);
+  assert.ok(world.creaturesIn(hall).includes(creature));
+  assert.equal(creature.loose, true);
+  const incident = world.incidents.pendingFor(creature);
+  assert.equal(incident.steps.at(-1).id, 'escaped');
+  creature.held = true;
+  assert.equal(creature.loose, false, 'held creatures are not available to security');
+  creature.held = false;
+  creature.escort = guard;
+  assert.equal(creature.draggable, false);
+  creature.releaseEscort();
+  const back = dropTarget(world, creature, origin, null, null, home);
+  assert.equal(placeActor(world, creature, back), true);
+  assert.deepEqual([creature.x, creature.y], [back.point.x, back.point.y]);
+  assert.equal(creature.contained, true);
+  assert.equal(incident.steps.at(-1).id, 'recontained');
+  assert.equal(world.incidents.pendingFor(creature), undefined);
+});
 
 test('Maximum Containment creatures are far more likely to try than Containment or Safe ones', () => {
   assert.ok(escapeChance('Maximum Containment') > 4 * escapeChance('Containment'));

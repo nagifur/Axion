@@ -3,7 +3,7 @@ import type { Creature } from './creature.ts';
 import { assignCellOccupants } from './cellOccupants.ts';
 import { enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './transport.ts';
 import { canVisitLevel, type SimCharacter, type SimCreature, type SimImpostor } from './roster.ts';
-import { directionTo, type Door, type Room, type Spot } from './room.ts';
+import { directionTo, type Door, type Point, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
 import type { Prop } from './prop.ts';
 import { scheduleFor, securitySchedule } from './schedule.ts';
@@ -224,11 +224,11 @@ export class World {
   }
 
   /** Completes an escort, or restores an off-camera escapee to its assigned cell. */
-  recontain(creature: Creature) {
+  recontain(creature: Creature, at?: Point) {
     if (creature.dead || creature.contained || creature.swallowed || creature.consumed) return;
     const escort = creature.escort;
     const from = creature.escaped ? 'outside the facility' : `the ${creature.room.name}`;
-    creature.returnHome(this);
+    creature.returnHome(this, at);
     this.incidents.record('recontained', { creature, other: escort, room: creature.home });
     this.log(escort ? `Containment restored: ${escort.character.name} escorted ${creature.character.name} back to ${creature.home.name}.`
       : `Containment restored: ${creature.character.name} was returned to ${creature.home.name} from ${from}.`, 'ok');
