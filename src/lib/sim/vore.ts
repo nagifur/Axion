@@ -59,14 +59,15 @@ export interface VoreTypeDefinition {
   absorption: number;
 }
 
-const digestedOutcomes = (): VoreOutcome[] => ['bones', 'scat'].map((look) => ({
-  look, weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 },
-}));
-
 /** One entry per way of swallowing. Add quirks here; everything else reads from this table. */
 export const VORE_TYPES = {
   oral: {
-    label: 'Oral vore', weight: 6, outcomes: digestedOutcomes(), digestion: 1, escape: 1, absorption: 1,
+    label: 'Oral vore', weight: 6,
+    outcomes: [
+      { look: 'bones', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
+      { look: 'scat', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
+    ],
+    digestion: 1, escape: 1, absorption: 1,
   },
   cock: {
     label: 'Cock vore', weight: 1,
@@ -77,7 +78,12 @@ export const VORE_TYPES = {
     digestion: 1, escape: 1, absorption: 1,
   },
   anal: {
-    label: 'Anal vore', weight: 1, outcomes: digestedOutcomes(), digestion: 1, escape: 1, absorption: 1,
+    label: 'Anal vore', weight: 1,
+    outcomes: [
+      { look: 'bones', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
+      { look: 'scat', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
+    ],
+    digestion: 1, escape: 1, absorption: 1,
   },
   breast: {
     label: 'Breast vore', weight: 1,
