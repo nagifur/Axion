@@ -863,7 +863,7 @@ test('one predator disposes of different cock vore outcomes using their own acti
 });
 
 for (const [kind, facing] of [['staff', 'right'], ['creature', 'left']]) {
-  test(`${kind} releases each outcome's particles toward its side only in the last seconds of disposal`, () => {
+  test(`${kind} releases each outcome's particles and tosses its pile toward its side at the end of disposal`, () => {
     const expected = { bones: ['bone', -1], scat: ['poo', -1], pee: ['pee', 1], cum: ['cum', 1], milk: ['milk', 1] };
     for (const [type, { outcomes }] of Object.entries(VORE_TYPES)) {
       for (const outcome of outcomes) {
@@ -889,6 +889,15 @@ for (const [kind, facing] of [['staff', 'right'], ['creature', 'left']]) {
         const direction = (facing === 'right' ? 1 : -1) * side;
         assert.ok(emitted().every(({ vx }) => vx * direction > 0), `${outcome.look}: particles fly toward the emitting side`);
         assert.ok(predator.vore.remains.includes(remains));
+        for (let i = 0; i < 100 && !hall.remains.includes(remains); i++) world.update(0.05);
+        assert.ok(hall.remains.includes(remains), outcome.look);
+        assert.ok(remains.flight?.lift > 0, `${outcome.look}: the pile starts in the air`);
+        const floor = remains.y;
+        step(world, 2, 0.05);
+        assert.equal(remains.flight, null, `${outcome.look}: the pile settles`);
+        assert.equal(remains.y, floor, `${outcome.look}: it lands on the predator's floor line`);
+        assert.ok((remains.x - predator.x) * direction > 0, `${outcome.look}: the pile lands toward the release side`);
+        assert.ok(hall.isWalkable(remains), outcome.look);
       }
     }
   });
@@ -1005,7 +1014,7 @@ test('an occupied restroom falls back to a private room, then a corner', () => {
   const third = holdRemains(pred, prey);
   step(world, 30);
   assert.ok(hall.remains.includes(third), 'no private room is available');
-  assert.ok(third.x < 20 || third.x > hall.width - 20);
+  assert.ok(third.x < 40 || third.x > hall.width - 40, 'tossed a little way out of the corner');
   assert.ok(third.y < 15 || third.y > hall.height - 15, 'the fallback is a corner');
   assert.equal(otherWitness.room, hall);
 });
@@ -1132,7 +1141,8 @@ test('a creature walks to a reachable corner before showing the disposal effect'
     }
   }
   assert.ok(hall.remains.includes(remains));
-  assert.ok(remains.x < 20 || remains.x > hall.width - 20);
+  assert.ok(predator.x < 20 || predator.x > hall.width - 20);
+  assert.ok(remains.x < 40 || remains.x > hall.width - 40, 'tossed a little way out of the corner');
   assert.ok(remains.y < 15 || remains.y > hall.height - 15);
 });
 

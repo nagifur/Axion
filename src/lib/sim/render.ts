@@ -324,6 +324,8 @@ function recolor(image: SizedImage, from: number[], to: number[]): Canvas {
   return canvas;
 }
 
+/** Airborne piles sort beside their thrower; landed ones just behind anyone standing on them. */
+const remainsDepth = (remains: Pick<Remains, 'y' | 'flight'>) => remains.flight?.depth ?? remains.y - 0.5;
 
 function actorDepth(actor: CameraActor) {
   return !(actor instanceof Creature) && actor.sitting && actor.spot ? Math.max(actor.y, actor.spot.propDepth) : actor.y;
@@ -485,11 +487,11 @@ export class Renderer {
 
   /** The front-most remains pile under a point, picked by its opaque pixels like characters are. */
   remainsAt(px: number, py: number): Remains | null {
-    const front = [...(this.room.remains ?? [])].reverse().sort((a, b) => b.y - a.y);
+    const front = [...(this.room.remains ?? [])].reverse().sort((a, b) => remainsDepth(b) - remainsDepth(a));
     for (const remains of front) {
       const { image, asset } = this.remainsImage(remains);
       const x = Math.round(remains.x - image.width / 2);
-      const y = Math.round(remains.y - image.height);
+      const y = Math.round(remains.y - (remains.flight?.lift ?? 0) - image.height);
       const mask = this.remainsMasks.get(asset, image, { x: 0, y: 0, w: image.width, h: image.height });
       for (let oy = -AGENT_PICK_TOLERANCE; oy <= AGENT_PICK_TOLERANCE; oy++) {
         for (let ox = -AGENT_PICK_TOLERANCE; ox <= AGENT_PICK_TOLERANCE; ox++) {
@@ -706,7 +708,7 @@ export class Renderer {
   private drawRemains(remains: Remains, highlight?: string) {
     const { image } = this.remainsImage(remains);
     const x = Math.round(remains.x - image.width / 2);
-    const y = Math.round(remains.y - image.height);
+    const y = Math.round(remains.y - (remains.flight?.lift ?? 0) - image.height);
     if (highlight) this.drawOutline(image, { x: 0, y: 0, w: image.width, h: image.height }, x, y, false, highlight);
     this.ctx.drawImage(image, x, y);
   }
@@ -762,7 +764,7 @@ export class Renderer {
       drawables.push({ depth: item.y + item.h - 0.5, draw: () => drawItemSprite(ctx, requireAsset(assets, item.asset), item) });
     }
     for (const remains of room.remains ?? []) {
-      drawables.push({ depth: remains.y - 0.5, draw: () => this.drawRemains(remains, highlights.get(remains)) });
+      drawables.push({ depth: remainsDepth(remains), draw: () => this.drawRemains(remains, highlights.get(remains)) });
     }
     for (const particle of world.particles.in(room)) {
       drawables.push({ depth: particle.depth, draw: () => drawParticle(ctx, requireAsset(assets, particle.asset), particle) });

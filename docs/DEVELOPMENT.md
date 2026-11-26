@@ -1103,7 +1103,14 @@ the share of sprite height above the feet (default 0.4). Facing left or right ai
 particles toward that side, using the set's `forwardSpeed`. Every outcome releases
 for its final 3 s: `cum` and `pee` spurt forward, `milk` drips in a near-constant
 stream from chest height, and `scat` and `bones` drop a few `poo` or `bone` particles
-from the backside. At least one outcome must have positive weight.
+from the backside.
+A disposal's optional `toss: { speed, up, bounce }` then throws the finished pile from
+the same release point instead of placing it at the predator's feet: `speed` sideways
+toward the release side, `up` upward (room pixels per second), keeping `bounce` of its
+fall speed on each landing. It falls under `GRAVITY`, only slides over walkable floor,
+and lands on the predator's floor line. While airborne `Remains.flight` holds its lift
+above the floor and its draw depth. Cum and urine are tossed forward, milk drips with
+little push, and scat and bones drop out backward, bones bouncing the most. At least one outcome must have positive weight.
 `SIM_OVERRIDES[id].vore.types` replaces
 the weights for one character; types left out of it are never used.
 An empty or all-zero weight map disables swallowing; directly requesting a random

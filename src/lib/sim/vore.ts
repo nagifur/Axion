@@ -52,6 +52,11 @@ export interface VoreOutcome {
      * body's `from` side (default front) at `height` (share of sprite height above the feet, default 0.4).
      */
     release?: { set: string; seconds: number; every: number; from?: 'front' | 'back'; height?: number };
+    /**
+     * Throws the finished pile from the release point instead of placing it: `speed` sideways toward the
+     * release side and `up` upward (room pixels per second), keeping `bounce` of its fall speed on landing.
+     */
+    toss?: { speed: number; up: number; bounce: number };
   };
 }
 
@@ -74,9 +79,11 @@ export const VORE_TYPES = {
     outcomes: [
       { look: 'bones', weight: 1, converted: 'digested', disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'bone', seconds: 3, every: 1.4, from: 'back', height: 0.35 },
+        toss: { speed: 22, up: 15, bounce: 0.35 },
       } },
       { look: 'scat', weight: 1, converted: 'digested', disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'poo', seconds: 3, every: 1.2, from: 'back', height: 0.35 },
+        toss: { speed: 14, up: 0, bounce: 0.2 },
       } },
     ],
     digestion: 1, escape: 1, absorption: 1,
@@ -86,9 +93,11 @@ export const VORE_TYPES = {
     outcomes: [
       { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: {
         activity: 'Urinating', seconds: 12, release: { set: 'pee', seconds: 3, every: 0.1 },
+        toss: { speed: 20, up: 15, bounce: 0 },
       } },
       { look: 'cum', weight: 95, converted: 'cumified', disposal: {
         activity: 'Jerking Off', seconds: 20, release: { set: 'cum', seconds: 3, every: 0.45 },
+        toss: { speed: 25, up: 20, bounce: 0 },
       } },
     ],
     digestion: 1, escape: 1, absorption: 1,
@@ -98,9 +107,11 @@ export const VORE_TYPES = {
     outcomes: [
       { look: 'bones', weight: 1, converted: 'digested', disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'bone', seconds: 3, every: 1.4, from: 'back', height: 0.35 },
+        toss: { speed: 22, up: 15, bounce: 0.35 },
       } },
       { look: 'scat', weight: 1, converted: 'digested', disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'poo', seconds: 3, every: 1.2, from: 'back', height: 0.35 },
+        toss: { speed: 14, up: 0, bounce: 0.2 },
       } },
     ],
     digestion: 1, escape: 1, absorption: 1,
@@ -110,6 +121,7 @@ export const VORE_TYPES = {
     outcomes: [
       { look: 'milk', weight: 1, converted: 'milkified', disposal: {
         activity: 'Milking themselves', seconds: 12, release: { set: 'milk', seconds: 3, every: 0.1, height: 0.6 },
+        toss: { speed: 10, up: 0, bounce: 0 },
       } },
     ],
     digestion: 1, escape: 1, absorption: 1,

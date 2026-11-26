@@ -563,6 +563,7 @@ export class World {
   update(dt: number) {
     if (!Number.isFinite(dt) || dt < 0) throw new Error('World update needs a finite, non-negative timestep.');
     this.particles.update(dt);
+    for (const room of this.rooms) for (const remains of room.remains) remains.step(room, dt);
     const frameStart = this.time;
     this.time += dt;
     for (const level of this.levels.values()) level.update(frameStart, dt);

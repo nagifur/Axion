@@ -342,34 +342,47 @@ export class VoreSystem {
     const spurts = Math.max(1, Math.ceil(release.seconds / release.every));
     const done = (t: number) => t < start ? 0 : Math.min(spurts, Math.floor((t - start) / release.every) + 1);
     if (done(to) <= done(from)) return;
-    const { x, y, room } = host;
+    const { origin, direction, depth, height } = this.releasePoint(host, release);
+    const size = Math.max(1, height * 0.06);
+    this.world.particles.burst(host.room, release.set, {
+      x: origin.x - size / 2, y: origin.y - size / 2, w: size, h: size, floorY: host.y, direction,
+    }, depth);
+  }
+
+  /** Where on the host's body a release comes out, which way it heads, and its draw depth. */
+  private releasePoint(host: VoreActor, release: Pick<NonNullable<VoreOutcome['disposal']['release']>, 'from' | 'height'> = {}) {
+    const { x, y } = host;
     const height = CHARACTER_FRAMES.idleRight1.h * host.character.scale;
     const back = release.from === 'back';
     const forward = host.facing === 'left' ? -1 : host.facing === 'right' ? 1 : 0;
     const direction = (back ? -forward : forward) as -1 | 0 | 1;
-    const size = Math.max(1, height * 0.06);
     const origin = { x: x + direction * height * 0.12, y: y - height * (release.height ?? 0.4) };
     // Sideways sprites show both sides; otherwise the emitting side is drawn behind unless it faces the camera.
     const visible = direction !== 0 || (host.facing === 'back') === back;
-    this.world.particles.burst(room, release.set, {
-      x: origin.x - size / 2, y: origin.y - size / 2, w: size, h: size, floorY: y, direction,
-    }, y + (visible ? 0.5 : -0.5));
+    return { origin, direction, depth: y + (visible ? 0.5 : -0.5), height };
   }
 
   finishDisposal(host: VoreActor, remains: Remains) {
     if (!host.vore.remains.includes(remains) || !this.grounded(host) || host.dead) {
       throw new Error('Cannot dispose of remains the predator is not holding on the floor.');
     }
-    this.drop(host, remains);
+    this.drop(host, remains, true);
   }
 
-  /** The pile lands at the host's feet, with everything the prey was holding scattered beside it. */
-  private drop(host: VoreActor, remains: Remains) {
+  /** The pile lands at the host's feet (or is tossed from its release point), with everything the prey was holding scattered beside it. */
+  private drop(host: VoreActor, remains: Remains, tossed = false) {
     const { room } = host;
     const point = room.nearestWalkable(host);
     host.vore.remains.splice(host.vore.remains.indexOf(remains), 1);
     remains.x = point.x;
     remains.y = point.y;
+    const { release, toss } = remains.disposal;
+    if (tossed && toss) {
+      const { origin, direction, depth } = this.releasePoint(host, release);
+      const start = { x: origin.x, y: point.y };
+      if (room.isWalkable(start)) remains.x = start.x;
+      remains.toss(point.y - origin.y, direction * toss.speed, toss.up, toss.bounce, depth);
+    }
     room.remains.push(remains);
     this.scatter(room, point, remains.items.splice(0));
     this.world.log(`${host.character.name} got rid of ${remains.name}'s remains in the ${room.name}.`, 'muted');
