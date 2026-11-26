@@ -1,7 +1,8 @@
 import type { Agent } from './agent.ts';
 import type { FacilityEventDirector } from './facilityEvents.ts';
+import { STATUS_EFFECTS, STATUS_POLARITIES } from './statusEffects.ts';
 import { nap, trip } from './tasks.ts';
-import type { LogTone, World } from './world.ts';
+import type { CameraActor, LogTone, World } from './world.ts';
 import type { Room } from './room.ts';
 import type { EventListeners } from './monitorDom.ts';
 
@@ -12,6 +13,8 @@ export interface DebugControls {
   log(text: string, tone?: LogTone): void;
   /** Agents on the camera being watched. */
   onCamera(): Agent[];
+  /** The actor whose file and vitals are open. */
+  selected(): CameraActor | null;
   currentRoom(): Room;
   /** Shifts the sim clock by `ms` from real time (0 = live). */
   setClockOffset(ms: number): void;
@@ -30,6 +33,19 @@ const TIME_PRESETS: { label: string; hour?: number; minute?: number }[] = [
   { label: '18:00 Free', hour: 18, minute: 0 },
   { label: '02:00 Night', hour: 2, minute: 0 },
 ];
+const DEBUG_HURT_HP = 20;
+
+/** Removable effects that can land on an agent or creature, for the debug status picker. */
+function debugStatusOptions() {
+  return Object.entries(STATUS_EFFECTS)
+    .filter(([, effect]) => !effect.irreversible && effect.targets.some((kind) => kind === 'agent' || kind === 'creature'))
+    .map(([id, effect]) => {
+      const option = document.createElement('option');
+      option.value = id;
+      option.textContent = `${effect.label} (${STATUS_POLARITIES[effect.polarity].label.toLowerCase()})`;
+      return option;
+    });
+}
 
 export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, listeners?: EventListeners): () => void {
   const { world, director, log } = controls;
@@ -75,6 +91,28 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, list
   };
   refreshEvents();
 
+  const statusSelect = panel.querySelector<HTMLSelectElement>('[data-debug-status]');
+  statusSelect?.replaceChildren(...debugStatusOptions());
+  /** Runs `change` on the selected actor and logs its outcome. */
+  const onSelected = (change: (actor: CameraActor, name: string) => string) => {
+    const actor = controls.selected();
+    if (!actor) {
+      log('Debug: select someone on the feed first.', 'warn');
+      return;
+    }
+    log(`Debug: ${change(actor, actor.character.name)}`, 'muted');
+  };
+  const changeStatus = (apply: boolean) => onSelected((actor, name) => {
+    const id = statusSelect?.value ?? '';
+    const label = STATUS_EFFECTS[id]?.label ?? id;
+    if (apply) return actor.statuses.apply(id) ? `${name} is now ${label}.` : `${label} can't be applied to ${name}.`;
+    return actor.statuses.remove(id) ? `${label} removed from ${name}.` : `${name} isn't ${label}.`;
+  });
+  const hurt = () => onSelected((actor, name) => {
+    actor.stats.hp.current -= DEBUG_HURT_HP;
+    return `${name} lost ${DEBUG_HURT_HP} HP.`;
+  });
+
   let timePreset = 0;
   const cycleTime = () => {
     timePreset = (timePreset + 1) % TIME_PRESETS.length;
@@ -109,6 +147,9 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, list
     reset: controls.resetProgress,
     'event-start': () => changeEvent(true),
     'event-stop': () => changeEvent(false),
+    'status-apply': () => changeStatus(true),
+    'status-remove': () => changeStatus(false),
+    hurt,
   };
   const onClick = (event: MouseEvent) => {
     const action = (event.target as HTMLElement).closest<HTMLElement>('[data-debug]')?.dataset.debug;

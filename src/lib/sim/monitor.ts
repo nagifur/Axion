@@ -11,6 +11,7 @@ import { followCameraRoom } from './monitorFollow.ts';
 import { IncidentFeed } from './monitorIncidents.ts';
 import { loadProgress, saveProgress } from './monitorProgress.ts';
 import { NameTags } from './monitorTags.ts';
+import { VitalsHud } from './monitorVitals.ts';
 import { PropEditor } from './propEditor.ts';
 import { PropEmissionSampler, PropPicker, Renderer, loadAssets } from './render.ts';
 import type { Remains } from './remains.ts';
@@ -77,6 +78,7 @@ function bootMonitor(
   const clockNode = root.querySelector<HTMLElement>('[data-monitor-clock]');
   const alertNode = root.querySelector<HTMLElement>('[data-monitor-alert]');
   const fileNode = root.querySelector<HTMLElement>('[data-monitor-file]');
+  const vitalsNode = root.querySelector<HTMLElement>('[data-monitor-vitals]');
   const logNode = root.querySelector<HTMLOListElement>('[data-monitor-log]');
   const incidentNode = root.querySelector<HTMLOListElement>('[data-monitor-incidents]');
   const achievementList = root.querySelector<HTMLUListElement>('[data-monitor-achievements]');
@@ -331,6 +333,7 @@ function bootMonitor(
     stopFollowing();
     switchCamera(room);
   }) : null;
+  const vitals = vitalsNode ? new VitalsHud(vitalsNode, world) : null;
 
   const incidents = incidentNode ? new IncidentFeed(
     incidentNode,
@@ -594,6 +597,12 @@ function bootMonitor(
       stopFollowing();
       return;
     }
+    if (event.key === 'Escape' && selected && !editor?.active && !target?.closest('input, textarea, select')) {
+      event.preventDefault();
+      selected = null;
+      updateFollowControls();
+      return;
+    }
     if (!editor?.active || target?.closest('input, textarea')) return;
     if (editor.key(event)) event.preventDefault();
   };
@@ -645,6 +654,7 @@ function bootMonitor(
       director,
       log,
       onCamera: () => world.agentsIn(viewed),
+      selected: () => selected,
       currentRoom: () => viewed,
       setClockOffset: (ms) => { clockOffset = ms; },
       refreshClock: () => tick(),
@@ -809,6 +819,7 @@ function bootMonitor(
       });
       diagnostics.phase('file.render');
       file?.render(selected, viewed);
+      vitals?.render(selected, viewed);
       incidents?.sync();
       diagnostics.phase('frame-complete');
       lastFrameCompleted = performance.now();

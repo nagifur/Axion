@@ -69,6 +69,15 @@ interface TagEvents {
   hovered(): CameraActor | null;
 }
 
+/** The name and tint an actor is shown with; unmasked shapeshifters show their entity name in red. */
+export function actorIdentity(actor: CameraActor): { name: string; tint: string } {
+  if (actor instanceof Creature) return { name: entityDisplayName(actor.character), tint: actor.character.tint };
+  const revealed = actor.revealed && actor.impostor;
+  return revealed
+    ? { name: entityDisplayName(revealed), tint: 'var(--neon-red)' }
+    : { name: actor.character.name, tint: actor.character.tint };
+}
+
 /** Clickable name tags with speech and status popups over visible actors. */
 export class NameTags {
   private readonly tags = new Map<CameraActor, Tag>();
@@ -106,12 +115,11 @@ export class NameTags {
     for (const agent of actors) {
       const tag = this.tags.get(agent) ?? this.create(agent);
       const creature = agent instanceof Creature;
-      const revealed = !creature && agent.revealed && agent.impostor;
-      const label = revealed ? entityDisplayName(revealed) : creature ? entityDisplayName(agent.character) : agent.character.name;
+      const { name: label, tint } = actorIdentity(agent);
       if (tag.label !== label) {
         tag.label = label;
         tag.name.textContent = label;
-        tag.button.style.setProperty('--tag-tint', revealed ? 'var(--neon-red)' : agent.character.tint);
+        tag.button.style.setProperty('--tag-tint', tint);
       }
       const popups = statusPopups(agent.statuses.active);
       const statusKey = JSON.stringify(popups);

@@ -177,6 +177,7 @@ accept any `{ stats: LiveStats }`.
 Impostors use their entity profile's stats, not the copied staff profile's.
 Contained creatures use the same entity profile's stats.
 The selected-agent or creature panel updates live values without rebuilding the file.
+The same values drive the [vitals HUD](#selected-actor-vitals-hud) on the feed.
 Stamina drains while running: agents moving faster than walking pace (fleeing, chasing,
 stalking, hurrying out) and creatures dashing (escapes, attacks, hunts, fleeing) spend
 `STAMINA_DRAIN_PER_SECOND`, and recover `STAMINA_RECOVERY_PER_SECOND` whenever they are
@@ -189,6 +190,29 @@ is fatal (see [Status Effects](#status-effects) and [The Vore System](#the-vore-
 Values last only for that agent or creature instance, not across spawns or reloads.
 All three character collections validate optional stat blocks, including
 synthetics that do not yet spawn in monitoring.
+
+#### Selected-Actor Vitals HUD
+
+Selecting an agent or creature slides a HUD into the feed's top-left corner
+([`monitorVitals.ts`](../src/lib/sim/monitorVitals.ts), styled in
+[`monitoring.astro`](../src/pages/monitoring.astro) under `.monitor-vitals`). It shows the
+name (same name and tint as the name tag, via `actorIdentity` in `monitorTags.ts`), the
+camera they are on when it isn't the one being watched, a health bar, thin stamina and
+mana lines, and one row per status effect. Esc clears the selection and slides it away.
+
+- **Bars** come from `VITAL_BARS`: each entry names a `LiveStats` pool, a `label`, a
+  `size` (`major` thick bar or `minor` line), colour `tiers` (the first tier whose
+  `from` fraction the pool reaches wins; `critical` pulses), and an optional
+  `shownFor(actor)` filter. Health goes green (60%+) → orange (30%+) → red, and
+  mana only shows for actors with magic capacity. Lost HP leaves a pale trail that
+  holds for `TRAIL_HOLD_MS`, then catches up (`trailFraction`).
+- **Status rows** list `statusBadges(actor.statuses.active)`: the effect's popup icon
+  (or a diamond in its popup colour), a +, − or ring sign coloured by its
+  [polarity](#status-effects), the label, and a thin timer for timed effects. Rows
+  slide in when an effect starts and out when it ends; an effect reapplied while
+  sliding out slides straight back. Effects hidden by `hidesPopups` are skipped here too.
+- The HUD ignores pointer input, hides in the prop editor, and turns its animations
+  off with the site's animation toggle or `prefers-reduced-motion`.
 
 #### Simulation performance benchmark
 
@@ -454,10 +478,13 @@ never flicker.
 | [`src/lib/sim/levelEvents.ts`](../src/lib/sim/levelEvents.ts) | Floor event definitions and floor-specific simulation rules. |
 | [`src/lib/sim/levelState.ts`](../src/lib/sim/levelState.ts) | Per-floor state and event lifecycle. |
 | [`src/lib/sim/render.ts`](../src/lib/sim/render.ts) | Asset loading and drawing a camera feed onto a canvas. |
-| [`src/lib/sim/monitor.ts`](../src/lib/sim/monitor.ts) | Boots the monitoring page: cameras, drag and drop, and the frame loop. Its panels live in `monitorFile.ts` (personnel file), `monitorTags.ts` (name tags), `monitorDebug.ts` and `monitorEditor.ts` (`?debug` tools), and `monitorProgress.ts` (saved progress). |
+| [`src/lib/sim/monitor.ts`](../src/lib/sim/monitor.ts) | Boots the monitoring page: cameras, drag and drop, and the frame loop. Its panels live in `monitorFile.ts` (personnel file), `monitorVitals.ts` (selected-actor vitals HUD), `monitorTags.ts` (name tags), `monitorDebug.ts` and `monitorEditor.ts` (`?debug` tools), and `monitorProgress.ts` (saved progress). |
 
 Add `?debug` to the URL to show buttons that trigger events, speed up time, and open
 the prop editor (see [Placing Props With the Editor](#placing-props-with-the-editor)).
+The **Selected** row applies or removes any removable agent/creature status effect on
+the selected actor and has a **Hurt −20 HP** button, for previewing the
+[vitals HUD](#selected-actor-vitals-hud).
 Achievements and the last camera watched are stored in the visitor's browser (`localStorage`).
 
 #### Character Sprite Sheet
@@ -939,11 +966,15 @@ Starting damage from `room.json` does not emit runtime break particles.
 prop.statuses.apply('broken'); // Same damage state as prop.break().
 prop.statuses.has('broken');
 prop.statuses.remove('broken'); // Same repair state as prop.repair().
-const effects = prop.statuses.active; // Read-only snapshots: id, label, remaining.
+const effects = prop.statuses.active; // Read-only snapshots: id, label, polarity, remaining, duration.
 ```
 
 Add a definition to `STATUS_EFFECTS` to introduce an effect. Each definition has a
-`label` and `targets` (`agent`, `creature`, `prop`, `item`, `door`, or `panel`), and can provide:
+`label`, `targets` (`agent`, `creature`, `prop`, `item`, `door`, or `panel`), and a
+`polarity`: `positive`, `negative` or `neutral`, i.e. whether the effect helps, harms
+or merely describes its target. `STATUS_POLARITIES` gives each polarity a label and
+colour; the [vitals HUD](#selected-actor-vitals-hud) draws a +, − or ring sign in that
+colour. Every built-in effect is currently `negative`. A definition can also provide:
 
 - `duration`: positive, finite simulation seconds; omit for permanent effects.
 - `irreversible`: prevents removal, clearing, expiry, and duration overrides.
@@ -970,8 +1001,8 @@ name tags, participate in the same overlap avoidance, and remain visible in
 hover-only name-tag mode. Multiple effects appear side by side; effects without
 `popup` have no overhead UI. Popups follow the active status, including duration
 overrides, refreshes, pause, explicit removal and expiry. `hidesPopups` lists effects
-whose popups stay hidden while this one is active (`statusPopups` applies it); the
-converted vore statuses use it to replace **Dead**.
+that stay hidden while this one is active, both as popups and as vitals HUD rows
+(`shownStatuses` applies it); the converted vore statuses use it to replace **Dead**.
 
 Use `entity.statuses.apply(id, seconds)` to override a definition's duration.
 Only one instance of an effect can exist per target: reapplying a timed effect
@@ -979,7 +1010,9 @@ resets its remaining duration without stacking or rerunning `onApply`. Reapplyin
 an already-permanent effect is a no-op. `apply` returns false for an ineligible
 target or an already-permanent effect, and true for additions or timed refreshes.
 Unknown effect IDs and invalid durations/timesteps throw explanatory errors.
-`get(id)` returns a snapshot or `undefined`; `has(id)` checks presence;
+`get(id)` returns a snapshot or `undefined`; a snapshot's `duration` is the length of
+the current timed instance (including overrides and refreshes), or `null` when permanent.
+`has(id)` checks presence;
 `remove(id)` returns whether it removed anything; `clear()` removes removable effects.
 
 HP reaching zero or below immediately applies the irreversible `dead` effect to

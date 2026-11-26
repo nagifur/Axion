@@ -19,7 +19,7 @@ const character = {
 
 function register(t, id, definition) {
   assert.equal(Object.hasOwn(STATUS_EFFECTS, id), false);
-  STATUS_EFFECTS[id] = { label: id, targets: ['agent', 'prop', 'item', 'door', 'panel'], ...definition };
+  STATUS_EFFECTS[id] = { label: id, polarity: 'neutral', targets: ['agent', 'prop', 'item', 'door', 'panel'], ...definition };
   t.after(() => { delete STATUS_EFFECTS[id]; });
   return id;
 }
@@ -53,7 +53,7 @@ test('effects have independent per-target state, snapshots, hooks and explicit r
   assert.equal(item.statuses.apply(id), true);
   assert.equal(item.statuses.apply(id), false, 'permanent effects do not stack or reapply hooks');
   assert.equal(other.statuses.has(id), false);
-  assert.deepEqual(item.statuses.get(id), { id, label: id, remaining: null });
+  assert.deepEqual(item.statuses.get(id), { id, label: id, polarity: 'neutral', remaining: null, duration: null });
   const snapshot = item.statuses.active;
   snapshot[0].remaining = 0;
   assert.equal(item.statuses.get(id).remaining, null, 'inspection cannot modify the live effect');
@@ -95,6 +95,7 @@ test('timed effects refresh without stacking, pause, and expire at their exact d
   assert.ok(Math.abs(updates.at(-1) - 0.01) < 1e-10, 'oversized frames only tick the remaining lifetime');
   assert.deepEqual(removals, ['expired']);
   statuses.apply(id, 2);
+  assert.equal(statuses.get(id).duration, 2, 'snapshots report the current instance length, including overrides');
   statuses.update(world, 2);
   assert.equal(statuses.has(id), false, 'exact duration expires without an extra frame');
 });
@@ -305,7 +306,7 @@ test('zero and negative HP immediately kill staff and security permanently and r
     assert.equal(agent.activity, 'Dead');
     assert.equal(agent.moving, false);
     assert.equal(agent.draggable, false);
-    assert.deepEqual(agent.statuses.get('dead'), { id: 'dead', label: 'Dead', remaining: null });
+    assert.deepEqual(agent.statuses.get('dead'), { id: 'dead', label: 'Dead', polarity: 'negative', remaining: null, duration: null });
     assert.equal(agent.statuses.remove('dead'), false);
     agent.statuses.clear();
     assert.equal(agent.dead, true);

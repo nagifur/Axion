@@ -15,8 +15,19 @@ export type StatusTarget =
 
 export type StatusRemovalReason = 'removed' | 'expired';
 
+/** Whether an effect helps, harms, or merely describes its target. */
+export type StatusPolarity = 'positive' | 'negative' | 'neutral';
+
+/** How each polarity reads in the UI; the vitals HUD draws a +, − or ◦ sign in this colour. */
+export const STATUS_POLARITIES: Readonly<Record<StatusPolarity, { label: string; color: string }>> = {
+  positive: { label: 'Positive', color: '#4dff88' },
+  negative: { label: 'Negative', color: '#ff4d5e' },
+  neutral: { label: 'Neutral', color: '#7ef5ff' },
+};
+
 export interface StatusEffectDefinition {
   label: string;
+  polarity: StatusPolarity;
   targets: readonly StatusTarget['kind'][];
   /** Optional character popup; effects without artwork remain simulation-only. Without an icon it is a plain coloured box. */
   popup?: { icon?: string; color: string; background?: string };
@@ -41,13 +52,17 @@ export const EXHAUSTED_SECONDS = 5;
 
 /** What swallowed prey turn into once the acid is done with them; the outcome picks which. */
 function convertedStatus(label: string, color: string, background: string): StatusEffectDefinition {
-  return { label, targets: ['agent', 'creature'], blocksActions: true, irreversible: true, hidesPopups: ['dead'], popup: { color, background } };
+  return {
+    label, polarity: 'negative', targets: ['agent', 'creature'], blocksActions: true, irreversible: true,
+    hidesPopups: ['dead'], popup: { color, background },
+  };
 }
 
 /** Add effects here; no artwork is required for simulation-only effects. */
 export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   dead: {
     label: 'Dead',
+    polarity: 'negative',
     targets: ['agent', 'creature'],
     blocksActions: true,
     irreversible: true,
@@ -72,11 +87,13 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   },
   broken: {
     label: 'Broken',
+    polarity: 'negative',
     targets: ['prop', 'door', 'panel'],
     canApply: (target) => target.kind !== 'prop' || target.entity.breakable,
   },
   shocked: {
     label: 'Shocked',
+    polarity: 'negative',
     targets: ['agent'],
     duration: SHOCK_SECONDS,
     blocksActions: true,
@@ -92,6 +109,7 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   },
   scared: {
     label: 'Scared',
+    polarity: 'negative',
     targets: ['agent'],
     duration: SCARED_SECONDS,
     popup: {
@@ -105,6 +123,7 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   // Applied by spendStamina when stamina runs dry; no running or dashing until it wears off.
   exhausted: {
     label: 'Exhausted',
+    polarity: 'negative',
     targets: ['agent', 'creature'],
     duration: EXHAUSTED_SECONDS,
     popup: {
@@ -115,6 +134,7 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   // Swallowed prey take damage over time until the predator spits them out or they are digested.
   acid: {
     label: 'Acid',
+    polarity: 'negative',
     targets: ['agent', 'creature'],
     popup: { color: '#3dff5a', background: 'rgba(8, 60, 18, 0.92)' },
     onUpdate(target, _world, dt) {
@@ -130,11 +150,16 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   milkified: convertedStatus('Milkified', '#bfe2ff', 'rgba(24, 48, 70, 0.92)'),
 };
 
+/** Active effects minus any that another active effect hides; name-tag popups and the vitals HUD both use it. */
+export function shownStatuses(active: readonly ActiveStatusEffect[]): ActiveStatusEffect[] {
+  const hidden = new Set(active.flatMap(({ id }) => STATUS_EFFECTS[id]?.hidesPopups ?? []));
+  return active.filter(({ id }) => !hidden.has(id));
+}
+
 /** Popups to show for the active effects, minus any that another active effect hides. */
 export function statusPopups(active: readonly ActiveStatusEffect[]) {
-  const hidden = new Set(active.flatMap(({ id }) => STATUS_EFFECTS[id]?.hidesPopups ?? []));
-  return active.flatMap(({ id, label }) => {
-    const popup = hidden.has(id) ? undefined : STATUS_EFFECTS[id]?.popup;
+  return shownStatuses(active).flatMap(({ id, label }) => {
+    const popup = STATUS_EFFECTS[id]?.popup;
     return popup ? [{ id, label, ...popup }] : [];
   });
 }
@@ -142,19 +167,27 @@ export function statusPopups(active: readonly ActiveStatusEffect[]) {
 export interface ActiveStatusEffect {
   readonly id: string;
   readonly label: string;
+  readonly polarity: StatusPolarity;
   /** null means permanent. */
   readonly remaining: number | null;
+  /** Length of the current timed instance (refreshes reset it); null means permanent. */
+  readonly duration: number | null;
 }
 
 interface StatusInstance {
   definition: StatusEffectDefinition;
   remaining: number | null;
+  duration: number | null;
 }
 
 function validateDuration(duration: number | undefined) {
   if (duration !== undefined && (!Number.isFinite(duration) || duration <= 0)) {
     throw new Error('Status effect duration must be a positive, finite number of simulation seconds.');
   }
+}
+
+function snapshot(id: string, { definition, remaining, duration }: StatusInstance): ActiveStatusEffect {
+  return { id, label: definition.label, polarity: definition.polarity, remaining, duration };
 }
 
 /** One instance of each effect per target. Reapplication refreshes, never stacks. */
@@ -182,13 +215,11 @@ export class StatusEffects {
 
   get(id: string): ActiveStatusEffect | undefined {
     const effect = this.effects.get(id);
-    return effect && { id, label: effect.definition.label, remaining: effect.remaining };
+    return effect && snapshot(id, effect);
   }
 
   get active(): readonly ActiveStatusEffect[] {
-    return [...this.effects].map(([id, effect]) => ({
-      id, label: effect.definition.label, remaining: effect.remaining,
-    }));
+    return [...this.effects].map(([id, effect]) => snapshot(id, effect));
   }
 
   /** False for ineligible targets or an already-permanent effect; timed effects refresh. */
@@ -203,7 +234,7 @@ export class StatusEffects {
     if (!definition.targets.includes(this.target.kind) || definition.canApply?.(this.target) === false) return false;
     const existing = this.effects.get(id);
     if (existing && existing.remaining === null && seconds === undefined) return false;
-    this.effects.set(id, { definition, remaining: seconds ?? null });
+    this.effects.set(id, { definition, remaining: seconds ?? null, duration: seconds ?? null });
     if (!existing) {
       this.changed?.(id, true);
       definition.onApply?.(this.target);

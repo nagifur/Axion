@@ -251,6 +251,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
           <div class="monitor-tags" data-monitor-tags></div>
         </div>
         <div class="monitor-crt" aria-hidden="true"></div>
+        <div class="monitor-vitals" data-monitor-vitals role="group" aria-label="Selected personnel or entity vitals"></div>
         <p class="monitor-status" data-monitor-status>Connecting to feed…</p>
         <noscript><p class="monitor-status">Feed requires JavaScript</p></noscript>
         <p class="monitor-toast" data-monitor-toast role="status" hidden></p>
@@ -277,6 +278,13 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
             <label>Event <select data-debug-event aria-label="Floor or facility event"></select></label>
             <button type="button" class="btn" data-debug="event-start">Trigger event</button>
             <button type="button" class="btn" data-debug="event-stop">End event</button>
+          </div>
+          <div class="monitor-debug-events">
+            <span>Selected</span>
+            <label>Status <select data-debug-status aria-label="Status effect for the selected actor"></select></label>
+            <button type="button" class="btn" data-debug="status-apply">Apply status</button>
+            <button type="button" class="btn" data-debug="status-remove">Remove status</button>
+            <button type="button" class="btn" data-debug="hurt">Hurt −20 HP</button>
           </div>
         </div>
         <p class="monitor-drag-help" data-monitor-drag-status role="status">
@@ -555,6 +563,103 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   .monitor-debug .btn[aria-pressed="true"]{ --btn-tint:var(--neon-yellow); --btn-fill:30% }
   .monitor-debug-events{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; width:100%; font-size:0.75rem }
   .monitor-debug-events select{ background:#05080d; color:var(--text); border:1px solid var(--neon-yellow); padding:5px }
+
+  /* Selected-actor vitals HUD in the feed's top-left corner. It sits over the dark feed, so its colours ignore the page theme. */
+  .monitor-screen{ container-type:inline-size }
+  .monitor-vitals{
+    --vitals-ink:#05080d;
+    --vitals-tint:#7ef5ff;
+    --vitals-outline:1px 0 var(--vitals-ink), -1px 0 var(--vitals-ink), 0 1px var(--vitals-ink), 0 -1px var(--vitals-ink),
+      1px 1px var(--vitals-ink), -1px 1px var(--vitals-ink), 1px -1px var(--vitals-ink), -1px -1px var(--vitals-ink);
+    position:absolute; top:clamp(6px, 1.3cqi, 14px); left:clamp(6px, 1.3cqi, 14px);
+    width:max-content; min-width:clamp(136px, 25cqi, 236px); max-width:clamp(150px, 42cqi, 340px); box-sizing:border-box;
+    display:flex; flex-direction:column; gap:clamp(3px, 0.5cqi, 5px);
+    padding:clamp(5px, 0.9cqi, 9px) clamp(10px, 1.6cqi, 16px) clamp(5px, 0.9cqi, 9px) clamp(6px, 1cqi, 10px);
+    border-left:2px solid var(--vitals-tint);
+    background:linear-gradient(100deg, rgba(5, 8, 13, 0.78), rgba(5, 8, 13, 0.5) 65%, rgba(5, 8, 13, 0));
+    clip-path:polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
+    color:#fff; font-family:BOMBARD, sans-serif; font-size:clamp(0.56rem, 1.2cqi, 0.78rem); line-height:1.15;
+    pointer-events:none; opacity:0; translate:-14px 0; visibility:hidden;
+    transition:opacity .2s ease, translate .28s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .28s;
+  }
+  .monitor-vitals.is-shown{ opacity:1; translate:0 0; visibility:visible; transition-delay:0s }
+  .monitor-page.is-editing .monitor-vitals{ display:none }
+
+  .monitor-vitals-head{ display:flex; align-items:baseline; gap:8px; min-width:0; text-shadow:var(--vitals-outline) }
+  .monitor-vitals-head.is-new{ animation:monitor-vitals-wipe .34s steps(8, end) }
+  .monitor-vitals-name{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:1px; font-size:1.4em; letter-spacing:0.06em; text-transform:uppercase }
+  .monitor-vitals-where{ flex:none; margin-left:auto; color:var(--vitals-tint); font-size:0.78em; letter-spacing:0.14em; text-transform:uppercase }
+  .monitor-vitals-where:empty{ display:none }
+
+  .monitor-vitals-bars{ display:flex; flex-direction:column; gap:4px; padding:2px }
+  .monitor-vitals-bar{
+    --vital-color:#4dff7c;
+    position:relative; overflow:hidden; border-radius:var(--radius-pill);
+    background:#2b323a; box-shadow:0 0 0 2px var(--vitals-ink);
+  }
+  .monitor-vitals-bar.is-major{ height:clamp(7px, 1.15cqi, 11px); margin-bottom:2px }
+  .monitor-vitals-bar.is-minor{ height:clamp(3px, 0.4cqi, 4px) }
+  .monitor-vitals-fill, .monitor-vitals-trail{ position:absolute; inset:0 auto 0 0 }
+  .monitor-vitals-fill{
+    background:var(--vital-color); box-shadow:inset 0 2px 0 rgba(255, 255, 255, 0.3);
+    transition:width .18s ease-out, background-color .3s ease;
+  }
+  .monitor-vitals-bar.is-minor .monitor-vitals-fill{ box-shadow:inset 0 1px 0 rgba(255, 255, 255, 0.3) }
+  /* Recent damage lingers as a pale strip; monitorVitals.ts paces how it catches up. */
+  .monitor-vitals-trail{ background:color-mix(in srgb, var(--vital-color) 40%, #fff); opacity:0.7 }
+  .monitor-vitals-bar.is-critical .monitor-vitals-fill{ animation:monitor-vitals-pulse .9s ease-in-out infinite }
+
+  .monitor-vitals-statuses{ display:flex; flex-direction:column; margin:0; padding:0; overflow:hidden; list-style:none }
+  .monitor-vitals-statuses:empty{ display:none }
+  .monitor-vitals-status{
+    display:flex; align-items:center; gap:0.4em; max-height:2.2em; padding:1px 0;
+    animation:monitor-vitals-status-in .34s cubic-bezier(.2, .9, .3, 1.15) var(--enter-delay, 0ms) both;
+  }
+  .monitor-vitals-status.is-leaving{ animation:monitor-vitals-status-out .42s ease-in forwards }
+  .monitor-vitals-status-icon{
+    flex:none; width:1.75em; height:1.75em;
+    filter:drop-shadow(1px 0 0 var(--vitals-ink)) drop-shadow(-1px 0 0 var(--vitals-ink)) drop-shadow(0 1px 0 var(--vitals-ink)) drop-shadow(0 -1px 0 var(--vitals-ink));
+  }
+  /* Stand-in for effects without artwork, in the effect's colour. */
+  .monitor-vitals-status-mark{ flex:none; width:1em; height:1em; margin:0.375em; rotate:45deg; background:var(--status-color); box-shadow:0 0 0 2px var(--vitals-ink) }
+  /* Pixel +, − and ring signs drawn in the polarity colour. */
+  .monitor-vitals-sign{
+    position:relative; flex:none; width:0.85em; height:0.85em; color:var(--polarity-color);
+    filter:drop-shadow(1px 0 0 var(--vitals-ink)) drop-shadow(-1px 0 0 var(--vitals-ink)) drop-shadow(0 1px 0 var(--vitals-ink)) drop-shadow(0 -1px 0 var(--vitals-ink));
+  }
+  .monitor-vitals-sign::before, .monitor-vitals-sign::after{ content:''; position:absolute; background:currentColor }
+  .monitor-vitals-sign::before{ left:0; right:0; top:calc(50% - 0.13em); height:0.26em }
+  .monitor-vitals-sign::after{ display:none; top:0; bottom:0; left:calc(50% - 0.13em); width:0.26em }
+  .monitor-vitals-status[data-polarity="positive"] .monitor-vitals-sign::after{ display:block }
+  .monitor-vitals-status[data-polarity="neutral"] .monitor-vitals-sign::before{
+    inset:0.1em; height:auto; border:0.2em solid currentColor; border-radius:50%; background:none;
+  }
+  .monitor-vitals-status-label{
+    position:relative; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    padding:1px 1px 3px; font-size:1.1em; letter-spacing:0.04em; text-shadow:var(--vitals-outline);
+  }
+  /* Time left on a timed effect. */
+  .monitor-vitals-status-timer{
+    position:absolute; left:1px; right:1px; bottom:0; height:2px; transform-origin:left;
+    background:var(--polarity-color); box-shadow:0 1px 0 var(--vitals-ink); transition:transform .2s linear;
+  }
+  .monitor-vitals-status-timer[hidden]{ display:none }
+
+  @keyframes monitor-vitals-wipe{
+    from{ clip-path:inset(-4px 100% -4px -4px) }
+    to{ clip-path:inset(-4px -4px -4px -4px) }
+  }
+  @keyframes monitor-vitals-pulse{ 50%{ filter:brightness(1.7) } }
+  @keyframes monitor-vitals-status-in{ from{ transform:translateX(-110%); opacity:0 } }
+  @keyframes monitor-vitals-status-out{
+    0%{ transform:none; opacity:1 }
+    60%{ transform:translateX(-110%); opacity:0; max-height:2.2em; padding-block:1px }
+    100%{ transform:translateX(-110%); opacity:0; max-height:0; padding-block:0 }
+  }
+  body.animations-off :is(.monitor-vitals, .monitor-vitals *){ animation:none !important; transition:none !important }
+  @media (prefers-reduced-motion: reduce){
+    :is(.monitor-vitals, .monitor-vitals *){ animation:none !important; transition:none !important }
+  }
 
   /* Debug prop editor. */
   .monitor-page.is-editing .monitor-tags{ display:none }
