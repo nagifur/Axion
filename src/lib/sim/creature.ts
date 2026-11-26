@@ -390,9 +390,12 @@ export class Creature {
       if (plan.path.length) {
         if (this.follow(plan.path, CREATURE_TUNING.paceSpeed, dt)) return;
       } else {
+        const { remains } = plan.site;
+        const from = remains.disposal.seconds - plan.remaining;
         plan.remaining -= dt;
+        world.vore.disposalProgress(this, remains, from, remains.disposal.seconds - plan.remaining);
         if (plan.remaining > 0) return;
-        world.vore.finishDisposal(this, plan.site.remains);
+        world.vore.finishDisposal(this, remains);
       }
     }
     this.plan = { action: 'watch', remaining: 1 };

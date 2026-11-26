@@ -44,7 +44,12 @@ export interface VoreOutcome {
   label?: string;
   /** Status applied when digestion finishes. */
   converted: string;
-  disposal: { activity: string; seconds: number };
+  disposal: {
+    activity: string;
+    seconds: number;
+    /** Particle set shot forward in spurts `every` seconds during the last `seconds` of the activity. */
+    release?: { set: string; seconds: number; every: number };
+  };
 }
 
 export interface VoreTypeDefinition {
@@ -70,10 +75,12 @@ export const VORE_TYPES = {
     digestion: 1, escape: 1, absorption: 1,
   },
   cock: {
-    label: 'Cock vore', weight: 1,
+    label: 'Cock vore', weight: 10,
     outcomes: [
       { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: { activity: 'Urinating', seconds: 12 } },
-      { look: 'cum', weight: 95, converted: 'cumified', disposal: { activity: 'Jerking Off', seconds: 20 } },
+      { look: 'cum', weight: 95, converted: 'cumified', disposal: {
+        activity: 'Jerking Off', seconds: 20, release: { set: 'cum', seconds: 3, every: 0.45 },
+      } },
     ],
     digestion: 1, escape: 1, absorption: 1,
   },

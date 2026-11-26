@@ -80,6 +80,7 @@ export function planRemainsDisposal(agent: Agent, world: World): Task[] | undefi
   const { point, remains } = destination;
   const { activity, seconds } = remains.disposal;
   const timedActivity = wait(seconds, activity);
+  let elapsed = 0;
   const atSite = (task: Task, phase: NonNullable<Task['remainsDisposal']>): Task => ({
     ...task,
     remainsDisposal: phase,
@@ -94,6 +95,9 @@ export function planRemainsDisposal(agent: Agent, world: World): Task[] | undefi
     atSite({
       ...timedActivity,
       update(actor, world, dt) {
+        const from = elapsed;
+        elapsed += Math.max(0, dt);
+        world.vore.disposalProgress(actor, remains, from, elapsed);
         if (!timedActivity.update(actor, world, dt)) return false;
         world.vore.finishDisposal(actor, remains);
         return true;

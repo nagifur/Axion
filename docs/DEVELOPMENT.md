@@ -1096,7 +1096,10 @@ Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for
 the acid damage, spit-out odds and absorption time. Each `outcomes` entry specifies its
 relative `weight` (5 and 95 mean 5% and 95%), `look` (artwork), `converted` status and
 `disposal` activity and duration. An optional `label` overrides the name derived from
-the artwork filename. At least one outcome must have positive weight.
+the artwork filename. A disposal can add `release: { set, seconds, every }` to shoot a
+`PARTICLE_SETS` set forward from the predator's crotch in spurts every `every` seconds
+during the activity's last `seconds`; the `cum` outcome shoots `cum` particles for its
+final 3 s. Facing left or right aims them that way, using the set's `forwardSpeed`. At least one outcome must have positive weight.
 `SIM_OVERRIDES[id].vore.types` replaces
 the weights for one character; types left out of it are never used.
 An empty or all-zero weight map disables swallowing; directly requesting a random
@@ -1208,7 +1211,8 @@ Particle sprites live in [`src/sim_assets/particles/`](../src/sim_assets/particl
 Each PNG is a whole particle image, not a sprite sheet. Add a reusable set to
 `PARTICLE_SETS` in [`particles.ts`](../src/lib/sim/particles.ts): its sprite names omit
 `.png`, and its settings control burst count, launch speeds, `spinSpeed` (radians per
-second, with a random direction), gravity, bounce, floor
+second, with a random direction), optional `forwardSpeed` (added toward a burst's
+`direction`), gravity, bounce, floor
 friction, lifetime, fade, and landing scatter. Link any number of prop types to that
 set in `PROP_TYPES` in [`sprites.ts`](../src/lib/sim/sprites.ts):
 

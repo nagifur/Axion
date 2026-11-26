@@ -4,6 +4,7 @@ import type { Item } from './item.ts';
 import { chance, weightedPick } from './random.ts';
 import { Remains } from './remains.ts';
 import type { Point, Room } from './room.ts';
+import { CHARACTER_FRAMES } from './sprites.ts';
 import { STATUS_EFFECTS } from './statusEffects.ts';
 import { wait } from './tasks.ts';
 import { isTrespassing, trespassResponseFor } from './trespass.ts';
@@ -330,6 +331,27 @@ export class VoreSystem {
   }
 
   /** Completes a planned activity; interrupted activities must not call this. */
+  /**
+   * Shoots the outcome's release particles forward from the host for any spurt that falls between
+   * `from` and `to` seconds into its disposal activity. Long frames emit at most one spurt.
+   */
+  disposalProgress(host: VoreActor, remains: Remains, from: number, to: number) {
+    const { release, seconds } = remains.disposal;
+    if (!release || release.every <= 0) return;
+    const start = seconds - release.seconds;
+    const spurts = Math.max(1, Math.ceil(release.seconds / release.every));
+    const done = (t: number) => t < start ? 0 : Math.min(spurts, Math.floor((t - start) / release.every) + 1);
+    if (done(to) <= done(from)) return;
+    const { x, y, room } = host;
+    const height = CHARACTER_FRAMES.idleRight1.h * host.character.scale;
+    const direction = host.facing === 'left' ? -1 : host.facing === 'right' ? 1 : 0;
+    const size = Math.max(1, height * 0.06);
+    const origin = { x: x + direction * height * 0.12, y: y - height * 0.4 };
+    this.world.particles.burst(room, release.set, {
+      x: origin.x - size / 2, y: origin.y - size / 2, w: size, h: size, floorY: y, direction,
+    }, y + (direction ? 0.5 : 1));
+  }
+
   finishDisposal(host: VoreActor, remains: Remains) {
     if (!host.vore.remains.includes(remains) || !this.grounded(host) || host.dead) {
       throw new Error('Cannot dispose of remains the predator is not holding on the floor.');

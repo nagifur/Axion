@@ -16,6 +16,8 @@ export interface ParticleSet {
   count: readonly [number, number];
   /** Largest sideways launch speed, in room pixels per second (either direction). */
   spreadSpeed: number;
+  /** Extra launch speed range toward a burst's `direction`, in room pixels per second. */
+  forwardSpeed?: readonly [number, number];
   /** Upward launch speed range, in room pixels per second. */
   upSpeed: readonly [number, number];
   /** Midair angular speed magnitude, in radians per second; direction is random. */
@@ -81,6 +83,20 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     fade: 0.65,
     scatter: 0,
   },
+  cum: {
+    sprites: ['cum_1', 'cum_2', 'cum_3'],
+    count: [3, 6],
+    spreadSpeed: 12,
+    forwardSpeed: [55, 120],
+    upSpeed: [20, 60],
+    spinSpeed: [1, 4],
+    gravity: GRAVITY,
+    bounce: 0,
+    friction: 14,
+    lifetime: [6, 10],
+    fade: 0.8,
+    scatter: 2,
+  },
 };
 
 /** Live particles across all rooms; the oldest are dropped first beyond this. */
@@ -122,7 +138,7 @@ export class Particle {
   age = 0;
   resting = false;
 
-  constructor(room: Room, set: ParticleSet, at: { x: number; y: number }, floor: number, depth = floor) {
+  constructor(room: Room, set: ParticleSet, at: { x: number; y: number }, floor: number, depth = floor, direction = 0) {
     this.room = room;
     this.set = set;
     this.asset = particleAsset(set.sprites[Math.min(set.sprites.length - 1, Math.floor(random() * set.sprites.length))]);
@@ -131,7 +147,7 @@ export class Particle {
     this.y = Math.min(at.y, floor);
     this.floor = floor;
     this.emissionDepth = depth;
-    this.vx = (random() * 2 - 1) * set.spreadSpeed;
+    this.vx = (random() * 2 - 1) * set.spreadSpeed + (direction && set.forwardSpeed ? direction * between(set.forwardSpeed) : 0);
     this.vy = -between(set.upSpeed);
     this.lifetime = between(set.lifetime);
     this.angularVelocity = between(set.spinSpeed) * (chance(0.5) ? -1 : 1);
@@ -209,9 +225,10 @@ export class ParticleSystem {
   /**
    * Throws one or more sets' particles from `area` (room pixels), using visible pixels when an emitter
    * and sampler are available. `floorY` can set a landing line below the area, before adding `scatter`.
+   * `direction` (-1 left, 1 right) adds each set's `forwardSpeed` that way.
    */
   burst(
-    room: Room, setName: string | readonly string[], area: Rect & { floorY?: number },
+    room: Room, setName: string | readonly string[], area: Rect & { floorY?: number; direction?: -1 | 0 | 1 },
     depth = area.y + area.h, emitter?: Prop, time = 0,
   ): Particle[] {
     const sets = (typeof setName === 'string' ? [setName] : setName).map(particleSet);
@@ -227,7 +244,7 @@ export class ParticleSystem {
           ? origins[Math.floor(random() * origins.length)]
           : { x: area.x + random() * area.w, y: area.y + random() * area.h };
         const scatter = random() * set.scatter;
-        added.push(new Particle(room, set, at, floor + scatter, depth + scatter));
+        added.push(new Particle(room, set, at, floor + scatter, depth + scatter, area.direction));
       }
     }
     this.particles.push(...added);
