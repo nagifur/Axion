@@ -1096,10 +1096,14 @@ Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for
 the acid damage, spit-out odds and absorption time. Each `outcomes` entry specifies its
 relative `weight` (5 and 95 mean 5% and 95%), `look` (artwork), `converted` status and
 `disposal` activity and duration. An optional `label` overrides the name derived from
-the artwork filename. A disposal can add `release: { set, seconds, every }` to shoot a
-`PARTICLE_SETS` set forward from the predator's crotch in spurts every `every` seconds
-during the activity's last `seconds`; the `cum` outcome shoots `cum` particles for its
-final 3 s. Facing left or right aims them that way, using the set's `forwardSpeed`. At least one outcome must have positive weight.
+the artwork filename. A disposal can add `release: { set, seconds, every, from?, height? }`
+to shoot a `PARTICLE_SETS` set out in spurts every `every` seconds during the
+activity's last `seconds`. `from` is `'front'` (default) or `'back'`, and `height` is
+the share of sprite height above the feet (default 0.4). Facing left or right aims the
+particles toward that side, using the set's `forwardSpeed`. Every outcome releases
+for its final 3 s: `cum` and `pee` spurt forward, `milk` drips in a near-constant
+stream from chest height, and `scat` and `bones` drop a few `poo` or `bone` particles
+from the backside. At least one outcome must have positive weight.
 `SIM_OVERRIDES[id].vore.types` replaces
 the weights for one character; types left out of it are never used.
 An empty or all-zero weight map disables swallowing; directly requesting a random

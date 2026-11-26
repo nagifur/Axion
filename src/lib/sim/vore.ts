@@ -47,8 +47,11 @@ export interface VoreOutcome {
   disposal: {
     activity: string;
     seconds: number;
-    /** Particle set shot forward in spurts `every` seconds during the last `seconds` of the activity. */
-    release?: { set: string; seconds: number; every: number };
+    /**
+     * Particle set shot out in spurts `every` seconds during the last `seconds` of the activity, from the
+     * body's `from` side (default front) at `height` (share of sprite height above the feet, default 0.4).
+     */
+    release?: { set: string; seconds: number; every: number; from?: 'front' | 'back'; height?: number };
   };
 }
 
@@ -69,15 +72,21 @@ export const VORE_TYPES = {
   oral: {
     label: 'Oral vore', weight: 6,
     outcomes: [
-      { look: 'bones', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
-      { look: 'scat', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
+      { look: 'bones', weight: 1, converted: 'digested', disposal: {
+        activity: 'Defecating', seconds: 12, release: { set: 'bone', seconds: 3, every: 1.4, from: 'back', height: 0.35 },
+      } },
+      { look: 'scat', weight: 1, converted: 'digested', disposal: {
+        activity: 'Defecating', seconds: 12, release: { set: 'poo', seconds: 3, every: 1.2, from: 'back', height: 0.35 },
+      } },
     ],
     digestion: 1, escape: 1, absorption: 1,
   },
   cock: {
     label: 'Cock vore', weight: 10,
     outcomes: [
-      { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: { activity: 'Urinating', seconds: 12 } },
+      { look: 'pee', label: 'Urine', weight: 98, converted: 'urine', disposal: {
+        activity: 'Urinating', seconds: 12, release: { set: 'pee', seconds: 3, every: 0.1 },
+      } },
       { look: 'cum', weight: 95, converted: 'cumified', disposal: {
         activity: 'Jerking Off', seconds: 20, release: { set: 'cum', seconds: 3, every: 0.45 },
       } },
@@ -87,15 +96,21 @@ export const VORE_TYPES = {
   anal: {
     label: 'Anal vore', weight: 1,
     outcomes: [
-      { look: 'bones', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
-      { look: 'scat', weight: 1, converted: 'digested', disposal: { activity: 'Defecating', seconds: 12 } },
+      { look: 'bones', weight: 1, converted: 'digested', disposal: {
+        activity: 'Defecating', seconds: 12, release: { set: 'bone', seconds: 3, every: 1.4, from: 'back', height: 0.35 },
+      } },
+      { look: 'scat', weight: 1, converted: 'digested', disposal: {
+        activity: 'Defecating', seconds: 12, release: { set: 'poo', seconds: 3, every: 1.2, from: 'back', height: 0.35 },
+      } },
     ],
     digestion: 1, escape: 1, absorption: 1,
   },
   breast: {
     label: 'Breast vore', weight: 1,
     outcomes: [
-      { look: 'milk', weight: 1, converted: 'milkified', disposal: { activity: 'Milking themselves', seconds: 12 } },
+      { look: 'milk', weight: 1, converted: 'milkified', disposal: {
+        activity: 'Milking themselves', seconds: 12, release: { set: 'milk', seconds: 3, every: 0.1, height: 0.6 },
+      } },
     ],
     digestion: 1, escape: 1, absorption: 1,
   },

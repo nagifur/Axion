@@ -344,12 +344,16 @@ export class VoreSystem {
     if (done(to) <= done(from)) return;
     const { x, y, room } = host;
     const height = CHARACTER_FRAMES.idleRight1.h * host.character.scale;
-    const direction = host.facing === 'left' ? -1 : host.facing === 'right' ? 1 : 0;
+    const back = release.from === 'back';
+    const forward = host.facing === 'left' ? -1 : host.facing === 'right' ? 1 : 0;
+    const direction = (back ? -forward : forward) as -1 | 0 | 1;
     const size = Math.max(1, height * 0.06);
-    const origin = { x: x + direction * height * 0.12, y: y - height * 0.4 };
+    const origin = { x: x + direction * height * 0.12, y: y - height * (release.height ?? 0.4) };
+    // Sideways sprites show both sides; otherwise the emitting side is drawn behind unless it faces the camera.
+    const visible = direction !== 0 || (host.facing === 'back') === back;
     this.world.particles.burst(room, release.set, {
       x: origin.x - size / 2, y: origin.y - size / 2, w: size, h: size, floorY: y, direction,
-    }, y + (direction ? 0.5 : 1));
+    }, y + (visible ? 0.5 : -0.5));
   }
 
   finishDisposal(host: VoreActor, remains: Remains) {

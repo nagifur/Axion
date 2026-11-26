@@ -863,28 +863,34 @@ test('one predator disposes of different cock vore outcomes using their own acti
 });
 
 for (const [kind, facing] of [['staff', 'right'], ['creature', 'left']]) {
-  test(`${kind} shoots cum forward only in the last seconds of cock vore disposal`, () => {
-    const { world, hall } = setup();
-    const prey = standing(world, hall, person('meal', ['Prey']), { x: 104, y: 100 });
-    world.agents = world.agents.filter((actor) => actor !== prey);
-    const predator = kind === 'staff'
-      ? standing(world, hall, person('pred', ['Predator'], '6 m'), { x: 100, y: 100 })
-      : addCreature(world, hall, beast('pred', ['Predator']), { x: 100, y: 100 });
-    const remains = holdRemains(predator, prey, 'cock');
-    const { seconds, release } = remains.disposal;
-    assert.equal(release.set, 'cum');
-    predator.facing = facing;
-    const cum = () => world.particles.in(hall).filter(({ asset }) => asset.startsWith('particle:cum_'));
-    step(world, 0.5);
-    predator.facing = facing;
-    assert.equal(predator.activity, 'Jerking Off');
-    step(world, seconds - release.seconds - 1);
-    assert.equal(cum().length, 0, 'nothing before the release window');
-    step(world, 1.5);
-    assert.ok(cum().length > 0, 'spurts start near the end');
-    const direction = facing === 'right' ? 1 : -1;
-    assert.ok(cum().every(({ vx }) => vx * direction > 0), 'particles fly the way the predator faces');
-    assert.ok(predator.vore.remains.includes(remains));
+  test(`${kind} releases each outcome's particles toward its side only in the last seconds of disposal`, () => {
+    const expected = { bones: ['bone', -1], scat: ['poo', -1], pee: ['pee', 1], cum: ['cum', 1], milk: ['milk', 1] };
+    for (const [type, { outcomes }] of Object.entries(VORE_TYPES)) {
+      for (const outcome of outcomes) {
+        const { world, hall } = setup();
+        const prey = standing(world, hall, person('meal', ['Prey']), { x: 104, y: 100 });
+        world.agents = world.agents.filter((actor) => actor !== prey);
+        const predator = kind === 'staff'
+          ? standing(world, hall, person('pred', ['Predator'], '6 m'), { x: 100, y: 100 })
+          : addCreature(world, hall, beast('pred', ['Predator']), { x: 100, y: 100 });
+        const remains = new Remains({ actor: prey, type, outcome, items: [], wait: 0 });
+        predator.vore.remains.push(remains);
+        const { seconds, release } = remains.disposal;
+        const [set, side] = expected[outcome.look];
+        assert.equal(release.set, set, outcome.look);
+        const emitted = () => world.particles.in(hall).filter(({ asset }) => asset.startsWith(`particle:${set}_`));
+        step(world, 0.5);
+        predator.facing = facing;
+        assert.equal(predator.activity, outcome.disposal.activity);
+        step(world, seconds - release.seconds - 1);
+        assert.equal(emitted().length, 0, `${outcome.look}: nothing before the release window`);
+        step(world, 1.5);
+        assert.ok(emitted().length > 0, `${outcome.look}: particles start near the end`);
+        const direction = (facing === 'right' ? 1 : -1) * side;
+        assert.ok(emitted().every(({ vx }) => vx * direction > 0), `${outcome.look}: particles fly toward the emitting side`);
+        assert.ok(predator.vore.remains.includes(remains));
+      }
+    }
   });
 }
 
