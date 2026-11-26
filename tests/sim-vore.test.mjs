@@ -15,7 +15,7 @@ import { STATUS_EFFECTS, statusPopups } from '../src/lib/sim/statusEffects.ts';
 import { wait, walkTo } from '../src/lib/sim/tasks.ts';
 import {
   ABSORPTION_HOOKS, INSIDE_ACTIONS, VORE_PROFILE_RULES, VORE_STAFF_RULES, VORE_TUNING, VORE_TYPES, canSwallow, createVoreProfile, fighterOf, huntRate, parseVoreRole,
-  pickInsideAction, pickRemainsLook, pickVoreType, voreStance,
+  pickInsideAction, pickRemainsOutcome, pickVoreType, voreStance,
 } from '../src/lib/sim/vore.ts';
 import { stalk } from '../src/lib/sim/voreTasks.ts';
 import { World } from '../src/lib/sim/world.ts';
@@ -98,8 +98,11 @@ const step = (world, seconds, dt = 0.1) => {
 };
 
 function holdRemains(predator, prey, type = 'oral', waitSeconds = 0) {
+  const definition = VORE_TYPES[type];
+  const outcome = definition.looks.find(({ converted }) => !converted);
   const remains = new Remains({
-    actor: prey, kind: 'agent', type, look: VORE_TYPES[type].looks[0], items: [], wait: waitSeconds,
+    actor: prey, kind: 'agent', type, look: outcome.look, label: outcome.label,
+    disposal: outcome.disposal ?? definition.disposal, items: [], wait: waitSeconds,
   });
   predator.vore.remains.push(remains);
   return remains;
@@ -524,15 +527,29 @@ test('spat-out prey are safe from being swallowed again for a while', () => {
 
 // --- Digestion, absorption and remains ----------------------------------------------------------
 
-test('remains artwork is randomly selected from each vore type configuration', () => {
+test('remains outcomes use configured weights and exact probability boundaries', () => {
   setRandomSource(() => 0);
   for (const [type, definition] of Object.entries(VORE_TYPES)) {
-    assert.equal(pickRemainsLook(type), definition.looks[0]);
+    assert.equal(pickRemainsOutcome(type), definition.looks[0]);
   }
-  setRandomSource(() => 0.99);
+  setRandomSource(() => 0.999);
   for (const [type, definition] of Object.entries(VORE_TYPES)) {
-    assert.equal(pickRemainsLook(type), definition.looks.at(-1));
+    assert.equal(pickRemainsOutcome(type), definition.looks.at(-1));
   }
+  setRandomSource(() => 0.049999);
+  assert.equal(pickRemainsOutcome('cock').look, 'pee');
+  setRandomSource(() => 0.05);
+  assert.equal(pickRemainsOutcome('cock').look, 'cum');
+  let urine = 0;
+  for (let i = 0; i < 1000; i++) {
+    setRandomSource(() => i / 1000);
+    if (pickRemainsOutcome('cock').look === 'pee') urine++;
+  }
+  assert.equal(urine, 50, 'urine is 5% and cum is 95%');
+
+  VORE_TYPES.oral.looks[0].weight = 0;
+  VORE_TYPES.oral.looks[1].weight = 0;
+  assert.throws(() => pickRemainsOutcome('oral'), /at least one look must have a positive weight/);
 });
 
 for (const [type, status, label] of [
@@ -561,7 +578,7 @@ for (const [type, status, label] of [
     world.update(2.1);
     const [remains] = pred.vore.remains;
     assert.equal(remains.type, type);
-    assert.ok(VORE_TYPES[type].looks.includes(remains.look));
+    assert.ok(VORE_TYPES[type].looks.some(({ look }) => look === remains.look));
     assert.equal(remains.asset, `remains:${remains.look}`);
     assert.equal(followCameraRoom(world, meal), pred.room, 'following survives every kind of conversion');
   });
@@ -700,10 +717,11 @@ test('monitor files show the actual remains for agents and creatures, both held 
     { type: 'anal', roll: 0.1, status: 'Bones' },
     { type: 'anal', roll: 0.9, status: 'Scat' },
     { type: 'cock', roll: 0.9, status: 'Cum' },
+    { type: 'cock', roll: 0.01, status: 'Urine', look: 'pee' },
     { type: 'breast', roll: 0.9, status: 'Milk' },
   ];
   for (const kind of ['agent', 'creature']) {
-    for (const { type, roll, status } of cases) {
+    for (const { type, roll, status, look = status.toLowerCase() } of cases) {
       const { world, hall, pred, meal } = duel();
       const prey = kind === 'agent'
         ? meal
@@ -721,13 +739,14 @@ test('monitor files show the actual remains for agents and creatures, both held 
       assert.equal(renderStatus(), prey.activity, `${kind}: normal activity is unchanged`);
       assert.equal(world.vore.swallow(pred, prey, type), true);
       assert.equal(renderStatus(), 'Struggling inside pred');
+      setRandomSource(() => roll);
       world.update(0.6);
       assert.equal(renderStatus(), 'Being absorbed by pred');
-      setRandomSource(() => roll);
+      setRandomSource(() => 0.99);
       world.update(1.1);
       const [pile] = pred.vore.remains;
       assert.equal(pile.actor, prey);
-      assert.equal(pile.look, status.toLowerCase(), `${kind}, ${type}: the chosen appearance`);
+      assert.equal(pile.look, look, `${kind}, ${type}: the chosen appearance`);
       assert.equal(renderStatus(), status, `${kind}, ${type}: held remains`);
       world.vore.release(pred);
       assert.ok(hall.remains.includes(pile));
@@ -778,6 +797,85 @@ test('predators plan a timed disposal and drop the remains with everything the p
   assert.notDeepEqual([can.x, can.y], [card.x, card.y]);
   for (const item of hall.items) assert.ok(hall.isWalkable({ x: item.x + item.w / 2, y: item.y + item.h }));
   assert.ok(logs.some(({ text, tone }) => text === 'pred got rid of meal\'s remains in the hall.' && tone === 'muted'));
+});
+
+for (const kind of ['staff', 'creature']) {
+  test(`${kind} keeps the urine outcome through absorption and urinates to release it`, () => {
+    const { world, hall, logs } = setup();
+    const prey = standing(world, hall, person('meal', ['Prey']), { x: 104, y: 100 });
+    const predator = kind === 'staff'
+      ? standing(world, hall, person('pred', ['Predator'], '6 m'), { x: 100, y: 100 })
+      : addCreature(world, hall, beast('pred', ['Predator']), { x: 100, y: 100 });
+    Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 1, disposalDelay: { min: 600, max: 600 } });
+    assert.equal(world.vore.swallow(predator, prey, 'cock'), true);
+
+    setRandomSource(() => 0.01);
+    world.update(0.6);
+    assert.equal(prey.statuses.has('urine'), true);
+    assert.equal(prey.statuses.has('cumified'), false);
+    assert.equal(prey.statuses.remove('urine'), false, 'conversion is irreversible');
+    assert.deepEqual(statusPopups(prey.statuses.active).map(({ id }) => id), ['urine']);
+    assert.ok(logs.some(({ text }) => text === 'meal was turned into urine by pred.'));
+
+    setRandomSource(() => 0.99);
+    world.update(1.1);
+    const [remains] = predator.vore.remains;
+    assert.equal(remains.look, 'pee');
+    assert.equal(remains.asset, 'remains:pee');
+    assert.equal(remains.label, 'Urine');
+    assert.equal(remains.disposal.activity, 'Urinating');
+    remains.wait = 0;
+    step(world, 1);
+    assert.equal(predator.activity, 'Urinating');
+    step(world, 6);
+    const witness = standing(world, hall, person('witness', ['None']), { x: 110, y: 100 });
+    step(world, 0.2);
+    assert.ok(predator.vore.remains.includes(remains), 'a witness interrupts disposal');
+    world.agents = world.agents.filter((actor) => actor !== witness);
+    step(world, 6);
+    assert.ok(predator.vore.remains.includes(remains), 'interrupted disposal must start over');
+    for (let i = 0; i < 300 && !hall.remains.includes(remains); i++) world.update(0.1);
+    assert.ok(hall.remains.includes(remains));
+    assert.equal(predator.vore.remains.includes(remains), false);
+  });
+}
+
+test('one predator disposes of different cock vore outcomes using their own activities', () => {
+  const { world, hall, pred, meal } = duel();
+  Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 1, disposalDelay: { min: 600, max: 600 } });
+  world.vore.swallow(pred, meal, 'cock');
+  setRandomSource(() => 0.01);
+  world.update(0.6);
+  setRandomSource(() => 0.99);
+  const second = standing(world, hall, person('second', ['Prey']), { x: 104, y: 100 });
+  assert.equal(world.vore.swallow(pred, second, 'cock'), true);
+  world.update(0.6);
+  world.update(1.1);
+  const [urine, cum] = pred.vore.remains;
+  assert.deepEqual([urine.look, cum.look], ['pee', 'cum']);
+  urine.wait = 0;
+  cum.wait = 0;
+  step(world, 1);
+  assert.equal(pred.activity, 'Urinating');
+  step(world, 14);
+  assert.ok(hall.remains.includes(urine));
+  assert.ok(pred.vore.remains.includes(cum));
+  assert.equal(pred.activity, 'Jerking Off');
+  step(world, 21);
+  assert.ok(hall.remains.includes(cum));
+});
+
+test('releasing an absorbing predator keeps its already selected urine outcome', () => {
+  const { world, hall, pred, meal } = duel();
+  Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 30 });
+  world.vore.swallow(pred, meal, 'cock');
+  setRandomSource(() => 0.01);
+  world.update(0.6);
+  setRandomSource(() => 0.99);
+  world.vore.release(pred);
+  assert.equal(meal.statuses.has('urine'), true);
+  assert.equal(hall.remains[0].look, 'pee');
+  assert.equal(hall.remains[0].disposal.activity, 'Urinating');
 });
 
 test('each remains type uses its configured activity and duration', () => {
@@ -1357,7 +1455,7 @@ test('acid has a plain green popup, and the converted statuses replace the death
   assert.equal(acid.icon, undefined);
   const dead = { id: 'dead', label: 'Dead', remaining: null };
   assert.deepEqual(statusPopups([dead]).map(({ id }) => id), ['dead']);
-  for (const id of ['digested', 'cumified', 'milkified']) {
+  for (const id of ['digested', 'cumified', 'urine', 'milkified']) {
     assert.deepEqual(statusPopups([dead, { id, label: id, remaining: null }]).map((popup) => popup.id), [id]);
   }
 });

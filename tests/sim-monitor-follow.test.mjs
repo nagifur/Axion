@@ -70,7 +70,10 @@ test('following held remains waits for elevator arrival and stays with the pile 
   const prey = world.spawn(staff('prey'), from, from.randomFloorPoint());
   prey.removed = true;
   world.agents = world.agents.filter((agent) => agent !== prey);
-  const pile = new Remains({ actor: prey, kind: 'agent', type: 'oral', look: 'bones', items: [], wait: 600 });
+  const pile = new Remains({
+    actor: prey, kind: 'agent', type: 'oral', look: 'bones',
+    disposal: { activity: 'Defecating', seconds: 12 }, items: [], wait: 600,
+  });
   carrier.vore.remains.push(pile);
   assert.equal(followCameraRoom(world, prey), from);
 

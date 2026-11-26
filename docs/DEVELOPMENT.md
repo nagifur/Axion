@@ -1082,15 +1082,18 @@ allow it. The swallower then waits `cooldown` (30–60 s) before hunting again.
 Each swallow uses one of four ways, picked by weight from the predator's profile.
 `VORE_TYPES` is the table to extend with each way's own quirks:
 
-| Type | Label | Weight | Status once digested | Remains artwork | Disposal activity |
+| Type | Label | Weight | Status once digested | Remains artwork (chance) | Disposal activity |
 | --- | --- | --- | --- | --- | --- |
-| `oral` | Oral vore | 6 | `digested` | `bones`, `scat` | Defecating |
-| `cock` | Cock vore | 1 | `cumified` | `cum` | Stroking |
-| `anal` | Anal vore | 1 | `digested` | `bones`, `scat` | Defecating |
-| `breast` | Breast vore | 1 | `milkified` | `milk` | Milking themselves |
+| `oral` | Oral vore | 6 | `digested` | `bones` (50%), `scat` (50%) | Defecating (12 s) |
+| `cock` | Cock vore | 1 | `cumified` or `urine` | `cum` (95%), `pee` (5%) | Jerking Off (20 s) or Urinating (12 s) |
+| `anal` | Anal vore | 1 | `digested` | `bones` (50%), `scat` (50%) | Defecating (12 s) |
+| `breast` | Breast vore | 1 | `milkified` | `milk` (100%) | Milking themselves (12 s) |
 
 Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
-the acid damage, spit-out odds and absorption time. `SIM_OVERRIDES[id].vore.types` replaces
+the acid damage, spit-out odds and absorption time. Its `looks` entries use relative
+`weight`s (5 and 95 mean 5% and 95%) and may override `converted`, `disposal` and the
+display `label`; omitted fields use the type's defaults and the artwork filename. At
+least one look must have positive weight. `SIM_OVERRIDES[id].vore.types` replaces
 the weights for one character; types left out of it are never used.
 An empty or all-zero weight map disables swallowing; directly requesting a random
 type from it throws instead of silently choosing oral. Profile construction rejects
@@ -1112,8 +1115,9 @@ union edit.
    acid, get `scared`, stay dazed for three seconds, and can't be swallowed again for 45 s.
    If all inside actions are disabled, prey wait without attempting an escape.
 3. **Digested.** When HP runs out the prey is dead as usual, and the acid is swapped for
-   the type's converted status: `digested`, `cumified` or `milkified` (irreversible,
-   blocks actions, and replaces the **Dead** popup). Absorption begins.
+   the selected outcome's converted status: `digested`, `cumified`, `urine` or
+   `milkified` (irreversible, blocks actions, and replaces the **Dead** popup). The
+   weighted outcome is selected once here and kept through absorption and disposal.
 4. **Absorbed.** Over `absorbSeconds` (45 s) the predator heals by the prey's max HP times
    `healFraction`, up to its own max. When it ends, the `ABSORPTION_HOOKS` run once and the
    prey becomes **remains**: an agent is `removed` (with everything it carried or stored
@@ -1122,8 +1126,8 @@ union edit.
    predator, along with the original agent or creature (`actor`). The id joins `world.vore.consumed`, so the character doesn't arrive again that
    session and containment failures stop counting it.
 5. **Disposed.** After 20–45 s (`disposalDelay`), the predator prioritizes a disposal
-   activity. `VORE_TYPES[type].disposal` specifies its activity label and duration
-   (12 seconds for most types, 20 for cock vore); only completing it drops the pile at the predator's feet
+   activity. The selected look's `disposal`, or `VORE_TYPES[type].disposal` by default,
+   specifies its activity label and duration; only completing it drops the pile at the predator's feet
    (`room.remains`) and scatters the prey's items beside it (`room.items`).
 
 Staff and creatures seek an accessible, unoccupied restroom first, then an empty
@@ -1146,7 +1150,7 @@ living prey are spat out, digested prey finish absorbing at once, and remains dr
 it was. Each step is logged.
 
 Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` listed in
-`VORE_TYPES`; a remains look is randomly chosen from that type's configured artworks.
+`VORE_TYPES`; its weighted look is chosen when digestion finishes.
 Images can be any size; they are drawn with their bottom centre on the
 pile's floor point and depth-sorted like items. Piles grow with the prey: artwork is
 authored for an average-height character (sprite scale 0.85) and `Remains.scale`
@@ -1161,7 +1165,7 @@ Swallowed prey stay in the interface: their name tag rides on the predator, with
 status popups; following them follows the predator's camera; and their file shows
 **Inside** (who, and which way) while a predator's file lists **Holding**. Once absorbed,
 agents and creatures both show the actual remains appearance as their status (for example,
-**Bones**, **Scat**, **Cum**, or **Milk**), whether held or dropped. Following continues
+**Bones**, **Scat**, **Cum**, **Urine**, or **Milk**), whether held or dropped. Following continues
 through absorption and disposal, tracking whoever holds their remains or the room
 whose `remains` list contains their pile.
 
@@ -1181,7 +1185,8 @@ whose `remains` list contains their pile.
   including only moving for the unblocked portion of a frame when an effect expires.
   Item statuses continue ticking once per frame when items move from a swallowed
   agent's inventory into carried remains and later onto the floor.
-- To customize: `VORE_TYPES` (label, weight, converted status, remains `look`, per-type
+- To customize: `VORE_TYPES` (label, weight, default converted status and disposal,
+  weighted remains `looks` with optional status and disposal overrides, per-type
   multipliers; a new converted status also needs an entry in `STATUS_EFFECTS`),
   `VORE_TUNING` (lifecycle timing, chase speed/re-routing, spit-out offsets/recovery
   and item scattering; exported and mutable for tests and difficulty

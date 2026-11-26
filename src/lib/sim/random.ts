@@ -29,14 +29,17 @@ export function maybePick<T>(items: readonly T[]): T | undefined {
   return items.length ? items[Math.floor(random() * items.length)] : undefined;
 }
 
-export function weightedPick<T extends { weight: number }>(items: readonly T[]): T | undefined {
+export function weightedPick<T extends { weight: number }>(
+  items: readonly T[],
+  options: { boundary?: 'previous' | 'next' } = {},
+): T | undefined {
   const total = items.reduce((sum, item) => sum + (Number.isFinite(item.weight) ? Math.max(0, item.weight) : 0), 0);
   if (total <= 0) return undefined;
   let roll = random() * total;
   for (const item of items) {
     const weight = Number.isFinite(item.weight) ? Math.max(0, item.weight) : 0;
     if (weight === 0) continue;
-    if (roll <= weight) return item;
+    if (roll < weight || (roll === weight && options.boundary !== 'next')) return item;
     roll -= weight;
   }
   return undefined;

@@ -158,8 +158,7 @@ export class MonitorFile {
   /** What the file's status line says: the activity, or why there is none. */
   private statusText(actor: CameraActor) {
     if (actor.vore.ownRemains) {
-      const look = actor.vore.ownRemains.look.replaceAll('_', ' ');
-      return look.slice(0, 1).toUpperCase() + look.slice(1);
+      return actor.vore.ownRemains.label;
     }
     if (actor instanceof Creature || !actor.removed) return actor.activity;
     return this.world.vore.consumed.has(actor.character.id) ? 'Absorbed' : 'Off camera';

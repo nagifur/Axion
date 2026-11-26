@@ -4,7 +4,7 @@ import type { Door, Point, Room } from './room.ts';
 import { stepTowardCreatureRoom, stepTowardRoom } from './routing.ts';
 import { walkTo } from './tasks.ts';
 import { exitThroughDoor, rideElevatorOut } from './transport.ts';
-import { VORE_TYPES, type VoreActor } from './vore.ts';
+import type { VoreActor } from './vore.ts';
 import type { World } from './world.ts';
 
 type Destination =
@@ -70,7 +70,7 @@ export function planRemainsDisposal(agent: Agent, world: World): Task[] | undefi
   }
   const { point } = destination;
   const room = agent.room;
-  const action = VORE_TYPES[remains.type].disposal;
+  const action = remains.disposal;
   let remaining = action.seconds;
   const walk = walkTo(point, 'Finding a place to dispose of remains');
   return [

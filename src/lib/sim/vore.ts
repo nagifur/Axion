@@ -2,7 +2,7 @@
 // Pure data and predicates; the swallow lifecycle itself lives in voreSystem.ts.
 import type { Agent } from './agent.ts';
 import type { Creature } from './creature.ts';
-import { pick, random, range, weightedPick } from './random.ts';
+import { random, range, weightedPick } from './random.ts';
 import type { Remains } from './remains.ts';
 
 /** From the profile's `vorePreference`. */
@@ -35,16 +35,34 @@ export interface VoreFighter {
   hp: number;
 }
 
+export interface VoreDisposal {
+  activity: string;
+  seconds: number;
+}
+
+export interface VoreOutcome {
+  /** Artwork of the remains pile: src/sim_assets/remains/<look>.png. */
+  look: string;
+  /** Relative chance among this type's outcomes. */
+  weight: number;
+  /** Optional display name when the artwork filename is not the desired label. */
+  label?: string;
+  /** Overrides the type's converted status. */
+  converted?: string;
+  /** Overrides the type's disposal activity and duration. */
+  disposal?: VoreDisposal;
+}
+
 export interface VoreTypeDefinition {
   label: string;
   /** Chance relative to the other types when a profile doesn't list its own. */
   weight: number;
   /** Status prey takes on once the acid has finished with them. */
   converted: string;
-  /** Possible artwork of the remains pile: src/sim_assets/remains/<look>.png. */
-  looks: readonly string[];
-  /** Activity and duration needed to release the remains. */
-  disposal: { activity: string; seconds: number };
+  /** Weighted outcomes, optionally overriding the converted status and disposal activity. */
+  looks: readonly VoreOutcome[];
+  /** Default activity and duration needed to release the remains. */
+  disposal: VoreDisposal;
   /** Per-type quirks, as multipliers on the shared tuning. */
   digestion: number;
   escape: number;
@@ -53,10 +71,17 @@ export interface VoreTypeDefinition {
 
 /** One entry per way of swallowing. Add quirks here; everything else reads from this table. */
 export const VORE_TYPES = {
-  oral: { label: 'Oral vore', weight: 6, converted: 'digested', looks: ['bones', 'scat'], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
-  cock: { label: 'Cock vore', weight: 1, converted: 'cumified', looks: ['cum'], disposal: { activity: 'Jerking Off', seconds: 20 }, digestion: 1, escape: 1, absorption: 1 },
-  anal: { label: 'Anal vore', weight: 1, converted: 'digested', looks: ['bones', 'scat'], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
-  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', looks: ['milk'], disposal: { activity: 'Milking themselves', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
+  oral: { label: 'Oral vore', weight: 6, converted: 'digested', looks: [{ look: 'bones', weight: 1 }, { look: 'scat', weight: 1 }], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
+  cock: {
+    label: 'Cock vore', weight: 1, converted: 'cumified',
+    looks: [
+      { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: { activity: 'Urinating', seconds: 12 } },
+      { look: 'cum', weight: 95 },
+    ],
+    disposal: { activity: 'Jerking Off', seconds: 20 }, digestion: 1, escape: 1, absorption: 1,
+  },
+  anal: { label: 'Anal vore', weight: 1, converted: 'digested', looks: [{ look: 'bones', weight: 1 }, { look: 'scat', weight: 1 }], disposal: { activity: 'Defecating', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
+  breast: { label: 'Breast vore', weight: 1, converted: 'milkified', looks: [{ look: 'milk', weight: 1 }], disposal: { activity: 'Milking themselves', seconds: 12 }, digestion: 1, escape: 1, absorption: 1 },
 } satisfies Record<string, VoreTypeDefinition>;
 
 export const VORE_TYPE_IDS = Object.keys(VORE_TYPES) as VoreType[];
@@ -277,8 +302,11 @@ export function voreTypeLabel(type: VoreType): string {
   return VORE_TYPES[type].label;
 }
 
-export function pickRemainsLook(type: VoreType): string {
-  return pick(VORE_TYPES[type].looks);
+export function pickRemainsOutcome(type: VoreType): VoreOutcome {
+  const definition: VoreTypeDefinition = VORE_TYPES[type];
+  const outcome = weightedPick(definition.looks, { boundary: 'next' });
+  if (!outcome) throw new Error(`Cannot choose a remains outcome for "${type}": at least one look must have a positive weight.`);
+  return outcome;
 }
 
 /** A prey who is currently being digested or absorbed by its predator. */
@@ -294,6 +322,8 @@ export interface Ingestion {
   action: { readonly id: string; readonly label: string; readonly escapeChance: number; remaining: number };
   /** HP handed to the predator so far, while absorbing. */
   absorbed: number;
+  /** Chosen once when digestion finishes, so conversion and remains agree. */
+  outcome: VoreOutcome | null;
 }
 
 export interface AbsorptionEvent {

@@ -9,7 +9,7 @@ import { wait } from './tasks.ts';
 import { isTrespassing, trespassResponseFor } from './trespass.ts';
 import {
   ABSORPTION_HOOKS, VORE_STAFF_RULES, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, hasVoreTypes, heightOf, huntRate, pickVoreType, rolls,
-  pickRemainsLook, startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreType,
+  pickRemainsOutcome, startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreType,
 } from './vore.ts';
 import { stalk } from './voreTasks.ts';
 import type { World } from './world.ts';
@@ -78,7 +78,7 @@ export class VoreSystem {
     const selectedType = type ?? pickVoreType(predator.character.vore);
     if (!Object.hasOwn(VORE_TYPES, selectedType)) throw new Error(`Unknown vore type "${selectedType}".`);
     const { world } = this;
-    const ingestion: Ingestion = { predator, prey, type: selectedType, stage: 'digesting', elapsed: 0, action: startInsideAction(), absorbed: 0 };
+    const ingestion: Ingestion = { predator, prey, type: selectedType, stage: 'digesting', elapsed: 0, action: startInsideAction(), absorbed: 0, outcome: null };
     if (prey instanceof Agent) {
       prey.releaseStaffEscort(world);
       world.agents = world.agents.filter((other) => other !== prey);
@@ -238,7 +238,9 @@ export class VoreSystem {
   /** The acid has finished: the prey changes into whatever this way of swallowing makes of them, and absorption begins. */
   private convert(ingestion: Ingestion) {
     const { predator, prey, type } = ingestion;
-    const status = VORE_TYPES[type].converted;
+    const outcome = pickRemainsOutcome(type);
+    const status = outcome.converted ?? VORE_TYPES[type].converted;
+    ingestion.outcome = outcome;
     ingestion.stage = 'absorbing';
     ingestion.elapsed = 0;
     prey.statuses.remove('acid');
@@ -263,7 +265,8 @@ export class VoreSystem {
 
   /** Nothing but remains is left: the profile stays as it was, but is no longer an agent or creature. */
   private finish(ingestion: Ingestion) {
-    const { predator, prey, type } = ingestion;
+    const { predator, prey, type, outcome } = ingestion;
+    if (!outcome) throw new Error('Cannot finish absorption without a remains outcome.');
     const { world } = this;
     this.detach(ingestion);
     const kind = prey instanceof Agent ? 'agent' : 'creature';
@@ -271,7 +274,10 @@ export class VoreSystem {
     if (prey instanceof Agent) prey.removed = true;
     else prey.consumed = true;
     this.consumed.add(prey.character.id);
-    const remains = new Remains({ actor: prey, kind, type, look: pickRemainsLook(type), items, wait: disposalWait() });
+    const remains = new Remains({
+      actor: prey, kind, type, look: outcome.look, label: outcome.label,
+      disposal: outcome.disposal ?? VORE_TYPES[type].disposal, items, wait: disposalWait(),
+    });
     prey.vore.ownRemains = remains;
     predator.vore.remains.push(remains);
     if (prey instanceof Agent) world.hooks.removed?.(prey);

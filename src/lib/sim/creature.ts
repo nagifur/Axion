@@ -8,7 +8,7 @@ import type { Agent } from './agent.ts';
 import { wait } from './tasks.ts';
 import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { StatusEffects } from './statusEffects.ts';
-import { VORE_TUNING, VORE_TYPES, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
+import { VORE_TUNING, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
 import { calmForDisposal, disposalDestination, hasDisposalWitness, readyRemains } from './remainsDisposal.ts';
 import type { Remains } from './remains.ts';
 
@@ -171,7 +171,7 @@ export class Creature {
     if (this.plan.action === 'swallow') return `Hunting ${this.plan.target.character.name}`;
     if (this.plan.action === 'flee') return 'Running away from security';
     if (this.plan.action === 'dispose') return this.plan.path.length
-      ? 'Finding a place to dispose of remains' : VORE_TYPES[this.plan.remains.type].disposal.activity;
+      ? 'Finding a place to dispose of remains' : this.plan.remains.disposal.activity;
     if (this.plan.action === 'disposalDoor') return 'Finding a place to dispose of remains';
     if (this.plan.action === 'escape') return this.contained ? 'Escaping the cell' : 'Slipping through a door';
     if (this.plan.action === 'enter') return 'Slipping through a door';
@@ -560,7 +560,7 @@ export class Creature {
         } else if (destination.kind === 'place') {
           const path = this.room.route(this, destination.point);
           if (path) this.plan = {
-            action: 'dispose', remains, path, remaining: VORE_TYPES[remains.type].disposal.seconds, private: destination.private,
+            action: 'dispose', remains, path, remaining: remains.disposal.seconds, private: destination.private,
           };
         }
         if (this.plan !== plan) return;

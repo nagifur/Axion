@@ -360,7 +360,10 @@ test('remains are sized by the prey they came from', (t) => {
       },
     },
   });
-  const pile = (scale) => new Remains({ actor: { character: { id: 'x', name: 'X', scale } }, kind: 'agent', type: 'oral', look: 'bones', items: [], wait: 0 });
+  const pile = (scale) => new Remains({
+    actor: { character: { id: 'x', name: 'X', scale } }, kind: 'agent', type: 'oral', look: 'bones',
+    disposal: { activity: 'Defecating', seconds: 12 }, items: [], wait: 0,
+  });
   const giant = Object.assign(pile(1.2), { x: 100, y: 80 });
   const small = Object.assign(pile(0.5), { x: 50, y: 60 });
   assert.equal(pile(0.85).scale, 1, 'an average-height prey leaves artwork-sized remains');

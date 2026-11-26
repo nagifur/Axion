@@ -126,6 +126,7 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
   },
   digested: convertedStatus('Digested', '#a8c23a', 'rgba(44, 52, 10, 0.92)'),
   cumified: convertedStatus('Cumified', '#f1efe2', 'rgba(70, 68, 58, 0.92)'),
+  urine: convertedStatus('Turned into urine', '#f7d54b', 'rgba(76, 62, 10, 0.92)'),
   milkified: convertedStatus('Milkified', '#bfe2ff', 'rgba(24, 48, 70, 0.92)'),
 };
 
