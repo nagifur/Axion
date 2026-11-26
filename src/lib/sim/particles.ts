@@ -1,4 +1,4 @@
-// Short-lived sprites thrown into a room (glass shards when a pane breaks). They fall, bounce on the
+// Short-lived sprites thrown into a room (such as glass shards and blood drops). They fall, bounce on the
 // nav-map floor below their emission area, settle, then fade out. Pure simulation: render.ts draws them.
 
 import type { Rect } from './navMap.ts';
@@ -39,7 +39,7 @@ export interface ParticleSet {
 /** Downward acceleration shared by debris and falling agents, in room pixels per second squared. */
 export const GRAVITY = 420;
 
-/** Particle sets that prop types can name in `breakParticles` (see PROP_TYPES in sprites.ts). */
+/** Particle sets for events such as prop breakage and creature attacks. */
 export const PARTICLE_SETS: Record<string, ParticleSet> = {
   glass: {
     sprites: ['glass_1', 'glass_2', 'glass_3'],
@@ -67,6 +67,19 @@ export const PARTICLE_SETS: Record<string, ParticleSet> = {
     fade: 0.3,
     scatter: 5,
     glow: { color: 'rgba(255, 190, 65, 0.35)', radius: 7 },
+  },
+  blood: {
+    sprites: ['blood_1', 'blood_2', 'blood_3'],
+    count: [8, 15],
+    spreadSpeed: 42,
+    upSpeed: [5, 25],
+    spinSpeed: [2, 6],
+    gravity: GRAVITY,
+    bounce: 0,
+    friction: 16,
+    lifetime: [6, 12],
+    fade: 0.65,
+    scatter: 0,
   },
 };
 
@@ -195,13 +208,15 @@ export class ParticleSystem {
 
   /**
    * Throws one or more sets' particles from `area` (room pixels), using visible pixels when an emitter
-   * and sampler are available. They land below the area's bottom plus `scatter`.
+   * and sampler are available. `floorY` can set a landing line below the area, before adding `scatter`.
    */
   burst(
-    room: Room, setName: string | readonly string[], area: Rect, depth = area.y + area.h, emitter?: Prop, time = 0,
+    room: Room, setName: string | readonly string[], area: Rect & { floorY?: number },
+    depth = area.y + area.h, emitter?: Prop, time = 0,
   ): Particle[] {
     const sets = (typeof setName === 'string' ? [setName] : setName).map(particleSet);
     const bottom = area.y + area.h;
+    const floor = Math.max(bottom, area.floorY ?? bottom);
     const origins = emitter && this.emissionSampler ? this.emissionSampler(emitter, area, time) : undefined;
     const added: Particle[] = [];
     for (const set of sets) {
@@ -212,7 +227,7 @@ export class ParticleSystem {
           ? origins[Math.floor(random() * origins.length)]
           : { x: area.x + random() * area.w, y: area.y + random() * area.h };
         const scatter = random() * set.scatter;
-        added.push(new Particle(room, set, at, bottom + scatter, depth + scatter));
+        added.push(new Particle(room, set, at, floor + scatter, depth + scatter));
       }
     }
     this.particles.push(...added);

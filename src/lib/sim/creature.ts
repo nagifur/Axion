@@ -247,7 +247,16 @@ export class Creature {
   private injure(world: World, target: Agent) {
     const { damage, cooldown, recoverySeconds } = CREATURE_TUNING.attack;
     this.attackCooldown = cooldown;
-    target.stats.hp.current = Math.max(0, target.stats.hp.current - damage);
+    const hp = target.stats.hp;
+    const before = hp.current;
+    hp.current = Math.max(0, before - damage);
+    if (hp.current < before) {
+      const { x, y, height } = target;
+      const size = height * 0.1;
+      world.particles.burst(target.room, 'blood', {
+        x: x - size / 2, y: y - height * 0.45, w: size, h: size, floorY: y,
+      }, y + 0.5);
+    }
     target.finishDeath(world);
     target.moving = false;
     if (!target.dead) {

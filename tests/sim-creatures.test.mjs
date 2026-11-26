@@ -65,30 +65,46 @@ test('attack rolls scale with elapsed time and pause at zero dt', (t) => {
 });
 
 test('attacks approach before striking, injure security too, and respect cooldown', (t) => {
-  const { world, creature, agent, home, logs } = attackSetup(t);
+  const { world, creature, agent, home, hall, logs } = attackSetup(t);
+  const burst = t.mock.method(world.particles, 'burst');
   agent.x = 160;
   agent.security = { post: home, relieved: false };
   creature.update(world, 0.1);
   assert.equal(agent.stats.hp.current, 100, 'no damage from across the room');
+  assert.equal(burst.mock.callCount(), 0, 'chasing does not emit blood');
   assert.equal(creature.activity, 'Attacking Target');
   for (let i = 0; i < 30 && agent.stats.hp.current === 100; i++) creature.update(world, 0.1);
   assert.equal(agent.stats.hp.current, 90);
+  assert.equal(burst.mock.callCount(), 1);
+  const blood = world.particles.in(home);
+  assert.ok(blood.length > 0);
+  assert.ok(blood.every((particle) => particle.asset.startsWith('particle:blood_') &&
+    Math.abs(particle.x - agent.x) < 10 && particle.y < agent.y && particle.floor >= agent.y &&
+    particle.depth > agent.y), 'blood starts on the victim and draws in front of them');
+  assert.equal(world.particles.in(hall).length, 0);
+  for (let i = 0; i < 6; i++) world.particles.update(0.1);
+  assert.ok(blood.every((particle) => particle.resting && particle.y >= agent.y),
+    "blood drops to the floor at the victim's feet");
   assert.equal(agent.activity, "Recovering from C-100's attack");
   assert.equal(agent.bubble, '!');
   assert.ok(logs.some(({ text, tone }) => text.includes('causing 10 HP damage') && tone === 'alert'));
   for (let i = 0; i < 49; i++) creature.update(world, 0.1);
   assert.equal(agent.stats.hp.current, 90, 'cannot strike repeatedly during cooldown');
+  assert.equal(burst.mock.callCount(), 1, 'cooldown does not emit more blood');
 });
 
 test('attack damage uses normal death handling and does not attack a corpse again', (t) => {
   const { world, creature, agent } = attackSetup(t);
+  const burst = t.mock.method(world.particles, 'burst');
   agent.stats.hp.current = 5;
   creature.update(world, 0.1);
   assert.equal(agent.stats.hp.current, 0);
   assert.equal(agent.dead, true);
   assert.equal(agent.activity, 'Dead');
+  assert.equal(burst.mock.callCount(), 1, 'fatal hits also emit blood');
   creature.update(world, 6);
   assert.equal(creature.activity.startsWith('Attacking'), false);
+  assert.equal(burst.mock.callCount(), 1);
 });
 
 test('attack eligibility excludes absent, held, disguised, ghost and transitioning targets', (t) => {
@@ -129,6 +145,7 @@ test('an attack is abandoned if its target leaves or becomes unreachable', (t) =
     setup.creature.update(setup.world, 1);
     assert.equal(setup.agent.stats.hp.current, 100);
     assert.equal(setup.creature.activity.startsWith('Attacking'), false);
+    assert.equal(setup.world.particles.particles.length, 0, 'an abandoned attack does not emit blood');
   }
 });
 

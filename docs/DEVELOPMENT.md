@@ -744,8 +744,10 @@ Rolls scale with elapsed time, not frame count, and select one reachable, living
 target on the room floor. Held agents, ghosts, impostors and doorway fades are
 excluded. The creature approaches for up to ten seconds and strikes within 14 room
 pixels, dealing 10 HP damage with normal death handling; survivors recover for
-three seconds. Hits and abandoned pursuits have a five-second cooldown. Attacks
-do not interrupt escapes, fleeing or escorts (escort resistance remains separate).
+three seconds. A hit or escort breakaway that lowers the target's HP emits one
+`blood` particle burst from the injured person in their room. The drops fall to
+the floor and fade out. Hits and abandoned pursuits have a five-second cooldown.
+Attacks do not interrupt escapes, fleeing or escorts (escort resistance remains separate).
 Target eligibility is shared between selection and pursuit; hunger and proximity
 triggers are not implemented yet.
 

@@ -527,6 +527,8 @@ for (const hp of [100, 5]) test(`an escorted creature breaks free from a guard w
   assert.equal(creature.escort, undefined);
   assert.equal(guard.security.target, undefined);
   assert.equal(guard.stats.hp.current, Math.max(0, hp - 10));
+  assert.ok(world.particles.in(hall).some((particle) => particle.asset.startsWith('particle:blood_')),
+    "breaking free emits blood in the injured guard's room");
   assert.equal(creature.loose, true);
   assert.equal(creature.room, hall);
   assert.equal(creature.home.cell.creatureId, creature.character.id);
