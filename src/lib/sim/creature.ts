@@ -85,6 +85,7 @@ export class Creature {
   /** Fully absorbed by a predator: gone for good, though the profile stays in the world. */
   consumed = false;
   escort?: Agent;
+  private riding = false;
   private plan: Plan = { action: 'watch', remaining: range(1, 5) };
   private elapsed = 0;
   private distance = 0;
@@ -117,9 +118,14 @@ export class Creature {
     return !this.escort && !this.escaped && !this.swallowed && !this.consumed && this.room === this.home;
   }
 
-  /** Physically on some camera: not disguised as staff, swallowed, or gone from the facility. */
+  /** Physically on some camera: not disguised, swallowed, riding an elevator, or gone from the facility. */
   get onCamera() {
-    return !this.away && !this.escaped && !this.swallowed && !this.consumed;
+    return !this.riding && !this.away && !this.escaped && !this.swallowed && !this.consumed;
+  }
+
+  /** An escorted creature shares its guard's elevator position and rendering layer. */
+  get layer() {
+    return this.escort?.layer ?? 'room';
   }
 
   /** On the floor where others can get at it: not dead, escorted, slipping through a doorway or fading in. */
@@ -225,6 +231,7 @@ export class Creature {
     if (!this.escort) return;
     if (this.escort.security?.target === this) this.escort.security.target = undefined;
     this.escort = undefined;
+    this.riding = false;
     const point = this.room.nearestWalkable(this);
     this.x = point.x;
     this.y = point.y;
@@ -526,8 +533,31 @@ export class Creature {
     return CREATURE_TUNING.dashSpeed;
   }
 
+  private syncEscort(world: World) {
+    const guard = this.escort;
+    this.riding = !!guard && world.isRiding(guard);
+    if (!guard) return;
+    this.room = guard.room;
+    if (this.riding) {
+      this.walking = false;
+      return;
+    }
+    // Walk alongside on open floor; share the guard's position in thresholds and elevator cars.
+    const beside = { x: guard.x - 14, y: guard.y + 2 };
+    const point = guard.layer === 'room' && guard.alpha === 1 && this.room.isWalkable(beside) &&
+      this.room.sameFloorArea(guard, beside) ? beside : guard;
+    this.x = point.x;
+    this.y = point.y;
+    this.alpha = guard.alpha;
+    this.facing = guard.facing;
+    this.walking = guard.moving;
+    this.distance = guard.walkDistance;
+  }
+
   update(world: World, dt: number, blockedSeconds = 0) {
-    if (!dt || this.held) return;
+    if (this.held) return;
+    this.syncEscort(world);
+    if (!dt) return;
     if (this.incapacitated || !this.onCamera) {
       this.walking = false;
       return;
@@ -551,21 +581,11 @@ export class Creature {
 
   private act(world: World, dt: number) {
     this.elapsed += dt;
-    this.walking = false;
+    if (!this.escort) this.walking = false;
     const attackDt = Math.max(0, dt - this.attackCooldown);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     if (this.escort) {
       const guard = this.escort;
-      this.room = guard.room;
-      // Walk alongside on open floor; share the guard's path through narrow thresholds.
-      const beside = { x: guard.x - 14, y: guard.y + 2 };
-      const point = guard.alpha === 1 && this.room.isWalkable(beside) && this.room.sameFloorArea(guard, beside) ? beside : guard;
-      this.x = point.x;
-      this.y = point.y;
-      this.alpha = guard.alpha;
-      this.facing = guard.facing;
-      this.walking = guard.moving;
-      this.distance = guard.walkDistance;
       // Keep doorway fades and completed deliveries atomic.
       if (this.room !== this.home && guard.alpha === 1 && guard.layer === 'room' && this.room.isWalkable(guard) &&
         chance(1 - (1 - RESIST_CHANCE[containmentTier(this.character.containmentClass)]) ** dt)) {

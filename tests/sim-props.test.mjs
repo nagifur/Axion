@@ -516,7 +516,7 @@ test('elevator doors and lit arrows use their cropped artwork dimensions', async
   const renderer = new Renderer(canvas, { character: { width: 576, height: 1152 }, elevator_door: door, elevator_lights: lights }, room);
   assert.deepEqual([...renderer.litArrows.getContext('2d').pixels.subarray(0, 4)], [255, 177, 91, 255]);
   const elevator = { open: 0.5, light: 'up' };
-  const world = { time: 0, elevatorFor() { return elevator; }, agentsIn() { return []; } };
+  const world = { time: 0, elevatorFor() { return elevator; }, actorsIn() { return []; } };
   renderer.drawElevator(world, new Map());
   assert.deepEqual(canvas.draws[0], [door, 36, 15, 24, 67, 8, 30, 24, 67]);
   assert.deepEqual(canvas.draws[1], [door, 36, 15, 24, 67, 0, 0, 24, 67]);

@@ -3,7 +3,7 @@ import { distance } from './navMap.ts';
 import { chance } from './random.ts';
 import { canVisitLevel } from './roster.ts';
 import type { Door, Point, Room } from './room.ts';
-import { stepTowardRoom } from './routing.ts';
+import { canAgentVisit, stepTowardRoom } from './routing.ts';
 import { wait } from './tasks.ts';
 import { exitThroughDoor, rideElevatorOut } from './transport.ts';
 import { pickVoreType } from './vore.ts';
@@ -23,7 +23,7 @@ const ESCORT_REACH = 14;
 const APPROACH_SECONDS = 20;
 
 export const trespassResponseFor = (agent: Agent) => !agent.impostor ? agent.character.trespassResponse : undefined;
-export const isTrespassing = (agent: Agent) => !agent.impostor && !canVisitLevel(agent.character, agent.room.level);
+export const isTrespassing = (agent: Agent) => !canAgentVisit(agent, agent.room);
 
 /** Configured staff and on-duty security respond to visible, reachable staff above their clearance. */
 export function reactToTrespassing(agent: Agent, world: World) {

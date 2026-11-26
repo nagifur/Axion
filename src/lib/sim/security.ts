@@ -14,6 +14,8 @@ export interface SecurityDuty {
   readonly post: Room;
   target?: Creature;
   relieved: boolean;
+  /** Access needed for a captured creature's delivery, retained until the guard returns to post. */
+  containmentClearance?: number;
 }
 
 const CAPTURE_REACH = 14;
@@ -27,7 +29,7 @@ export function postPoint(room: Room) {
 }
 
 function travel(step: Door | Room, activity: string, speed = 1): Task {
-  return 'inside' in step ? exitThroughDoor(step, speed, activity) : rideElevatorOut(step);
+  return 'inside' in step ? exitThroughDoor(step, speed, activity) : { ...rideElevatorOut(step), activity };
 }
 
 function pursue(agent: Agent, world: World, creature: Creature): Task | undefined {
@@ -40,7 +42,7 @@ function pursue(agent: Agent, world: World, creature: Creature): Task | undefine
 }
 
 function escortHome(agent: Agent, world: World, creature: Creature): Task {
-  const step = stepTowardRoom(world, agent, creature.home, undefined, true);
+  const step = stepTowardRoom(world, agent, creature.home);
   return step ? travel(step, `Escorting ${creature.character.name} to ${creature.home.name}`)
     : wait(2, `Waiting for a passage to ${creature.home.name}`);
 }
@@ -63,6 +65,7 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
       if (target.alpha < 1) return [wait(0.5, `Tracking ${target.character.name}`)];
       if (target.room === agent.room && distance(agent, target) <= CAPTURE_REACH && agent.room.canReach(agent, target)) {
         target.escort = agent;
+        duty.containmentClearance = Math.max(duty.containmentClearance ?? post.level, target.home.level);
         world.log(`${agent.character.name} caught ${target.character.name} in the ${agent.room.name}.`, 'ok');
         world.incidents.record('captured', { creature: target, other: agent, room: agent.room });
         return [escortHome(agent, world, target)];
@@ -86,6 +89,7 @@ export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Ta
     return [step ? travel(step, 'Returning to the elevator post') : wait(2, 'Waiting for a route to the elevator post')];
   }
   if (distance(agent, at) > 1) return [walkTo(at, 'Returning to the elevator post')];
+  duty.containmentClearance = undefined;
   if (scheduleFor(agent.character, world.now()) !== 'work') {
     duty.relieved = true;
     agent.leaving = true;

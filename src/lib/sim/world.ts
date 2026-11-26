@@ -152,7 +152,8 @@ export class World {
   canAgentUsePassage(agent: Agent, door: Door): boolean {
     const state = this.passageDoorFor(door);
     return !state || (!state.blocked &&
-      (state.stuckOpen || !!agent.impostor || agent.hasAccessCard(state.clearance)));
+      (state.stuckOpen || !!agent.impostor || agent.hasAccessCard(state.clearance) ||
+        (agent.security?.containmentClearance ?? -1) >= state.clearance));
   }
 
   /** Opening needs a card; anyone may slip through a door that is at least half open. */

@@ -108,7 +108,8 @@ function travelStep(world: World, character: SimCharacter, room: Room, agent: Ag
         steps.push({ next: { room: next, point: agent && !agent.ghost ? next.elevator!.front : undefined }, step: next });
       }
     }
-    return steps.filter(({ next }) => (!sameLevelOnly || next.room.level === room.level) && canVisitLevel(character, next.room.level));
+    return steps.filter(({ next }) => (!sameLevelOnly || next.room.level === room.level) &&
+      (canVisitLevel(character, next.room.level) || (agent?.security?.containmentClearance ?? -1) >= next.room.level));
   }, goal);
 }
 
@@ -147,7 +148,8 @@ export function canSlipOut(world: World, agent: Agent): boolean {
 
 /** Whether an agent may choose to be in `room`: impostors ignore clearance. */
 export function canAgentVisit(agent: Agent, room: Room): boolean {
-  return !!agent.impostor || canVisitLevel(agent.character, room.level);
+  return !!agent.impostor || canVisitLevel(agent.character, room.level) ||
+    (agent.security?.containmentClearance ?? -1) >= room.level;
 }
 
 /** Doors to neighbouring rooms on camera that an agent may choose to wander through. */

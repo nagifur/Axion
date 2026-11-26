@@ -11,7 +11,9 @@ import { PassageDoor } from '../src/lib/sim/door.ts';
 import { dropTarget, placeActor } from '../src/lib/sim/agentDrag.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
 import { exitThroughDoor } from '../src/lib/sim/transport.ts';
-import { planSecurity } from '../src/lib/sim/security.ts';
+import { planSecurity, postPoint } from '../src/lib/sim/security.ts';
+import { followCameraRoom } from '../src/lib/sim/monitorFollow.ts';
+import { isTrespassing } from '../src/lib/sim/trespass.ts';
 import { CREATURE_REACTIONS, LOOK_STARTLE_CHANCE, PET_CHANCE } from '../src/lib/sim/creatureReactions.ts';
 import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
 
@@ -550,6 +552,59 @@ test('one same-floor guard pursues a breach, escorts through working doors, then
   assert.deepEqual([guard.x, guard.y], at);
   assert.equal(guard.security.target, undefined);
 });
+
+for (const postId of ['level-0-main-entrance', 'level-1-offices']) {
+  test(`security returns a dropped creature home by elevator from ${postId}`, async (t) => {
+    const { world, creature, state } = await setup(t, 42);
+    t.mock.method(world, 'now', () => new Date(2026, 0, 1, 12));
+    t.mock.method(PassageDoor.prototype, 'breakOnUse', () => []);
+    ESCAPE_CHANCE.maximum = 0;
+    const post = world.room(postId);
+    const guard = world.staffSecurityPost(post, true);
+    const at = postPoint(post);
+    assert.equal(post.cell, undefined);
+    assert.equal(guard.hasAccessCard(creature.home.level), false);
+    const drop = dropTarget(world, creature, at, null, null, post);
+    assert.equal(placeActor(world, creature, drop), true);
+    const until = (predicate, seconds = 120) => {
+      for (let i = 0; i < seconds * 10 && !predicate(); i++) world.update(0.1);
+      assert.ok(predicate(), `${guard.activity} in ${guard.room.name}; ${creature.activity} in ${creature.room.name}`);
+    };
+
+    until(() => creature.escort === guard);
+    assert.equal(guard.security.containmentClearance, creature.home.level);
+    until(() => guard.layer === 'inside');
+    assert.equal(creature.layer, 'inside');
+    assert.deepEqual([creature.x, creature.y], [guard.x, guard.y], 'boarding shares the actual car position');
+    until(() => world.isRiding(guard));
+    assert.equal(creature.onCamera, false);
+    assert.equal(followCameraRoom(world, creature), null);
+    assert.ok(!world.creaturesIn(guard.room).includes(creature), 'no destination sprite while the car travels');
+    if (postId === 'level-0-main-entrance') state.break();
+    until(() => world.agents.includes(guard) && guard.room.level === creature.home.level && guard.layer === 'inside');
+    assert.equal(creature.onCamera, true);
+    assert.equal(creature.layer, 'inside');
+    assert.deepEqual([creature.x, creature.y], [guard.x, guard.y]);
+    assert.equal(isTrespassing(guard), false, 'temporary delivery access also prevents a staff trespass response');
+    world.staffSecurityPost(guard.room, true);
+    if (state.broken) {
+      until(() => guard.activity.includes('Waiting for a passage'));
+      assert.equal(creature.escort, guard);
+      assert.ok(world.incidents.pendingFor(creature), 'blocked delivery does not settle the incident');
+      state.repair();
+    }
+    until(() => creature.contained);
+    assert.equal(creature.escort, undefined);
+    assert.equal(world.incidents.pendingFor(creature), undefined);
+    assert.ok(creature.home.isWalkable(creature));
+    assert.equal(isTrespassing(guard), false, 'return access lasts until the guard is back at post');
+    until(() => guard.room === post && guard.activity === 'Guarding the elevator');
+    assert.equal(guard.staffEscort, undefined, 'destination security does not interrupt the return trip');
+    assert.equal(guard.security.containmentClearance, undefined);
+    assert.equal(guard.hasAccessCard(creature.home.level), false, 'delivery does not upgrade the badge');
+    assert.equal(world.canAgentUsePassage(guard, creature.home.doors[0]), false);
+  });
+}
 
 for (const hp of [100, 5]) test(`an escorted creature breaks free from a guard with ${hp} HP; only surviving guards recover`, async (t) => {
   const { world, creature, hall, logs } = await setup(t, 42);

@@ -821,7 +821,11 @@ Security responds while a creature is still physically in the facility. One
 available guard on the same floor claims the call if there is a reachable route
 to the creature's floor area. The guard follows through linked doors and must
 get within 14 room pixels to catch it. The creature then moves with the guard
-through the actual doors to its reserved cell; the guard waits rather than
+through the actual doors and elevators to its reserved cell, even from a floor
+without cells. The creature shares the guard's car position, is off camera during
+the ride, and steps out with the guard. Capturing a creature grants its guard
+temporary access up to the home floor, retained through delivery and the return
+to post; the guard's normal badge is unchanged. The guard waits rather than
 crossing a blocked passage. `World.recontain` completes delivery inside the cell
 and the guard returns to the elevator. Disguised residents and off-camera
 escapees are not dispatch targets. A loose or escorted shapeshifter is not

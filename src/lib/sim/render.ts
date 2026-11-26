@@ -462,7 +462,7 @@ export class Renderer {
   isVisible(actor: CameraActor, world: World) {
     const agent = this.carrier(actor);
     if (agent.held || agent.room !== this.room || agent.alpha < 0.3) return false;
-    if (agent instanceof Creature) return agent.onCamera;
+    if (agent instanceof Creature && !agent.onCamera) return false;
     return agent.layer === 'room' || (world.elevatorFor(this.room)?.open ?? 0) > 0.4;
   }
 
@@ -546,7 +546,7 @@ export class Renderer {
     ctx.save();
     ctx.globalAlpha = creature ? agent.alpha : agent.alpha * (agent.ghost ? 0.55 : 1);
 
-    if (creature || agent.layer === 'room') {
+    if (agent.layer === 'room') {
       const width = Math.max(6, Math.round(14 * agent.character.scale));
       const fx = Math.round(agent.x);
       const fy = Math.round(agent.y);
@@ -601,7 +601,7 @@ export class Renderer {
     ctx.fillStyle = '#1d3340';
     ctx.fillRect(opening.x, opening.y, opening.w, 2);
 
-    for (const agent of world.agentsIn(this.room).filter((a) => a.layer === 'inside').sort((a, b) => a.y - b.y)) {
+    for (const agent of world.actorsIn(this.room).filter((a) => !a.held && a.layer === 'inside').sort((a, b) => a.y - b.y)) {
       this.drawAgent(agent, highlights.get(agent));
     }
 
@@ -769,7 +769,7 @@ export class Renderer {
       drawables.push({ depth: particle.depth, draw: () => drawParticle(ctx, requireAsset(assets, particle.asset), particle) });
     }
     for (const actor of world.actorsIn(room)) {
-      if (actor.held || (!(actor instanceof Creature) && actor.layer !== 'room')) continue;
+      if (actor.held || actor.layer !== 'room') continue;
       drawables.push({ depth: actorDepth(actor), draw: () => this.drawAgent(actor, highlights.get(actor)) });
     }
     drawables.sort((a, b) => a.depth - b.depth).forEach((item) => item.draw());
