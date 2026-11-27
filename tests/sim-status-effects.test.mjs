@@ -6,6 +6,7 @@ import { PassageDoor } from '../src/lib/sim/door.ts';
 import { Item } from '../src/lib/sim/item.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 import { Room } from '../src/lib/sim/room.ts';
+import { bindDebugPanel } from '../src/lib/sim/monitorDebug.ts';
 import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
 import { wait } from '../src/lib/sim/tasks.ts';
 import { World } from '../src/lib/sim/world.ts';
@@ -98,6 +99,61 @@ test('timed effects refresh without stacking, pause, and expire at their exact d
   assert.equal(statuses.get(id).duration, 2, 'snapshots report the current instance length, including overrides');
   statuses.update(world, 2);
   assert.equal(statuses.has(id), false, 'exact duration expires without an extra frame');
+});
+
+test('permanent definitions never expire but can be removed, replaced and cleared', (t) => {
+  const removals = [];
+  const id = register(t, 'test-permanent-definition', {
+    permanent: true,
+    onRemove: (_target, reason) => removals.push(reason),
+  });
+  const replacement = register(t, 'test-replacement', { replaces: [id] });
+  const { statuses } = new Item(placed('test'));
+  statuses.apply(id);
+  statuses.update({}, 10000);
+  assert.equal(statuses.get(id).remaining, null);
+  assert.throws(() => statuses.apply(id, 1), /permanent.*duration/);
+  assert.equal(statuses.remove(id), true);
+  statuses.apply(id);
+  statuses.apply(replacement);
+  assert.equal(statuses.has(id), false);
+  statuses.apply(id);
+  statuses.clear();
+  assert.deepEqual(statuses.active, []);
+  assert.deepEqual(removals, ['removed', 'removed', 'removed']);
+});
+
+test('DEBUG removes permanent death and remains statuses from the selected actor', (t) => {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true, value: { createElement: () => ({}) },
+  });
+  t.after(() => {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else delete globalThis.document;
+  });
+  const room = makeRoom();
+  const world = new World({ rooms: [room], roster: [] });
+  const actor = world.spawn(character, room, { x: 30, y: 80 });
+  const logs = [];
+  const select = { value: '', replaceChildren() {} };
+  let onClick;
+  bindDebugPanel({
+    querySelector: (selector) => selector === '[data-debug-status]' ? select : null,
+    addEventListener: (_type, listener) => { onClick = listener; },
+  }, {
+    world, director: {}, currentRoom: () => room, selected: () => actor,
+    log: (text) => logs.push(text),
+  });
+  const click = (debug) => onClick({ target: { closest: () => ({ dataset: { debug } }) } });
+  for (const id of ['dead', 'bones']) {
+    select.value = id;
+    click('status-apply');
+    assert.equal(actor.statuses.has(id), true);
+    click('status-remove');
+    assert.equal(actor.statuses.has(id), false);
+    assert.equal(logs.at(-1), `Debug: ${STATUS_EFFECTS[id].label} removed from Tester.`);
+  }
 });
 
 test('unknown effects, invalid durations and invalid timesteps fail explicitly; eligibility is enforced', (t) => {
@@ -307,10 +363,7 @@ test('zero and negative HP immediately kill staff and security permanently and r
     assert.equal(agent.moving, false);
     assert.equal(agent.draggable, false);
     assert.deepEqual(agent.statuses.get('dead'), { id: 'dead', label: 'Dead', polarity: 'negative', remaining: null, duration: null });
-    assert.equal(agent.statuses.remove('dead'), false);
-    agent.statuses.clear();
-    assert.equal(agent.dead, true);
-    assert.throws(() => agent.statuses.apply('dead', 1), /irreversible.*duration/);
+    assert.throws(() => agent.statuses.apply('dead', 1), /permanent.*duration/);
     agent.stats.hp.current = 100;
     assert.equal(agent.stats.hp.current, 0, 'healing cannot revive a dead actor');
     const position = { x: agent.x, y: agent.y };
@@ -325,6 +378,13 @@ test('zero and negative HP immediately kill staff and security permanently and r
     assert.equal(agent.removed, false);
     assert.ok(world.actorsIn(room).includes(agent));
     assert.equal(agent.statuses.get('dead').remaining, null);
+    assert.equal(agent.statuses.remove('dead'), true);
+    assert.equal(agent.dead, false);
+    assert.equal(agent.statuses.actionBlockRemaining, 0);
+    assert.equal(agent.stats.hp.current, 0, 'status removal does not implement revival');
+    assert.equal(agent.statuses.apply('dead'), true);
+    agent.statuses.clear();
+    assert.equal(agent.dead, false);
   }
   assert.equal(Item.create('can').statuses.apply('dead'), false);
 });
@@ -359,8 +419,10 @@ test('dead creatures stop wandering, stay on camera, and release escort claims',
   assert.deepEqual({ x: creature.x, y: creature.y }, position);
   assert.deepEqual(creature.frame, frame);
   assert.ok(world.actorsIn(room).includes(creature));
-  creature.statuses.clear();
   creature.stats.hp.current = 100;
   assert.equal(creature.stats.hp.current, 0);
   assert.equal(creature.statuses.get('dead').remaining, null);
+  creature.statuses.clear();
+  assert.equal(creature.dead, false);
+  assert.equal(creature.statuses.actionBlockRemaining, 0);
 });

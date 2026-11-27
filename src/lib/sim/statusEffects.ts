@@ -33,7 +33,7 @@ export interface StatusEffectDefinition {
   popup?: { icon?: string; color: string; background?: string };
   /** Popups of these effects stay hidden while this one is active. */
   hidesPopups?: readonly string[];
-  /** Applying this removes these (removable) effects: a later stage superseding earlier ones, like acid → absorbing. */
+  /** Applying this removes these effects: a later stage superseding earlier ones, like acid → absorbing. */
   replaces?: readonly string[];
   /**
    * An end state: the target *is* a remains pile with this artwork (src/sim_assets/remains/<look>.png) from now on.
@@ -48,8 +48,8 @@ export interface StatusEffectDefinition {
   avoidsRoom?: boolean;
   /** Simulation seconds; omitted means permanent until removed. */
   duration?: number;
-  /** Cannot expire, be removed, or receive a duration override. */
-  irreversible?: boolean;
+  /** Never expires or receives a duration override; explicit removal is still allowed. */
+  permanent?: boolean;
   canApply?(target: StatusTarget): boolean;
   onApply?(target: StatusTarget): void;
   /** Receives only the part of the frame for which the effect is still active. */
@@ -70,7 +70,7 @@ const isActor = (target: StatusTarget): target is Extract<StatusTarget, { kind: 
  */
 function remainsForm(label: string, look: string, icon: string, color: string, background: string): StatusEffectDefinition {
   return {
-    label, polarity: 'negative', targets: ['agent', 'creature'], blocksActions: true, irreversible: true,
+    label, polarity: 'negative', targets: ['agent', 'creature'], blocksActions: true, permanent: true,
     remains: { look }, replaces: ['acid', 'absorbing'], hidesPopups: ['dead'], popup: { icon, color, background },
     canApply: (target) => isActor(target) && !target.entity.statuses.remainsForm &&
       !(target.kind === 'agent' && target.entity.impostor),
@@ -87,7 +87,7 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     polarity: 'negative',
     targets: ['agent', 'creature'],
     blocksActions: true,
-    irreversible: true,
+    permanent: true,
     popup: {
       icon: new URL('../../sim_assets/icons/dead.svg', import.meta.url).href,
       color: '#ff4545',
@@ -294,8 +294,8 @@ export class StatusEffects {
   apply(id: string, duration?: number): boolean {
     const definition = Object.hasOwn(STATUS_EFFECTS, id) ? STATUS_EFFECTS[id] : undefined;
     if (!definition) throw new Error(`Unknown status effect "${id}". Add it to STATUS_EFFECTS first.`);
-    if (definition.irreversible && (duration !== undefined || definition.duration !== undefined)) {
-      throw new Error(`Status effect "${id}" is irreversible and cannot have a duration.`);
+    if (definition.permanent && (duration !== undefined || definition.duration !== undefined)) {
+      throw new Error(`Status effect "${id}" is permanent and cannot have a duration.`);
     }
     const seconds = duration ?? definition.duration;
     validateDuration(seconds);
@@ -321,7 +321,7 @@ export class StatusEffects {
 
   private removeEffect(id: string, reason: StatusRemovalReason): boolean {
     const effect = this.effects.get(id);
-    if (!effect || effect.definition.irreversible) return false;
+    if (!effect) return false;
     this.effects.delete(id);
     this.changed?.(id, false);
     effect.definition.onRemove?.(this.target, reason);

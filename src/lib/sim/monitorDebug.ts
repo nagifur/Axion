@@ -42,7 +42,7 @@ function debugStatusOptions() {
     .map(([id, effect]) => {
       const option = document.createElement('option');
       option.value = id;
-      const kind = `${effect.irreversible ? 'permanent ' : ''}${STATUS_POLARITIES[effect.polarity].label.toLowerCase()}`;
+      const kind = `${effect.permanent ? 'permanent ' : ''}${STATUS_POLARITIES[effect.polarity].label.toLowerCase()}`;
       option.textContent = `${effect.label} (${kind})`;
       return option;
     });
@@ -108,7 +108,7 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, list
     const label = STATUS_EFFECTS[id]?.label ?? id;
     if (apply) return actor.statuses.apply(id) ? `${name} is now ${label}.` : `${label} can't be applied to ${name}.`;
     if (actor.statuses.remove(id)) return `${label} removed from ${name}.`;
-    return actor.statuses.has(id) ? `${label} is permanent; ${name} stays that way.` : `${name} isn't ${label}.`;
+    return `${name} isn't ${label}.`;
   });
   const hurt = () => onSelected((actor, name) => {
     actor.stats.hp.current -= DEBUG_HURT_HP;

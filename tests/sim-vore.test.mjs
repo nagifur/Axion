@@ -816,7 +816,6 @@ for (const kind of ['staff', 'creature']) {
     world.update(1.1);
     assert.equal(prey.statuses.has('urine'), true);
     assert.equal(prey.statuses.has('cum'), false);
-    assert.equal(prey.statuses.remove('urine'), false, 'remains are irreversible');
     assert.deepEqual(statusPopups(prey.statuses.active).map(({ id }) => id), ['urine']);
     const [remains] = predator.vore.remains;
     assert.equal(remains.look, 'pee');
@@ -1537,11 +1536,13 @@ test('applying a remains status turns someone on the floor into that pile, belon
   assert.equal(meal.vore.ownRemains, pile);
   assert.deepEqual([pile.x, pile.y], [104, 100], 'at their feet');
   assert.ok(hall.items.includes(can), 'their belongings land beside the pile');
-  assert.equal(meal.statuses.remove('bones'), false, 'remains are permanent');
   assert.equal(meal.statuses.apply('scat'), false, 'nobody becomes two piles');
   assert.ok(logs.some(({ text, tone }) => text === 'meal turned into bones in the hall.' && tone === 'warn'));
   world.update(0.1);
   assert.deepEqual(hall.remains, [pile], 'it happens once');
+  assert.equal(meal.statuses.remove('bones'), true, 'permanent remains statuses allow explicit removal');
+  assert.equal(meal.statuses.remainsForm, undefined);
+  assert.deepEqual(hall.remains, [pile], 'status removal does not implement revival');
 });
 
 test('a creature given a remains status leaves that pile in its cell', () => {

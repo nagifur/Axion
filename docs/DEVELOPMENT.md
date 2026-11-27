@@ -211,7 +211,7 @@ mana lines, and one row per status effect. Esc clears the selection and slides i
   [polarity](#status-effects), the label, and a thin timer for timed effects. Rows
   slide in when an effect starts and out when it ends; an effect reapplied while
   sliding out slides straight back. Effects hidden by `hidesPopups` are skipped here too.
-- **Permanent effects** (any `irreversible` effect, such as **Dead** or a
+- **Permanent effects** (any `permanent` effect, such as **Dead** or a
   [remains status](#remains-statuses) like **Bones**) get their own group above the
   passing ones: a band in the polarity colour, a framed icon, a **Permanent** tag and a
   slow sheen, with no timer. Permanent neutral or positive effects get the same
@@ -503,7 +503,7 @@ never flicker.
 Add `?debug` to the URL to show buttons that trigger events, speed up time, and open
 the prop editor (see [Placing Props With the Editor](#placing-props-with-the-editor)).
 The **Selected** row applies or removes any agent/creature status effect on the selected
-actor (permanent ones are marked and can only be applied, so **Dead** kills and **Bones**
+actor (permanent ones are marked but can still be removed; applying **Dead** kills and **Bones**
 turns them into a pile) and has a **Hurt −20 HP** button, for previewing the
 [vitals HUD](#selected-actor-vitals-hud) and [remains statuses](#remains-statuses).
 Achievements and the last camera watched are stored in the visitor's browser (`localStorage`).
@@ -1006,9 +1006,9 @@ colour; the [vitals HUD](#selected-actor-vitals-hud) draws a +, − or ring sign
 colour. Every built-in effect is currently `negative`. A definition can also provide:
 
 - `duration`: positive, finite simulation seconds; omit for permanent effects.
-- `irreversible`: prevents removal, clearing, expiry, and duration overrides. The vitals
-  HUD shows these as **Permanent** effects.
-- `replaces`: effect ids that applying this one removes (removable ones only), for stages
+- `permanent`: prevents automatic expiry and duration overrides, but allows explicit
+  removal and clearing. The vitals HUD shows these as **Permanent** effects.
+- `replaces`: effect ids that applying this one removes, for stages
   that supersede earlier ones: `absorbing` replaces `acid`, remains forms replace both.
 - `remains: { look }`: makes it a [remains status](#remains-statuses); whoever has it
   becomes that pile.
@@ -1047,11 +1047,15 @@ Unknown effect IDs and invalid durations/timesteps throw explanatory errors.
 `get(id)` returns a snapshot or `undefined`; a snapshot's `duration` is the length of
 the current timed instance (including overrides and refreshes), or `null` when permanent.
 `has(id)` checks presence;
-`remove(id)` returns whether it removed anything; `clear()` removes removable effects.
+`remove(id)` returns whether it removed anything; `clear()` removes all effects,
+including permanent ones. Removal does not automatically undo an effect's gameplay
+consequences; restoration belongs in its `onRemove` hook or a future revival mechanic.
 
-HP reaching zero or below immediately applies the irreversible `dead` effect to
+HP reaching zero or below immediately applies the permanent `dead` effect to
 staff, security agents, and creatures. HP stays at zero; later healing cannot
-revive them. Dead actors remain visible with a permanent **Dead** popup using
+revive them. The `dead` status can be explicitly removed, including through DEBUG
+**Remove status**, but this does not restore HP or implement revival. Dead actors
+remain visible with a permanent **Dead** popup using
 `dead.svg` (a white skull fitted to the icon area, with a red border and dark-red
 background), and a frozen idle frame until death sprites are added. They cannot
 move, run tasks, react, escape, or be captured. Agent task/conversation resources
@@ -1300,7 +1304,7 @@ it was. Each step is logged.
 ##### Remains statuses
 
 The stages are statuses (`acid` → `absorbing` → a remains form), and the statuses lead.
-A remains form is an irreversible, negative `STATUS_EFFECTS` entry with a
+A remains form is a permanent, negative `STATUS_EFFECTS` entry with a
 `remains: { look }` field: `bones`, `scat`, `urine` (artwork `pee`), `cum` and `milk`,
 made with the `remainsForm(...)` helper in
 [`statusEffects.ts`](../src/lib/sim/statusEffects.ts). Applying one kills the target (it
@@ -1316,6 +1320,8 @@ target *be* that pile:
 
 Either way they are retired exactly like absorbed prey (removed or consumed, never
 returning) and keep the remains status, which the file, name tag and vitals HUD show.
+Removing the status does not restore the retired actor or undo the existing pile;
+revival is not implemented.
 Applying `absorbing` to living prey digests them on the spot; removing it mid-absorption
 completes the absorption (the predator gets the rest of the healing). Shapeshifters in
 disguise can't be turned, and nobody becomes two piles. To add a form, add a

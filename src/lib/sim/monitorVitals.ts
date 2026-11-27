@@ -82,7 +82,7 @@ export interface StatusBadge {
   color: string;
   /** Fraction of a timed effect still to run; null while permanent. */
   timeLeft: number | null;
-  /** Irreversible: it never ends, so the HUD sets it apart above the passing effects. */
+  /** Never expires on its own, so the HUD sets it apart above the passing effects. */
   permanent: boolean;
 }
 
@@ -95,7 +95,7 @@ export function statusBadges(active: readonly ActiveStatusEffect[]): StatusBadge
       icon: definition?.popup?.icon,
       color: definition?.popup?.color ?? STATUS_POLARITIES[polarity].color,
       timeLeft: remaining !== null && duration ? Math.min(1, remaining / duration) : null,
-      permanent: !!definition?.irreversible,
+      permanent: !!definition?.permanent,
     };
   });
 }
