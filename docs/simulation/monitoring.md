@@ -338,7 +338,7 @@ never flicker.
 | [`src/lib/sim/planning.ts`](../../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
 | [`src/lib/sim/security.ts`](../../src/lib/sim/security.ts) | Elevator watch, breach response, and escorts back to assigned cells. |
 | [`src/lib/sim/trespass.ts`](../../src/lib/sim/trespass.ts) | Reef's and guards' trespass response and staff escorts between floors. |
-| [`src/lib/sim/tasks.ts`](../../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, napping, falling, tripping, and prop breakage. |
+| [`src/lib/sim/tasks.ts`](../../src/lib/sim/tasks.ts) | Basic tasks: walking, waiting, resting, falling, tripping, and prop breakage. |
 | [`src/lib/sim/repairs.ts`](../../src/lib/sim/repairs.ts) | Maintenance staff noticing, claiming, and repairing damaged equipment. |
 | [`src/lib/sim/itemTasks.ts`](../../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
 | [`src/lib/sim/conversation.ts`](../../src/lib/sim/conversation.ts) | Chats between two agents: meeting points, turns, and speech bubbles. |

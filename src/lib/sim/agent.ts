@@ -15,7 +15,7 @@ import { VoreState, insideActivity } from './vore.ts';
 // Agent state and the task runner. The tasks themselves live in tasks.ts, itemTasks.ts,
 // conversation.ts and transport.ts; choosing what to do next lives in planning.ts.
 
-export type Bubble = 'zZ' | '!' | '…' | '?' | '♥' | 'Meow!' | null;
+export type Bubble = '!' | '…' | '?' | '♥' | 'Meow!' | null;
 
 /** A unit of behaviour. Agents run one task at a time from their plan. */
 export interface Task {
@@ -87,7 +87,6 @@ export class Agent {
   leaving = false;
   removed = false;
   held = false;
-  napping = false;
   spot?: Spot;
   /** Loose item this agent is on their way to pick up, so others leave it to them. */
   curiousAbout?: Item;
@@ -118,11 +117,15 @@ export class Agent {
   }
 
   get incapacitated(): boolean {
-    return this.statuses.actionBlockRemaining > 0;
+    return this.statuses.incapacitated;
   }
 
   get dead(): boolean {
     return this.statuses.has('dead');
+  }
+
+  get napping(): boolean {
+    return this.statuses.has('napping');
   }
 
   /** Inside a predator: off the floor and off the feed until spat out or absorbed. */
@@ -132,8 +135,8 @@ export class Agent {
 
   get activity(): string {
     if (this.vore.inside) return insideActivity(this.vore.inside);
-    if (this.dead) return 'Dead';
-    if (this.statuses.has('shocked')) return 'Shocked';
+    const status = this.statuses.activity;
+    if (status) return status;
     return this.staffEscort?.target === this ? `Being escorted to ${this.staffEscort.destination.label}` : this.currentActivity;
   }
 
@@ -247,7 +250,7 @@ export class Agent {
   }
 
   get busy() {
-    return this.incapacitated || this.held || !this.task?.interruptible || this.napping || !!this.conversation ||
+    return this.statuses.blocksActions || this.held || !this.task?.interruptible || !!this.conversation ||
       this.leaving || !!this.staffEscort;
   }
 
@@ -262,7 +265,7 @@ export class Agent {
 
   /** Animation time while actually performing a disposal activity. */
   get disposalActivityTime(): number | undefined {
-    return this.task?.remainsDisposal === 'activity' && this.exposed && !this.dead && !this.incapacitated &&
+    return this.task?.remainsDisposal === 'activity' && this.exposed && !this.dead && !this.statuses.blocksActions &&
       !this.staffEscort && !this.statuses.has('scared') ? this.taskElapsed : undefined;
   }
 
@@ -301,7 +304,11 @@ export class Agent {
   }
 
   get frame(): { name: FrameName; flip: boolean } {
-    if (this.incapacitated) return { name: IDLE_CYCLES[this.facing][0], flip: this.facing === 'left' };
+    if (this.statuses.blocksActions) {
+      const cycle = this.sitting ? SIT_CYCLES[this.facing] : IDLE_CYCLES[this.facing];
+      const index = this.incapacitated ? 0 : Math.floor(this.idleElapsed / IDLE_FRAME_SECONDS) % cycle.length;
+      return { name: cycle[index], flip: this.facing === 'left' };
+    }
     const speaking = !this.held && this.conversation && isSpeaking(this.conversation, this);
     const walking = this.moving && !this.held;
     const tripping = !this.held && this.tripping;
@@ -334,6 +341,7 @@ export class Agent {
 
   /** Replaces whatever the agent is doing. */
   setPlan(world: World, tasks: Task[]) {
+    this.statuses.wake();
     const conversation = this.conversation;
     if (conversation) {
       conversation.ended = true;
@@ -371,14 +379,14 @@ export class Agent {
 
   /** Running (speedMul above 1) costs stamina; an `exhausted` agent drops to walking pace. */
   private runningSpeed(speedMul: number, dt: number): number {
-    if (speedMul <= 1 || this.incapacitated || dt <= 0) return speedMul;
+    if (speedMul <= 1 || this.statuses.blocksActions || dt <= 0) return speedMul;
     if (!spendStamina(this, dt)) return 1;
     this.ranThisFrame = true;
     return speedMul;
   }
 
   private step(target: Point, dt: number, speedMul: number): boolean {
-    if (this.incapacitated) return false;
+    if (this.statuses.blocksActions) return false;
     const dx = target.x - this.x;
     const dy = target.y - this.y;
     const distance = Math.hypot(dx, dy);
@@ -428,12 +436,15 @@ export class Agent {
     this.ranThisFrame = false;
     if (this.bubbleTimer > 0) {
       this.bubbleTimer -= dt;
-      if (this.bubbleTimer <= 0 && !this.napping) this.bubble = null;
+      if (this.bubbleTimer <= 0) this.bubble = null;
     }
     this.shake = Math.max(0, this.shake - dt);
     this.eyeFlash = Math.max(0, this.eyeFlash - dt);
 
-    if (this.incapacitated || (dt > 0 && blockedSeconds >= dt)) return;
+    if (this.statuses.blocksActions || (dt > 0 && blockedSeconds >= dt)) {
+      if (!this.incapacitated) this.idleElapsed = (this.idleElapsed + Math.max(0, dt)) % (IDLE_FRAME_SECONDS * 2);
+      return;
+    }
     dt = Math.max(0, dt - blockedSeconds);
 
     const interrupt = planInterrupt(this, world, this.task);
@@ -445,14 +456,14 @@ export class Agent {
       this.task?.start?.(this, world);
       if (this.task) this.activity = this.task.activity;
     }
-    if (this.incapacitated) return;
+    if (this.statuses.blocksActions) return;
     const task = this.task;
     // Tasks can replace themselves (trips) or remove the agent, so only end the one that ran.
     if (task && task.update(this, world, dt) && this.task === task) {
       task.end?.(this, world);
       this.task = undefined;
     }
-    if (task && this.task === task && !this.incapacitated) this.taskElapsed += Math.max(0, dt);
+    if (task && this.task === task && !this.statuses.blocksActions) this.taskElapsed += Math.max(0, dt);
     this.idleElapsed = this.moving ? 0 : (this.idleElapsed + Math.max(0, dt)) % (IDLE_FRAME_SECONDS * 2);
     this.updateDarkness();
   }

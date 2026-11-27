@@ -3,7 +3,7 @@ import test from 'node:test';
 import { EARTHQUAKE } from '../src/lib/sim/earthquake.ts';
 import { MAX_PARTICLES } from '../src/lib/sim/particles.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { nap, trip, wait } from '../src/lib/sim/tasks.ts';
+import { trip, wait } from '../src/lib/sim/tasks.ts';
 import { World } from '../src/lib/sim/world.ts';
 
 const character = (id) => ({
@@ -96,7 +96,7 @@ test('earthquake repeatedly trips standing agents and impostors, but not unavail
   const ghost = spawn(world, a, 'ghost');
   ghost.character.behavior.ghost = true;
   const asleep = spawn(world, a, 'asleep');
-  asleep.setPlan(world, [nap(100, 'front')]);
+  asleep.statuses.apply('napping', 100);
   asleep.update(world, 0);
   const seated = spawn(world, a, 'seated');
   seated.setPlan(world, [{ ...wait(100, 'Seated'), sitting: true }]);

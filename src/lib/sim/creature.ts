@@ -143,7 +143,7 @@ export class Creature {
 
   /** Free to start something new (a hunt): exposed, and neither fleeing, attacking nor already hunting. */
   get idle() {
-    return this.exposed && !this.incapacitated &&
+    return this.exposed && !this.statuses.blocksActions &&
       this.plan.action !== 'flee' && this.plan.action !== 'attack' && this.plan.action !== 'swallow';
   }
 
@@ -156,7 +156,7 @@ export class Creature {
   }
 
   get incapacitated(): boolean {
-    return this.statuses.actionBlockRemaining > 0;
+    return this.statuses.incapacitated;
   }
 
   get loose() {
@@ -174,14 +174,15 @@ export class Creature {
 
   /** Animation time while actually performing a disposal activity. */
   get disposalActivityTime(): number | undefined {
-    return this.plan.action === 'dispose' && !this.plan.path.length && !this.walking && this.exposed && !this.incapacitated
+    return this.plan.action === 'dispose' && !this.plan.path.length && !this.walking && this.exposed && !this.statuses.blocksActions
       ? this.plan.remaining : undefined;
   }
 
   get activity() {
     if (this.vore.inside) return insideActivity(this.vore.inside);
     if (this.consumed) return 'Consumed';
-    if (this.dead) return 'Dead';
+    const status = this.statuses.activity;
+    if (status) return status;
     if (this.away) return 'Away from cell';
     if (this.escaped) return 'Escaped the facility';
     if (this.falling) return 'Falling';
@@ -198,7 +199,11 @@ export class Creature {
   }
 
   get frame() {
-    if (this.held || this.falling || this.incapacitated) return { name: IDLE_CYCLES[this.facing][0], flip: this.facing === 'left' };
+    if (this.held || this.falling || this.statuses.blocksActions) {
+      const cycle = IDLE_CYCLES[this.facing];
+      const index = this.held || this.falling || this.incapacitated ? 0 : Math.floor(this.elapsed / IDLE_FRAME_SECONDS) % cycle.length;
+      return { name: cycle[index], flip: this.facing === 'left' };
+    }
     const cycle = (this.walking ? WALK_CYCLES : IDLE_CYCLES)[this.facing];
     const phase = this.walking ? this.distance / WALK_STRIDE : this.elapsed / IDLE_FRAME_SECONDS;
     return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
@@ -372,7 +377,7 @@ export class Creature {
 
   /** Stops to eye someone up close (e.g. a staff member reaching out to pet it). Never interrupts a dash. */
   hold(seconds: number, toward: Point) {
-    if (!this.exposed || this.incapacitated ||
+    if (!this.exposed || this.statuses.blocksActions ||
       this.plan.action === 'flee' || this.plan.action === 'attack' || this.plan.action === 'swallow') return;
     this.walking = false;
     this.plan = { action: 'watch', remaining: seconds };
@@ -558,8 +563,12 @@ export class Creature {
     if (this.held) return;
     this.syncEscort(world);
     if (!dt) return;
-    if (this.incapacitated || !this.onCamera) {
+    if (this.statuses.blocksActions || !this.onCamera) {
       this.walking = false;
+      if (this.onCamera && !this.incapacitated) {
+        this.elapsed += dt;
+        recoverStamina(this.stats, dt);
+      }
       return;
     }
     dt = Math.max(0, dt - blockedSeconds);

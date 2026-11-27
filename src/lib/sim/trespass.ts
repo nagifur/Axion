@@ -29,7 +29,7 @@ export const isTrespassing = (agent: Agent) => !canAgentVisit(agent, agent.room)
 export function reactToTrespassing(agent: Agent, world: World) {
   const security = !!agent.security && !agent.security.relieved;
   const response = trespassResponseFor(agent);
-  if ((!response && !security) || agent.dead || agent.incapacitated || agent.napping || !agent.exposed ||
+  if ((!response && !security) || agent.dead || agent.statuses.blocksActions || !agent.exposed ||
     !agent.interruptible || agent.staffEscort) return;
   const targets = world.agentsIn(agent.room).filter((other) =>
     other !== agent && !other.dead && other.exposed && isTrespassing(other) &&

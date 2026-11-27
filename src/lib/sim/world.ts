@@ -496,8 +496,7 @@ export class World {
       return 'revealed';
     }
 
-    if (agent.napping) {
-      agent.setPlan(this, []);
+    if (!agent.incapacitated && agent.statuses.wake()) {
       agent.say('!', 1.5);
       this.log(`${agent.character.name} was woken up by a camera ping.`, 'default');
       this.achieve('rude-awakening');

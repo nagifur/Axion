@@ -70,7 +70,7 @@ function repair(target: RepairTarget): Task {
 /** Maintenance staff notice damage in their current room, including outside their shift. */
 export function planRepair(agent: Agent, world: World): Task[] | undefined {
   if (agent.impostor || agent.character.position?.trim().toLowerCase() !== 'maintenance'
-    || agent.incapacitated || agent.held || agent.removed || agent.leaving || agent.conversation || agent.napping
+    || agent.statuses.blocksActions || agent.held || agent.removed || agent.leaving || agent.conversation
     || agent.layer !== 'room' || agent.alpha < 1) return undefined;
   const { room } = agent;
   const targets: RepairTarget[] = room.props.filter((prop) => prop.broken)

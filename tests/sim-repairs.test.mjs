@@ -3,7 +3,7 @@ import test, { beforeEach } from 'node:test';
 import { planRepair, REPAIR_SECONDS } from '../src/lib/sim/repairs.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { wait, nap, trip } from '../src/lib/sim/tasks.ts';
+import { wait, trip } from '../src/lib/sim/tasks.ts';
 import { exitThroughDoor } from '../src/lib/sim/transport.ts';
 import { World } from '../src/lib/sim/world.ts';
 
@@ -100,7 +100,13 @@ test('new damage interrupts routine work but not protected tasks', () => {
   assert.match(agent.activity, /^Going to repair/);
   assert.equal(agent.repairTarget.prop, prop);
 
-  for (const task of [nap(100, 'front'), trip(), exitThroughDoor(room.doors[0])]) {
+  agent.setPlan(world, [wait(100, 'Working')]);
+  agent.statuses.apply('napping', 100);
+  agent.update(world, 0);
+  assert.equal(agent.repairTarget, undefined);
+  agent.statuses.remove('napping');
+
+  for (const task of [trip(), exitThroughDoor(room.doors[0])]) {
     agent.setPlan(world, [task]);
     agent.update(world, 0);
     agent.update(world, 0);

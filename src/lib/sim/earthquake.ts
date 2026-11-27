@@ -45,7 +45,7 @@ export const EARTHQUAKE_EVENT: EventDefinition<World> = {
     if (!state) throw new Error('Active earthquake has no simulation state.');
 
     for (const agent of world.agents) {
-      if (!agent.exposed || agent.ghost || agent.dead || agent.incapacitated ||
+      if (!agent.exposed || agent.ghost || agent.dead || agent.statuses.blocksActions ||
         agent.tripping || agent.sitting || !agent.interruptible || agent.staffEscort || agent.conversation) continue;
       if (rollRate(EARTHQUAKE.tripRate, dt)) agent.interrupt(world, trip('earthquake'));
     }

@@ -82,18 +82,25 @@ Add a definition to `STATUS_EFFECTS` to introduce an effect. Each definition has
 `polarity`: `positive`, `negative` or `neutral`, i.e. whether the effect helps, harms
 or merely describes its target. `STATUS_POLARITIES` gives each polarity a label and
 colour; the [vitals HUD](monitoring.md#selected-actor-vitals-hud) draws a +, − or ring sign in that
-colour. Every built-in effect is currently `negative`. A definition can also provide:
+colour. Most built-in effects are `negative`, while `napping` is `neutral`. A definition can also provide:
 
 - `duration`: positive, finite simulation seconds; omit for permanent effects.
 - `permanent`: prevents automatic expiry and duration overrides, but allows explicit
   removal and clearing. The vitals HUD shows these as **Permanent** effects.
 - `replaces`: effect ids that applying this one removes, for stages
-  that supersede earlier ones: `absorbing` replaces `acid`, remains forms replace both.
+  that supersede earlier ones: `absorbing` replaces `acid`, remains forms replace both,
+  and `dead`/`acid` clear `napping`.
 - `remains: { look }`: makes it a [remains status](#remains-statuses); whoever has it
   becomes that pile.
-- `blocksActions`: pauses an agent's or creature's current task and movement without cancelling
-  its plan or releasing reservations. Multiple blockers use the longest remaining
-  duration; only the unstunned portion of an expiry frame advances the task.
+- `blocksActions`: pauses an agent's or creature's current task, movement, and autonomous
+  reactions without cancelling its plan or releasing reservations. Multiple blockers use
+  the longest remaining duration; only the unblocked portion of an expiry frame advances the task.
+- `wakeable`: marks an effect that can be cleared by waking or redirecting the actor
+  (camera ping, drag-and-drop, or assigning a new plan via `setPlan`). Wakeable
+  action-blockers pause autonomous activity without incapacitating the actor against
+  dragging or player-initiated conversations.
+- `activity: { label, priority }`: overrides the actor's reported activity while active;
+  higher priority wins when multiple effects set one (`Dead` > `Shocked` > `Napping`).
 - `canApply(target)`: optional eligibility rule beyond the target kind.
 - `onApply(target)`: runs once when first added.
 - `onUpdate(target, world, dt)`: optional gameplay behavior each simulation update.
@@ -154,6 +161,21 @@ that collection's next update. Removed agents and consumed items stop ticking.
 Runtime effects are not saved to placement exports or `room.json`; existing
 `on` and `broken` starting-state/editor formats are unchanged.
 
+### Napping
+
+`napping` is a neutral, wakeable, agent-only status effect (`NAP_SECONDS = 20` by
+default in [`statusEffects.ts`](../../src/lib/sim/statusEffects.ts), or 25–50 seconds
+when dozing off during seated `rest` in [`tasks.ts`](../../src/lib/sim/tasks.ts)).
+It sets `blocksActions: true`, `wakeable: true`, and `activity: { label: 'Napping', priority: 20 }`,
+and displays a blue-bordered `zZ` popup using
+[`napping.svg`](../../src/sim_assets/icons/napping.svg) in name tags and the vitals HUD.
+While active, agents pause movement, tasks, repairs, hunting, disposal, earthquake tripping,
+and autonomous chats or reactions, while preserving their sitting pose if seated. Unlike
+incapacitating effects (`dead`, `shocked`), napping agents remain draggable and can be woken
+by a camera click (`rude-awakening`), by dragging them or dropping a coworker onto them,
+or by any event that replaces their plan (such as a broken seat, creature attack, escort,
+or being swallowed). `dead` and `acid` also clear `napping` directly.
+
 ### Electrical Shock
 
 `shocked` is an agent-only effect lasting two simulation seconds (`SHOCK_SECONDS`
@@ -163,7 +185,7 @@ dragging or new conversations. The personnel file shows **Shocked**, and existin
 idle artwork, shaking and a yellow-bordered popup using
 [`shocked.svg`](../../src/sim_assets/icons/shocked.svg) provide feedback. Its border
 and optional background are configured in the effect's `popup` definition.
-The popup does not overwrite speech or sleeping bubbles.
+The popup does not overwrite speech bubbles, and coexists with `napping`.
 The same task resumes afterward, including a maintenance repair and its claim.
 Shock does not currently damage HP or spread to other agents/items.
 

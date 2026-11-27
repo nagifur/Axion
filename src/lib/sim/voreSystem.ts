@@ -89,7 +89,6 @@ export class VoreSystem {
       world.agents = world.agents.filter((other) => other !== prey);
       prey.setPlan(world, []);
       prey.moving = false;
-      prey.napping = false;
       prey.bubble = null;
       prey.releaseTarget();
     }
@@ -170,7 +169,7 @@ export class VoreSystem {
   /** A predator with nothing else on its mind. */
   private ready(actor: VoreActor): boolean {
     if (actor instanceof Agent) {
-      return actor.exposed && !actor.incapacitated && actor.interruptible && !actor.disposingRemains && !actor.napping && !actor.conversation &&
+      return actor.exposed && !actor.statuses.blocksActions && actor.interruptible && !actor.disposingRemains && !actor.conversation &&
         !actor.security && !actor.staffEscort && !actor.impostor;
     }
     return actor.idle && !actor.disposingRemains;

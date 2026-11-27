@@ -13,7 +13,7 @@ import { planRepair, REPAIR_SECONDS } from '../src/lib/sim/repairs.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { PROP_TYPES } from '../src/lib/sim/sprites.ts';
 import { SHOCK_SECONDS, STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
-import { nap, wait, walkTo } from '../src/lib/sim/tasks.ts';
+import { wait, walkTo } from '../src/lib/sim/tasks.ts';
 import { World } from '../src/lib/sim/world.ts';
 
 beforeEach((t) => t.mock.method(Math, 'random', () => 0.99));
@@ -114,7 +114,7 @@ test('shocked agents cannot initiate or be invited into a conversation', () => {
   assert.equal(other.conversation, undefined);
 });
 
-test('shocked pauses item consumption and preserves a sleeping agent bubble on recovery', () => {
+test('shocked pauses item consumption and preserves speech and napping on recovery', () => {
   const { world, agent } = setup(null);
   const item = Item.create('can');
   agent.receiveItem(item);
@@ -128,12 +128,15 @@ test('shocked pauses item consumption and preserves a sleeping agent bubble on r
   assert.equal(agent.item, item);
   world.update(0.25);
   assert.equal(agent.item, null);
-  agent.setPlan(world, [nap(10, 'front')]);
+  agent.say('?', 10);
+  agent.statuses.apply('napping', 10);
   world.update(0);
   agent.statuses.apply('shocked');
+  assert.equal(agent.activity, 'Shocked', 'shocked takes activity priority over napping');
   world.update(SHOCK_SECONDS);
   assert.equal(agent.napping, true);
-  assert.equal(agent.bubble, 'zZ');
+  assert.equal(agent.activity, 'Napping');
+  assert.equal(agent.bubble, '?');
   assert.equal(agent.item, null);
 });
 

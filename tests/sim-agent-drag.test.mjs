@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 import { cellDoorAt, dropTarget, placeAgent } from '../src/lib/sim/agentDrag.ts';
-import { nap, wait } from '../src/lib/sim/tasks.ts';
+import { wait } from '../src/lib/sim/tasks.ts';
 import { startConversation } from '../src/lib/sim/conversation.ts';
 import { enterThroughDoor } from '../src/lib/sim/transport.ts';
 import { loadRoom } from '../src/lib/sim/roomLoader.ts';
@@ -312,14 +312,16 @@ test('occupied chairs reject drops, including a reservation while walking there'
 test('dropping on another agent starts a shared conversation and wakes sleeping partners', async () => {
   const { world, room, agent } = await setup();
   const other = world.spawn(character('b'), room, { x: 240, y: 180 });
-  other.setPlan(world, [nap(60, 'front')]);
+  other.statuses.apply('napping', 60);
   world.update(0.1);
   assert.equal(other.napping, true);
+  assert.equal(other.statuses.has('napping'), true);
   const target = dropTarget(world, agent, { x: 240, y: 160 }, other);
   assert.equal(target.kind, 'agent');
   placeAgent(world, agent, target);
   assert.equal(agent.conversation, other.conversation);
   assert.equal(other.napping, false);
+  assert.equal(other.statuses.has('napping'), false);
   assert.equal(agent.x, other.x + 24);
   world.update(0.1);
   assert.equal(agent.activity, 'Chatting with b');

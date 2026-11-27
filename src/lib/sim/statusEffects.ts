@@ -42,6 +42,13 @@ export interface StatusEffectDefinition {
   remains?: { look: string };
   /** Pauses the target actor's tasks and movement while active. */
   blocksActions?: boolean;
+  /**
+   * Can be cleared by waking or redirecting the actor (clicking them, dragging, or assigning a new plan).
+   * Wakeable action-blockers pause autonomous activity without incapacitating the actor against interaction.
+   */
+  wakeable?: boolean;
+  /** Overrides the actor's reported activity while active; higher priority wins. */
+  activity?: { label: string; priority: number };
   /** Additional trip probability per walking second. */
   tripChancePerSecond?: number;
   /** Encourages leaving this room and defers ordinary work travel. */
@@ -60,6 +67,7 @@ export interface StatusEffectDefinition {
 export const SHOCK_SECONDS = 2;
 export const SCARED_SECONDS = 10;
 export const EXHAUSTED_SECONDS = 5;
+export const NAP_SECONDS = 20;
 
 const isActor = (target: StatusTarget): target is Extract<StatusTarget, { kind: 'agent' | 'creature' }> =>
   target.kind === 'agent' || target.kind === 'creature';
@@ -96,6 +104,8 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     targets: ['agent', 'creature'],
     blocksActions: true,
     permanent: true,
+    replaces: ['napping'],
+    activity: { label: 'Dead', priority: 100 },
     popup: {
       icon: new URL('../../sim_assets/icons/dead.svg', import.meta.url).href,
       color: '#ff4545',
@@ -103,10 +113,10 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     },
     onApply(target) {
       if (target.kind !== 'agent' && target.kind !== 'creature') return;
+      target.entity.statuses.wake();
       target.entity.stats.hp.current = 0;
       if (target.kind === 'agent') {
         target.entity.moving = false;
-        target.entity.napping = false;
         target.entity.bubble = null;
         target.entity.shake = 0;
         target.entity.eyeFlash = 0;
@@ -135,12 +145,30 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
       color: '#a9b4df',
     },
   },
+  napping: {
+    label: 'Napping',
+    polarity: 'neutral',
+    targets: ['agent'],
+    duration: NAP_SECONDS,
+    blocksActions: true,
+    wakeable: true,
+    activity: { label: 'Napping', priority: 20 },
+    popup: {
+      icon: new URL('../../sim_assets/icons/napping.svg', import.meta.url).href,
+      color: '#9ec5ff',
+    },
+    canApply: (target) => target.kind === 'agent' && !target.entity.dead && target.entity.exposed,
+    onApply(target) {
+      if (target.kind === 'agent') target.entity.moving = false;
+    },
+  },
   shocked: {
     label: 'Shocked',
     polarity: 'negative',
     targets: ['agent'],
     duration: SHOCK_SECONDS,
     blocksActions: true,
+    activity: { label: 'Shocked', priority: 60 },
     popup: {
       icon: new URL('../../sim_assets/icons/shocked.svg', import.meta.url).href,
       color: '#ffbc00',
@@ -180,6 +208,7 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     label: 'Acid',
     polarity: 'negative',
     targets: ['agent', 'creature'],
+    replaces: ['napping'],
     popup: { color: '#3dff5a', background: 'rgba(8, 60, 18, 0.92)' },
     onUpdate(target, _world, dt) {
       if (target.kind !== 'agent' && target.kind !== 'creature') return;
@@ -290,6 +319,45 @@ export class StatusEffects {
       if (effect.definition.blocksActions) remaining = Math.max(remaining, effect.remaining ?? Infinity);
     }
     return remaining;
+  }
+
+  /** True while any active status pauses tasks, movement, and autonomous reactions. */
+  get blocksActions(): boolean {
+    return this.actionBlockRemaining > 0;
+  }
+
+  /** True while any active status incapacitates the actor (cannot be dragged or simply woken). */
+  get incapacitated(): boolean {
+    for (const { definition } of this.effects.values()) {
+      if (definition.blocksActions && !definition.wakeable) return true;
+    }
+    return false;
+  }
+
+  /** True while any active status can be cleared by waking or redirecting the actor. */
+  get wakeable(): boolean {
+    for (const { definition } of this.effects.values()) {
+      if (definition.wakeable) return true;
+    }
+    return false;
+  }
+
+  /** Highest-priority activity label claimed by an active status, if any. */
+  get activity(): string | undefined {
+    let best: { label: string; priority: number } | undefined;
+    for (const { definition } of this.effects.values()) {
+      if (definition.activity && (!best || definition.activity.priority > best.priority)) best = definition.activity;
+    }
+    return best?.label;
+  }
+
+  /** Clears all wakeable statuses. Returns true if any were removed. */
+  wake(): boolean {
+    let woke = false;
+    for (const [id, { definition }] of [...this.effects]) {
+      if (definition.wakeable && this.remove(id)) woke = true;
+    }
+    return woke;
   }
 
   get(id: string): ActiveStatusEffect | undefined {

@@ -8,7 +8,7 @@ import { chance, range } from './random.ts';
 import { distanceToRect } from './navMap.ts';
 import { tryElectricalShock } from './electrical.ts';
 
-// General-purpose tasks: walking, waiting, resting, napping, falling and tripping.
+// General-purpose tasks: walking, waiting, resting, falling and tripping.
 
 /** Radius around their feet in which a trip can hit a prop. */
 export const TRIP_PROP_REACH = 12;
@@ -56,28 +56,6 @@ export function wait(seconds: number, activity: string, facing?: Facing): Task {
     update(_agent, _world, dt) {
       left -= dt;
       return left <= 0;
-    },
-  };
-}
-
-export function nap(seconds: number, facing: Facing): Task {
-  let left = seconds;
-  return {
-    activity: 'Napping',
-    interruptible: false,
-    start(agent, world) {
-      agent.facing = facing;
-      agent.napping = true;
-      agent.bubble = 'zZ';
-      world.log(`${agent.character.name} dozed off in the ${agent.room.name}.`, 'muted');
-    },
-    update(_agent, _world, dt) {
-      left -= dt;
-      return left <= 0;
-    },
-    end(agent) {
-      agent.napping = false;
-      agent.bubble = null;
     },
   };
 }
@@ -180,13 +158,14 @@ export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePer
   const activity = period === 'lunch' ? 'Having lunch'
     : period === 'work' && onChair ? 'Working at the table'
     : period === 'free' && onChair ? 'Relaxing at the table' : 'Taking a break';
-  const task = sleeping ? nap(range(25, 50), spot.facing)
-    : wait(period === 'work' ? range(30, 60) : range(8, 18), activity, spot.facing);
+  const duration = sleeping ? range(25, 50) : (period === 'work' ? range(30, 60) : range(8, 18));
+  const task = sleeping ? undefined : wait(duration, activity, spot.facing);
   let attempted = false;
   let checkedShock = false;
   let started = false;
   return {
-    ...task,
+    activity,
+    interruptible: !sleeping,
     sitting: true,
     start(agent, world) {
       if (!attempted) {
@@ -194,8 +173,19 @@ export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePer
         if (!spot.prop.broken) breakPropOnUse(agent, world, spot.prop);
       }
       if (!spot.prop.broken) {
-        started = true;
-        task.start?.(agent, world);
+        if (!started) {
+          started = true;
+          if (sleeping) {
+            agent.facing = spot.facing;
+            if (agent.statuses.apply('napping', duration)) {
+              world.log(`${agent.character.name} dozed off in the ${agent.room.name}.`, 'muted');
+            }
+          } else {
+            task?.start?.(agent, world);
+          }
+        } else if (!sleeping) {
+          task?.start?.(agent, world);
+        }
       }
     },
     update(agent, world, dt) {
@@ -203,10 +193,14 @@ export function rest(agent: Agent, spot: Spot, world: World, period: SchedulePer
         checkedShock = true;
         if (tryElectricalShock(agent, world, spot.prop)) return false;
       }
-      return spot.prop.broken || task.update(agent, world, dt);
+      if (spot.prop.broken) return true;
+      return sleeping ? !agent.statuses.has('napping') : task!.update(agent, world, dt);
     },
     end(agent, world) {
-      if (started) task.end?.(agent, world);
+      if (started) {
+        if (sleeping) agent.statuses.remove('napping');
+        else task?.end?.(agent, world);
+      }
       if (spot.prop.broken && agent.spot === spot) agent.spot = undefined;
     },
   };

@@ -1,7 +1,7 @@
 import type { Agent } from './agent.ts';
 import type { FacilityEventDirector } from './facilityEvents.ts';
 import { STATUS_EFFECTS, STATUS_POLARITIES } from './statusEffects.ts';
-import { nap, trip } from './tasks.ts';
+import { trip } from './tasks.ts';
 import type { CameraActor, LogTone, World } from './world.ts';
 import type { Room } from './room.ts';
 import type { EventListeners } from './monitorDom.ts';
@@ -141,7 +141,10 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, list
     time: cycleTime,
     impostor: () => { if (!director.triggerImpostor(world)) log('Debug: no impostor possible right now.', 'muted'); },
     arrive: () => { if (!world.arrive()) log('Debug: everyone is already on the floor.', 'muted'); },
-    nap: () => idleAgent()?.setPlan(world, [nap(20, 'front')]),
+    nap: () => {
+      const agent = idleAgent();
+      if (agent?.statuses.apply('napping')) log(`Debug: ${agent.character.name} is now Napping.`, 'muted');
+    },
     trip: () => idleAgent()?.interrupt(world, trip()),
     announce: () => director.announce(world),
     speed: controls.toggleSpeed,

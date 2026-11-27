@@ -33,7 +33,7 @@ function visibleTo(agent: Agent, creature: Creature) {
 }
 
 function canReact(agent: Agent) {
-  return !agent.impostor && agent.exposed && !agent.napping && !agent.incapacitated && agent.interruptible;
+  return !agent.impostor && agent.exposed && !agent.statuses.blocksActions && agent.interruptible;
 }
 
 /**

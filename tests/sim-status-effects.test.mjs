@@ -7,8 +7,8 @@ import { Item } from '../src/lib/sim/item.ts';
 import { Prop } from '../src/lib/sim/prop.ts';
 import { Room } from '../src/lib/sim/room.ts';
 import { bindDebugPanel } from '../src/lib/sim/monitorDebug.ts';
-import { STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
-import { wait } from '../src/lib/sim/tasks.ts';
+import { NAP_SECONDS, STATUS_EFFECTS } from '../src/lib/sim/statusEffects.ts';
+import { rest, wait } from '../src/lib/sim/tasks.ts';
 import { World } from '../src/lib/sim/world.ts';
 
 const placed = (type) => ({ type, asset: type, x: 40, y: 40, w: 10, h: 10, flip: false });
@@ -457,4 +457,137 @@ test('revived actors can die again and release new plans on subsequent deaths', 
     agent.statuses.remove('dead');
     assert.equal(agent.stats.hp.current, 240);
   }
+});
+
+test('napping is a wakeable action-blocking status that pauses tasks, wakes on ping, and respects eligibility', () => {
+  const room = makeRoom();
+  const world = new World({ rooms: [room], roster: [] });
+  const achievements = [];
+  world.hooks.achieve = (id) => achievements.push(id);
+  const agent = world.spawn(character, room, { x: 30, y: 80 });
+  let progress = 0;
+  agent.setPlan(world, [{
+    activity: 'Custom work', interruptible: true,
+    update(_agent, _world, dt) { progress += dt; return false; },
+  }]);
+  world.update(0.5);
+  assert.equal(progress, 0.5);
+
+  assert.equal(agent.statuses.apply('napping'), true);
+  assert.deepEqual(agent.statuses.get('napping'), {
+    id: 'napping', label: 'Napping', polarity: 'neutral', remaining: NAP_SECONDS, duration: NAP_SECONDS,
+  });
+  assert.equal(agent.napping, true);
+  assert.equal(agent.activity, 'Napping');
+  assert.equal(agent.busy, true);
+  assert.equal(agent.incapacitated, false, 'napping pauses actions without incapacitating against interaction');
+  assert.equal(agent.draggable, true);
+  const position = [agent.x, agent.y];
+  assert.equal(agent.moveToward({ x: 90, y: 80 }, 1), false);
+  assert.deepEqual([agent.x, agent.y], position);
+
+  world.update(NAP_SECONDS + 0.25);
+  assert.equal(agent.napping, false);
+  assert.equal(agent.activity, 'Custom work');
+  assert.ok(Math.abs(progress - 0.75) < 1e-9, 'expiry grants only the awake remainder of the frame');
+
+  agent.statuses.apply('napping', 15);
+  agent.statuses.apply('shocked');
+  assert.equal(agent.activity, 'Shocked');
+  assert.equal(world.interact(agent), null, 'cannot wake an agent while incapacitated by shock');
+  agent.statuses.remove('shocked');
+  assert.equal(world.interact(agent), 'woke');
+  assert.equal(agent.napping, false);
+  assert.equal(agent.bubble, '!');
+  assert.deepEqual(achievements, ['rude-awakening']);
+
+  agent.statuses.apply('napping', 15);
+  agent.statuses.apply('acid');
+  assert.equal(agent.napping, false, 'acid wakes napping prey');
+  agent.statuses.remove('acid');
+
+  agent.statuses.apply('napping', 15);
+  agent.statuses.apply('dead');
+  assert.equal(agent.napping, false, 'death clears napping');
+  assert.equal(agent.statuses.apply('napping'), false, 'dead agents cannot nap');
+  agent.statuses.remove('dead');
+
+  agent.held = true;
+  assert.equal(agent.statuses.apply('napping'), false, 'held agents cannot nap');
+  agent.held = false;
+  assert.equal(Item.create('can').statuses.apply('napping'), false);
+});
+
+test('seated rest naps finish when napping expires or is woken, and wake if the seat breaks', (t) => {
+  t.mock.method(Math, 'random', () => 0);
+  const room = makeRoom();
+  const bench = new Prop({ type: 'bench', asset: 'bench', x: 40, y: 60, w: 30, h: 20, flip: false });
+  room.setProps([bench]);
+  const spot = { id: 'bench:0', kind: 'bench', facing: 'front', x: 55, y: 78, propDepth: 80, prop: bench };
+  room.spots.push(spot);
+  const world = new World({ rooms: [room], roster: [] });
+  world.arrive = () => undefined;
+  const sleeper = world.spawn({ ...character, behavior: { ...character.behavior, napChance: 1 } }, room, spot);
+  t.mock.method(bench, 'breakOnUse', () => false);
+
+  sleeper.setPlan(world, [rest(sleeper, spot, world, 'free')]);
+  sleeper.spot = spot;
+  world.update(0);
+  assert.equal(sleeper.napping, true);
+  assert.equal(sleeper.sitting, true);
+  assert.equal(sleeper.activity, 'Napping');
+
+  // Expiring the nap ends the seated rest cleanly on the next awake tick.
+  const remaining = sleeper.statuses.get('napping').remaining;
+  world.update(remaining);
+  assert.equal(sleeper.napping, false);
+  world.update(0);
+  assert.equal(sleeper.sitting, false);
+
+  // Waking via camera ping ends the seated rest on the next tick too.
+  sleeper.setPlan(world, [rest(sleeper, spot, world, 'free')]);
+  sleeper.spot = spot;
+  world.update(0);
+  assert.equal(sleeper.napping, true);
+  assert.equal(world.interact(sleeper), 'woke');
+  assert.equal(sleeper.napping, false);
+  world.update(0);
+  assert.equal(sleeper.sitting, false);
+
+  // Breaking the seat mid-nap wakes the agent and releases the spot.
+  sleeper.setPlan(world, [rest(sleeper, spot, world, 'free')]);
+  sleeper.spot = spot;
+  world.update(0);
+  assert.equal(sleeper.napping, true);
+  bench.break();
+  world.update(0.1);
+  assert.equal(sleeper.napping, false);
+  assert.equal(sleeper.spot, undefined);
+});
+
+test('custom wakeable and activity-priority definitions drive waking and activity labels generically', (t) => {
+  const daydream = register(t, 'test-daydream', {
+    targets: ['agent'],
+    blocksActions: true,
+    wakeable: true,
+    activity: { label: 'Daydreaming', priority: 10 },
+  });
+  const trance = register(t, 'test-trance', {
+    targets: ['agent'],
+    blocksActions: true,
+    wakeable: true,
+    activity: { label: 'In a trance', priority: 30 },
+  });
+  const room = makeRoom();
+  const world = new World({ rooms: [room], roster: [] });
+  const agent = world.spawn(character, room, { x: 30, y: 80 });
+  agent.statuses.apply(daydream);
+  assert.equal(agent.activity, 'Daydreaming');
+  assert.equal(agent.incapacitated, false);
+  assert.equal(agent.busy, true);
+  agent.statuses.apply(trance);
+  assert.equal(agent.activity, 'In a trance');
+  assert.equal(world.interact(agent), 'woke');
+  assert.equal(agent.statuses.has(daydream), false);
+  assert.equal(agent.statuses.has(trance), false);
 });

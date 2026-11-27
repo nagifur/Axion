@@ -137,6 +137,30 @@ test('exhausted popup is identified for its larger artwork', (t) => {
   assert.equal(statuses.children[0].children[0].src, STATUS_EFFECTS.exhausted.popup.icon);
 });
 
+test('napping artwork exists and renders as a status popup without replacing speech bubbles', async (t) => {
+  await access(new URL(STATUS_EFFECTS.napping.popup.icon));
+  const svg = await readFile(new URL(STATUS_EFFECTS.napping.popup.icon));
+  const { data, info } = await sharp(svg).resize(16, 16).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let visiblePixels = 0;
+  for (let i = 3; i < data.length; i += info.channels) if (data[i] >= 128) visiblePixels++;
+  assert.ok(visiblePixels > 0, 'napping icon has visible artwork');
+
+  const { agent, button, statuses, bubble, sync } = setup(t);
+  agent.say('?', 5);
+  agent.statuses.apply('napping');
+  sync();
+  assert.equal(statuses.children.length, 1);
+  assert.equal(statuses.children[0].getAttribute('data-status'), 'napping');
+  assert.equal(statuses.children[0].children[0].src, STATUS_EFFECTS.napping.popup.icon);
+  assert.equal(statuses.children[0].children[0].alt, 'Napping');
+  assert.equal(button.getAttribute('aria-label'), 'Tester. Napping. Open file');
+  assert.equal(bubble.textContent, '?');
+  agent.statuses.wake();
+  sync();
+  assert.equal(statuses.children.length, 0);
+  assert.equal(button.getAttribute('aria-label'), 'Tester. Open file');
+});
+
 test('status tags share character visibility, dragging and removed-agent cleanup', (t) => {
   const { agent, world, button, statuses, sync, hide } = setup(t);
   agent.statuses.apply('shocked');

@@ -26,8 +26,8 @@ function hasWitness(world: World, actor: VoreActor, room: Room): boolean {
 /** An urgent activity or an immediate threat always wins over disposal. */
 function calmForDisposal(actor: VoreActor, world: World): boolean {
   if (!(actor instanceof Agent)) return actor.idle;
-  return actor.exposed && !actor.dead && !actor.incapacitated &&
-    !actor.napping && !actor.conversation && !actor.staffEscort && !actor.security?.target && !actor.urgent &&
+  return actor.exposed && !actor.dead && !actor.statuses.blocksActions &&
+    !actor.conversation && !actor.staffEscort && !actor.security?.target && !actor.urgent &&
     !actor.statuses.has('scared') && !world.creaturesIn(actor.room).some((creature) => creature.loose);
 }
 
