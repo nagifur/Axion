@@ -349,8 +349,8 @@ export class VoreSystem {
     this.release(actor);
     if (actor instanceof Agent) {
       actor.finishDeath(world);
-      world.agents = world.agents.filter((other) => other !== actor);
       if (actor.security && world.elevatorFor(actor.security.post)) world.staffSecurityPost(actor.security.post);
+      world.agents = world.agents.filter((other) => other !== actor);
     }
     const items = actor instanceof Agent ? actor.takeAllItems() : [];
     const remains = new Remains({ actor, type: null, form, disposal: outcomeFor(null, form).disposal, items, wait: 0 });

@@ -6,7 +6,7 @@ import type { Door, Room } from './room.ts';
 import { stepTowardRoom } from './routing.ts';
 import { scheduleFor } from './schedule.ts';
 import { wait, walkTo } from './tasks.ts';
-import { exitThroughDoor, rideElevatorOut } from './transport.ts';
+import { exitThroughDoor, leaveFacility, rideElevatorOut } from './transport.ts';
 import type { World } from './world.ts';
 import { planRemainsDisposal } from './remainsDisposal.ts';
 
@@ -50,7 +50,13 @@ function escortHome(agent: Agent, world: World, creature: Creature): Task {
 /** Prioritize local calls, keep claims through door transitions, and finish escorts before changing shift. */
 export function planSecurity(agent: Agent, world: World, duty: SecurityDuty): Task[] {
   const { post, target } = duty;
-  if (duty.relieved) return [rideElevatorOut()];
+  if (duty.relieved) {
+    if (agent.room === post && post.elevator && post.canReach(agent, post.elevator.front)) {
+      agent.leaving = true;
+      return [rideElevatorOut()];
+    }
+    return leaveFacility(agent, world);
+  }
 
   if (target?.escort === agent) {
     if (agent.room !== target.home) return [escortHome(agent, world, target)];

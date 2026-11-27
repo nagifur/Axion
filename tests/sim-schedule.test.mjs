@@ -168,6 +168,22 @@ for (const roomId of ['level-0-main-entrance', 'level-0-lookout']) {
   }
 }
 
+test('a guard travelling between floors still owns their security post', async () => {
+  const rooms = (await loadFacility()).map((data) => new Room(data));
+  const world = new World({ rooms, roster: [], now: () => at(12) });
+  const post = world.room('level-0-main-entrance');
+  const destination = world.elevatorStops(post)[0];
+  assert.ok(destination);
+  const guard = world.staffSecurityPost(post, true);
+  world.elevatorDeparted(guard, destination);
+
+  assert.equal(world.isRiding(guard), true);
+  assert.equal(world.agents.includes(guard), false);
+  assert.equal(world.staffSecurityPost(post), guard);
+  assert.equal(guard.security.relieved, false);
+  assert.deepEqual(world.everyone().filter((agent) => agent.security?.post === post), [guard]);
+});
+
 test('work floors use available clearance levels, including unknown and Admin clearances', () => {
   const rooms = [makeRoom('surface', 0), makeRoom('one', 1), makeRoom('three', 3), makeRoom('five', 5)];
   const world = new World({ rooms, roster: [] });

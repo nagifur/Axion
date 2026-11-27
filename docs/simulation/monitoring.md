@@ -274,8 +274,10 @@ Resistance pauses during doorway fades and stops once the creature reaches home.
 Initial guards start at their posts when the cameras are populated. At shift
 change the guard finishes any escort, returns to post, calls in a replacement,
 and leaves by elevator. The replacement queues an elevator arrival, steps out,
-and walks to the post, including after debug clock changes. Guards count on camera, but not towards the
-staff population target, duplicate-badge events, or roster identification.
+and walks to the post, including after debug clock changes. A swallowed or dead
+guard gives up the post when it is re-staffed; if they return or are revived,
+they leave instead of joining their replacement. Guards count on camera, but not
+towards the staff population target, duplicate-badge events, or roster identification.
 Select a guard to see their badge, shift, assigned post, traits and live stats;
 there is no database page.
 

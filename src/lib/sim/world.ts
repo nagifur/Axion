@@ -276,8 +276,12 @@ export class World {
   }
 
   staffSecurityPost(post: Room, initial = false) {
-    const assigned = this.everyone().find((agent) =>
-      !agent.dead && !agent.swallowed && agent.security?.post === post && !agent.security.relieved);
+    const guards = this.everyone().filter((agent) =>
+      !agent.removed && agent.security?.post === post && !agent.security.relieved);
+    const assigned = guards.find((agent) => !agent.dead && !agent.swallowed);
+    for (const guard of guards) {
+      if (guard.security && (guard.dead || guard.swallowed)) guard.security.relieved = true;
+    }
     if (assigned) return assigned;
     const character = generateNpc(this.nextNpcBadge++, {
       position: 'Security guard', accessLevel: String(post.level), schedule: securitySchedule(this.now()),

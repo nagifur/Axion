@@ -11,7 +11,7 @@ import { planRemainsDisposal } from '../src/lib/sim/remainsDisposal.ts';
 import { Renderer } from '../src/lib/sim/render.ts';
 import { toSimCharacter, toSimCreature } from '../src/lib/sim/roster.ts';
 import { Room } from '../src/lib/sim/room.ts';
-import { loadRoom } from '../src/lib/sim/roomLoader.ts';
+import { loadFacility, loadRoom } from '../src/lib/sim/roomLoader.ts';
 import { STATUS_EFFECTS, statusPopups } from '../src/lib/sim/statusEffects.ts';
 import { wait, walkTo } from '../src/lib/sim/tasks.ts';
 import {
@@ -1243,6 +1243,64 @@ test('swallowing a guard has the post staffed again, and whoever they were escor
   assert.equal(thing.escort, undefined);
   assert.equal(meal.security.target, undefined);
 });
+
+for (const situation of [
+  'spat out at post', 'spat out in another room', 'spat out behind a broken door', 'restored from remains', 'revived',
+]) {
+  test(`a replacement keeps the post when the original guard is ${situation}`, async () => {
+    setRandomSource(() => 0.99);
+    const rooms = (await loadFacility()).map((data) => new Room(data));
+    const world = new World({ rooms, roster: [], now: () => new Date(2026, 0, 1, 12) });
+    const post = world.room('level-3-main-entrance');
+    const hall = world.room('level-3-heavy-containment-room');
+    const original = world.staffSecurityPost(post, true);
+    let replacement;
+    let blockedDoor;
+
+    if (situation.startsWith('spat out')) {
+      const pred = standing(world, post, person('pred', ['Predator'], '6 m'), original);
+      assert.equal(world.vore.swallow(pred, original, 'oral'), true);
+      replacement = world.agents.find((agent) => agent.security?.post === post);
+      if (situation !== 'spat out at post') {
+        pred.room = hall;
+        const door = hall.doors.find(({ id }) => id === 'south');
+        Object.assign(pred, hall.nearestWalkable(door.inside));
+        if (situation.endsWith('broken door')) {
+          blockedDoor = world.passageDoorFor(door);
+          blockedDoor.break();
+        }
+      }
+      assert.equal(world.vore.spitOut(original), true);
+    } else if (situation === 'restored from remains') {
+      original.statuses.apply('bones');
+      world.update(0.1);
+      replacement = world.agents.find((agent) => agent.security?.post === post);
+      original.statuses.remove('bones');
+      original.statuses.remove('dead');
+    } else {
+      original.statuses.apply('dead');
+      replacement = world.staffSecurityPost(post);
+      original.statuses.remove('dead');
+    }
+
+    assert.ok(replacement && replacement !== original);
+    assert.equal(original.security.relieved, true, 'the original no longer owns the post');
+    assert.equal(replacement.security.relieved, false);
+    if (blockedDoor) {
+      step(world, 8);
+      assert.equal(original.activity, 'Waiting for an exit');
+      assert.equal(original.removed, false);
+      blockedDoor.repair();
+    }
+    for (let i = 0; i < 1800 && (!original.removed || replacement.activity !== 'Guarding the elevator'); i++) {
+      world.update(0.1);
+    }
+    assert.equal(original.removed, true, `${original.activity} in ${original.room.name}`);
+    assert.equal(replacement.activity, 'Guarding the elevator');
+    assert.deepEqual(world.everyone().filter((agent) => agent.security?.post === post), [replacement]);
+    assert.equal(world.staffSecurityPost(post), replacement, 'the departing guard does not spawn another replacement');
+  });
+}
 
 test('creature prey leave their cell until spat out, and are gone for good once absorbed', () => {
   const { world, hall, logs, pred } = duel();
