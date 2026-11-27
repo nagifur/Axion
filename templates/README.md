@@ -46,7 +46,7 @@ In monitoring, `vorePreference` on personnel and entities decides who swallows w
 Height therefore matters: use a `height` the simulation can read, such as `5'8"` or
 `{{5'8"|1.73 m}}`; an unknown height counts as 1.9 m. Swallowed characters take acid
 damage, are digested and absorbed, and leave remains behind. See
-[The Vore System](../docs/DEVELOPMENT.md#the-vore-system) for the full rules.
+[The Vore System](../docs/simulation/behavior.md#the-vore-system) for the full rules.
 
 ## Importing a submission from a zip
 
