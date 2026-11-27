@@ -56,8 +56,8 @@ function setup(t) {
   const root = document.createElement('div');
   const world = { isRiding: () => false, everyone: () => [], creatures: [], rooms: [room] };
   const hud = new VitalsHud(root, world);
-  const statusList = root.children[2];
-  return { running, root, hud, statusList };
+  const [permanentList, statusList] = root.children.slice(2);
+  return { running, root, hud, permanentList, statusList };
 }
 
 test('health bar shifts green to orange to red, and mana only shows for magic users', () => {
@@ -91,13 +91,14 @@ test('status badges carry polarity and time left, skip hidden effects, and fall 
   const agent = makeAgent('Tester');
   agent.statuses.apply('test-boost');
   agent.statuses.update({}, 1);
-  agent.statuses.apply('digested');
-  agent.statuses.apply('dead');
-  assert.deepEqual(statusBadges(agent.statuses.active).map(({ id }) => id), ['test-boost', 'digested'], 'digested replaces Dead');
-  const [boost] = statusBadges(agent.statuses.active);
+  agent.statuses.apply('bones');
+  assert.equal(agent.dead, true, 'becoming remains kills');
+  assert.deepEqual(statusBadges(agent.statuses.active).map(({ id }) => id), ['test-boost', 'bones'], 'bones replaces Dead');
+  const [boost, bones] = statusBadges(agent.statuses.active);
   assert.equal(boost.polarity, 'positive');
   assert.equal(boost.color, STATUS_POLARITIES.positive.color);
   assert.equal(boost.timeLeft, 0.75);
+  assert.deepEqual([boost.permanent, bones.permanent, bones.timeLeft], [false, true, null]);
 });
 
 test('status rows slide out, slide back when reapplied, and reset for a new selection', async (t) => {
@@ -138,4 +139,18 @@ test('status rows slide out, slide back when reapplied, and reset for a new sele
   hud.render(null, room, 96);
   assert.equal(root.classes.has('is-shown'), false);
   assert.equal(statusList.children.length, 1, 'the last actor stays visible while the panel slides away');
+});
+
+test('permanent effects get their own tagged group above the ones that pass', (t) => {
+  const { hud, permanentList, statusList } = setup(t);
+  const agent = makeAgent('Tester');
+  agent.statuses.apply('scared');
+  hud.render(agent, room, 0);
+  agent.statuses.apply('dead');
+  hud.render(agent, room, 16);
+  assert.deepEqual(permanentList.children.map((node) => node.getAttribute('data-status')), ['dead']);
+  assert.deepEqual(statusList.children.map((node) => node.getAttribute('data-status')), ['scared']);
+  const [dead] = permanentList.children;
+  assert.match(dead.className, /\bis-permanent\b/);
+  assert.equal(dead.children.at(-1).textContent, 'Permanent');
 });

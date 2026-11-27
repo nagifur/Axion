@@ -33,6 +33,13 @@ export interface StatusEffectDefinition {
   popup?: { icon?: string; color: string; background?: string };
   /** Popups of these effects stay hidden while this one is active. */
   hidesPopups?: readonly string[];
+  /** Applying this removes these (removable) effects: a later stage superseding earlier ones, like acid → absorbing. */
+  replaces?: readonly string[];
+  /**
+   * An end state: the target *is* a remains pile with this artwork (src/sim_assets/remains/<look>.png) from now on.
+   * The vore system turns anyone with such a status into the pile; VORE_TYPES outcomes name which one prey become.
+   */
+  remains?: { look: string };
   /** Pauses the target actor's tasks and movement while active. */
   blocksActions?: boolean;
   /** Additional trip probability per walking second. */
@@ -54,11 +61,22 @@ export const SHOCK_SECONDS = 2;
 export const SCARED_SECONDS = 10;
 export const EXHAUSTED_SECONDS = 5;
 
-/** What swallowed prey turn into once the acid is done with them; the outcome picks which. */
-function convertedStatus(label: string, color: string, background: string): StatusEffectDefinition {
+const isActor = (target: StatusTarget): target is Extract<StatusTarget, { kind: 'agent' | 'creature' }> =>
+  target.kind === 'agent' || target.kind === 'creature';
+
+/**
+ * What someone ends up as: absorbed prey, or anyone given the status directly. It kills them, and the vore
+ * system then turns them into the pile. Shapeshifters in disguise can't be turned, and nobody becomes two piles.
+ */
+function remainsForm(label: string, look: string, icon: string, color: string, background: string): StatusEffectDefinition {
   return {
     label, polarity: 'negative', targets: ['agent', 'creature'], blocksActions: true, irreversible: true,
-    hidesPopups: ['dead'], popup: { color, background },
+    remains: { look }, replaces: ['acid', 'absorbing'], hidesPopups: ['dead'], popup: { icon, color, background },
+    canApply: (target) => isActor(target) && !target.entity.statuses.remainsForm &&
+      !(target.kind === 'agent' && target.entity.impostor),
+    onApply(target) {
+      if (isActor(target)) target.entity.statuses.apply('dead');
+    },
   };
 }
 
@@ -159,10 +177,28 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
       stats.hp.current -= VORE_TUNING.acidDps * digestion * dt;
     },
   },
-  digested: convertedStatus('Digested', '#a8c23a', 'rgba(44, 52, 10, 0.92)'),
-  cumified: convertedStatus('Cumified', '#f1efe2', 'rgba(70, 68, 58, 0.92)'),
-  urine: convertedStatus('Turned into urine', '#f7d54b', 'rgba(76, 62, 10, 0.92)'),
-  milkified: convertedStatus('Milkified', '#bfe2ff', 'rgba(24, 48, 70, 0.92)'),
+  // Digested prey while their predator absorbs them. The vore system applies it for the absorption's length and
+  // finishes absorbing when it runs out or is removed; applying it to living prey digests them on the spot.
+  absorbing: {
+    label: 'Being absorbed',
+    polarity: 'negative',
+    targets: ['agent', 'creature'],
+    blocksActions: true,
+    replaces: ['acid'],
+    hidesPopups: ['dead'],
+    popup: { color: '#a8c23a', background: 'rgba(44, 52, 10, 0.92)' },
+    canApply: (target) => isActor(target) && target.entity.vore.inside !== null,
+  },
+  bones: remainsForm('Bones', 'bones', new URL('../../sim_assets/remains/bones.png', import.meta.url).href,
+    '#e8e0cc', 'rgba(60, 54, 44, 0.92)'),
+  scat: remainsForm('Scat', 'scat', new URL('../../sim_assets/remains/scat.png', import.meta.url).href,
+    '#c08a4f', 'rgba(54, 34, 14, 0.92)'),
+  urine: remainsForm('Urine', 'pee', new URL('../../sim_assets/remains/pee.png', import.meta.url).href,
+    '#f7d54b', 'rgba(76, 62, 10, 0.92)'),
+  cum: remainsForm('Cum', 'cum', new URL('../../sim_assets/remains/cum.png', import.meta.url).href,
+    '#f1efe2', 'rgba(70, 68, 58, 0.92)'),
+  milk: remainsForm('Milk', 'milk', new URL('../../sim_assets/remains/milk.png', import.meta.url).href,
+    '#bfe2ff', 'rgba(24, 48, 70, 0.92)'),
 };
 
 /** Active effects minus any that another active effect hides; name-tag popups and the vitals HUD both use it. */
@@ -231,6 +267,12 @@ export class StatusEffects {
     return false;
   }
 
+  /** The remains status this target has become, if any. */
+  get remainsForm(): string | undefined {
+    for (const [id, { definition }] of this.effects) if (definition.remains) return id;
+    return undefined;
+  }
+
   get actionBlockRemaining(): number {
     let remaining = 0;
     for (const effect of this.effects.values()) {
@@ -260,6 +302,7 @@ export class StatusEffects {
     if (!definition.targets.includes(this.target.kind) || definition.canApply?.(this.target) === false) return false;
     const existing = this.effects.get(id);
     if (existing && existing.remaining === null && seconds === undefined) return false;
+    for (const replaced of definition.replaces ?? []) this.remove(replaced);
     this.effects.set(id, { definition, remaining: seconds ?? null, duration: seconds ?? null });
     if (!existing) {
       this.changed?.(id, true);

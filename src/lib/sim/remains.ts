@@ -2,13 +2,17 @@ import type { Item } from './item.ts';
 import { GRAVITY } from './particles.ts';
 import type { Room } from './room.ts';
 import { DEFAULT_SCALE } from './roster.ts';
-import type { VoreActor, VoreOutcome, VoreType } from './vore.ts';
+import { STATUS_EFFECTS } from './statusEffects.ts';
+import type { VoreActor, VoreDisposal, VoreType } from './vore.ts';
 
 interface RemainsData {
   /** Who this was; clicking the pile pulls up their file. */
   actor: VoreActor;
-  type: VoreType;
-  outcome: Pick<VoreOutcome, 'look' | 'label' | 'disposal'>;
+  /** How they were swallowed; null when they turned into remains without a predator. */
+  type: VoreType | null;
+  /** Their remains status (a STATUS_EFFECTS entry with `remains`), which gives the pile its artwork and name. */
+  form: string;
+  disposal: VoreDisposal;
   items: Item[];
   /** Seconds before the predator prioritizes getting rid of them. */
   wait: number;
@@ -18,17 +22,18 @@ interface RemainsData {
 const REMAINS_SETTLE_SPEED = 20;
 
 /**
- * What is left of someone once they've been absorbed. No longer an agent or creature, but still the
- * same character profile (id, name, traits). The predator keeps it until it disposes of it, which
- * drops the pile on the floor with everything the prey was holding beside it.
+ * What is left of someone once they've been absorbed, or given a remains status directly. No longer an agent
+ * or creature, but still the same character profile (id, name, traits). A predator keeps it until it disposes
+ * of it, which drops the pile on the floor with everything the prey was holding beside it.
  */
 export class Remains {
   readonly actor: VoreActor;
-  readonly type: VoreType;
+  readonly type: VoreType | null;
+  readonly form: string;
   /** Artwork name: src/sim_assets/remains/<look>.png */
   readonly look: string;
   readonly label: string;
-  readonly disposal: VoreOutcome['disposal'];
+  readonly disposal: VoreDisposal;
   /** Everything they were carrying or had stored; dropped next to the pile. */
   readonly items: Item[];
   wait: number;
@@ -39,13 +44,14 @@ export class Remains {
   flight: { lift: number; vx: number; vlift: number; bounce: number; depth: number } | null = null;
 
   constructor(data: RemainsData) {
-    const { look, label, disposal } = data.outcome;
+    const definition = Object.hasOwn(STATUS_EFFECTS, data.form) ? STATUS_EFFECTS[data.form] : undefined;
+    if (!definition?.remains) throw new Error(`"${data.form}" is not a remains status. Give its STATUS_EFFECTS entry a "remains" look.`);
     this.actor = data.actor;
     this.type = data.type;
-    this.look = look;
-    const name = look.replaceAll('_', ' ');
-    this.label = label ?? name.slice(0, 1).toUpperCase() + name.slice(1);
-    this.disposal = disposal;
+    this.form = data.form;
+    this.look = definition.remains.look;
+    this.label = definition.label;
+    this.disposal = data.disposal;
     this.items = data.items;
     this.wait = data.wait;
   }

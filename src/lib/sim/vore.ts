@@ -36,28 +36,26 @@ export interface VoreFighter {
 }
 
 export interface VoreOutcome {
-  /** Artwork of the remains pile: src/sim_assets/remains/<look>.png. */
-  look: string;
+  /** The remains status prey end up with (see `remains` in STATUS_EFFECTS); it sets the pile's artwork and name. */
+  remains: string;
   /** Relative chance among this type's outcomes. */
   weight: number;
-  /** Optional display name when the artwork filename is not the desired label. */
-  label?: string;
-  /** Status applied when digestion finishes. */
-  converted: string;
-  disposal: {
-    activity: string;
-    seconds: number;
-    /**
-     * Particle set shot out in spurts `every` seconds during the last `seconds` of the activity, from the
-     * body's `from` side (default front) at `height` (share of sprite height above the feet, default 0.4).
-     */
-    release?: { set: string; seconds: number; every: number; from?: 'front' | 'back'; height?: number };
-    /**
-     * Throws the finished pile from the release point instead of placing it: `speed` sideways toward the
-     * release side and `up` upward (room pixels per second), keeping `bounce` of its fall speed on landing.
-     */
-    toss?: { speed: number; up: number; bounce: number };
-  };
+  disposal: VoreDisposal;
+}
+
+export interface VoreDisposal {
+  activity: string;
+  seconds: number;
+  /**
+   * Particle set shot out in spurts `every` seconds during the last `seconds` of the activity, from the
+   * body's `from` side (default front) at `height` (share of sprite height above the feet, default 0.4).
+   */
+  release?: { set: string; seconds: number; every: number; from?: 'front' | 'back'; height?: number };
+  /**
+   * Throws the finished pile from the release point instead of placing it: `speed` sideways toward the
+   * release side and `up` upward (room pixels per second), keeping `bounce` of its fall speed on landing.
+   */
+  toss?: { speed: number; up: number; bounce: number };
 }
 
 export interface VoreTypeDefinition {
@@ -77,11 +75,11 @@ export const VORE_TYPES = {
   oral: {
     label: 'Oral vore', weight: 6,
     outcomes: [
-      { look: 'bones', weight: 1, converted: 'digested', disposal: {
+      { remains: 'bones', weight: 1, disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'bone', seconds: 3, every: 1.4, from: 'back', height: 0.35 },
         toss: { speed: 22, up: 15, bounce: 0.35 },
       } },
-      { look: 'scat', weight: 1, converted: 'digested', disposal: {
+      { remains: 'scat', weight: 1, disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'poo', seconds: 3, every: 1.2, from: 'back', height: 0.35 },
         toss: { speed: 14, up: 0, bounce: 0.2 },
       } },
@@ -91,11 +89,11 @@ export const VORE_TYPES = {
   cock: {
     label: 'Cock vore', weight: 1,
     outcomes: [
-      { look: 'pee', label: 'Urine', weight: 5, converted: 'urine', disposal: {
+      { remains: 'urine', weight: 5, disposal: {
         activity: 'Urinating', seconds: 12, release: { set: 'pee', seconds: 3, every: 0.1 },
         toss: { speed: 20, up: 15, bounce: 0 },
       } },
-      { look: 'cum', weight: 95, converted: 'cumified', disposal: {
+      { remains: 'cum', weight: 95, disposal: {
         activity: 'Jerking Off', seconds: 20, release: { set: 'cum', seconds: 3, every: 0.45 },
         toss: { speed: 25, up: 20, bounce: 0 },
       } },
@@ -105,11 +103,11 @@ export const VORE_TYPES = {
   anal: {
     label: 'Anal vore', weight: 1,
     outcomes: [
-      { look: 'bones', weight: 1, converted: 'digested', disposal: {
+      { remains: 'bones', weight: 1, disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'bone', seconds: 3, every: 1.4, from: 'back', height: 0.35 },
         toss: { speed: 22, up: 15, bounce: 0.35 },
       } },
-      { look: 'scat', weight: 1, converted: 'digested', disposal: {
+      { remains: 'scat', weight: 1, disposal: {
         activity: 'Defecating', seconds: 12, release: { set: 'poo', seconds: 3, every: 1.2, from: 'back', height: 0.35 },
         toss: { speed: 14, up: 0, bounce: 0.2 },
       } },
@@ -119,7 +117,7 @@ export const VORE_TYPES = {
   breast: {
     label: 'Breast vore', weight: 1,
     outcomes: [
-      { look: 'milk', weight: 1, converted: 'milkified', disposal: {
+      { remains: 'milk', weight: 1, disposal: {
         activity: 'Milking themselves', seconds: 12, release: { set: 'milk', seconds: 3, every: 0.1, height: 0.6 },
         toss: { speed: 10, up: 0, bounce: 0 },
       } },
@@ -179,7 +177,7 @@ export const VORE_TUNING = {
   dazedSeconds: 3,
   /** Acid damage per second while inside. */
   acidDps: 2,
-  /** Seconds the predator spends absorbing digested prey. */
+  /** Seconds the predator spends absorbing digested prey (divided by the type's `absorption`). */
   absorbSeconds: 45,
   /** Share of the prey's max HP the predator heals while absorbing. */
   healFraction: 1,
@@ -353,14 +351,34 @@ export function pickRemainsOutcome(type: VoreType): VoreOutcome {
   return outcome;
 }
 
+/** How a predator gets rid of remains no VORE_TYPES outcome describes. */
+export const FALLBACK_DISPOSAL: VoreDisposal = { activity: 'Disposing of remains', seconds: 12 };
+
+/**
+ * The outcome that leaves `remains` behind, for prey given a remains status directly: this way of swallowing's
+ * own outcome when it has one, else any type's (for its disposal activity), else a plain disposal.
+ */
+export function outcomeFor(type: VoreType | null, remains: string): VoreOutcome {
+  const own: readonly VoreOutcome[] = type ? VORE_TYPES[type].outcomes : [];
+  const any: readonly VoreOutcome[] = VORE_TYPE_IDS.flatMap((id) => VORE_TYPES[id].outcomes);
+  return own.find((outcome) => outcome.remains === remains) ?? any.find((outcome) => outcome.remains === remains) ??
+    { remains, weight: 0, disposal: FALLBACK_DISPOSAL };
+}
+
+/** Seconds a predator spends absorbing digested prey swallowed this way. */
+export function absorbSeconds(type: VoreType): number {
+  return Math.max(0.001, VORE_TUNING.absorbSeconds / VORE_TYPES[type].absorption);
+}
+
 /** A prey who is currently being digested or absorbed by its predator. */
 export interface Ingestion {
   readonly predator: VoreActor;
   readonly prey: VoreActor;
   readonly type: VoreType;
+  /** While absorbing, the prey's `absorbing` status times the stage; `left` is its remaining time when last seen. */
   phase:
     | { kind: 'digesting'; action: ReturnType<typeof startInsideAction> }
-    | { kind: 'absorbing'; elapsed: number; outcome: VoreOutcome };
+    | { kind: 'absorbing'; total: number; left: number; outcome: VoreOutcome };
 }
 
 export interface AbsorptionEvent {

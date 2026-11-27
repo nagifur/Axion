@@ -82,17 +82,20 @@ export interface StatusBadge {
   color: string;
   /** Fraction of a timed effect still to run; null while permanent. */
   timeLeft: number | null;
+  /** Irreversible: it never ends, so the HUD sets it apart above the passing effects. */
+  permanent: boolean;
 }
 
 /** One HUD row per visible effect, in the order they were applied. */
 export function statusBadges(active: readonly ActiveStatusEffect[]): StatusBadge[] {
   return shownStatuses(active).map(({ id, label, polarity, remaining, duration }) => {
-    const popup = STATUS_EFFECTS[id]?.popup;
+    const definition = STATUS_EFFECTS[id];
     return {
       id, label, polarity,
-      icon: popup?.icon,
-      color: popup?.color ?? STATUS_POLARITIES[polarity].color,
+      icon: definition?.popup?.icon,
+      color: definition?.popup?.color ?? STATUS_POLARITIES[polarity].color,
       timeLeft: remaining !== null && duration ? Math.min(1, remaining / duration) : null,
+      permanent: !!definition?.irreversible,
     };
   });
 }
@@ -165,6 +168,8 @@ export class VitalsHud {
   private readonly name: HTMLElement;
   private readonly where: HTMLElement;
   private readonly barList: HTMLElement;
+  /** Irreversible effects sit in their own group above the ones that will pass. */
+  private readonly permanentList: HTMLElement;
   private readonly statusList: HTMLElement;
 
   constructor(root: HTMLElement, world: World) {
@@ -175,9 +180,11 @@ export class VitalsHud {
     this.where = el('span', 'monitor-vitals-where');
     this.head.append(this.name, this.where);
     this.barList = el('div', 'monitor-vitals-bars');
+    this.permanentList = el('ul', 'monitor-vitals-statuses is-permanent');
+    this.permanentList.setAttribute('aria-label', 'Permanent effects');
     this.statusList = el('ul', 'monitor-vitals-statuses');
     this.statusList.setAttribute('aria-label', 'Status effects');
-    root.replaceChildren(this.head, this.barList, this.statusList);
+    root.replaceChildren(this.head, this.barList, this.permanentList, this.statusList);
     root.setAttribute('aria-hidden', 'true');
   }
 
@@ -283,7 +290,7 @@ export class VitalsHud {
       if (!row) {
         row = this.createRow(badge, stagger ? index : 0);
         this.rows.set(badge.id, row);
-        this.statusList.append(row.node);
+        (badge.permanent ? this.permanentList : this.statusList).append(row.node);
       }
       const timeLeft = badge.timeLeft === null ? '' : badge.timeLeft.toFixed(3);
       if (timeLeft !== row.timeLeft) {
@@ -294,8 +301,8 @@ export class VitalsHud {
     });
   }
 
-  private createRow({ id, label, polarity, icon, color }: StatusBadge, order: number): StatusRow {
-    const node = el('li', 'monitor-vitals-status');
+  private createRow({ id, label, polarity, icon, color, permanent }: StatusBadge, order: number): StatusRow {
+    const node = el('li', `monitor-vitals-status${permanent ? ' is-permanent' : ''}`);
     node.setAttribute('data-status', id);
     node.setAttribute('data-polarity', polarity);
     node.style.setProperty('--status-color', color);
@@ -316,6 +323,7 @@ export class VitalsHud {
     timer.hidden = true;
     text.append(timer);
     node.append(sign, text);
+    if (permanent) node.append(el('span', 'monitor-vitals-permanent-tag', 'Permanent'));
     return { node, timer, leaving: false, timeLeft: '' };
   }
 

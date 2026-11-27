@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
 import test, { afterEach } from 'node:test';
 import { ATTACK_CHANCE, CREATURE_TUNING, Creature } from '../src/lib/sim/creature.ts';
 import { Item } from '../src/lib/sim/item.ts';
@@ -99,7 +100,7 @@ const step = (world, seconds, dt = 0.1) => {
 
 function holdRemains(predator, prey, type = 'oral', waitSeconds = 0) {
   const outcome = VORE_TYPES[type].outcomes.at(-1);
-  const remains = new Remains({ actor: prey, type, outcome, items: [], wait: waitSeconds });
+  const remains = new Remains({ actor: prey, type, form: outcome.remains, disposal: outcome.disposal, items: [], wait: waitSeconds });
   predator.vore.remains.push(remains);
   return remains;
 }
@@ -534,13 +535,13 @@ test('remains outcomes use configured weights and exact probability boundaries',
     assert.equal(pickRemainsOutcome(type), definition.outcomes.at(-1));
   }
   setRandomSource(() => 0.049999);
-  assert.equal(pickRemainsOutcome('cock').look, 'pee');
+  assert.equal(pickRemainsOutcome('cock').remains, 'urine');
   setRandomSource(() => 0.05);
-  assert.equal(pickRemainsOutcome('cock').look, 'cum');
+  assert.equal(pickRemainsOutcome('cock').remains, 'cum');
   let urine = 0;
   for (let i = 0; i < 1000; i++) {
     setRandomSource(() => i / 1000);
-    if (pickRemainsOutcome('cock').look === 'pee') urine++;
+    if (pickRemainsOutcome('cock').remains === 'urine') urine++;
   }
   assert.equal(urine, 50, 'urine is 5% and cum is 95%');
 
@@ -548,13 +549,8 @@ test('remains outcomes use configured weights and exact probability boundaries',
   assert.throws(() => pickRemainsOutcome('oral'), /at least one outcome must have a positive weight/);
 });
 
-for (const [type, status, label] of [
-  ['oral', 'digested', 'Digested'],
-  ['cock', 'cumified', 'Cumified'],
-  ['anal', 'digested', 'Digested'],
-  ['breast', 'milkified', 'Milkified'],
-]) {
-  test(`${type} vore digests prey`, () => {
+for (const type of ['oral', 'cock', 'anal', 'breast']) {
+  test(`${type} vore digests prey, absorbs them, and leaves them as their remains status`, () => {
     const { world, logs, pred, meal } = duel();
     Object.assign(VORE_TUNING, { acidDps: 200, absorbSeconds: 2 });
     assert.equal(world.vore.swallow(pred, meal, type), true);
@@ -563,19 +559,23 @@ for (const [type, status, label] of [
     assert.equal(meal.dead, false);
     world.update(0.6);
     assert.equal(meal.dead, true);
-    assert.equal(meal.statuses.has(status), true);
-    assert.equal(meal.statuses.has('acid'), false);
+    assert.equal(meal.statuses.has('absorbing'), true);
+    assert.equal(meal.statuses.has('acid'), false, 'absorbing replaces the acid');
+    assert.equal(meal.statuses.get('absorbing').duration, 2, 'the status times the absorption');
     assert.equal(world.vore.active[0].phase.kind, 'absorbing');
     assert.equal(meal.activity, 'Being absorbed by pred');
     assert.equal(world.vore.spitOut(meal), false, 'too late to spit out');
-    assert.deepEqual(statusPopups(meal.statuses.active).map(({ id }) => id), [status], 'it replaces the death popup');
-    assert.ok(logs.some(({ text, tone }) => text === `meal was ${label.toLowerCase()} by pred.` && tone === 'warn'));
+    assert.deepEqual(statusPopups(meal.statuses.active).map(({ id }) => id), ['absorbing'], 'it replaces the death popup');
+    assert.ok(logs.some(({ text, tone }) => text === 'meal was digested by pred.' && tone === 'warn'));
 
     world.update(2.1);
     const [remains] = pred.vore.remains;
     assert.equal(remains.type, type);
-    assert.ok(VORE_TYPES[type].outcomes.some(({ look }) => look === remains.look));
+    assert.ok(VORE_TYPES[type].outcomes.some((outcome) => outcome.remains === remains.form));
     assert.equal(remains.asset, `remains:${remains.look}`);
+    assert.equal(meal.statuses.has('absorbing'), false);
+    assert.equal(meal.statuses.remainsForm, remains.form);
+    assert.deepEqual(statusPopups(meal.statuses.active).map(({ id }) => id), [remains.form], 'the remains status replaces Dead');
     assert.equal(followCameraRoom(world, meal), pred.room, 'following survives every kind of conversion');
   });
 }
@@ -808,14 +808,16 @@ for (const kind of ['staff', 'creature']) {
 
     setRandomSource(() => 0.01);
     world.update(0.6);
-    assert.equal(prey.statuses.has('urine'), true);
-    assert.equal(prey.statuses.has('cumified'), false);
-    assert.equal(prey.statuses.remove('urine'), false, 'conversion is irreversible');
-    assert.deepEqual(statusPopups(prey.statuses.active).map(({ id }) => id), ['urine']);
-    assert.ok(logs.some(({ text }) => text === 'meal was turned into urine by pred.'));
+    assert.equal(prey.statuses.has('absorbing'), true);
+    assert.equal(prey.statuses.has('urine'), false, 'the form is chosen now but taken once absorbed');
+    assert.ok(logs.some(({ text }) => text === 'meal was digested by pred.'));
 
     setRandomSource(() => 0.99);
     world.update(1.1);
+    assert.equal(prey.statuses.has('urine'), true);
+    assert.equal(prey.statuses.has('cum'), false);
+    assert.equal(prey.statuses.remove('urine'), false, 'remains are irreversible');
+    assert.deepEqual(statusPopups(prey.statuses.active).map(({ id }) => id), ['urine']);
     const [remains] = predator.vore.remains;
     assert.equal(remains.look, 'pee');
     assert.equal(remains.asset, 'remains:pee');
@@ -864,7 +866,7 @@ test('one predator disposes of different cock vore outcomes using their own acti
 
 for (const [kind, facing] of [['staff', 'right'], ['creature', 'left']]) {
   test(`${kind} releases each outcome's particles and tosses its pile toward its side at the end of disposal`, () => {
-    const expected = { bones: ['bone', -1], scat: ['poo', -1], pee: ['pee', 1], cum: ['cum', 1], milk: ['milk', 1] };
+    const expected = { bones: ['bone', -1], scat: ['poo', -1], urine: ['pee', 1], cum: ['cum', 1], milk: ['milk', 1] };
     for (const [type, { outcomes }] of Object.entries(VORE_TYPES)) {
       for (const outcome of outcomes) {
         const { world, hall } = setup();
@@ -873,31 +875,31 @@ for (const [kind, facing] of [['staff', 'right'], ['creature', 'left']]) {
         const predator = kind === 'staff'
           ? standing(world, hall, person('pred', ['Predator'], '6 m'), { x: 100, y: 100 })
           : addCreature(world, hall, beast('pred', ['Predator']), { x: 100, y: 100 });
-        const remains = new Remains({ actor: prey, type, outcome, items: [], wait: 0 });
+        const remains = new Remains({ actor: prey, type, form: outcome.remains, disposal: outcome.disposal, items: [], wait: 0 });
         predator.vore.remains.push(remains);
         const { seconds, release } = remains.disposal;
-        const [set, side] = expected[outcome.look];
-        assert.equal(release.set, set, outcome.look);
+        const [set, side] = expected[outcome.remains];
+        assert.equal(release.set, set, outcome.remains);
         const emitted = () => world.particles.in(hall).filter(({ asset }) => asset.startsWith(`particle:${set}_`));
         step(world, 0.5);
         predator.facing = facing;
         assert.equal(predator.activity, outcome.disposal.activity);
         step(world, seconds - release.seconds - 1);
-        assert.equal(emitted().length, 0, `${outcome.look}: nothing before the release window`);
+        assert.equal(emitted().length, 0, `${outcome.remains}: nothing before the release window`);
         step(world, 1.5);
-        assert.ok(emitted().length > 0, `${outcome.look}: particles start near the end`);
+        assert.ok(emitted().length > 0, `${outcome.remains}: particles start near the end`);
         const direction = (facing === 'right' ? 1 : -1) * side;
-        assert.ok(emitted().every(({ vx }) => vx * direction > 0), `${outcome.look}: particles fly toward the emitting side`);
+        assert.ok(emitted().every(({ vx }) => vx * direction > 0), `${outcome.remains}: particles fly toward the emitting side`);
         assert.ok(predator.vore.remains.includes(remains));
         for (let i = 0; i < 100 && !hall.remains.includes(remains); i++) world.update(0.05);
-        assert.ok(hall.remains.includes(remains), outcome.look);
-        assert.ok(remains.flight?.lift > 0, `${outcome.look}: the pile starts in the air`);
+        assert.ok(hall.remains.includes(remains), outcome.remains);
+        assert.ok(remains.flight?.lift > 0, `${outcome.remains}: the pile starts in the air`);
         const floor = remains.y;
         step(world, 2, 0.05);
-        assert.equal(remains.flight, null, `${outcome.look}: the pile settles`);
-        assert.equal(remains.y, floor, `${outcome.look}: it lands on the predator's floor line`);
-        assert.ok((remains.x - predator.x) * direction > 0, `${outcome.look}: the pile lands toward the release side`);
-        assert.ok(hall.isWalkable(remains), outcome.look);
+        assert.equal(remains.flight, null, `${outcome.remains}: the pile settles`);
+        assert.equal(remains.y, floor, `${outcome.remains}: it lands on the predator's floor line`);
+        assert.ok((remains.x - predator.x) * direction > 0, `${outcome.remains}: the pile lands toward the release side`);
+        assert.ok(hall.isWalkable(remains), outcome.remains);
       }
     }
   });
@@ -1270,7 +1272,7 @@ test('creature prey leave their cell until spat out, and are gone for good once 
   world.vore.swallow(pred, creature, 'oral');
   world.update(0.6);
   assert.equal(creature.dead, true);
-  assert.equal(creature.statuses.has('digested'), true);
+  assert.equal(creature.statuses.has('absorbing'), true);
   assert.equal(creature.activity, 'Being absorbed by pred');
   world.update(1.1);
   assert.equal(creature.consumed, true);
@@ -1280,6 +1282,7 @@ test('creature prey leave their cell until spat out, and are gone for good once 
   assert.equal(remains.id, 'thing');
   assert.equal(remains.actor, creature);
   assert.ok(['bones', 'scat'].includes(remains.look));
+  assert.equal(creature.statuses.remainsForm, remains.form, 'the creature keeps the status of what it became');
   assert.deepEqual(world.creaturesIn(hall), []);
 });
 
@@ -1512,16 +1515,120 @@ test('creature predators stalk their prey and swallow them', () => {
   }
 });
 
+// --- Remains statuses lead -----------------------------------------------------------------------
+
+test('applying a remains status turns someone on the floor into that pile, belongings beside it', () => {
+  const { world, hall, logs, meal } = duel();
+  const removed = [];
+  world.hooks.removed = (agent) => {
+    removed.push(agent);
+    assert.equal(followCameraRoom(world, agent), hall, 'the pile is trackable before notifying the monitor');
+  };
+  const can = Item.create('can');
+  meal.receiveItem(can);
+  assert.equal(meal.statuses.apply('bones'), true);
+  assert.equal(meal.dead, true, 'becoming remains kills at once');
+  world.update(0.1);
+
+  assert.deepEqual([meal.removed, world.agents.includes(meal), world.vore.consumed.has('meal')], [true, false, true]);
+  assert.deepEqual(removed, [meal]);
+  const [pile] = hall.remains;
+  assert.deepEqual([pile.actor, pile.form, pile.look, pile.label, pile.type], [meal, 'bones', 'bones', 'Bones', null]);
+  assert.equal(meal.vore.ownRemains, pile);
+  assert.deepEqual([pile.x, pile.y], [104, 100], 'at their feet');
+  assert.ok(hall.items.includes(can), 'their belongings land beside the pile');
+  assert.equal(meal.statuses.remove('bones'), false, 'remains are permanent');
+  assert.equal(meal.statuses.apply('scat'), false, 'nobody becomes two piles');
+  assert.ok(logs.some(({ text, tone }) => text === 'meal turned into bones in the hall.' && tone === 'warn'));
+  world.update(0.1);
+  assert.deepEqual(hall.remains, [pile], 'it happens once');
+});
+
+test('a creature given a remains status leaves that pile in its cell', () => {
+  const { world } = setup();
+  const cell = flatRoom('cell', true);
+  world.rooms.push(cell);
+  const creature = addCreature(world, cell, beast('thing', ['None']), { x: 60, y: 90 });
+  assert.equal(creature.statuses.apply('scat'), true);
+  world.update(0.1);
+  assert.deepEqual([creature.consumed, creature.dead, creature.onCamera], [true, true, false]);
+  assert.deepEqual(cell.remains.map(({ look }) => look), ['scat']);
+  assert.deepEqual(world.creaturesIn(cell), []);
+});
+
+test('a remains status applied to swallowed prey finishes them inside as that form', () => {
+  const { world, hall, pred, meal } = duel();
+  Object.assign(VORE_TUNING, { disposalDelay: { min: 600, max: 600 } });
+  pred.stats.hp.current = 50;
+  assert.equal(world.vore.swallow(pred, meal, 'cock'), true);
+  assert.equal(meal.statuses.apply('milk'), true);
+  assert.equal(meal.statuses.has('acid'), false, 'the remains status replaces the acid');
+  world.update(0.1);
+  const [pile] = pred.vore.remains;
+  assert.deepEqual([pile.form, pile.type], ['milk', 'cock']);
+  assert.equal(pile.disposal, VORE_TYPES.breast.outcomes[0].disposal, 'a form this type never makes borrows its disposal');
+  assert.deepEqual([world.vore.active.length, hall.remains.length, meal.removed], [0, 0, true]);
+});
+
+test('absorbing is a timed status: applying it digests living prey, removing it completes the absorption', () => {
+  const { world, logs, pred, meal } = duel();
+  Object.assign(VORE_TUNING, { absorbSeconds: 10, disposalDelay: { min: 600, max: 600 } });
+  pred.stats.hp.current = 20;
+  world.vore.swallow(pred, meal, 'oral');
+  assert.equal(meal.statuses.apply('absorbing'), true);
+  world.update(0.1);
+  assert.equal(meal.dead, true);
+  assert.equal(world.vore.active[0].phase.kind, 'absorbing');
+  assert.equal(meal.statuses.get('absorbing').remaining, 10);
+  assert.ok(logs.some(({ text }) => text === 'meal was digested by pred.'));
+  world.update(4);
+  assert.ok(Math.abs(pred.stats.hp.current - 60) < 1e-9, 'healing follows the status clock');
+  assert.equal(meal.statuses.remove('absorbing'), true);
+  world.update(0.1);
+  assert.equal(pred.stats.hp.current, 100, 'the rest of the prey\'s worth arrives at once');
+  assert.equal(world.vore.active.length, 0);
+  assert.ok(['bones', 'scat'].includes(meal.statuses.remainsForm));
+  assert.equal(meal.statuses.apply('absorbing'), false, 'only prey inside a predator can be absorbed');
+});
+
+test('a predator turned to remains lets out the living prey first', () => {
+  const { world, hall, pred, meal } = duel();
+  world.vore.swallow(pred, meal, 'oral');
+  pred.statuses.apply('bones');
+  world.update(0.1);
+  assert.equal(meal.swallowed, false);
+  assert.ok(world.agents.includes(meal));
+  assert.deepEqual(hall.remains.map(({ actor }) => actor), [pred]);
+});
+
+test('shapeshifters in disguise cannot be turned into remains', () => {
+  const { world, hall } = setup();
+  const impostor = standing(world, hall, person('staff', ['None']), { x: 100, y: 100 });
+  impostor.impostor = beast('shifter', ['None']);
+  assert.equal(impostor.statuses.apply('bones'), false);
+});
+
 // --- Display --------------------------------------------------------------------------------------
 
-test('acid has a plain green popup, and the converted statuses replace the death popup', () => {
+test('acid has a plain green popup, and absorbing and remains statuses replace the death popup', () => {
   const [acid] = statusPopups([{ id: 'acid', label: 'Acid', remaining: null }]);
   assert.equal(acid.color, '#3dff5a');
   assert.equal(acid.icon, undefined);
   const dead = { id: 'dead', label: 'Dead', remaining: null };
   assert.deepEqual(statusPopups([dead]).map(({ id }) => id), ['dead']);
-  for (const id of ['digested', 'cumified', 'urine', 'milkified']) {
+  for (const id of ['absorbing', 'bones', 'scat', 'urine', 'cum', 'milk']) {
     assert.deepEqual(statusPopups([dead, { id, label: id, remaining: null }]).map((popup) => popup.id), [id]);
+  }
+});
+
+test('every outcome ends in a remains status whose artwork exists', async () => {
+  for (const [type, { outcomes }] of Object.entries(VORE_TYPES)) {
+    for (const { remains } of outcomes) {
+      const look = STATUS_EFFECTS[remains]?.remains?.look;
+      assert.ok(look, `${type} → ${remains} needs a STATUS_EFFECTS entry with a remains look`);
+      await access(new URL(`../src/sim_assets/remains/${look}.png`, import.meta.url));
+      await access(new URL(STATUS_EFFECTS[remains].popup.icon));
+    }
   }
 });
 

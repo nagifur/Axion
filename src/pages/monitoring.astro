@@ -537,7 +537,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
     color:var(--status-color); border:1px solid var(--status-color);
     background:var(--status-background, rgba(5, 8, 13, 0.78));
   }
-  .monitor-tag-status img{ display:block; width:16px; height:16px }
+  .monitor-tag-status img{ display:block; width:16px; height:16px; object-fit:contain; image-rendering:pixelated }
   /* Stand-in for effects that have no icon yet. */
   .monitor-tag-status-mark{ display:block; width:16px; height:16px; border-radius:50%; background:var(--status-color); opacity:0.55 }
   .monitor-tag.is-active .monitor-tag-name{ color:#fff; background:color-mix(in srgb, var(--tag-tint, #7ef5ff) 35%, #05080d) }
@@ -617,7 +617,7 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   }
   .monitor-vitals-status.is-leaving{ animation:monitor-vitals-status-out .42s ease-in forwards }
   .monitor-vitals-status-icon{
-    flex:none; width:1.75em; height:1.75em;
+    flex:none; width:1.75em; height:1.75em; object-fit:contain; image-rendering:pixelated;
     filter:drop-shadow(1px 0 0 var(--vitals-ink)) drop-shadow(-1px 0 0 var(--vitals-ink)) drop-shadow(0 1px 0 var(--vitals-ink)) drop-shadow(0 -1px 0 var(--vitals-ink));
   }
   /* Stand-in for effects without artwork, in the effect's colour. */
@@ -645,11 +645,33 @@ const configJson = JSON.stringify(config).replace(/</g, '\\u003c');
   }
   .monitor-vitals-status-timer[hidden]{ display:none }
 
+  /* Permanent effects get their own group: banded in the polarity colour, framed icon, a tag, a slow sheen, no timer. */
+  .monitor-vitals-statuses.is-permanent{ gap:2px; padding-bottom:3px; border-bottom:1px solid rgba(255, 255, 255, 0.14) }
+  .monitor-vitals-statuses.is-permanent:has(+ .monitor-vitals-statuses:empty){ padding-bottom:0; border-bottom:0 }
+  .monitor-vitals-status.is-permanent{
+    position:relative; overflow:hidden; padding:2px 5px 2px 4px; border-left:2px solid var(--polarity-color);
+    background:linear-gradient(90deg, color-mix(in srgb, var(--polarity-color) 34%, rgba(5, 8, 13, 0.6)), transparent 95%);
+  }
+  .monitor-vitals-status.is-permanent::after{
+    content:''; position:absolute; inset:0; pointer-events:none; translate:-100% 0;
+    background:linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.2) 50%, transparent 65%);
+    animation:monitor-vitals-sheen 4.5s ease-in-out 1s infinite;
+  }
+  .monitor-vitals-status.is-permanent .monitor-vitals-status-icon{
+    padding:1px; box-sizing:border-box; border-radius:2px; filter:none;
+    background:rgba(5, 8, 13, 0.75); box-shadow:0 0 0 1px var(--polarity-color);
+  }
+  .monitor-vitals-permanent-tag{
+    flex:none; margin-left:auto; padding:1px 4px; border:1px solid var(--polarity-color); border-radius:2px;
+    background:rgba(5, 8, 13, 0.75); color:var(--polarity-color); font-size:0.62em; letter-spacing:0.14em; text-transform:uppercase;
+  }
+
   @keyframes monitor-vitals-wipe{
     from{ clip-path:inset(-4px 100% -4px -4px) }
     to{ clip-path:inset(-4px -4px -4px -4px) }
   }
   @keyframes monitor-vitals-pulse{ 50%{ filter:brightness(1.7) } }
+  @keyframes monitor-vitals-sheen{ 0%{ translate:-100% 0 } 40%, 100%{ translate:100% 0 } }
   @keyframes monitor-vitals-status-in{ from{ transform:translateX(-110%); opacity:0 } }
   @keyframes monitor-vitals-status-out{
     0%{ transform:none; opacity:1 }

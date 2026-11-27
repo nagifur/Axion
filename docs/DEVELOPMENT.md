@@ -211,6 +211,11 @@ mana lines, and one row per status effect. Esc clears the selection and slides i
   [polarity](#status-effects), the label, and a thin timer for timed effects. Rows
   slide in when an effect starts and out when it ends; an effect reapplied while
   sliding out slides straight back. Effects hidden by `hidesPopups` are skipped here too.
+- **Permanent effects** (any `irreversible` effect, such as **Dead** or a
+  [remains status](#remains-statuses) like **Bones**) get their own group above the
+  passing ones: a band in the polarity colour, a framed icon, a **Permanent** tag and a
+  slow sheen, with no timer. Permanent neutral or positive effects get the same
+  treatment in their own polarity colour.
 - The HUD ignores pointer input, hides in the prop editor, and turns its animations
   off with the site's animation toggle or `prefers-reduced-motion`.
 
@@ -497,9 +502,10 @@ never flicker.
 
 Add `?debug` to the URL to show buttons that trigger events, speed up time, and open
 the prop editor (see [Placing Props With the Editor](#placing-props-with-the-editor)).
-The **Selected** row applies or removes any removable agent/creature status effect on
-the selected actor and has a **Hurt −20 HP** button, for previewing the
-[vitals HUD](#selected-actor-vitals-hud).
+The **Selected** row applies or removes any agent/creature status effect on the selected
+actor (permanent ones are marked and can only be applied, so **Dead** kills and **Bones**
+turns them into a pile) and has a **Hurt −20 HP** button, for previewing the
+[vitals HUD](#selected-actor-vitals-hud) and [remains statuses](#remains-statuses).
 Achievements and the last camera watched are stored in the visitor's browser (`localStorage`).
 
 #### Character Sprite Sheet
@@ -1000,7 +1006,12 @@ colour; the [vitals HUD](#selected-actor-vitals-hud) draws a +, − or ring sign
 colour. Every built-in effect is currently `negative`. A definition can also provide:
 
 - `duration`: positive, finite simulation seconds; omit for permanent effects.
-- `irreversible`: prevents removal, clearing, expiry, and duration overrides.
+- `irreversible`: prevents removal, clearing, expiry, and duration overrides. The vitals
+  HUD shows these as **Permanent** effects.
+- `replaces`: effect ids that applying this one removes (removable ones only), for stages
+  that supersede earlier ones: `absorbing` replaces `acid`, remains forms replace both.
+- `remains: { look }`: makes it a [remains status](#remains-statuses); whoever has it
+  becomes that pile.
 - `blocksActions`: pauses an agent's or creature's current task and movement without cancelling
   its plan or releasing reservations. Multiple blockers use the longest remaining
   duration; only the unstunned portion of an expiry frame advances the task.
@@ -1025,7 +1036,7 @@ hover-only name-tag mode. Multiple effects appear side by side; effects without
 `popup` have no overhead UI. Popups follow the active status, including duration
 overrides, refreshes, pause, explicit removal and expiry. `hidesPopups` lists effects
 that stay hidden while this one is active, both as popups and as vitals HUD rows
-(`shownStatuses` applies it); the converted vore statuses use it to replace **Dead**.
+(`shownStatuses` applies it); `absorbing` and the remains statuses use it to replace **Dead**.
 
 Use `entity.statuses.apply(id, seconds)` to override a definition's duration.
 Only one instance of an effect can exist per target: reapplying a timed effect
@@ -1046,8 +1057,9 @@ background), and a frozen idle frame until death sprites are added. They cannot
 move, run tasks, react, escape, or be captured. Agent task/conversation resources
 are released on the next update (including held agents and elevator riders);
 escorts release dead creatures immediately. Death is not a facility departure.
-Swallowed prey take their own effects (`acid`, then a converted status); see
-[The Vore System](#the-vore-system).
+Swallowed prey take their own effects (`acid`, then `absorbing`, then a remains status); see
+[The Vore System](#the-vore-system). Applying `dead` (for example from the debug panel)
+kills just as running out of HP does.
 
 `World.update` ticks statuses once per simulation frame, before movement and task
 planning, including creatures, held agents, off-camera elevator riders, and loose, carried,
@@ -1197,18 +1209,18 @@ allow it. The swallower then waits `cooldown` (30–60 s) before hunting again.
 Each swallow uses one of four ways, picked by weight from the predator's profile.
 `VORE_TYPES` is the table to extend with each way's own quirks:
 
-| Type | Label | Weight | Status once digested | Remains artwork (chance) | Disposal activity |
-| --- | --- | --- | --- | --- | --- |
-| `oral` | Oral vore | 6 | `digested` | `bones` (50%), `scat` (50%) | Defecating (12 s) |
-| `cock` | Cock vore | 1 | `cumified` or `urine` | `cum` (95%), `pee` (5%) | Jerking Off (20 s) or Urinating (12 s) |
-| `anal` | Anal vore | 1 | `digested` | `bones` (50%), `scat` (50%) | Defecating (12 s) |
-| `breast` | Breast vore | 1 | `milkified` | `milk` (100%) | Milking themselves (12 s) |
+| Type | Label | Weight | Remains status (chance) | Disposal activity |
+| --- | --- | --- | --- | --- |
+| `oral` | Oral vore | 6 | `bones` (50%), `scat` (50%) | Defecating (12 s) |
+| `cock` | Cock vore | 1 | `cum` (95%), `urine` (5%) | Jerking Off (20 s) or Urinating (12 s) |
+| `anal` | Anal vore | 1 | `bones` (50%), `scat` (50%) | Defecating (12 s) |
+| `breast` | Breast vore | 1 | `milk` (100%) | Milking themselves (12 s) |
 
 Each type also has `digestion`, `escape` and `absorption` multipliers (all 1 for now) on
 the acid damage, spit-out odds and absorption time. Each `outcomes` entry specifies its
-relative `weight` (5 and 95 mean 5% and 95%), `look` (artwork), `converted` status and
-`disposal` activity and duration. An optional `label` overrides the name derived from
-the artwork filename. A disposal can add `release: { set, seconds, every, from?, height? }`
+relative `weight` (5 and 95 mean 5% and 95%), the `remains` status the prey ends up as,
+and its `disposal` activity and duration. The remains status supplies the pile's artwork
+and name (see [Remains statuses](#remains-statuses)). A disposal can add `release: { set, seconds, every, from?, height? }`
 to shoot a `PARTICLE_SETS` set out in spurts every `every` seconds during the
 activity's last `seconds`. `from` is `'front'` (default) or `'back'`, and `height` is
 the share of sprite height above the feet (default 0.4). Facing left or right aims the
@@ -1244,12 +1256,14 @@ union edit.
    making the predator spit the prey out. Spat-out prey land beside the predator, lose the
    acid, get `scared`, stay dazed for three seconds, and can't be swallowed again for 45 s.
    If all inside actions are disabled, prey wait without attempting an escape.
-3. **Digested.** When HP runs out the prey is dead as usual, and the acid is swapped for
-   the selected outcome's converted status: `digested`, `cumified`, `urine` or
-   `milkified` (irreversible, blocks actions, and replaces the **Dead** popup). The
-   weighted outcome is selected once here and kept through absorption and disposal.
-4. **Absorbed.** Over `absorbSeconds` (45 s) the predator heals by the prey's max HP times
-   `healFraction`, up to its own max. When it ends, the `ABSORPTION_HOOKS` run once and the
+3. **Digested.** When HP runs out the prey is dead as usual. The weighted outcome is
+   selected once here and kept through absorption and disposal, and the acid is replaced
+   by the `absorbing` status (**Being absorbed**: blocks actions, replaces the **Dead**
+   popup), applied for the absorption's length.
+4. **Absorbed.** The `absorbing` status is the stage's clock: as it runs down over
+   `absorbSeconds` (45 s, divided by the type's `absorption`) the predator heals by the prey's
+   max HP times `healFraction`, up to its own max. When it runs out the prey takes the
+   outcome's remains status (for example `bones`), the `ABSORPTION_HOOKS` run once, and the
    prey becomes **remains**: an agent is `removed` (with everything it carried or stored
    taken from it) and a creature `consumed`, but the profile (`character`: id, name,
    traits) lives on in a `Remains` ([`remains.ts`](../src/lib/sim/remains.ts)) held by the
@@ -1283,8 +1297,33 @@ A predator that dies or leaves the facility (or a creature that escapes) lets go
 living prey are spat out, digested prey finish absorbing at once, and remains drop where
 it was. Each step is logged.
 
-Remains artwork is `src/sim_assets/remains/<look>.png`, one file per `look` listed in
-`VORE_TYPES`; its weighted look is chosen when digestion finishes.
+##### Remains statuses
+
+The stages are statuses (`acid` → `absorbing` → a remains form), and the statuses lead.
+A remains form is an irreversible, negative `STATUS_EFFECTS` entry with a
+`remains: { look }` field: `bones`, `scat`, `urine` (artwork `pee`), `cum` and `milk`,
+made with the `remainsForm(...)` helper in
+[`statusEffects.ts`](../src/lib/sim/statusEffects.ts). Applying one kills the target (it
+applies `dead`), replaces `acid`/`absorbing`, and on the next update `VoreSystem` makes the
+target *be* that pile:
+
+- **Swallowed prey** finish at once inside their predator, which then disposes of the
+  pile as usual. `outcomeFor(type, form)` gives the disposal: the swallowing type's own
+  outcome for that form, else any type's, else `FALLBACK_DISPOSAL`.
+- **Anyone on a floor** collapses where they stand: the pile lands in their room with
+  their belongings beside it, they let out anything they had swallowed first, and a guard's
+  post is re-staffed. Agents riding an elevator turn when they arrive.
+
+Either way they are retired exactly like absorbed prey (removed or consumed, never
+returning) and keep the remains status, which the file, name tag and vitals HUD show.
+Applying `absorbing` to living prey digests them on the spot; removing it mid-absorption
+completes the absorption (the predator gets the rest of the healing). Shapeshifters in
+disguise can't be turned, and nobody becomes two piles. To add a form, add a
+`remainsForm(...)` entry and its artwork, then reference it from a `VORE_TYPES` outcome
+(or just apply it).
+
+Remains artwork is `src/sim_assets/remains/<look>.png`, one file per remains status `look`;
+the same image is that status's popup icon. The weighted outcome is chosen when digestion finishes.
 Images can be any size; they are drawn with their bottom centre on the
 pile's floor point and depth-sorted like items. Piles grow with the prey: artwork is
 authored for an average-height character (sprite scale 0.85) and `Remains.scale`
@@ -1320,7 +1359,7 @@ whose `remains` list contains their pile.
   Item statuses continue ticking once per frame when items move from a swallowed
   agent's inventory into carried remains and later onto the floor.
 - To customize: `VORE_TYPES` (label, weight, weighted `outcomes`, per-type multipliers;
-  a new converted status also needs an entry in `STATUS_EFFECTS`),
+  a new remains form also needs a `remainsForm(...)` entry in `STATUS_EFFECTS`),
   `VORE_TUNING` (lifecycle timing, chase speed/re-routing, spit-out offsets/recovery
   and item scattering; exported and mutable for tests and difficulty
   settings), `INSIDE_ACTIONS` (add `{ id, label, weight, duration, escapeChance? }` for more

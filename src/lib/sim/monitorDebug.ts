@@ -35,14 +35,15 @@ const TIME_PRESETS: { label: string; hour?: number; minute?: number }[] = [
 ];
 const DEBUG_HURT_HP = 20;
 
-/** Removable effects that can land on an agent or creature, for the debug status picker. */
+/** Every effect that can land on an agent or creature, for the debug status picker; permanent ones are marked. */
 function debugStatusOptions() {
   return Object.entries(STATUS_EFFECTS)
-    .filter(([, effect]) => !effect.irreversible && effect.targets.some((kind) => kind === 'agent' || kind === 'creature'))
+    .filter(([, effect]) => effect.targets.some((kind) => kind === 'agent' || kind === 'creature'))
     .map(([id, effect]) => {
       const option = document.createElement('option');
       option.value = id;
-      option.textContent = `${effect.label} (${STATUS_POLARITIES[effect.polarity].label.toLowerCase()})`;
+      const kind = `${effect.irreversible ? 'permanent ' : ''}${STATUS_POLARITIES[effect.polarity].label.toLowerCase()}`;
+      option.textContent = `${effect.label} (${kind})`;
       return option;
     });
 }
@@ -106,7 +107,8 @@ export function bindDebugPanel(panel: HTMLElement, controls: DebugControls, list
     const id = statusSelect?.value ?? '';
     const label = STATUS_EFFECTS[id]?.label ?? id;
     if (apply) return actor.statuses.apply(id) ? `${name} is now ${label}.` : `${label} can't be applied to ${name}.`;
-    return actor.statuses.remove(id) ? `${label} removed from ${name}.` : `${name} isn't ${label}.`;
+    if (actor.statuses.remove(id)) return `${label} removed from ${name}.`;
+    return actor.statuses.has(id) ? `${label} is permanent; ${name} stays that way.` : `${name} isn't ${label}.`;
   });
   const hurt = () => onSelected((actor, name) => {
     actor.stats.hp.current -= DEBUG_HURT_HP;

@@ -5,12 +5,12 @@ import { chance, weightedPick } from './random.ts';
 import { Remains } from './remains.ts';
 import type { Point, Room } from './room.ts';
 import { CHARACTER_FRAMES } from './sprites.ts';
-import { STATUS_EFFECTS } from './statusEffects.ts';
 import { wait } from './tasks.ts';
 import { isTrespassing, trespassResponseFor } from './trespass.ts';
 import {
-  ABSORPTION_HOOKS, VORE_STAFF_RULES, VORE_TUNING, VORE_TYPES, cooldownSeconds, disposalWait, fighterOf, hasVoreTypes, heightOf, huntRate, pickVoreType, rolls,
-  pickRemainsOutcome, startInsideAction, voreTypeLabel, type Ingestion, type VoreActor, type VoreOutcome, type VoreType,
+  ABSORPTION_HOOKS, VORE_STAFF_RULES, VORE_TUNING, VORE_TYPES, absorbSeconds, cooldownSeconds, disposalWait, fighterOf, hasVoreTypes,
+  heightOf, huntRate, outcomeFor, pickVoreType, rolls, pickRemainsOutcome, startInsideAction, voreTypeLabel,
+  type Ingestion, type VoreActor, type VoreOutcome, type VoreType,
 } from './vore.ts';
 import { stalk } from './voreTasks.ts';
 import type { World } from './world.ts';
@@ -20,6 +20,9 @@ import type { World } from './world.ts';
  * acid and the absorption, and the remains the predator leaves behind. The rules (who may swallow
  * whom, the ways of doing it, what prey do inside) are in vore.ts; each character's own state is
  * its VoreState. The world owns one as `world.vore`.
+ *
+ * Each stage is also the prey's status (acid → absorbing → a remains form like bones), and the statuses
+ * lead: giving anyone a remains status turns them into that pile, swallowed or not.
  */
 export class VoreSystem {
   private readonly world: World;
@@ -121,6 +124,7 @@ export class VoreSystem {
 
   update(dt: number) {
     this.tickTimers(dt);
+    this.settleRemainsStatuses();
     for (const ingestion of [...this.ingestions]) {
       if (this.ingestions.includes(ingestion)) this.advance(ingestion, dt);
     }
@@ -211,10 +215,10 @@ export class VoreSystem {
       return;
     }
     if (phase.kind === 'absorbing') {
-      this.absorb(ingestion, phase, dt);
+      this.absorb(ingestion, phase);
       return;
     }
-    if (prey.dead) {
+    if (prey.dead || prey.statuses.has('absorbing')) {
       this.convert(ingestion);
       return;
     }
@@ -225,47 +229,95 @@ export class VoreSystem {
     else phase.action = startInsideAction();
   }
 
-  /** The acid has finished: the prey changes into whatever this way of swallowing makes of them, and absorption begins. */
+  /**
+   * The acid has finished (or someone applied `absorbing`): the way of swallowing picks what the prey will
+   * become, and absorption begins, timed by the prey's `absorbing` status.
+   */
   private convert(ingestion: Ingestion) {
     const { predator, prey, type } = ingestion;
-    const outcome = pickRemainsOutcome(type);
-    const { converted } = outcome;
-    ingestion.phase = { kind: 'absorbing', elapsed: 0, outcome };
-    prey.statuses.remove('acid');
-    prey.statuses.apply(converted);
-    this.world.log(`${prey.character.name} was ${STATUS_EFFECTS[converted].label.toLowerCase()} by ${predator.character.name}.`, 'warn');
+    const total = absorbSeconds(type);
+    ingestion.phase = { kind: 'absorbing', total, left: total, outcome: pickRemainsOutcome(type) };
+    prey.statuses.apply('dead');
+    prey.statuses.apply('absorbing', total);
+    this.world.log(`${prey.character.name} was digested by ${predator.character.name}.`, 'warn');
   }
 
-  /** Hands the predator the prey's worth of health bit by bit; when the stage runs out, the prey is gone. */
-  private absorb(ingestion: Ingestion, phase: Extract<Ingestion['phase'], { kind: 'absorbing' }>, dt: number) {
-    const { predator, prey, type } = ingestion;
-    const total = Math.max(0.001, VORE_TUNING.absorbSeconds / VORE_TYPES[type].absorption);
-    const step = Math.max(0, Math.min(dt, total - phase.elapsed));
-    phase.elapsed += step;
-    const amount = (prey.stats.hp.max * VORE_TUNING.healFraction * step) / total;
+  /**
+   * Hands the predator the prey's worth of health as their `absorbing` status runs down; once it has run out
+   * (or been removed) the prey is gone. A permanent `absorbing` pauses the stage.
+   */
+  private absorb(ingestion: Ingestion, phase: Extract<Ingestion['phase'], { kind: 'absorbing' }>) {
+    const { predator, prey } = ingestion;
+    const status = prey.statuses.get('absorbing');
+    const left = status ? status.remaining ?? phase.left : 0;
+    const amount = (prey.stats.hp.max * VORE_TUNING.healFraction * Math.max(0, phase.left - left)) / phase.total;
+    phase.left = left;
     if (amount > 0 && !predator.dead) {
       const { hp } = predator.stats;
       hp.current = Math.min(hp.max, hp.current + amount);
     }
-    if (phase.elapsed >= total) this.finish(ingestion, phase.outcome);
+    if (left <= 0) this.finish(ingestion, phase.outcome);
   }
 
-  /** Nothing but remains is left: the profile stays as it was, but is no longer an agent or creature. */
+  /** Nothing but remains is left: the prey takes the outcome's remains status and the predator holds the pile. */
   private finish(ingestion: Ingestion, outcome: VoreOutcome) {
     const { predator, prey, type } = ingestion;
     const { world } = this;
     this.detach(ingestion);
+    prey.statuses.apply(outcome.remains);
     const items = prey instanceof Agent ? prey.takeAllItems() : [];
-    if (prey instanceof Agent) prey.removed = true;
-    else prey.consumed = true;
-    this.consumed.add(prey.character.id);
-    const remains = new Remains({ actor: prey, type, outcome, items, wait: disposalWait() });
-    prey.vore.ownRemains = remains;
+    const remains = new Remains({ actor: prey, type, form: outcome.remains, disposal: outcome.disposal, items, wait: disposalWait() });
+    this.retire(prey, remains);
     predator.vore.remains.push(remains);
     if (prey instanceof Agent) world.hooks.removed?.(prey);
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
     this.recordIngestion('absorbed', ingestion);
+  }
+
+  /** The character is `remains` for good: the profile stays, but it is no longer an agent or creature and never returns. */
+  private retire(actor: VoreActor, remains: Remains) {
+    if (actor instanceof Agent) actor.removed = true;
+    else actor.consumed = true;
+    this.consumed.add(actor.character.id);
+    actor.vore.ownRemains = remains;
+  }
+
+  /**
+   * Remains statuses lead: anyone who has one but isn't a pile yet becomes it. Prey finish inside their predator,
+   * as the way they were swallowed would leave them; anyone else collapses where they stand. People riding an
+   * elevator or creatures off the premises turn once they're back on a floor.
+   */
+  private settleRemainsStatuses() {
+    for (const actor of [...this.world.everyone(), ...this.world.creatures]) {
+      const form = actor.statuses.remainsForm;
+      if (!form || actor.vore.ownRemains) continue;
+      const ingestion = actor.vore.inside;
+      if (ingestion) this.finish(ingestion, outcomeFor(ingestion.type, form));
+      else if (this.onCamera(actor)) this.collapse(actor, form);
+    }
+  }
+
+  /** Turns someone on the floor into a pile of `form` at their feet, with their belongings beside it. */
+  private collapse(actor: VoreActor, form: string) {
+    const { world } = this;
+    const { room } = actor;
+    this.release(actor);
+    if (actor instanceof Agent) {
+      actor.finishDeath(world);
+      world.agents = world.agents.filter((other) => other !== actor);
+      if (actor.security && world.elevatorFor(actor.security.post)) world.staffSecurityPost(actor.security.post);
+    }
+    const items = actor instanceof Agent ? actor.takeAllItems() : [];
+    const remains = new Remains({ actor, type: null, form, disposal: outcomeFor(null, form).disposal, items, wait: 0 });
+    this.retire(actor, remains);
+    const point = room.nearestWalkable(actor);
+    remains.x = point.x;
+    remains.y = point.y;
+    room.remains.push(remains);
+    this.scatter(room, point, remains.items.splice(0));
+    if (actor instanceof Agent) world.hooks.removed?.(actor);
+    world.log(`${actor.character.name} turned into ${remains.label.toLowerCase()} in the ${room.name}.`, 'warn');
   }
 
   private recordIngestion(step: 'swallowed' | 'absorbed', ingestion: Ingestion) {
