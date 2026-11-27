@@ -363,7 +363,9 @@ never flicker.
 Add `?debug` to the URL to show buttons that trigger events, speed up time, and open
 the prop editor (see [Placing Props and Items With the Editor](assets.md#placing-props-and-items-with-the-editor)).
 The **Selected** row applies or removes any agent/creature status effect on the selected
-actor (permanent ones are marked but can still be removed; applying **Dead** kills and **Bones**
-turns them into a pile) and has a **Hurt −20 HP** button, for previewing the
+actor (permanent ones are marked but can still be removed; **Dead** kills and **Bones**
+turns them into a pile). Removing **Dead** restores full HP; removing a remains form
+restores the original actor, who stays dead unless **Dead** is removed too. The row
+also has a **Hurt −20 HP** button, for previewing the
 [vitals HUD](#selected-actor-vitals-hud) and [remains statuses](behavior.md#remains-statuses).
 Achievements and the last camera watched are stored in the visitor's browser (`localStorage`).

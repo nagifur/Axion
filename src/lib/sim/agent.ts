@@ -52,7 +52,9 @@ const BASE_SPEED = 28;
 let nextUid = 1;
 
 export class Agent {
-  readonly statuses = new StatusEffects({ kind: 'agent', entity: this });
+  readonly statuses = new StatusEffects({ kind: 'agent', entity: this }, (id, active) => {
+    if (id === 'dead' && !active) this.deathHandled = false;
+  });
   readonly uid = nextUid++;
   readonly character: SimCharacter;
   readonly impostor?: SimImpostor;
@@ -104,7 +106,7 @@ export class Agent {
     this.character = character;
     this.room = room;
     this.impostor = impostor;
-    this.stats = createLiveStats(impostor?.stats ?? character.stats, () => this.statuses.apply('dead'));
+    this.stats = createLiveStats(impostor?.stats ?? character.stats, () => this.statuses.apply('dead'), () => this.dead);
     this.x = at.x;
     this.y = at.y;
     for (const type of startingItemTypes(character)) this.storedItems.push(Item.create(type));

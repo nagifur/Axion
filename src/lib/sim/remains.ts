@@ -36,6 +36,8 @@ export class Remains {
   readonly disposal: VoreDisposal;
   /** Everything they were carrying or had stored; dropped next to the pile. */
   readonly items: Item[];
+  /** The owning system installs this when the actor becomes a pile. */
+  restore?: () => void;
   wait: number;
   /** Where the pile lies (feet position) once disposed of. */
   x = 0;

@@ -82,7 +82,7 @@ export class Creature {
   away = false;
   /** Fled off camera through a way out of the facility; only `World.recontain` brings it back. */
   escaped = false;
-  /** Fully absorbed by a predator: gone for good, though the profile stays in the world. */
+  /** Fully absorbed by a predator, until the remains form is removed. */
   consumed = false;
   escort?: Agent;
   private riding = false;
@@ -98,7 +98,7 @@ export class Creature {
 
   constructor(character: SimCreature, room: Room) {
     this.character = character;
-    this.stats = createLiveStats(character.stats, () => this.statuses.apply('dead'));
+    this.stats = createLiveStats(character.stats, () => this.statuses.apply('dead'), () => this.dead);
     this.home = room;
     this.room = room;
     this.layout = room.props;

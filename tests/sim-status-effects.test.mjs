@@ -150,9 +150,23 @@ test('DEBUG removes permanent death and remains statuses from the selected actor
     select.value = id;
     click('status-apply');
     assert.equal(actor.statuses.has(id), true);
+    if (id === 'bones') {
+      world.update(0.1);
+      assert.equal(actor.removed, true);
+      assert.equal(room.remains.length, 1);
+    }
     click('status-remove');
     assert.equal(actor.statuses.has(id), false);
     assert.equal(logs.at(-1), `Debug: ${STATUS_EFFECTS[id].label} removed from Tester.`);
+    if (id === 'dead') assert.equal(actor.stats.hp.current, actor.stats.hp.max);
+    else {
+      assert.equal(actor.removed, false);
+      assert.equal(actor.dead, true);
+      assert.deepEqual(room.remains, []);
+      select.value = 'dead';
+      click('status-remove');
+      assert.equal(actor.stats.hp.current, actor.stats.hp.max);
+    }
   }
 });
 
@@ -381,10 +395,11 @@ test('zero and negative HP immediately kill staff and security permanently and r
     assert.equal(agent.statuses.remove('dead'), true);
     assert.equal(agent.dead, false);
     assert.equal(agent.statuses.actionBlockRemaining, 0);
-    assert.equal(agent.stats.hp.current, 0, 'status removal does not implement revival');
+    assert.equal(agent.stats.hp.current, agent.stats.hp.max, 'removing death restores full HP');
     assert.equal(agent.statuses.apply('dead'), true);
     agent.statuses.clear();
     assert.equal(agent.dead, false);
+    assert.equal(agent.stats.hp.current, agent.stats.hp.max);
   }
   assert.equal(Item.create('can').statuses.apply('dead'), false);
 });
@@ -425,4 +440,21 @@ test('dead creatures stop wandering, stay on camera, and release escort claims',
   creature.statuses.clear();
   assert.equal(creature.dead, false);
   assert.equal(creature.statuses.actionBlockRemaining, 0);
+  assert.equal(creature.stats.hp.current, creature.stats.hp.max);
+});
+
+test('revived actors can die again and release new plans on subsequent deaths', () => {
+  const room = makeRoom();
+  const world = new World({ rooms: [room], roster: [] });
+  const agent = world.spawn({ ...character, stats: { hp: 240 } }, room, { x: 30, y: 80 });
+  for (let i = 0; i < 2; i++) {
+    let ended = 0;
+    agent.setPlan(world, [{ activity: 'Working', interruptible: true, update: () => false, end: () => ended++ }]);
+    agent.update(world, 0.1);
+    agent.stats.hp.current = 0;
+    world.update(0.1);
+    assert.equal(ended, 1);
+    agent.statuses.remove('dead');
+    assert.equal(agent.stats.hp.current, 240);
+  }
 });

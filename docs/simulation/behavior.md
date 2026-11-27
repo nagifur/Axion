@@ -128,12 +128,12 @@ the current timed instance (including overrides and refreshes), or `null` when p
 `has(id)` checks presence;
 `remove(id)` returns whether it removed anything; `clear()` removes all effects,
 including permanent ones. Removal does not automatically undo an effect's gameplay
-consequences; restoration belongs in its `onRemove` hook or a future revival mechanic.
+consequences; restoration belongs in its `onRemove` hook.
 
 HP reaching zero or below immediately applies the permanent `dead` effect to
 staff, security agents, and creatures. HP stays at zero; later healing cannot
 revive them. The `dead` status can be explicitly removed, including through DEBUG
-**Remove status**, but this does not restore HP or implement revival. Dead actors
+**Remove status**, which restores full HP. Dead actors
 remain visible with a permanent **Dead** popup using
 `dead.svg` (a white skull fitted to the icon area, with a red border and dark-red
 background), and a frozen idle frame until death sprites are added. They cannot
@@ -350,8 +350,8 @@ union edit.
    prey becomes **remains**: an agent is `removed` (with everything it carried or stored
    taken from it) and a creature `consumed`, but the profile (`character`: id, name,
    traits) lives on in a `Remains` ([`remains.ts`](../../src/lib/sim/remains.ts)) held by the
-   predator, along with the original agent or creature (`actor`). The id joins `world.vore.consumed`, so the character doesn't arrive again that
-   session and containment failures stop counting it.
+   predator, along with the original agent or creature (`actor`). The id joins `world.vore.consumed`, so the character doesn't arrive again while
+   in this form and containment failures stop counting it.
 5. **Disposed.** After 20–45 s (`disposalDelay`), the predator prioritizes a disposal
    activity. The selected outcome's `disposal` specifies its activity label and duration;
    only completing it drops the pile at the predator's feet
@@ -397,10 +397,12 @@ target *be* that pile:
   their belongings beside it, they let out anything they had swallowed first, and a guard's
   post is re-staffed. Agents riding an elevator turn when they arrive.
 
-Either way they are retired exactly like absorbed prey (removed or consumed, never
-returning) and keep the remains status, which the file, name tag and vitals HUD show.
-Removing the status does not restore the retired actor or undo the existing pile;
-revival is not implemented.
+Either way they are retired exactly like absorbed prey (removed or consumed) and keep
+the remains status, which the file, name tag and vitals HUD show. Removing the form
+status removes the pile and restores the original actor at the pile or its carrier.
+Items still held in the pile return to the actor's inventory; items already scattered
+stay on the floor. The `dead` status is independent and must also be removed to
+restore full HP and allow the actor to act; either status can be removed first.
 Applying `absorbing` to living prey digests them on the spot; removing it mid-absorption
 completes the absorption (the predator gets the rest of the healing). Shapeshifters in
 disguise can't be turned, and nobody becomes two piles. To add a form, add a

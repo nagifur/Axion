@@ -28,7 +28,8 @@ export class VoreSystem {
   private readonly world: World;
   private readonly ingestions: Ingestion[] = [];
   private readonly predatorIncidents = new WeakMap<Ingestion, Incident>();
-  /** Characters that were absorbed for good; they don't arrive again. */
+  private readonly remainsOwners = new WeakMap<Remains, { room: Room } | { host: VoreActor }>();
+  /** Characters currently reduced to remains; they don't arrive again while in that form. */
   readonly consumed = new Set<string>();
 
   constructor(world: World) {
@@ -269,18 +270,62 @@ export class VoreSystem {
     const remains = new Remains({ actor: prey, type, form: outcome.remains, disposal: outcome.disposal, items, wait: disposalWait() });
     this.retire(prey, remains);
     predator.vore.remains.push(remains);
+    this.remainsOwners.set(remains, { host: predator });
     if (prey instanceof Agent) world.hooks.removed?.(prey);
     for (const hook of ABSORPTION_HOOKS) hook({ predator, prey, type });
     world.log(`${prey.character.name} was absorbed by ${predator.character.name}.`, 'warn');
     this.recordIngestion('absorbed', ingestion);
   }
 
-  /** The character is `remains` for good: the profile stays, but it is no longer an agent or creature and never returns. */
+  /** The character becomes remains until its form status is removed. */
   private retire(actor: VoreActor, remains: Remains) {
     if (actor instanceof Agent) actor.removed = true;
     else actor.consumed = true;
     this.consumed.add(actor.character.id);
     actor.vore.ownRemains = remains;
+    remains.restore = () => this.restore(remains);
+  }
+
+  /** Find the pile's current floor, including when its carrier is inside another actor. */
+  private remainsPosition(remains: Remains): { room: Room; point: Point } {
+    const owner = this.remainsOwners.get(remains);
+    if (!owner) throw new Error(`Cannot restore ${remains.name}: remains have no location.`);
+    if ('room' in owner) return { room: owner.room, point: owner.room.nearestWalkable(remains) };
+    let host = owner.host;
+    if (host.vore.ownRemains) return this.remainsPosition(host.vore.ownRemains);
+    while (host.vore.inside) host = host.vore.inside.predator;
+    return { room: host.room, point: host.room.nearestWalkable(host) };
+  }
+
+  private restore(remains: Remains) {
+    const { actor } = remains;
+    const owner = this.remainsOwners.get(remains);
+    if (!owner || actor.vore.ownRemains !== remains) throw new Error(`Cannot restore ${remains.name}: remains are not owned by the actor.`);
+    const { room, point } = this.remainsPosition(remains);
+    const collection = 'room' in owner ? owner.room.remains : owner.host.vore.remains;
+    const index = collection.indexOf(remains);
+    if (index < 0) throw new Error(`Cannot restore ${remains.name}: remains are missing from their location.`);
+    collection.splice(index, 1);
+    this.remainsOwners.delete(remains);
+    actor.vore.ownRemains = null;
+    this.consumed.delete(actor.character.id);
+    if (actor instanceof Agent) {
+      actor.removed = false;
+      actor.held = false;
+      actor.leaving = false;
+      actor.room = room;
+      actor.x = point.x;
+      actor.y = point.y;
+      actor.layer = 'room';
+      actor.alpha = 1;
+      actor.enteredRoomAt = this.world.time;
+      for (const item of remains.items.splice(0)) actor.receiveStoredItem(item);
+      this.world.agents.push(actor);
+    } else {
+      actor.consumed = false;
+      actor.reposition(room, point);
+    }
+    this.world.log(`${actor.character.name} returned to their normal form in the ${room.name}.`, 'ok');
   }
 
   /**
@@ -315,6 +360,7 @@ export class VoreSystem {
     remains.x = point.x;
     remains.y = point.y;
     room.remains.push(remains);
+    this.remainsOwners.set(remains, { room });
     this.scatter(room, point, remains.items.splice(0));
     if (actor instanceof Agent) world.hooks.removed?.(actor);
     world.log(`${actor.character.name} turned into ${remains.label.toLowerCase()} in the ${room.name}.`, 'warn');
@@ -436,6 +482,7 @@ export class VoreSystem {
       remains.toss(point.y - origin.y, direction * toss.speed, toss.up, toss.bounce, depth);
     }
     room.remains.push(remains);
+    this.remainsOwners.set(remains, { room });
     this.scatter(room, point, remains.items.splice(0));
     this.world.log(`${host.character.name} got rid of ${remains.name}'s remains in the ${room.name}.`, 'muted');
   }

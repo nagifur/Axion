@@ -64,18 +64,19 @@ export function hasMagic(stats: LiveStats): boolean {
   return stats.magic.max > 0;
 }
 
-export function createLiveStats(overrides?: Partial<SimStats>, onDeath?: () => void): LiveStats {
+export function createLiveStats(overrides?: Partial<SimStats>, onDeath?: () => void, isDead?: () => boolean): LiveStats {
   const max = resolveStats(overrides);
   let hp = max.hp;
-  let dead = false;
   return {
     hp: {
       get current() { return hp; },
       set current(value: number) {
-        if (dead) return;
+        if (isDead?.()) {
+          hp = 0;
+          return;
+        }
         hp = value;
         if (onDeath && hp <= 0) {
-          dead = true;
           hp = 0;
           onDeath();
         }

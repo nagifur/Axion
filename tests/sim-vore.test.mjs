@@ -1542,7 +1542,19 @@ test('applying a remains status turns someone on the floor into that pile, belon
   assert.deepEqual(hall.remains, [pile], 'it happens once');
   assert.equal(meal.statuses.remove('bones'), true, 'permanent remains statuses allow explicit removal');
   assert.equal(meal.statuses.remainsForm, undefined);
-  assert.deepEqual(hall.remains, [pile], 'status removal does not implement revival');
+  assert.deepEqual(hall.remains, []);
+  assert.equal(meal.vore.ownRemains, null);
+  assert.equal(meal.dead, true, 'the independent dead status remains');
+  assert.equal(meal.removed, false);
+  assert.equal(world.vore.consumed.has('meal'), false);
+  assert.ok(world.actorsIn(hall).includes(meal));
+  assert.deepEqual([meal.x, meal.y], [pile.x, pile.y]);
+  assert.ok(hall.items.includes(can), 'already scattered items stay on the floor');
+  meal.statuses.remove('dead');
+  assert.equal(meal.stats.hp.current, meal.stats.hp.max);
+  assert.equal(meal.dead, false);
+  world.update(0.1);
+  assert.deepEqual(hall.remains, []);
 });
 
 test('a creature given a remains status leaves that pile in its cell', () => {
@@ -1555,6 +1567,109 @@ test('a creature given a remains status leaves that pile in its cell', () => {
   assert.deepEqual([creature.consumed, creature.dead, creature.onCamera], [true, true, false]);
   assert.deepEqual(cell.remains.map(({ look }) => look), ['scat']);
   assert.deepEqual(world.creaturesIn(cell), []);
+  creature.statuses.remove('dead');
+  assert.equal(creature.stats.hp.current, creature.stats.hp.max);
+  assert.equal(creature.consumed, true, 'removing death does not remove a form');
+  creature.statuses.remove('scat');
+  assert.equal(creature.consumed, false);
+  assert.equal(creature.dead, false);
+  assert.equal(creature.contained, true);
+  assert.deepEqual(world.creaturesIn(cell), [creature]);
+  assert.deepEqual(cell.remains, []);
+  world.update(0.1);
+  assert.equal(creature.onCamera, true);
+});
+
+for (const kind of ['agent', 'creature']) {
+  test(`removing held remains restores ${kind} prey at the carrier and preserves held items`, () => {
+    const { world, hall, annex, pred, meal } = duel();
+    const prey = kind === 'agent' ? meal : addCreature(world, hall, beast('thing', ['Prey'], { height: '1 m' }), { x: 104, y: 100 });
+    if (kind === 'creature') world.remove(meal, 'test');
+    const item = kind === 'agent' ? Item.create('can') : null;
+    if (item) prey.receiveItem(item);
+    assert.equal(world.vore.swallow(pred, prey, 'oral'), true);
+    assert.equal(prey.statuses.apply('bones'), true);
+    world.update(0.1);
+    const [pile] = pred.vore.remains;
+    assert.equal(pile.actor, prey);
+    pred.room = annex;
+    pred.x = 70;
+    pred.y = 90;
+    assert.equal(prey.statuses.remove('bones'), true);
+    assert.deepEqual(pred.vore.remains, []);
+    assert.equal(prey.room, annex);
+    assert.deepEqual([prey.x, prey.y], [70, 90]);
+    assert.equal(prey.dead, true);
+    assert.ok(world.actorsIn(annex).includes(prey));
+    assert.equal(world.vore.consumed.has(prey.character.id), false);
+    if (item) {
+      assert.ok(prey.inventory.includes(item));
+      assert.equal(annex.items.includes(item), false);
+    }
+    prey.statuses.remove('dead');
+    assert.equal(prey.stats.hp.current, prey.stats.hp.max);
+    world.update(0.1);
+    assert.ok(world.actorsIn(annex).includes(prey));
+  });
+}
+
+test('removing disposed remains restores the actor at the pile, not its former carrier', () => {
+  const { world, hall, annex, pred, meal } = duel();
+  const item = Item.create('can');
+  meal.receiveItem(item);
+  world.vore.swallow(pred, meal, 'oral');
+  meal.statuses.apply('bones');
+  world.update(0.1);
+  const [pile] = pred.vore.remains;
+  world.vore.finishDisposal(pred, pile);
+  assert.ok(pile.flight, 'the pile can be restored while in flight');
+  pred.room = annex;
+  const point = hall.nearestWalkable(pile);
+  meal.statuses.remove('bones');
+  assert.equal(meal.room, hall);
+  assert.deepEqual([meal.x, meal.y], [point.x, point.y]);
+  assert.ok(hall.items.includes(item), 'scattered items are not duplicated');
+  assert.equal(meal.inventory.includes(item), false);
+  assert.deepEqual(hall.remains, []);
+});
+
+test('removing a form before the next update prevents conversion and leaves death separate', () => {
+  const { world, hall, meal } = duel();
+  meal.statuses.apply('scat');
+  meal.statuses.remove('scat');
+  assert.equal(meal.dead, true);
+  world.update(0.1);
+  assert.deepEqual(hall.remains, []);
+  assert.ok(world.actorsIn(hall).includes(meal));
+  meal.statuses.remove('dead');
+  assert.equal(meal.stats.hp.current, meal.stats.hp.max);
+  meal.statuses.apply('bones');
+  world.update(0.1);
+  assert.equal(hall.remains[0].actor, meal);
+  meal.statuses.clear();
+  assert.equal(meal.dead, false);
+  assert.equal(meal.stats.hp.current, meal.stats.hp.max);
+  assert.ok(world.actorsIn(hall).includes(meal));
+  assert.deepEqual(hall.remains, []);
+});
+
+test('remains held by a carrier that is itself absorbed restore at the outer carrier', () => {
+  const { world, hall } = setup();
+  const pred = addCreature(world, hall, beast('pred', ['Switch'], { height: '6 m' }), { x: 100, y: 100 });
+  const meal = standing(world, hall, person('meal', ['Prey']), { x: 104, y: 100 });
+  assert.equal(world.vore.swallow(pred, meal, 'oral'), true);
+  meal.statuses.apply('bones');
+  world.update(0.1);
+  const giant = addCreature(world, hall, beast('giant', ['Predator'], { height: '15 m' }), { x: 120, y: 100 });
+  assert.equal(world.vore.swallow(giant, pred, 'oral'), true);
+  pred.statuses.apply('scat');
+  world.update(0.1);
+  assert.equal(pred.consumed, true);
+  assert.equal(meal.statuses.remove('bones'), true);
+  assert.ok(world.actorsIn(hall).includes(meal));
+  assert.deepEqual([meal.x, meal.y], [giant.x, giant.y]);
+  assert.deepEqual(pred.vore.remains, []);
+  assert.equal(giant.vore.remains[0].actor, pred);
 });
 
 test('a remains status applied to swallowed prey finishes them inside as that form', () => {

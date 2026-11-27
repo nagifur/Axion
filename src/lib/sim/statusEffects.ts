@@ -36,7 +36,7 @@ export interface StatusEffectDefinition {
   /** Applying this removes these effects: a later stage superseding earlier ones, like acid → absorbing. */
   replaces?: readonly string[];
   /**
-   * An end state: the target *is* a remains pile with this artwork (src/sim_assets/remains/<look>.png) from now on.
+   * The target becomes a remains pile with this artwork (src/sim_assets/remains/<look>.png) while this is active.
    * The vore system turns anyone with such a status into the pile; VORE_TYPES outcomes name which one prey become.
    */
   remains?: { look: string };
@@ -77,6 +77,14 @@ function remainsForm(label: string, look: string, icon: string, color: string, b
     onApply(target) {
       if (isActor(target)) target.entity.statuses.apply('dead');
     },
+    onRemove(target) {
+      if (!isActor(target)) return;
+      const remains = target.entity.vore.ownRemains;
+      if (remains) {
+        if (!remains.restore) throw new Error(`Cannot restore ${remains.name}: remains have no restore handler.`);
+        remains.restore();
+      }
+    },
   };
 }
 
@@ -105,6 +113,9 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
       } else {
         target.entity.releaseEscort();
       }
+    },
+    onRemove(target) {
+      if (isActor(target)) target.entity.stats.hp.current = target.entity.stats.hp.max;
     },
   },
   broken: {
