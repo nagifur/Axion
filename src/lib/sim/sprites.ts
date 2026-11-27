@@ -113,6 +113,7 @@ export const IDLE_FRAME_SECONDS = 0.6;
 /** Item artwork crops, independent of prop power-state sheets. */
 export const ITEM_SPRITES: Record<string, Rect> = {
   can: { x: 45, y: 43, w: 6, h: 10 },
+  glowstick: { x: 46, y: 40, w: 4, h: 16 },
   card_level0: { x: 43, y: 44, w: 10, h: 8 },
   card_level1: { x: 43, y: 44, w: 10, h: 8 },
   card_level2: { x: 43, y: 44, w: 10, h: 8 },

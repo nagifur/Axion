@@ -6,7 +6,7 @@ import {
   checkElectricalApproach, SHOCK_APPROACH_CHANCE, SHOCK_INTERACTION_CHANCE,
   SHOCK_REACH, SHOCK_RECOVERY_SECONDS, tryElectricalShock,
 } from '../src/lib/sim/electrical.ts';
-import { Item, ITEM_ACTIONS } from '../src/lib/sim/item.ts';
+import { Item, ITEM_TYPES } from '../src/lib/sim/item.ts';
 import { getFromDispenser, useItem } from '../src/lib/sim/itemTasks.ts';
 import { distanceToRect, segmentDistanceToRect } from '../src/lib/sim/navMap.ts';
 import { planRepair, REPAIR_SECONDS } from '../src/lib/sim/repairs.ts';
@@ -118,7 +118,7 @@ test('shocked pauses item consumption and preserves a sleeping agent bubble on r
   const { world, agent } = setup(null);
   const item = Item.create('can');
   agent.receiveItem(item);
-  const action = ITEM_ACTIONS.can[0];
+  const action = ITEM_TYPES.can.actions[0];
   agent.setPlan(world, [useItem(action), wait(1000, 'Finished')]);
   world.update(0.5);
   agent.statuses.apply('shocked');

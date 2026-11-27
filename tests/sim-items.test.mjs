@@ -16,10 +16,81 @@ import { trip, wait, walkTo } from '../src/lib/sim/tasks.ts';
 import { itemPickupPoint, pickUp, retrieveItem, setDownItem, storeItem, useItem } from '../src/lib/sim/itemTasks.ts';
 import { ITEM_REACH } from '../src/lib/sim/item.ts';
 import { planNext } from '../src/lib/sim/planning.ts';
-import { ITEM_ACTIONS, itemActions } from '../src/lib/sim/item.ts';
+import { ITEM_TYPES, itemActions } from '../src/lib/sim/item.ts';
 
-const drink = ITEM_ACTIONS.can.find((action) => action.id === 'drink');
+const drink = ITEM_TYPES.can.actions.find((action) => action.id === 'drink');
 const logWorld = () => ({ lines: [], log(text) { this.lines.push(text); }, achieve() {} });
+
+test('glowsticks activate through item actions, last three minutes, and cannot be reused', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const agent = new Agent(character, room, { x: 200, y: 140 });
+  const item = Item.create('glowstick');
+  agent.receiveItem(item);
+  const action = itemActions(item).find((action) => action.activates);
+  const world = logWorld();
+  agent.setPlan(world, [useItem(action)]);
+  agent.update(world, 0.5);
+  assert.equal(item.light, null, 'light requires completing activation');
+  agent.update(world, 0.5);
+  assert.equal(agent.item, item, 'activation does not consume the item');
+  assert.equal(item.remainingLightSeconds, 180);
+  assert.ok(item.light);
+  assert.deepEqual(itemActions(item), [], 'activation is not offered again');
+  assert.throws(() => item.activate(), /cannot be activated/);
+  item.update(0);
+  assert.equal(item.remainingLightSeconds, 180, 'pause freezes the timer');
+  item.update(179.99);
+  assert.ok(item.light, 'light lasts until the exact expiry');
+  item.update(0.01);
+  assert.equal(item.light, null);
+  assert.equal(item.remainingLightSeconds, 0);
+  assert.deepEqual(itemActions(item), []);
+  assert.throws(() => item.activate(), /cannot be activated/);
+});
+
+test('glowstick lifetime ticks once in the world while held, stored or loose', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  const world = new World({ rooms: [room], roster: [] });
+  const agent = world.spawn({ ...character, id: 'holder', name: 'Holder' }, room, { x: 200, y: 140 });
+  agent.setPlan(world, [wait(1000, 'Waiting')]);
+  const item = Item.create('glowstick');
+  item.activate();
+  agent.receiveItem(item);
+  world.update(1);
+  assert.equal(item.remainingLightSeconds, 179);
+  agent.storeItem();
+  world.update(2);
+  assert.equal(item.remainingLightSeconds, 177);
+  agent.retrieveItem(item);
+  agent.dropItem();
+  world.update(3);
+  assert.equal(item.remainingLightSeconds, 174);
+  world.update(0);
+  assert.equal(item.remainingLightSeconds, 174);
+  agent.x = item.x + item.w / 2;
+  agent.y = item.y + item.h;
+  agent.pickUpItem(item);
+  agent.setPlan(world, [wait(1000, 'Waiting')]);
+  room.setProps([]);
+  world.update(174);
+  assert.equal(item.light, null);
+  assert.equal(agent.statuses.has('darkness'), true, 'expiry immediately restores the debuff');
+});
+
+test('darkness prompts autonomous glowstick activation, including guards', async () => {
+  const room = new Room(await loadRoom('level-1-offices'));
+  room.setProps([]);
+  const world = new World({ rooms: [room], roster: [] });
+  const agent = world.spawn({ ...character, id: 'guard', name: 'Guard' }, room, { x: 200, y: 140 });
+  agent.security = { post: room, target: undefined, alerted: false };
+  agent.receiveItem(Item.create('glowstick'));
+  assert.equal(planNext(agent, world)[0].activity, 'Cracking a glowstick');
+  agent.setPlan(world, [walkTo({ x: 210, y: 140 })]);
+  agent.update(world, 0);
+  agent.update(world, 1);
+  assert.ok(agent.item.light);
+  assert.equal(agent.statuses.has('darkness'), false);
+});
 
 test('a carried can unlocks drinking, which uses it up and destroys it', async () => {
   const room = new Room(await loadRoom('level-1-offices'));
@@ -477,18 +548,60 @@ function canvasEnvironment(t) {
     else delete globalThis.document;
   });
   const createElement = () => {
-    const draws = [], transforms = [];
+    const draws = [], transforms = [], fills = [], gradients = [], stack = [];
     const ctx = {
+      globalCompositeOperation: 'source-over', globalAlpha: 1,
       drawImage(...args) { draws.push(args); },
       getImageData(_x, _y, w, h) { return { data: new Uint8ClampedArray(w * h * 4).fill(255) }; },
-      putImageData() {}, setTransform() {}, fillRect() {}, save() {}, restore() {}, clearRect() {},
+      putImageData() {}, setTransform() {}, clearRect() {},
+      fillRect(...rect) { fills.push({ rect, style: this.fillStyle, composite: this.globalCompositeOperation }); },
+      save() { stack.push([this.globalCompositeOperation, this.globalAlpha]); },
+      restore() { [this.globalCompositeOperation, this.globalAlpha] = stack.pop(); },
+      createRadialGradient(...args) {
+        const gradient = { args, stops: [], addColorStop(...stop) { this.stops.push(stop); } };
+        gradients.push(gradient);
+        return gradient;
+      },
       translate(...args) { transforms.push(['translate', ...args]); },
       scale(...args) { transforms.push(['scale', ...args]); },
     };
-    return { width: 0, height: 0, draws, transforms, getContext() { return ctx; } };
+    return { width: 0, height: 0, draws, transforms, fills, gradients, getContext() { return ctx; } };
   };
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement } });
 }
+
+test('active item halos follow the hand and floor, render above darkness, and stop on expiry', (t) => {
+  canvasEnvironment(t);
+  const room = {
+    id: 'dark', width: 200, height: 100, visualDarkness: 1, darkness: 1, items: [], props: [], doors: [],
+    nearestWalkable: ({ x, y }) => ({ x, y }),
+  };
+  const agent = new Agent(character, room, { x: 80, y: 80 });
+  agent.facing = 'right';
+  const item = Item.create('glowstick');
+  agent.receiveItem(item);
+  const canvas = document.createElement('canvas');
+  const renderer = new Renderer(canvas, {
+    character: { width: 576, height: 1152 }, 'room:dark': {}, 'item:glowstick': { width: 96, height: 96 },
+  }, room);
+  const world = { time: 0, actorsIn: () => [agent], elevatorFor() {}, particles: { in: () => [] } };
+  renderer.draw(world, new Map());
+  assert.equal(canvas.gradients.length, 0, 'unactivated lights do not glow');
+  item.activate();
+  renderer.draw(world, new Map());
+  assert.deepEqual(canvas.gradients.at(-1).args, [97, 26, 0, 97, 26, 32], 'halo is centered on the held artwork');
+  assert.equal(canvas.gradients.at(-1).stops[0][1], '#73ff8a');
+  assert.equal(canvas.fills.at(-2).style, 'rgba(0, 0, 0, 0.55)');
+  assert.equal(canvas.fills.at(-1).composite, 'screen', 'glow renders after scene dimming');
+  assert.equal(canvas.getContext().globalCompositeOperation, 'source-over', 'blend state is restored');
+  agent.dropItem();
+  renderer.draw(world, new Map());
+  assert.deepEqual(canvas.gradients.at(-1).args, [80, 72, 0, 80, 72, 32], 'dropped light follows its floor position');
+  item.update(180);
+  const count = canvas.gradients.length;
+  renderer.draw(world, new Map());
+  assert.equal(canvas.gradients.length, count, 'spent lights no longer glow');
+});
 
 test('items render at hand anchors for every facing, scale, walk, sit and drag pose', async (t) => {
   canvasEnvironment(t);

@@ -45,6 +45,12 @@ function planVoluntaryTask(agent: Agent, world: World): Task[] | undefined {
     (agent.repairTarget ? undefined : planRepair(agent, world));
 }
 
+function planPersonalLight(agent: Agent): Task[] | undefined {
+  agent.updateDarkness();
+  const action = agent.statuses.has('darkness') && itemActions(agent.item).find((action) => action.activates);
+  return action ? [useItem(action)] : undefined;
+}
+
 /** Only security calls can preempt an interruptible disposal plan. */
 export function planInterrupt(agent: Agent, world: World, current?: Task): Task[] | undefined {
   if (!agent.interruptible) return undefined;
@@ -52,7 +58,7 @@ export function planInterrupt(agent: Agent, world: World, current?: Task): Task[
     const call = planDisposalResponse(agent, world);
     return call && [call];
   }
-  return current ? planVoluntaryTask(agent, world) : undefined;
+  return current ? planPersonalLight(agent) ?? planVoluntaryTask(agent, world) : undefined;
 }
 
 /** Picks the next thing an agent does once their plan runs out. */
@@ -63,6 +69,8 @@ export function planNext(agent: Agent, world: World): Task[] {
     return agent.staffEscort.leader === agent
       ? planStaffEscort(agent, world, agent.staffEscort) : planEscortedStaff(agent, agent.staffEscort);
   }
+  const light = planPersonalLight(agent);
+  if (light) return light;
   if (agent.security) return planSecurity(agent, world, agent.security);
   const voluntary = planVoluntaryTask(agent, world);
   if (voluntary) return voluntary;
@@ -77,7 +85,8 @@ export function planNext(agent: Agent, world: World): Task[] {
 /** Expensive room/route queries are shared by all activity definitions for this decision. */
 function planningContext(agent: Agent, world: World) {
   const { room } = agent;
-  const { darkness } = room;
+  agent.updateDarkness();
+  const darkness = Number(agent.statuses.avoidsRoom);
   const stayed = world.time - agent.arrivedAt;
   const inRoom = world.time - agent.enteredRoomAt;
   const crowded = world.presentCount() - world.targetPopulation();

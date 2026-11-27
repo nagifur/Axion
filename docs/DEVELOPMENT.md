@@ -436,11 +436,18 @@ the on-screen clock. Idle staff re-plan immediately. Overridden time does not
 unlock the night-shift directive.
 
 Rooms expose a live `darkness` value: 0 on Level 0 or with at least one working,
-switched-on light, otherwise 1. Unlit underground cameras are dimmed by 55%,
-including props and people. Darkness adds a 1.2% trip chance per walking second
-on top of the clumsy trait's 0.6%; impostors still do not trip. At their next
-decision, agents are more likely to move rooms or leave, without the usual
-minimum stay. Clearance rules and motion-sensor lighting are unchanged.
+switched-on light (including emergency lights), otherwise 1. Unlit underground
+cameras are dimmed by 55%, including props and people. Agents in pure darkness
+receive the visible, negative `darkness` status. Its definition in `STATUS_EFFECTS`
+adds a 1.2% trip chance per walking second on top of the clumsy trait's 0.6% and
+sets `avoidsRoom`, making agents more likely to move rooms or leave without the usual
+minimum stay. Walking and planning read these status modifiers, not room darkness.
+Impostors still do not trip. Clearance rules and motion-sensor lighting are unchanged.
+An active light item in the agent's hand prevents this debuff and all of its
+penalties; stored or nearby dropped lights do not. Personal lights do not change
+room darkness or help other actors. The debuff synchronizes with room changes,
+item transfers, burnout and lighting updates; it is absent on dead, removed,
+swallowed and inside-elevator agents.
 
 Every lit light on mains power also has a small chance per second (`LIGHT_FLICKER`
 in [`prop.ts`](../src/lib/sim/prop.ts)) to flicker like an old fluorescent tube:
@@ -973,6 +980,10 @@ change that same collection, not a second damage flag. Applying it through the
 status API also triggers the usual break particles and door/panel state transitions.
 Power is still separate; repairing damage never changes a prop's power setting.
 Starting damage from `room.json` does not emit runtime break particles.
+Status definitions can also supply `tripChancePerSecond` and `avoidsRoom`.
+Walking adds active trip modifiers to the clumsy trait's base risk, and ordinary
+planning uses `avoidsRoom` for room/elevator/departure preferences. The environmental
+`darkness` debuff uses both; its icon appears in name tags and the vitals HUD.
 
 ```ts
 prop.statuses.apply('broken'); // Same damage state as prop.break().
@@ -1506,12 +1517,14 @@ Agents occasionally set a carried item down as well (planner weight `0.25`): the
 to a random open floor point and call `setDownItem(item)`, which drops the same item
 instance there. Other agents may later get curious and pick it up.
 
-A carried item can unlock extra things to do. `ITEM_ACTIONS` in
-[`item.ts`](../src/lib/sim/item.ts) lists them per item type; while an agent holds a
-matching item, the planner adds each action as an option with its `weight`:
+A carried item can unlock extra things to do. `ITEM_TYPES` in
+[`item.ts`](../src/lib/sim/item.ts) holds each type's readable behavior definition.
+Its `actions` list supplies planner options while the item is held:
 
 ```ts
-can: [{ id: 'drink', activity: 'Drinking a can', seconds: 4, weight: 2, consumes: true, done: 'finished a can' }],
+can: {
+  actions: [{ id: 'drink', activity: 'Drinking a can', seconds: 4, weight: 2, consumes: true, done: 'finished a can' }],
+},
 ```
 
 The action runs as an uninterruptible `useItem` task for `seconds`. With
@@ -1519,6 +1532,43 @@ The action runs as an uninterruptible `useItem` task for `seconds`. With
 slot and the item is destroyed rather than dropped. `done` adds a log line
 ("Ana finished a can in the Offices."). If the item leaves the agent's hand before
 the action finishes, the action stops without using it up.
+
+##### Personal light items
+
+The glowstick is available in the debug editor's **Add an item** palette; there is
+no dispenser yet. Place it on reachable floor and an agent can pick it up.
+It starts unlit. The one-second **Cracking a glowstick** action activates it without
+consuming it; agents prioritize activation in darkness, including maintenance and
+guards when they can interrupt their current task. Elsewhere it is an ordinary
+weighted item action.
+
+```ts
+glowstick: {
+  actions: [{
+    id: 'activate', activity: 'Cracking a glowstick', seconds: 1, weight: 2,
+    activates: true, done: 'activated a glowstick',
+  }],
+  light: { color: '#73ff8a', radius: 32, requiresActivation: true, lifetime: 180 },
+},
+```
+
+`light.color` and `light.radius` control the halo, drawn above camera dimming and
+emergency tint. Held halos follow the same scaled, mirrored hand anchors as the
+item sprite; dropped active items glow at their floor position. Only held active
+lights prevent the holder's `darkness` status. Stored lights do not render.
+
+`lifetime` is simulation seconds from activation: the glowstick lasts **three
+minutes**, with the same timer continuing through storage, dropping, room changes,
+and elevator travel. Pause freezes it; debug speed accelerates it. At zero it stops
+glowing and protecting its holder, stays as a spent item, and cannot be reactivated.
+Runtime activation/burnout is not included in room exports and resets on reload.
+
+Future light items (e.g. a flashlight) use the same `light` data, with no item-ID
+checks in planning or rendering. Omit `requiresActivation` for an immediately
+active light; omit `lifetime` for unlimited operation. An activation action uses
+`activates: true`; it is only offered before first activation. Add a crop in
+`ITEM_SPRITES` and a PNG in `src/sim_assets/items/` to expose a new type in the palette.
+Types without an `ITEM_TYPES` entry remain plain carryable items.
 
 ##### Dispensers (vending machines)
 

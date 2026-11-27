@@ -14,8 +14,8 @@ import { tryElectricalShock } from './electrical.ts';
 export const TRIP_PROP_REACH = 12;
 /** Chance that a trip or fall breaks the nearest eligible prop. */
 export const TRIP_PROP_BREAK_CHANCE = 0.1;
-/** Base chance per second of tripping for clumsy characters, and extra chance per unit of room darkness. */
-const TRIP_CHANCE = { clumsy: 0.006, darkness: 0.012 };
+/** Base chance per walking second of tripping for clumsy characters. */
+const CLUMSY_TRIP_CHANCE = 0.006;
 const FALL_LANDING_DEPTH = 24;
 type TripCause = 'trip' | 'fall' | 'earthquake';
 
@@ -35,7 +35,7 @@ export function walkTo(target: Point, activity = 'Walking', speedMul = 1): Task 
     },
     update(agent, world, dt) {
       if (!path.length) return true;
-      const tripChance = (agent.character.behavior.clumsy ? TRIP_CHANCE.clumsy : 0) + agent.room.darkness * TRIP_CHANCE.darkness;
+      const tripChance = (agent.character.behavior.clumsy ? CLUMSY_TRIP_CHANCE : 0) + agent.statuses.tripChancePerSecond;
       if (tripChance > 0 && !agent.impostor && chance(dt * tripChance)) {
         agent.interrupt(world, trip());
         return false;

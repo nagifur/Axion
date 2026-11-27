@@ -537,9 +537,26 @@ export class Renderer {
     }
   }
 
+  private carriedItemPlacement(agent: CameraActor, pose = this.placement(agent)) {
+    if (agent instanceof Creature || !agent.item) return null;
+    const item = agent.item;
+    const { name, frame, flip, x, y } = pose;
+    const hand = itemHandAnchor(name, agent.facing);
+    const scale = agent.character.scale;
+    const width = Math.max(1, Math.round(item.w * scale));
+    const height = Math.max(1, Math.round(item.h * scale));
+    const feetX = x + (flip ? frame.w - frame.anchorX : frame.anchorX);
+    return {
+      item, scale, width, height, behind: hand.behind, flip: item.flip !== flip,
+      x: feetX + Math.round(hand.x * scale) - Math.round(width / 2),
+      y: y + frame.h + Math.round(hand.y * scale) - height,
+    };
+  }
+
   private drawAgent(agent: CameraActor, highlight?: string) {
     const ctx = this.ctx;
-    const { sheet, name, frame, flip, x, y } = this.placement(agent);
+    const pose = this.placement(agent);
+    const { sheet, frame, flip, x, y } = pose;
     const creature = agent instanceof Creature;
     const image = !creature && (agent.eyeFlash > 0 || agent.revealed) ? sheet.redEye : sheet.normal;
 
@@ -557,23 +574,16 @@ export class Renderer {
 
     if (highlight) this.drawOutline(sheet.normal, frame, x, y, flip, highlight);
 
-    const item = !creature && agent.item;
-    const hand = item && itemHandAnchor(name, agent.facing);
+    const carried = this.carriedItemPlacement(agent, pose);
     const drawCarried = () => {
-      if (!item || !hand) return;
+      if (!carried) return;
+      const { item, x, y, scale, flip } = carried;
       const itemImage = requireAsset(this.assets, item.asset);
-      const scale = agent.character.scale;
-      const width = Math.max(1, Math.round(item.w * scale));
-      const height = Math.max(1, Math.round(item.h * scale));
-      const feetX = x + (flip ? frame.w - frame.anchorX : frame.anchorX);
-      drawItemSprite(ctx, itemImage, item,
-        feetX + Math.round(hand.x * scale) - Math.round(width / 2),
-        y + frame.h + Math.round(hand.y * scale) - height,
-        scale, item.flip !== flip);
+      drawItemSprite(ctx, itemImage, item, x, y, scale, flip);
     };
-    if (hand && hand.behind) drawCarried();
+    if (carried?.behind) drawCarried();
     drawSpriteFrame(ctx, image, frame, x, y, flip);
-    if (hand && !hand.behind) drawCarried();
+    if (carried && !carried.behind) drawCarried();
     ctx.restore();
   }
 
@@ -741,6 +751,26 @@ export class Renderer {
     drawSpriteFrame(this.ctx, red, visual.frame, prop.x, prop.y, prop.flip);
   }
 
+  private drawItemLight(item: Item, x: number, y: number, scale = 1, flip = item.flip, alpha = 1) {
+    const light = item.light;
+    if (!light) return;
+    const ctx = this.ctx;
+    const radius = light.radius * scale;
+    const cx = x + Math.max(1, Math.round(item.w * scale)) / 2;
+    const cy = y + Math.max(1, Math.round(item.h * scale)) / 2;
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    glow.addColorStop(0, light.color);
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.globalAlpha = alpha * 0.55;
+    ctx.fillStyle = glow;
+    ctx.fillRect(cx - radius, cy - radius, radius * 2, radius * 2);
+    ctx.globalAlpha = alpha;
+    drawItemSprite(ctx, requireAsset(this.assets, item.asset), item, x, y, scale, flip);
+    ctx.restore();
+  }
+
   draw(world: World, highlights: ReadonlyMap<CameraActor | Remains, string>) {
     const ctx = this.ctx;
     const { assets, room } = this;
@@ -792,5 +822,12 @@ export class Renderer {
       this.drawEmergencyLights(world.time);
     }
     this.drawDoorGlows(world, dim);
+    for (const item of room.items ?? []) this.drawItemLight(item, item.x, item.y);
+    for (const actor of world.actorsIn(room)) {
+      if (actor instanceof Creature || actor.held || actor.layer !== 'room' || !actor.item?.light) continue;
+      const carried = this.carriedItemPlacement(actor);
+      if (carried) this.drawItemLight(carried.item, carried.x, carried.y, carried.scale, carried.flip,
+        actor.alpha * (actor.ghost ? 0.55 : 1));
+    }
   }
 }

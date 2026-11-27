@@ -15,7 +15,7 @@ import { Elevator } from './elevator.ts';
 import { PassageNetwork } from './passages.ts';
 import * as routing from './routing.ts';
 import { chance, maybePick, pick, range, weightedPick } from './random.ts';
-import { accessCardLevel, startingItemTypes } from './item.ts';
+import { Item, accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
 import { reactToCreatures } from './creatureReactions.ts';
@@ -529,9 +529,10 @@ export class World {
     }
   }
 
-  /** Tick each status owner once, retaining blocked frame time even when an effect expires. */
+  /** Tick each item and status owner once, retaining blocked frame time when an effect expires. */
   private updateStatuses(dt: number): Map<CameraActor, number> {
     const statuses = new Set<StatusEffects>();
+    const items = new Set<Item>();
     const blockedSeconds = new Map<CameraActor, number>();
     for (const actor of [...this.everyone(), ...this.creatures]) {
       if (actor instanceof Agent) {
@@ -541,18 +542,18 @@ export class World {
       blockedSeconds.set(actor, Math.min(dt, actor.statuses.actionBlockRemaining));
       statuses.add(actor.statuses);
       if (actor instanceof Agent) {
-        if (actor.item) statuses.add(actor.item.statuses);
-        for (const item of actor.inventory) statuses.add(item.statuses);
+        if (actor.item) items.add(actor.item);
+        for (const item of actor.inventory) items.add(item);
       }
       for (const remains of actor.vore.remains) {
-        for (const item of remains.items) statuses.add(item.statuses);
+        for (const item of remains.items) items.add(item);
       }
     }
     for (const room of this.rooms) {
       for (const prop of room.props) statuses.add(prop.statuses);
-      for (const item of room.items) statuses.add(item.statuses);
+      for (const item of room.items) items.add(item);
       for (const remains of room.remains) {
-        for (const item of remains.items) statuses.add(item.statuses);
+        for (const item of remains.items) items.add(item);
       }
       for (const door of room.doors) {
         const state = this.passageDoorFor(door);
@@ -561,6 +562,11 @@ export class World {
         statuses.add(state.panelStatuses);
       }
     }
+    for (const item of items) {
+      item.update(dt);
+      statuses.add(item.statuses);
+    }
+    for (const agent of this.everyone()) agent.updateDarkness();
     for (const effects of statuses) effects.update(this, dt);
     for (const agent of this.everyone()) agent.finishDeath(this);
     return blockedSeconds;
@@ -644,5 +650,6 @@ export class World {
       }
     }
     this.vore.sync();
+    for (const agent of this.everyone()) agent.updateDarkness();
   }
 }

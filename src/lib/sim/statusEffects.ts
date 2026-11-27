@@ -35,6 +35,10 @@ export interface StatusEffectDefinition {
   hidesPopups?: readonly string[];
   /** Pauses the target actor's tasks and movement while active. */
   blocksActions?: boolean;
+  /** Additional trip probability per walking second. */
+  tripChancePerSecond?: number;
+  /** Encourages leaving this room and defers ordinary work travel. */
+  avoidsRoom?: boolean;
   /** Simulation seconds; omitted means permanent until removed. */
   duration?: number;
   /** Cannot expire, be removed, or receive a duration override. */
@@ -90,6 +94,17 @@ export const STATUS_EFFECTS: Record<string, StatusEffectDefinition> = {
     polarity: 'negative',
     targets: ['prop', 'door', 'panel'],
     canApply: (target) => target.kind !== 'prop' || target.entity.breakable,
+  },
+  darkness: {
+    label: 'Darkness',
+    polarity: 'negative',
+    targets: ['agent'],
+    tripChancePerSecond: 0.012,
+    avoidsRoom: true,
+    popup: {
+      icon: new URL('../../sim_assets/icons/darkness.svg', import.meta.url).href,
+      color: '#a9b4df',
+    },
   },
   shocked: {
     label: 'Shocked',
@@ -203,6 +218,17 @@ export class StatusEffects {
 
   has(id: string): boolean {
     return this.effects.has(id);
+  }
+
+  get tripChancePerSecond(): number {
+    let chance = 0;
+    for (const { definition } of this.effects.values()) chance += definition.tripChancePerSecond ?? 0;
+    return chance;
+  }
+
+  get avoidsRoom(): boolean {
+    for (const { definition } of this.effects.values()) if (definition.avoidsRoom) return true;
+    return false;
   }
 
   get actionBlockRemaining(): number {

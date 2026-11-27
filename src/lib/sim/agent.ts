@@ -108,6 +108,7 @@ export class Agent {
     this.x = at.x;
     this.y = at.y;
     for (const type of startingItemTypes(character)) this.storedItems.push(Item.create(type));
+    this.updateDarkness();
   }
 
   get ghost() {
@@ -150,6 +151,13 @@ export class Agent {
     return this.storedItems;
   }
 
+  /** Room lighting affects this actor, not the room, when a personal light is held. */
+  updateDarkness() {
+    if (!this.dead && !this.removed && !this.swallowed && this.layer === 'room'
+      && this.room.darkness > 0 && !this.item?.light) this.statuses.apply('darkness');
+    else this.statuses.remove('darkness');
+  }
+
   hasAccessCard(level: number): boolean {
     return [...this.storedItems, ...(this.item ? [this.item] : [])]
       .some((item) => (accessCardLevel(item) ?? -1) >= level);
@@ -169,6 +177,7 @@ export class Agent {
     if (!item) throw new Error('Agent has no item to store.');
     this.storedItems.push(item);
     this.carriedItem = null;
+    this.updateDarkness();
     return item;
   }
 
@@ -179,6 +188,7 @@ export class Agent {
     if (index < 0) throw new Error('Item is not in this agent\'s inventory.');
     this.storedItems.splice(index, 1);
     this.carriedItem = item;
+    this.updateDarkness();
   }
 
   pickUpItem(item: Item) {
@@ -190,6 +200,7 @@ export class Agent {
     }
     this.room.items = this.room.items.filter((other) => other !== item);
     this.carriedItem = item;
+    this.updateDarkness();
   }
 
   /** Drops at the nearest open floor position in the current room. */
@@ -202,6 +213,7 @@ export class Agent {
     item.y = Math.round(point.y - item.h);
     this.room.items.push(item);
     this.carriedItem = null;
+    this.updateDarkness();
     return item;
   }
 
@@ -211,6 +223,7 @@ export class Agent {
     if (this.storedItems.includes(item)) throw new Error('Stored items are retrieved with retrieveItem.');
     if (this.room.items.includes(item)) throw new Error('Loose items are picked up with pickUpItem.');
     this.carriedItem = item;
+    this.updateDarkness();
   }
 
   /** Hands over everything carried or stored, e.g. when this agent is absorbed. */
@@ -218,6 +231,7 @@ export class Agent {
     const items = [...(this.carriedItem ? [this.carriedItem] : []), ...this.storedItems];
     this.carriedItem = null;
     this.storedItems.length = 0;
+    this.updateDarkness();
     return items;
   }
 
@@ -226,6 +240,7 @@ export class Agent {
     const item = this.item;
     if (!item) throw new Error('Agent has no item to use up.');
     this.carriedItem = null;
+    this.updateDarkness();
     return item;
   }
 
@@ -402,6 +417,7 @@ export class Agent {
   }
 
   update(world: World, dt: number, blockedSeconds = 0) {
+    this.updateDarkness();
     this.finishDeath(world);
     this.moving = false;
     if (this.removed || this.swallowed) return;
@@ -436,6 +452,7 @@ export class Agent {
     }
     if (task && this.task === task && !this.incapacitated) this.taskElapsed += Math.max(0, dt);
     this.idleElapsed = this.moving ? 0 : (this.idleElapsed + Math.max(0, dt)) % (IDLE_FRAME_SECONDS * 2);
+    this.updateDarkness();
   }
 
   /** World also calls this for held agents and off-camera riders. */

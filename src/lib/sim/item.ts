@@ -29,17 +29,43 @@ export interface ItemAction {
   weight: number;
   /** The item is used up and destroyed when the action finishes. */
   consumes?: boolean;
+  /** Activates this item's light once; unavailable while lit or after burnout. */
+  activates?: boolean;
   /** Log line ending, after the agent's name, e.g. "finished a can". */
   done?: string;
 }
 
-/** Actions each item type unlocks while carried. Types not listed are only carried around. */
-export const ITEM_ACTIONS: Record<string, readonly ItemAction[]> = {
-  can: [{ id: 'drink', activity: 'Drinking a can', seconds: 4, weight: 2, consumes: true, done: 'finished a can' }],
+export interface ItemLight {
+  color: string;
+  /** Halo radius in room pixels, before character scaling. */
+  radius: number;
+  requiresActivation?: boolean;
+  /** Simulation seconds from activation; omitted means unlimited. */
+  lifetime?: number;
+}
+
+export interface ItemType {
+  actions?: readonly ItemAction[];
+  /** Only an active light in the hand protects its holder from darkness. */
+  light?: ItemLight;
+}
+
+/** Item behavior belongs here, not in character, planner or renderer type checks. */
+export const ITEM_TYPES: Record<string, ItemType> = {
+  can: {
+    actions: [{ id: 'drink', activity: 'Drinking a can', seconds: 4, weight: 2, consumes: true, done: 'finished a can' }],
+  },
+  glowstick: {
+    actions: [{
+      id: 'activate', activity: 'Cracking a glowstick', seconds: 1, weight: 2,
+      activates: true, done: 'activated a glowstick',
+    }],
+    light: { color: '#73ff8a', radius: 32, requiresActivation: true, lifetime: 180 },
+  },
 };
 
-export const itemActions = (item: { type: string } | null | undefined): readonly ItemAction[] =>
-  (item && ITEM_ACTIONS[item.type]) || [];
+export const itemActions = (item: Item | null | undefined): readonly ItemAction[] =>
+  item ? (item.kind.actions ?? []).filter((action) => !action.activates || item.canActivate) : [];
 
 export interface PlacedItem {
   type: string;
@@ -61,6 +87,9 @@ export class Item implements PlacedItem {
   readonly w: number;
   readonly h: number;
   flip: boolean;
+  private activated = false;
+  private spent = false;
+  private lightRemaining: number | null = null;
 
   constructor(data: PlacedItem) {
     this.type = data.type;
@@ -70,6 +99,48 @@ export class Item implements PlacedItem {
     this.w = data.w;
     this.h = data.h;
     this.flip = data.flip;
+    const light = this.kind.light;
+    if (light?.lifetime !== undefined && (!Number.isFinite(light.lifetime) || light.lifetime <= 0)) {
+      throw new Error(`Item "${this.type}" light lifetime must be a positive, finite number of simulation seconds.`);
+    }
+    if (light && (!Number.isFinite(light.radius) || light.radius <= 0)) {
+      throw new Error(`Item "${this.type}" light radius must be positive and finite.`);
+    }
+    if (light && !light.requiresActivation) {
+      this.activated = true;
+      this.lightRemaining = light.lifetime ?? null;
+    }
+  }
+
+  get kind(): ItemType {
+    return Object.hasOwn(ITEM_TYPES, this.type) ? ITEM_TYPES[this.type] : {};
+  }
+
+  get light(): ItemLight | null {
+    return this.activated && !this.spent ? this.kind.light ?? null : null;
+  }
+
+  get canActivate(): boolean {
+    return !!this.kind.light && !this.activated && !this.spent;
+  }
+
+  get remainingLightSeconds(): number | null {
+    return this.lightRemaining;
+  }
+
+  activate() {
+    const light = this.kind.light;
+    if (!light || !this.canActivate) throw new Error(`Item "${this.type}" cannot be activated.`);
+    this.activated = true;
+    this.lightRemaining = light.lifetime ?? null;
+  }
+
+  /** World ticks every owned item once, including stored and dropped lights. */
+  update(dt: number) {
+    if (!Number.isFinite(dt) || dt < 0) throw new Error('Item update needs a finite, non-negative timestep.');
+    if (!this.light || this.lightRemaining === null) return;
+    this.lightRemaining = Math.max(0, this.lightRemaining - dt);
+    if (this.lightRemaining === 0) this.spent = true;
   }
 
   toData(): PlacedItem {

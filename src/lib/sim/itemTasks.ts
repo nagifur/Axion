@@ -26,6 +26,11 @@ export function useItem(action: ItemAction): Task {
       if (agent.item !== item) return true;
       left -= dt;
       if (left > 0) return false;
+      if (action.activates) {
+        if (!item?.canActivate) return true;
+        item.activate();
+        agent.updateDarkness();
+      }
       if (action.consumes) agent.consumeItem();
       if (action.done) world.log(`${agent.character.name} ${action.done} in the ${agent.room.name}.`, 'muted');
       return true;
