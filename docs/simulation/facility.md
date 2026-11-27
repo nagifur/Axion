@@ -393,7 +393,7 @@ it as PNG. Keep it as a layer in the same art file as the room so it stays align
 | Red or transparent | `#FF0000` | Blocked. |
 
 Don't paint furniture on the nav map. Place props in `room.json` instead; each prop
-type in `sprites.ts` brings its own seats and blocked floor area:
+type in [`propTypes.ts`](../../src/lib/sim/propTypes.ts) brings its own seats and blocked floor area:
 
 ```json
 {
@@ -415,4 +415,4 @@ sheet cell's corner. Everything painted in
 Images in [`src/sim_assets/props/`](../../src/sim_assets/props/) can be placed by file
 name (`plant.png` → `"type": "plant"`) as plain decoration, except for the reserved
 elevator and passage-door artwork. To give a prop seats or floor that people walk
-around, add it to `PROP_TYPES` in [`sprites.ts`](../../src/lib/sim/sprites.ts).
+around, add it to `PROP_TYPES` in [`propTypes.ts`](../../src/lib/sim/propTypes.ts).

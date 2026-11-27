@@ -1,31 +1,17 @@
-import { chance, maybePick, pick, range } from './random.ts';
+import { chance, pick, range } from './random.ts';
 import type { SimCreature } from './roster.ts';
 import type { Door, Facing, Point, Room } from './room.ts';
 import type { World } from './world.ts';
 import { distance } from './navMap.ts';
-import { CHARACTER_FRAMES, IDLE_CYCLES, IDLE_FRAME_SECONDS, WALK_CYCLES, WALK_STRIDE } from './sprites.ts';
+import { CHARACTER_FRAMES } from './sprites.ts';
+import { CreatureMotion } from './creatureMotion.ts';
 import type { Agent } from './agent.ts';
 import { fallMotion, wait } from './tasks.ts';
 import { createLiveStats, hasMagic, recoverStamina, spendStamina, type LiveStats } from './stats.ts';
 import { StatusEffects } from './statusEffects.ts';
 import { VORE_TUNING, VoreState, insideActivity, type VoreActor, type VoreType } from './vore.ts';
-import { canContinueDisposal, DISPOSAL_TRAVEL_ACTIVITY, planDisposal, type DisposalSite } from './remainsDisposal.ts';
-import { creatureMayUseDoor, stepTowardCreatureRoom } from './routing.ts';
-
-/** Heads to a door, waits briefly if it is too far closed, then slips through it. */
-type DoorPlan = { action: 'escape' | 'disposalDoor'; door: Door; path: Point[]; waited: number; crossing: boolean };
-
-type Plan =
-  | { action: 'rest' | 'watch'; remaining: number }
-  | { action: 'pace'; path: Point[] }
-  | { action: 'flee'; path: Point[] }
-  | { action: 'dispose'; site: DisposalSite; path: Point[]; remaining: number }
-  | { action: 'attack'; target: Agent; path: Point[]; reroute: number; remaining: number }
-  /** Chases someone it means to swallow; VoreSystem does the swallowing once it is within reach. */
-  | { action: 'swallow'; target: VoreActor; type: VoreType; path: Point[]; reroute: number; remaining: number }
-  | DoorPlan
-  /** Fades in from the doorway it arrived through. */
-  | { action: 'enter'; door: Door };
+import { canContinueDisposal, DISPOSAL_TRAVEL_ACTIVITY } from './remainsDisposal.ts';
+import { canUseDoor, headFor, planCreatureDisposal, planFlight, planIdle, type CreaturePlan as Plan } from './creaturePlanning.ts';
 
 const CONTAINED_LABELS = { rest: 'Resting', watch: 'Watching the cell', pace: 'Pacing the cell' };
 const LOOSE_LABELS = { rest: 'Lurking', watch: 'Looking around', pace: 'Prowling' };
@@ -87,9 +73,7 @@ export class Creature {
   escort?: Agent;
   private riding = false;
   private plan: Plan = { action: 'watch', remaining: range(1, 5) };
-  private elapsed = 0;
-  private distance = 0;
-  private walking = false;
+  private readonly motion = new CreatureMotion();
   private dashed = false;
   private attackCooldown = 0;
   private layout: Room['props'];
@@ -174,7 +158,7 @@ export class Creature {
 
   /** Animation time while actually performing a disposal activity. */
   get disposalActivityTime(): number | undefined {
-    return this.plan.action === 'dispose' && !this.plan.path.length && !this.walking && this.exposed && !this.statuses.blocksActions
+    return this.plan.action === 'dispose' && !this.plan.path.length && !this.motion.walking && this.exposed && !this.statuses.blocksActions
       ? this.plan.remaining : undefined;
   }
 
@@ -199,14 +183,7 @@ export class Creature {
   }
 
   get frame() {
-    if (this.held || this.falling || this.statuses.blocksActions) {
-      const cycle = IDLE_CYCLES[this.facing];
-      const index = this.held || this.falling || this.incapacitated ? 0 : Math.floor(this.elapsed / IDLE_FRAME_SECONDS) % cycle.length;
-      return { name: cycle[index], flip: this.facing === 'left' };
-    }
-    const cycle = (this.walking ? WALK_CYCLES : IDLE_CYCLES)[this.facing];
-    const phase = this.walking ? this.distance / WALK_STRIDE : this.elapsed / IDLE_FRAME_SECONDS;
-    return { name: cycle[Math.floor(phase) % cycle.length], flip: this.facing === 'left' };
+    return this.motion.frame(this, !!this.falling);
   }
 
   /** Puts the creature back in its cell, e.g. when security recaptures it. */
@@ -227,7 +204,7 @@ export class Creature {
     this.x = point.x;
     this.y = point.y;
     this.alpha = 1;
-    this.walking = false;
+    this.motion.walking = false;
     this.falling = room.isFloor(point.x, point.y) ? undefined : fallMotion();
     this.plan = { action: 'watch', remaining: watchSeconds };
   }
@@ -241,7 +218,7 @@ export class Creature {
     this.x = point.x;
     this.y = point.y;
     this.alpha = 1;
-    this.walking = false;
+    this.motion.walking = false;
     this.plan = { action: 'watch', remaining: 2 };
   }
 
@@ -253,22 +230,8 @@ export class Creature {
     world.log(`${this.character.name} broke free from ${guard.character.name}'s grasp in the ${this.room.name}, injuring the guard!`, 'alert');
     world.incidents.record('broke-free', { creature: this, other: guard, room: this.room });
 
-    const doors = this.room.doors.filter((door) => this.canUse(world, door) && this.canSqueezeThrough(world, door));
-    doors.sort((a, b) => distance(guard, b.inside) - distance(guard, a.inside));
-    for (const door of doors) {
-      const plan = this.headFor(door);
-      if (plan) {
-        this.plan = plan;
-        return;
-      }
-    }
-    let farthest: Point = { x: this.x, y: this.y };
-    for (let i = 0; i < 12; i++) {
-      const point = this.room.randomFloorPoint(undefined, this);
-      if (distance(guard, point) > distance(guard, farthest) && this.room.canReach(this, point)) farthest = point;
-    }
-    const path = this.room.route(this, farthest);
-    if (path?.length) this.plan = { action: 'flee', path };
+    const plan = planFlight(this, world, guard);
+    if (plan) this.plan = plan;
   }
 
   private injure(world: World, target: Agent) {
@@ -325,11 +288,11 @@ export class Creature {
         plan.path = this.room.route(this, plan.target) ?? [];
         plan.reroute = CREATURE_TUNING.attack.rerouteSeconds;
       }
-      if (!this.follow(plan.path, this.dashSpeed(dt), dt)) plan.path = [];
+      if (!this.motion.follow(this, plan.path, this.dashSpeed(dt), dt)) plan.path = [];
     }
     if (distance(this, plan.target) <= CREATURE_TUNING.attack.reach) {
-      this.face(plan.target.x - this.x, plan.target.y - this.y);
-      this.walking = false;
+      this.motion.face(this, plan.target.x - this.x, plan.target.y - this.y);
+      this.motion.walking = false;
       this.injure(world, plan.target);
       world.log(`${this.character.name} attacked ${plan.target.character.name} in the ${this.room.name}, causing ${CREATURE_TUNING.attack.damage} HP damage!`, 'alert');
       world.incidents.record('attacked', { creature: this, other: plan.target, room: this.room });
@@ -339,7 +302,7 @@ export class Creature {
 
   /** Goes after `target`; the swallowing itself happens in VoreSystem once it is within reach. */
   startHunt(target: VoreActor, type: VoreType) {
-    this.walking = false;
+    this.motion.walking = false;
     this.plan = { action: 'swallow', target, type, path: [], reroute: 0, remaining: VORE_TUNING.huntTimeout };
   }
 
@@ -360,11 +323,11 @@ export class Creature {
           return;
         }
       }
-      if (!this.follow(plan.path, this.dashSpeed(dt), dt)) plan.path = [];
+      if (!this.motion.follow(this, plan.path, this.dashSpeed(dt), dt)) plan.path = [];
     }
     if (distance(this, target) <= VORE_TUNING.reach) {
-      this.face(target.x - this.x, target.y - this.y);
-      this.walking = false;
+      this.motion.face(this, target.x - this.x, target.y - this.y);
+      this.motion.walking = false;
       world.vore.swallow(this, target, plan.type);
       this.plan = { action: 'watch', remaining: 2 };
     }
@@ -379,37 +342,19 @@ export class Creature {
   hold(seconds: number, toward: Point) {
     if (!this.exposed || this.statuses.blocksActions ||
       this.plan.action === 'flee' || this.plan.action === 'attack' || this.plan.action === 'swallow') return;
-    this.walking = false;
+    this.motion.walking = false;
     this.plan = { action: 'watch', remaining: seconds };
     if (Math.abs(toward.x - this.x) >= 2) this.facing = toward.x < this.x ? 'left' : 'right';
-  }
-
-  /** Never into a cell (its own included: getting back in is security's job), nor somewhere it can't reach. */
-  private canUse(world: World, door: Door) {
-    return creatureMayUseDoor(door, door.to && world.room(door.to.room)) && this.room.canReach(this, door.inside);
   }
 
   canSqueezeThrough(world: World, door: Door): boolean {
     return world.passageDoorFor(door)?.passableAt(CREATURE_TUNING.squeezeOpening) ?? true;
   }
 
-  private headFor(door: Door, action: DoorPlan['action'] = 'escape'): DoorPlan | undefined {
-    const path = this.room.route(this, door.inside);
-    return path ? { action, door, path, waited: 0, crossing: false } : undefined;
-  }
-
-  private nextDisposal(world: World): Plan | undefined {
-    const destination = planDisposal(this, world, (room) => stepTowardCreatureRoom(world, this, room));
-    if (!destination) return undefined;
-    if (destination.kind === 'travel') return this.headFor(destination.step, 'disposalDoor');
-    const path = this.room.route(this, destination.point);
-    return path ? { action: 'dispose', site: destination, path, remaining: destination.remains.disposal.seconds } : undefined;
-  }
-
   private disposeRemains(world: World, plan: Extract<Plan, { action: 'dispose' }>, dt: number) {
     if (canContinueDisposal(this, world, plan.site)) {
       if (plan.path.length) {
-        if (this.follow(plan.path, CREATURE_TUNING.paceSpeed, dt)) return;
+        if (this.motion.follow(this, plan.path, CREATURE_TUNING.paceSpeed, dt)) return;
       } else {
         const { remains } = plan.site;
         const from = remains.disposal.seconds - plan.remaining;
@@ -422,22 +367,6 @@ export class Creature {
     this.plan = { action: 'watch', remaining: 1 };
   }
 
-  private nextPlan(world: World): Plan {
-    if (!this.contained && chance(CREATURE_TUNING.roamChance)) {
-      const door = maybePick(this.room.doors.filter((door) => this.canSqueezeThrough(world, door) && this.canUse(world, door)));
-      const plan = door && this.headFor(door);
-      if (plan) return plan;
-    }
-    const action = pick(['rest', 'watch', 'pace'] as const);
-    if (action === 'rest') return { action, remaining: range(5, 14) };
-    if (action === 'pace') {
-      const path = this.room.route(this, this.room.randomFloorPoint(undefined, this));
-      if (path?.length) return { action, path };
-    }
-    this.facing = pick(['left', 'right', 'front', 'back'] as const);
-    return { action: 'watch', remaining: range(2, 6) };
-  }
-
   /** Watches the room's doors; a door swinging fully open is a chance to get out. */
   private noticeDoors(world: World) {
     for (const door of this.room.doors) {
@@ -448,57 +377,13 @@ export class Creature {
       const failure = this.contained && world.passageDoorFor(door)?.forcedOpen;
       if (this.noticed.has(door) && !failure) continue;
       this.noticed.add(door);
-      if (this.escaping || this.plan.action === 'attack' || this.plan.action === 'swallow' || !this.canUse(world, door)) continue;
+      if (this.escaping || this.plan.action === 'attack' || this.plan.action === 'swallow' || !canUseDoor(this, world, door)) continue;
       if (!failure && !chance(this.contained ? escapeChance(this.character.containmentClass) : CREATURE_TUNING.looseNoticeChance)) continue;
-      const plan = this.headFor(door);
+      const plan = headFor(this, door);
       if (!plan) continue;
       this.plan = plan;
       if (this.contained) world.log(`Warning: ${this.character.name} is moving toward the open door of ${this.room.name}.`, 'warn');
     }
-  }
-
-  private face(dx: number, dy: number) {
-    this.facing = Math.abs(dx) >= Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'back' : 'front');
-  }
-
-  /** Walks along `path` over the floor; false if something now stands in the way. */
-  private follow(path: Point[], speed: number, dt: number): boolean {
-    let budget = dt * speed;
-    while (path.length && budget > 0) {
-      const dx = path[0].x - this.x;
-      const dy = path[0].y - this.y;
-      const length = Math.hypot(dx, dy);
-      if (length > 0) {
-        const step = Math.min(budget, length);
-        const next = { x: this.x + dx * step / length, y: this.y + dy * step / length };
-        if (!this.room.isWalkable(next)) return false;
-        this.face(dx, dy);
-        this.x = next.x;
-        this.y = next.y;
-        this.distance += step;
-        this.walking = true;
-        budget -= step;
-        if (step < length) return true;
-      }
-      path.shift();
-    }
-    return true;
-  }
-
-  /** Moves straight toward a doorway point, which may lie off the walkable floor. */
-  private stepToward(target: Point, speed: number, dt: number): boolean {
-    const dx = target.x - this.x;
-    const dy = target.y - this.y;
-    const length = Math.hypot(dx, dy);
-    const step = Math.min(length, speed * dt);
-    if (step > 0) {
-      this.face(dx, dy);
-      this.x += dx * step / length;
-      this.y += dy * step / length;
-      this.distance += step;
-      this.walking = true;
-    }
-    return step >= length;
   }
 
   /** Reached the far side of a doorway: into the linked room, or out of the facility altogether. */
@@ -509,7 +394,7 @@ export class Creature {
     const arrival = room?.doors.find((other) => other.id === door.to!.door);
     if (!room || !arrival) {
       this.escaped = true;
-      this.walking = false;
+      this.motion.walking = false;
       this.plan = { action: 'watch', remaining: 0 };
       world.log(`Containment breach: ${name} "${nickname}" fled the facility through the ${door.id} door in the ${from.name}. Security team notified.`, 'alert');
       world.incidents.record('fled', { creature: this, room: from });
@@ -544,7 +429,7 @@ export class Creature {
     if (!guard) return;
     this.room = guard.room;
     if (this.riding) {
-      this.walking = false;
+      this.motion.walking = false;
       return;
     }
     // Walk alongside on open floor; share the guard's position in thresholds and elevator cars.
@@ -555,8 +440,8 @@ export class Creature {
     this.y = point.y;
     this.alpha = guard.alpha;
     this.facing = guard.facing;
-    this.walking = guard.moving;
-    this.distance = guard.walkDistance;
+    this.motion.walking = guard.moving;
+    this.motion.distance = guard.walkDistance;
   }
 
   update(world: World, dt: number, blockedSeconds = 0) {
@@ -564,16 +449,16 @@ export class Creature {
     this.syncEscort(world);
     if (!dt) return;
     if (this.statuses.blocksActions || !this.onCamera) {
-      this.walking = false;
+      this.motion.walking = false;
       if (this.onCamera && !this.incapacitated) {
-        this.elapsed += dt;
+        this.motion.elapsed += dt;
         recoverStamina(this.stats, dt);
       }
       return;
     }
     dt = Math.max(0, dt - blockedSeconds);
     if (dt === 0) {
-      this.walking = false;
+      this.motion.walking = false;
       return;
     }
     this.dashed = false;
@@ -589,8 +474,8 @@ export class Creature {
   }
 
   private act(world: World, dt: number) {
-    this.elapsed += dt;
-    if (!this.escort) this.walking = false;
+    this.motion.elapsed += dt;
+    if (!this.escort) this.motion.walking = false;
     const attackDt = Math.max(0, dt - this.attackCooldown);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     if (this.escort) {
@@ -610,7 +495,7 @@ export class Creature {
         this.x = point.x;
         this.y = point.y;
       }
-      this.plan = this.nextPlan(world);
+      this.plan = planIdle(this, world, CREATURE_TUNING.roamChance);
     }
     if (this.plan.action !== 'flee') this.noticeDoors(world);
     this.noticeAgents(world, attackDt);
@@ -627,7 +512,7 @@ export class Creature {
     }
 
     if (!this.disposingRemains) {
-      const disposal = this.nextDisposal(world);
+      const disposal = planCreatureDisposal(this, world);
       if (disposal) {
         this.plan = disposal;
         return;
@@ -641,12 +526,12 @@ export class Creature {
 
     if ('remaining' in plan) {
       plan.remaining -= dt;
-      if (plan.remaining <= 0) this.plan = this.nextPlan(world);
+      if (plan.remaining <= 0) this.plan = planIdle(this, world, CREATURE_TUNING.roamChance);
       return;
     }
 
     if (plan.action === 'pace' || plan.action === 'flee') {
-      if (!this.follow(plan.path, plan.action === 'flee' ? this.dashSpeed(dt) : CREATURE_TUNING.paceSpeed, dt) || !plan.path.length) {
+      if (!this.motion.follow(this, plan.path, plan.action === 'flee' ? this.dashSpeed(dt) : CREATURE_TUNING.paceSpeed, dt) || !plan.path.length) {
         this.plan = { action: 'watch', remaining: range(1, 4) };
       }
       return;
@@ -655,7 +540,7 @@ export class Creature {
     if (plan.action === 'enter') {
       const { door } = plan;
       const total = Math.max(1, distance(door.outside, door.inside));
-      const reached = this.stepToward(door.inside, this.dashSpeed(dt), dt);
+      const reached = this.motion.stepToward(this, door.inside, this.dashSpeed(dt), dt);
       this.alpha = Math.min(1, 1 - distance(door.inside, this) / total);
       if (reached) {
         this.alpha = 1;
@@ -668,7 +553,7 @@ export class Creature {
     const { door } = plan;
     if (!plan.crossing && !plan.path.length) {
       if (!this.canSqueezeThrough(world, door)) {
-        this.face(door.outside.x - this.x, door.outside.y - this.y);
+        this.motion.face(this, door.outside.x - this.x, door.outside.y - this.y);
         plan.waited += dt;
         if (plan.waited >= CREATURE_TUNING.doorWaitSeconds) {
           this.plan = { action: 'watch', remaining: range(2, 5) };
@@ -682,11 +567,11 @@ export class Creature {
     }
     const speed = plan.action === 'disposalDoor' ? CREATURE_TUNING.paceSpeed : this.dashSpeed(dt);
     if (!plan.crossing) {
-      if (!this.follow(plan.path, speed, dt)) this.plan = { action: 'watch', remaining: range(1, 4) };
+      if (!this.motion.follow(this, plan.path, speed, dt)) this.plan = { action: 'watch', remaining: range(1, 4) };
       return;
     }
     const total = Math.max(1, distance(door.outside, door.inside));
-    const reached = this.stepToward(door.outside, speed, dt);
+    const reached = this.motion.stepToward(this, door.outside, speed, dt);
     this.alpha = Math.max(0, distance(door.outside, this) / total);
     if (reached) this.cross(world, door);
   }

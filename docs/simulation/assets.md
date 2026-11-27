@@ -11,7 +11,7 @@ Each PNG is a whole particle image, not a sprite sheet. Add a reusable set to
 second, with a random direction), optional `forwardSpeed` (added toward a burst's
 `direction`), gravity, bounce, floor
 friction, lifetime, fade, and landing scatter. Link any number of prop types to that
-set in `PROP_TYPES` in [`sprites.ts`](../../src/lib/sim/sprites.ts):
+set in `PROP_TYPES` in [`propTypes.ts`](../../src/lib/sim/propTypes.ts):
 
 ```ts
 glass_cup: { asset: 'glass_cup', breakable: true, breakParticles: { set: 'glass' } },
@@ -64,7 +64,7 @@ number of live particles across the facility; oldest particles are removed first
 ## Prop Sprite Sheets
 
 The shared props use **96 × 96 pixel cells**, with frames running left to right.
-`PROP_SPRITES` in [`sprites.ts`](../../src/lib/sim/sprites.ts) declares the artwork-sized
+`PROP_SPRITES` in [`propSprites.ts`](../../src/lib/sim/propSprites.ts) declares the artwork-sized
 source rectangles inside those cells. Keep every animation frame's crop the same
 size and alignment, including room for glow or other effects. This keeps placements,
 mirroring, seats, and blocked floor independent of transparent sheet padding.

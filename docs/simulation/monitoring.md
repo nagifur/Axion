@@ -327,16 +327,17 @@ never flicker.
 | File | Purpose |
 | --- | --- |
 | [`src/sim_assets/`](../../src/sim_assets/) | Pixel art: `characters/`, `props/` (shared), `remains/` (what predators leave behind), and one folder per room in `rooms/`. |
-| [`src/lib/sim/sprites.ts`](../../src/lib/sim/sprites.ts) | What is inside each shared sprite: character frames, prop seats and blocked areas. |
+| [`src/lib/sim/sprites.ts`](../../src/lib/sim/sprites.ts) | Character poses, item crops, and hand anchors. [`propSprites.ts`](../../src/lib/sim/propSprites.ts) maps prop artwork to frames; [`propTypes.ts`](../../src/lib/sim/propTypes.ts) defines prop capabilities, seats, and blocked areas. |
 | [`src/lib/sim/prop.ts`](../../src/lib/sim/prop.ts) | Placed props and their live state (on/off, broken). |
-| [`src/lib/sim/statusEffects.ts`](../../src/lib/sim/statusEffects.ts) | Shared status definitions, active effects, durations, and lifecycle hooks. |
+| [`src/lib/sim/statusEffects.ts`](../../src/lib/sim/statusEffects.ts) | Per-target effect instances: apply, refresh, tick, remove, and query. [`statusDefinitions.ts`](../../src/lib/sim/statusDefinitions.ts) owns the effect catalog, eligibility, and hooks. |
 | [`src/lib/sim/electrical.ts`](../../src/lib/sim/electrical.ts) | Broken electrical prop exposure, shock chances, and recovery grace. |
 | [`src/lib/sim/navMap.ts`](../../src/lib/sim/navMap.ts) | Reads and checks nav maps at build time. |
-| [`src/lib/sim/roomLoader.ts`](../../src/lib/sim/roomLoader.ts) | Loads every room folder at build time and connects their doors. |
+| [`src/lib/sim/roomLoader.ts`](../../src/lib/sim/roomLoader.ts) | Reads room folders and expands instances at build time. [`roomAssets.ts`](../../src/lib/sim/roomAssets.ts) reads and checks artwork; [`facilityLayout.ts`](../../src/lib/sim/facilityLayout.ts) links doors, checks shafts, and lays out the camera map without filesystem access. |
 | [`src/lib/sim/room.ts`](../../src/lib/sim/room.ts) | Room geometry: walkable floor, exits, seats, and path finding. |
 | [`src/lib/sim/roster.ts`](../../src/lib/sim/roster.ts) | Profile → character conversion, trait rules, and per-character overrides. |
 | [`src/lib/sim/schedule.ts`](../../src/lib/sim/schedule.ts) | Editable daily routine, breaks, and per-character schedule overrides. |
-| [`src/lib/sim/agent.ts`](../../src/lib/sim/agent.ts) | The `Agent` class: position, stats, carried item, personal inventory, and its task queue. |
+| [`src/lib/sim/agent.ts`](../../src/lib/sim/agent.ts) | Staff state, movement, and task execution. [`agentInventory.ts`](../../src/lib/sim/agentInventory.ts) manages transfers between hand, storage, and floor. |
+| [`src/lib/sim/creature.ts`](../../src/lib/sim/creature.ts) | Creature state and action execution. [`creaturePlanning.ts`](../../src/lib/sim/creaturePlanning.ts) chooses plans; [`creatureMotion.ts`](../../src/lib/sim/creatureMotion.ts) moves and animates the actor. |
 | [`src/lib/sim/planning.ts`](../../src/lib/sim/planning.ts) | Decision making: which task an idle agent picks next (`planNext`). |
 | [`src/lib/sim/security.ts`](../../src/lib/sim/security.ts) | Elevator watch, breach response, and escorts back to assigned cells. |
 | [`src/lib/sim/trespass.ts`](../../src/lib/sim/trespass.ts) | Reef's and guards' trespass response and staff escorts between floors. |
@@ -345,11 +346,11 @@ never flicker.
 | [`src/lib/sim/itemTasks.ts`](../../src/lib/sim/itemTasks.ts) | Item tasks: using, picking up, setting down, and getting items from dispensers. |
 | [`src/lib/sim/conversation.ts`](../../src/lib/sim/conversation.ts) | Chats between two agents: meeting points, turns, and speech bubbles. |
 | [`src/lib/sim/vore.ts`](../../src/lib/sim/vore.ts) | Vore rules and tuning: roles from `vorePreference`, who may swallow whom, the ways of swallowing, and what prey do inside. |
-| [`src/lib/sim/voreSystem.ts`](../../src/lib/sim/voreSystem.ts) | `world.vore`: hunts, swallowing, acid, absorption, spitting out, and disposing of remains. |
+| [`src/lib/sim/voreSystem.ts`](../../src/lib/sim/voreSystem.ts) | `world.vore`: hunts, swallowing, absorption, and release. [`remainsLifecycle.ts`](../../src/lib/sim/remainsLifecycle.ts) tracks pile ownership, disposal, and restoration. |
 | [`src/lib/sim/voreTasks.ts`](../../src/lib/sim/voreTasks.ts) | The `stalk` task an agent runs while closing in on prey. |
 | [`src/lib/sim/remains.ts`](../../src/lib/sim/remains.ts) | `Remains`: what is left of absorbed prey until its predator drops it on the floor. |
 | [`src/lib/sim/transport.ts`](../../src/lib/sim/transport.ts) | Leaving and entering rooms through doors and elevators, and leaving the facility. |
-| [`src/lib/sim/world.ts`](../../src/lib/sim/world.ts) | All rooms and people: arrivals, departures, and the per-frame update. |
+| [`src/lib/sim/world.ts`](../../src/lib/sim/world.ts) | Coordinates rooms, actors, transfers, and per-frame update order. [`worldPopulation.ts`](../../src/lib/sim/worldPopulation.ts) handles staffing and arrivals; [`roomEffects.ts`](../../src/lib/sim/roomEffects.ts) handles lighting, debris, and sparks. |
 | [`src/lib/sim/routing.ts`](../../src/lib/sim/routing.ts) | Which rooms an agent may visit and which door or floor leads toward work or the exit. |
 | [`src/lib/sim/elevator.ts`](../../src/lib/sim/elevator.ts) | Elevator cars: requests, door timing, and passenger layout. |
 | [`src/lib/sim/passages.ts`](../../src/lib/sim/passages.ts) | Live state of passage doors between rooms (locks, panels, who is passing). |
@@ -359,8 +360,8 @@ never flicker.
 | [`src/lib/sim/eventState.ts`](../../src/lib/sim/eventState.ts) | Shared floor/facility event lifecycle and display shake. |
 | [`src/lib/sim/levelEvents.ts`](../../src/lib/sim/levelEvents.ts) | Floor event definitions and floor-specific simulation rules. |
 | [`src/lib/sim/levelState.ts`](../../src/lib/sim/levelState.ts) | Per-floor state and event lifecycle. |
-| [`src/lib/sim/render.ts`](../../src/lib/sim/render.ts) | Asset loading and drawing a camera feed onto a canvas. |
-| [`src/lib/sim/monitor.ts`](../../src/lib/sim/monitor.ts) | Boots the monitoring page: cameras, drag and drop, and the frame loop. Its panels live in `monitorFile.ts` (personnel file), `monitorVitals.ts` (selected-actor vitals HUD), `monitorTags.ts` (name tags), `monitorDebug.ts` and `monitorEditor.ts` (`?debug` tools), and `monitorProgress.ts` (saved progress). |
+| [`src/lib/sim/render.ts`](../../src/lib/sim/render.ts) | Composes the feed in draw order. [`renderAssets.ts`](../../src/lib/sim/renderAssets.ts) loads images and builds pixel masks; [`renderSprites.ts`](../../src/lib/sim/renderSprites.ts) draws props, items, and particles; [`renderActors.ts`](../../src/lib/sim/renderActors.ts) draws and hit-tests actors and remains. |
+| [`src/lib/sim/monitor.ts`](../../src/lib/sim/monitor.ts) | Mounts the monitoring page and connects its panels to [camera navigation](../../src/lib/sim/monitorCameras.ts), [selection and following](../../src/lib/sim/monitorSelection.ts), [pointer input](../../src/lib/sim/monitorInput.ts), [achievement notifications](../../src/lib/sim/monitorAchievements.ts), and the [frame loop](../../src/lib/sim/monitorFrameLoop.ts). |
 
 Add `?debug` to the URL to show buttons that trigger events, speed up time, and open
 the prop editor (see [Placing Props and Items With the Editor](assets.md#placing-props-and-items-with-the-editor)).

@@ -77,7 +77,7 @@ prop.statuses.remove('broken'); // Same repair state as prop.repair().
 const effects = prop.statuses.active; // Read-only snapshots: id, label, polarity, remaining, duration.
 ```
 
-Add a definition to `STATUS_EFFECTS` to introduce an effect. Each definition has a
+Add a definition to `STATUS_EFFECTS` in [`statusDefinitions.ts`](../../src/lib/sim/statusDefinitions.ts) to introduce an effect. Each definition has a
 `label`, `targets` (`agent`, `creature`, `prop`, `item`, `door`, or `panel`), and a
 `polarity`: `positive`, `negative` or `neutral`, i.e. whether the effect helps, harms
 or merely describes its target. `STATUS_POLARITIES` gives each polarity a label and
@@ -164,7 +164,7 @@ Runtime effects are not saved to placement exports or `room.json`; existing
 ### Napping
 
 `napping` is a neutral, wakeable, agent-only status effect (`NAP_SECONDS = 20` by
-default in [`statusEffects.ts`](../../src/lib/sim/statusEffects.ts), or 25–50 seconds
+default in [`statusDefinitions.ts`](../../src/lib/sim/statusDefinitions.ts), or 25–50 seconds
 when dozing off during seated `rest` in [`tasks.ts`](../../src/lib/sim/tasks.ts)).
 It sets `blocksActions: true`, `wakeable: true`, and `activity: { label: 'Napping', priority: 20 }`,
 and displays a blue-bordered `zZ` popup using
@@ -179,7 +179,7 @@ or being swallowed). `dead` and `acid` also clear `napping` directly.
 ### Electrical Shock
 
 `shocked` is an agent-only effect lasting two simulation seconds (`SHOCK_SECONDS`
-in [`statusEffects.ts`](../../src/lib/sim/statusEffects.ts)). It pauses movement,
+in [`statusDefinitions.ts`](../../src/lib/sim/statusDefinitions.ts)). It pauses movement,
 planning, task progress and item actions, and makes the agent unavailable for
 dragging or new conversations. The personnel file shows **Shocked**, and existing
 idle artwork, shaking and a yellow-bordered popup using
@@ -408,7 +408,7 @@ The stages are statuses (`acid` → `absorbing` → a remains form), and the sta
 A remains form is a permanent, negative `STATUS_EFFECTS` entry with a
 `remains: { look }` field: `bones`, `scat`, `urine` (artwork `pee`), `cum` and `milk`,
 made with the `remainsForm(...)` helper in
-[`statusEffects.ts`](../../src/lib/sim/statusEffects.ts). Applying one kills the target (it
+[`statusDefinitions.ts`](../../src/lib/sim/statusDefinitions.ts). Applying one kills the target (it
 applies `dead`), replaces `acid`/`absorbing`, and on the next update `VoreSystem` makes the
 target *be* that pile:
 

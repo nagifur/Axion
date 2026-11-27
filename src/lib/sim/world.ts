@@ -2,19 +2,16 @@ import { Agent } from './agent.ts';
 import type { Creature } from './creature.ts';
 import { assignCellOccupants } from './cellOccupants.ts';
 import { enterThroughDoor, leaveFacility, phaseThroughWall, rideElevatorIn } from './transport.ts';
-import { canVisitLevel, type SimCharacter, type SimCreature, type SimImpostor } from './roster.ts';
+import type { SimCharacter, SimCreature, SimImpostor } from './roster.ts';
 import { directionTo, type Door, type Point, type Room, type Spot } from './room.ts';
 import { ParticleSystem } from './particles.ts';
-import type { Prop } from './prop.ts';
-import { scheduleFor, securitySchedule } from './schedule.ts';
-import { generateNpc } from './npc.ts';
-import { postPoint } from './security.ts';
-import { passagePartBounds, type PassageDoor } from './door.ts';
-import type { Rect } from './navMap.ts';
+import { RoomEffects } from './roomEffects.ts';
+import { WorldPopulation } from './worldPopulation.ts';
+import type { PassageDoor } from './door.ts';
 import { Elevator } from './elevator.ts';
 import { PassageNetwork } from './passages.ts';
 import * as routing from './routing.ts';
-import { chance, maybePick, pick, range, weightedPick } from './random.ts';
+import { maybePick } from './random.ts';
 import { Item, accessCardLevel, startingItemTypes } from './item.ts';
 import type { StatusEffects } from './statusEffects.ts';
 import { checkElectricalApproach } from './electrical.ts';
@@ -32,11 +29,6 @@ export type CameraActor = Agent | Creature;
 
 /** Seconds the car takes between floors on camera: a fixed part plus a part per level travelled. */
 const RIDE_SECONDS = { base: 2, perLevel: 2 };
-const SPARK_PAUSE_SECONDS = { min: 1.2, max: 3 };
-/** Seconds before someone who left may come back. */
-const RETURN_DELAY_SECONDS = { min: 45, max: 165 };
-/** Seconds between attempts to bring someone new in. */
-const ARRIVAL_INTERVAL_SECONDS = { min: 4, max: 12 };
 /** How far apart, in room pixels, two agents can be to start a chat. */
 const CHAT_RANGE = 260;
 
@@ -55,13 +47,6 @@ export interface WorldHooks {
   achieve?: (id: string, room?: Room) => void;
   removed?: (agent: Agent) => void;
 }
-
-/** Average number of staff per room, by the viewer's local time. */
-const DENSITY = { night: 1, evening: 2.5, day: 3.5 };
-
-type Entrance =
-  | { kind: 'elevator'; room: Room; weight: number }
-  | { kind: 'door'; room: Room; door: Door; weight: number };
 
 /** Someone riding the elevator between two floors on camera. They are on no camera meanwhile. */
 interface Ride {
@@ -87,14 +72,11 @@ export class World {
   readonly incidents = new IncidentTracker(this);
   readonly events: EventState<World>;
   private readonly levels = new Map<number, LevelState>();
-  private readonly sparkDelays = new WeakMap<object, number>();
+  private readonly roomEffects = new RoomEffects();
   private readonly elevators = new Map<Room, Elevator>();
   private readonly passages: PassageNetwork;
   private rides: Ride[] = [];
-  /** Earliest time each off-camera character may come back. */
-  private returnAt = new Map<string, number>();
-  private nextArrival = 3;
-  private nextNpcBadge = 1;
+  private readonly population = new WorldPopulation();
 
   constructor(options: WorldOptions) {
     this.roster = options.roster;
@@ -193,9 +175,7 @@ export class World {
 
   /** How many staff should be around in total, following the viewer's local time. */
   targetPopulation() {
-    const hour = this.now().getHours();
-    const density = hour < 6 ? DENSITY.night : hour < 8 || hour >= 20 ? DENSITY.evening : DENSITY.day;
-    return Math.min(Math.max(1, Math.round(density * this.rooms.filter((room) => !room.cell).length)), this.roster.length);
+    return this.population.target(this);
   }
 
   presentCount() {
@@ -258,38 +238,11 @@ export class World {
 
   /** Puts people around the facility immediately so the cameras never start empty. */
   populate() {
-    const count = Math.max(1, this.targetPopulation() - 1);
-    for (let i = 0; i < count; i++) {
-      const character = this.pickArrival();
-      if (!character) break;
-      const rooms = this.rooms.filter((room) => !room.cell && canVisitLevel(character, room.level));
-      if (!rooms.length) {
-        this.log(`No rooms within ${character.name}'s clearance are available.`, 'warn');
-        break;
-      }
-      const working = scheduleFor(character, this.now()) === 'work';
-      const workRooms = this.workRooms(character);
-      const room = pick(working && workRooms.length && chance(0.85) ? workRooms : rooms);
-      this.spawn(character, room, room.randomFloorPoint());
-    }
-    for (const room of this.elevators.keys()) if (!room.cell) this.staffSecurityPost(room, true);
+    this.population.populate(this, this.elevators.keys());
   }
 
   staffSecurityPost(post: Room, initial = false) {
-    const guards = this.everyone().filter((agent) =>
-      !agent.removed && agent.security?.post === post && !agent.security.relieved);
-    const assigned = guards.find((agent) => !agent.dead && !agent.swallowed);
-    for (const guard of guards) {
-      if (guard.security && (guard.dead || guard.swallowed)) guard.security.relieved = true;
-    }
-    if (assigned) return assigned;
-    const character = generateNpc(this.nextNpcBadge++, {
-      position: 'Security guard', accessLevel: String(post.level), schedule: securitySchedule(this.now()),
-    });
-    const guard = initial ? this.spawn(character, post, postPoint(post)) : this.arriveByElevator(character, post);
-    guard.security = { post, relieved: false };
-    guard.activity = initial ? 'Guarding the elevator' : 'Arriving by elevator';
-    return guard;
+    return this.population.staffSecurityPost(this, post, initial);
   }
 
   spawn(character: SimCharacter, room: Room, at: { x: number; y: number }, impostor?: SimImpostor) {
@@ -305,9 +258,7 @@ export class World {
   }
 
   pickArrival(): SimCharacter | undefined {
-    const candidates = this.roster.filter((character) =>
-      !this.isPresent(character.id) && !this.vore.consumed.has(character.id) && (this.returnAt.get(character.id) ?? 0) <= this.time);
-    return weightedPick(candidates);
+    return this.population.pickArrival(this);
   }
 
   arriveByElevator(character: SimCharacter, room: Room, impostor?: SimImpostor) {
@@ -345,43 +296,7 @@ export class World {
   /** Brings a new person (or a disguised impostor) into the facility through one of its ways in. */
   arrive(character = this.pickArrival(), impostor?: SimImpostor) {
     if (!character) return undefined;
-    const ghost = character.behavior.ghost && !impostor;
-    const rooms = this.rooms.filter((room) => !room.cell && (impostor || canVisitLevel(character, room.level)));
-    if (!rooms.length) {
-      this.log(`No rooms within ${character.name}'s clearance are available.`, 'warn');
-      return undefined;
-    }
-    const entrances: Entrance[] = [];
-    let deniedDoor = false;
-    const workRooms = new Set(!impostor && scheduleFor(character, this.now()) === 'work' ? this.workRooms(character) : []);
-    for (const room of rooms) {
-      const preference = workRooms.has(room) ? 8 : 1;
-      // Don't stack arrivals on an elevator that is already busy.
-      const elevator = this.elevatorFor(room);
-      if (elevator) entrances.push({ kind: 'elevator', room, weight: (elevator.busy ? 0.15 : 1.5) * preference });
-      for (const door of room.outerDoors) {
-        if (!this.passageDoorFor(door)?.blocked && (impostor || this.canUsePassage(character, door))) {
-          entrances.push({ kind: 'door', room, door, weight: preference });
-        }
-        else deniedDoor = true;
-      }
-    }
-
-    const entrance = weightedPick(entrances);
-    if (!entrance && impostor) {
-      this.log(`No entrance available for ${impostor.name}'s disguise.`, 'muted');
-      return undefined;
-    }
-    if (!entrance && deniedDoor && !ghost) {
-      this.log(`No entrances within ${character.name}'s clearance are available.`, 'warn');
-      return undefined;
-    }
-    if (!entrance || (ghost && chance(0.4))) {
-      const preferred = [...workRooms];
-      return this.arriveThroughWall(character, entrance?.room ?? pick(preferred.length ? preferred : rooms));
-    }
-    if (entrance.kind === 'elevator') return this.arriveByElevator(character, entrance.room, impostor);
-    return this.arriveByDoor(character, entrance.room, entrance.door, impostor);
+    return this.population.arrive(this, character, impostor);
   }
 
   /** Moves an agent through a door that leads to another room on camera. */
@@ -478,7 +393,7 @@ export class World {
       } else if (agent.revealed) this.log(`${agent.impostor.name} escaped ${room.label}. Containment team dispatched.`, 'alert');
       else this.log(`Duplicate badge signal for ${name} lost. Subject left ${room.label} unidentified.`, 'warn');
     } else {
-      this.returnAt.set(agent.character.id, this.time + range(RETURN_DELAY_SECONDS.min, RETURN_DELAY_SECONDS.max));
+      this.population.departed(agent.character, this.time);
       if (via === 'elevator') this.log(`${name} took the elevator.`, 'muted');
       else if (via === 'wall') {
         this.log(`${name} phased through the wall of the ${room.name}.`, 'muted');
@@ -513,23 +428,6 @@ export class World {
       return 'verified';
     }
     return null;
-  }
-
-  private updateSparks(source: object, room: Room, area: Rect | null, dt: number, depth?: number, emitter?: Prop) {
-    if (!area) {
-      this.sparkDelays.delete(source);
-      return;
-    }
-    if (!Number.isFinite(dt) || dt < 0) return;
-    const remaining = (this.sparkDelays.get(source) ?? 0) - dt;
-    if (remaining <= 0) {
-      this.particles.burst(room, 'sparks', area, depth, emitter, this.time);
-      // Emit at most once per update rather than replaying missed bursts after a long frame.
-      this.sparkDelays.set(source,
-        range(SPARK_PAUSE_SECONDS.min, SPARK_PAUSE_SECONDS.max));
-    } else {
-      this.sparkDelays.set(source, remaining);
-    }
   }
 
   /** Tick each item and status owner once, retaining blocked frame time when an effect expires. */
@@ -594,11 +492,7 @@ export class World {
       for (const ride of arrived) this.deliver(ride);
     }
 
-    this.nextArrival -= dt;
-    if (this.nextArrival <= 0) {
-      this.nextArrival = range(ARRIVAL_INTERVAL_SECONDS.min, ARRIVAL_INTERVAL_SECONDS.max);
-      if (this.presentCount() < this.targetPopulation()) this.arrive();
-    }
+    this.population.update(this, dt);
 
     for (const agent of [...this.agents]) {
       // Someone swallowed earlier this frame is still in the copy.
@@ -628,30 +522,7 @@ export class World {
 
     syncStaffEscorts(this);
     for (const creature of this.creatures) creature.update(this, dt, blockedSeconds.get(creature) ?? 0);
-    for (const room of this.rooms) {
-      room.updateLights(this.actorsIn(room).length > 0, dt);
-      for (const prop of room.props) {
-        prop.updateFlicker(dt);
-        const breaks = prop.takeBreaks();
-        if (breaks) {
-          const debris = prop.breakParticles;
-          if (debris) {
-            for (let i = 0; i < breaks; i++) {
-              this.particles.burst(room, debris.set, debris.area, debris.depth, prop, this.time);
-            }
-          }
-        }
-        this.updateSparks(prop, room, prop.sparkArea, dt, prop.y + prop.h, prop);
-      }
-      for (const door of room.doors) {
-        const art = door.appearance;
-        if (!art) continue;
-        const bounds = passagePartBounds(door.side, art);
-        const state = this.passageDoorFor(door);
-        const panel = state?.powered && state.panelBroken ? bounds.panel : null;
-        this.updateSparks(door, room, panel, dt, bounds.door.y + bounds.door.h);
-      }
-    }
+    this.roomEffects.update(this, dt);
     this.vore.sync();
     for (const agent of this.everyone()) agent.updateDarkness();
   }
